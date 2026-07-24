@@ -1,0 +1,418 @@
+// import { xWebviewUOpts, uniAppEvaJsTypeCallBackFun, uniAppEvaJsTypeOnUpdate, TmuiSchemaType, uniAppPostmessageType } from '../interface';
+export type uniAppEvaJsTypeCallBackTemp = {
+	callbackId?:string|null,
+	success:boolean,
+	errorMessage:any|null,
+	data:any|null,
+	type?:string|null
+}
+export type xWebviewUCallMethodType = {
+	data:any|null,
+	success:(data:any|null)=>void,
+	fail:(errorMessage:string)=>void
+}
+export type TmuiSchemaType = {
+	schema:string,
+	//失败时前往安装的地址
+	installUrl:string
+}
+
+export type uniAppEvaJsTypeOnUpdate = (arg?:any|null) => void;
+export type uniAppEvaJsTypeCallBackFun = (data?:UTSJSONObject|null) => void;
+export type uniAppPostmessageType = {
+	detail:string
+}
+export type uniAppDownLoadMessageType = {
+	url:string,
+	userAgent:string,
+	contentDisposition:string,
+	mimeType:string,
+	contentLength:number
+}
+
+export type xWebviewUOpts = {
+	url?:string,
+	isLocalHost?:boolean,
+	onPageStart?:(url?:string|null)=>void,
+	onPageFinish?:(url?:string|null)=>void,
+	onPageError?:(url?:string|null)=>void,
+	allowLoadUrl?:(url?:string|null)=>boolean,
+	uniAppEvaJs:(url:string|null,methodName:string,callbackId?:string,params?:UTSJSONObject,onUpdate?:uniAppEvaJsTypeOnUpdate) => Promise<UTSJSONObject|null>,
+	uniAppEvaJsIos?:(url:string|null,methodName:string,callbackId?:string,params?:UTSJSONObject,onUpdate?:uniAppEvaJsTypeOnUpdate,callback?:uniAppEvaJsTypeCallBackFun)=>void,
+	uniActions?:(name:string,arg:any|null) => string|null
+}
+
+
+
+
+
+type HtmlContentTypes = {
+	mimeType : string,
+	contentLenght : number,
+	url : string
+}
+let htmlContentType : HtmlContentTypes = {
+	mimeType: "",
+	contentLenght: 0,
+	url: ""
+}
+
+export class xWebviewU {
+	private $element : HTMLIFrameElement;
+	private config : xWebviewUOpts = {
+		url: '',
+		onPageStart: (url ?: string | null) => { },
+		onPageFinish: (url ?: string | null) => { },
+		onPageError: (url ?: string | null) => { },
+		allowLoadUrl: (url ?: string | null) => true,
+		uniActions: (name : string, arg : any | null) => '',
+		uniAppEvaJs: (url : string | null, methodName : string, callbackId ?: string, params ?: UTSJSONObject, onUpdate ?: uniAppEvaJsTypeOnUpdate) : Promise<UTSJSONObject | null> => {
+			return Promise.resolve(null);
+		}
+
+	}
+	private webview : HTMLIFrameElement | null = null;
+
+	private webConfig : UTSJSONObject = {}
+
+	public callbackOnUpdate = new Map<string, uniAppEvaJsTypeOnUpdate>()
+	private webVarJsCss : string = ''
+	private webVarCss : string = ''
+
+	// 网页加载进度回调
+	private webviewProgressChanged = (n : number) => { }
+	private webAllowLoadUrl = (url ?: string | null) : boolean => {
+		try {
+			return this.config.allowLoadUrl?.(url) ?? true;
+		} catch (e) {
+			return true;
+		}
+	};
+
+	// 伪进度状态（跨域 iframe 无法拿到真实字节进度，这里只提供体验进度）
+	private loadSerial = 0;
+	private lastRequestedUrl : string | null = null;
+	private pseudoProgressTid : number | null = null;
+	private pseudoProgressForSerial : number = 0;
+	private pseudoProgressStartAt : number = 0;
+	private pseudoProgressVal : number = 0;
+
+	private postMessageCallback = (e) => { }
+	private windowMessageCallback = (e)=>{}
+	private setUserAgentCallback = (e)=>{}
+	
+	constructor(element : HTMLIFrameElement) {
+		const _this = this;
+		element.onload = () => {
+			this.handleIframeLoad();
+		}
+		// 注意：跨域场景下我们仍然可以收到 onload，但无法拿到真实百分比。
+		// onerror/onabort 在不同运行时可能存在差异，这里做尽可能宽松的绑定。
+		element.onerror = () => {
+			this.handleIframeError();
+		}
+		element.onabort = () => {
+			this.handleIframeError();
+		}
+		this.windowMessageCallback = (e) => {
+		
+			const arg = e.data;
+			try {
+				_this.userContentController(JSON.parse(arg))
+			} catch (error) {
+				console.error('TMUIWEBVIEW ERROR', error)
+				const message = typeof arg == 'object' && arg != null ? arg : JSON.parseObject(arg)
+				if (message == null) return;
+				const callbackId = message.getString('callbackId') ?? null;
+				const methodName = message.getString('methodName') ?? null;
+				if (methodName == null) return;
+				const result = {
+					callbackId: callbackId!,
+					success: true,
+					errorMessage: 'TMUIWEBVIEW ERROR',
+					data: null
+				} as UTSJSONObject
+				_this.performActionWithCallback(`__handleTmuiResponse('${JSON.stringify(result)}')`)
+			}
+		}
+		window.addEventListener('message', this.windowMessageCallback)
+		this.$element = element
+		this.webview = element
+	}
+	performActionWithCallback(arg) {
+		this.postMessage({ action: "__handleTmuiResponse",data:arg })
+	}
+	evaJs(arg) {
+		this.postMessage({ action: "__handleTmuiResponse",data:arg })
+	}
+	methodFun(methodName : string, callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) {
+		if (callbackId == null) return
+		if (methodName == 'app_getWebviewInfo') {
+			const bundle = uni.getAppBaseInfo()
+			const data : UTSJSONObject = {
+				packageName: bundle.bundleName,
+				versionName: bundle.appVersion,
+				versionCode: bundle.appVersionCode,
+				apiLevel: navigator.userAgentData?.brands?.[0]?.version,
+				env: "uniapp-x web"
+			}
+			const d = {
+				callbackId: callbackId!,
+				success: true,
+				errorMessage: null,
+				type: null,
+				data
+			}
+			callback?.(d)
+		} else if (methodName == 'app_openUrl') {
+			const hrefUrl : string = params?.getString('url') ?? ''
+			callback?.({
+				callbackId: callbackId!,
+				success: true,
+				errorMessage: null,
+				data: null
+			});
+			this.$element.src = hrefUrl;
+		} else if (methodName == 'app_getConfig') {
+			const d = {
+				callbackId: callbackId!,
+				success: true,
+				errorMessage: null,
+				data: this.webConfig,
+				type: null
+			}
+			callback?.(d);
+		}
+
+	}
+
+	userContentController(message : any) {
+		const _this = this;
+		const action = message['action'] as string | null
+		const data = message['data'] as string | null
+		const name = message['name'] as string | null
+		
+		if(this.$element.name!=name) return;
+		if (action == 'postMessage' && data != null) {
+			try {
+				const message = JSON.parseObject(data)
+				if (message == null) return;
+				const callbackId = message.getString('callbackId') ?? null;
+				const methodName = message.getString('methodName') ?? null;
+				const params : UTSJSONObject | null = message.getJSON('params') ?? null;
+				if (methodName == null) return;
+					
+				//分发到本插件宿主环境执行
+				if (methodName.indexOf('app_') > -1) {
+					const onCallbackFun : uniAppEvaJsTypeCallBackFun = (result : UTSJSONObject | null) => {
+						if (callbackId == null) return;
+					
+						const resultRealData = result == null ? "{}" : (JSON.stringify(result ?? {}) ?? "{}")
+						_this.performActionWithCallback(`__handleTmuiResponse('${resultRealData}')`)
+					}
+					_this.methodFun(methodName, callbackId, params, onCallbackFun)
+					// 系统分发到uniapp环境执行	
+				
+				} else {
+					const url = _this.webview?.url?.absoluteString ?? ''
+					const onUpdate : uniAppEvaJsTypeOnUpdate = (result : any | null) => { }
+					const onCallbackFun : uniAppEvaJsTypeCallBackFun = (result : UTSJSONObject | null) => {
+						if (callbackId == null) return;
+					
+						const resultRealData = result == null ? "{}" : (JSON.stringify(result ?? {}) ?? "{}")
+						_this.performActionWithCallback(`__handleTmuiResponse('${resultRealData}')`)
+					}
+					_this.config?.uniAppEvaJsIos?.(url, methodName!, callbackId, params, onUpdate, onCallbackFun)
+				}
+			} catch (error) {
+				console.error('TMUIWEBVIEW ERROR', error)
+				const message = JSON.parseObject(data)
+				if (message == null) return;
+				const callbackId = message.getString('callbackId') ?? null;
+				const methodName = message.getString('methodName') ?? null;
+				if (methodName == null) return;
+				const result = {
+					callbackId: callbackId!,
+					success: true,
+					errorMessage: 'TMUIWEBVIEW ERROR',
+					data: null
+				}
+				_this.performActionWithCallback(`__handleTmuiResponse('${JSON.stringify(result)}')`)
+			}
+
+		} else if (action == 'clearCache') {
+			this.clearCache()
+		} else if (action == 'refresh') {
+			this.refresh()
+		} else if (action == 'navback') {
+			this.navback()
+		} else if (action == 'forward') {
+			this.forward()
+		} else if (action == 'toast') {
+			uni.showToast({ title: data || "", icon: 'none' })
+		} else if (action == 'tmuiAppPageLoad') {
+			this.webviewProgressChanged(1)
+			this.config.onPageFinish?.(this.lastRequestedUrl);
+		
+		} else if (action == 'postMessageCustom') {
+			this.postMessageCallback({ detail: data == null ? '' : (data) })
+		} else if(action == 'userAgent'||action=='app_getUserAgent'){
+			this.setUserAgentCallback?.(data);
+		}
+
+	}
+	forward() {
+		this.postMessage({ action: "forward" })
+	}
+	navback() {
+		this.postMessage({ action: "navback" })
+	}
+	refresh() {
+		this.postMessage({ action: "refresh" })
+	}
+	clearCache() {
+		this.postMessage({ action: "reload" })
+	}
+	postMessage(arg) {
+		this.$element.contentWindow?.postMessage(arg, '*')
+	}
+	setBaseConfig(opts : xWebviewUOpts) {
+		this.config = opts;
+		if (this.config.url != '' && typeof this.config.url == 'string') {
+			this.loadUrl(this.config.url!)
+		}
+	}
+	destory() {
+		this.webview?.remove()
+		this.callbackOnUpdate.clear()
+		window.removeEventListener('message',this.windowMessageCallback)
+	}
+
+
+	// 设置用户代理字符串标识。
+	setUserAgent(agent ?: string) {
+		this.postMessage({ action: "setUserAgent",data:agent??'' })
+	}
+
+	//获取用户代理字符串标识。
+	getUserAgent(fn : (ag : string) => void) {
+		this.setUserAgentCallback = (e)=>{
+			fn(e)
+		}
+		this.evaJs('tmuiApp.userAgent()')
+	}
+	loadUrl(url : string) {
+		this.lastRequestedUrl = url;
+		this.loadSerial++;
+		const currentSerial = this.loadSerial;
+
+		if (!this.webAllowLoadUrl(url)) {
+			// 禁止加载：直接走错误回调并结束进度条
+			this.stopPseudoProgress();
+			this.webviewProgressChanged(0);
+			this.config.onPageError?.(url);
+			this.config.onPageFinish?.(url);
+			return;
+		}
+
+		// 开始加载：触发宿主展示进度条
+		this.config.onPageStart?.(url);
+		this.startPseudoProgress(currentSerial);
+
+		// 设置 iframe src（跨域也不影响我们拿到 load 事件）
+		(this.$element as any).src = url;
+	}
+	setWebviewLoadUrlProgress(callback : (progress : number) => void) {
+		this.webviewProgressChanged = callback;
+	}
+	setWebviewDownload(callback : (url : string, userAgent : string, contentDisposition : string, mimeType : string, contentLength : number) => void) {
+		// this.webChormClient?.setWebviewDownload((url:string , userAgent:string , contentDisposition:string , mimeType:string , contentLength:number) => {
+		// 	this.getUserAgent((ag:string)=>{
+		// 		callback(url,ag,contentDisposition,mimeType,contentLength)
+		// 	})
+		// })
+	}
+
+	setPostMessage(fn : (arg : uniAppPostmessageType) => void) {
+		this.postMessageCallback = (event) => {
+			fn(event)
+		}
+	}
+
+	setwebConfigData(d : UTSJSONObject) {
+		this.webConfig = d;
+		// this.webInterface.setwebConfigData(d)
+	}
+	setSchema(s : TmuiSchemaType[]) {
+		// this.webChormClient?.setSchemass(s)
+	}
+	setAllowLoadUrlWhites(s : string[]) {
+		// this.webChormClient?.setAllowLoadUrlWhites(s)
+	}
+	setAppthemeVar(jsCss : string, cssVar : string) {
+		// this.webVarJsCss = jsCss;
+		// this.webVarCss = cssVar;
+	}
+	loadUrlmini(url : string) { }
+
+	private emitProgress(p : number) {
+		// 统一钳制到 0~100，供 UI 按百分比渲染
+		const clamped = Math.max(0, Math.min(100, Math.floor(p)));
+		this.pseudoProgressVal = clamped;
+		this.webviewProgressChanged(clamped);
+	}
+
+	private startPseudoProgress(loadSerial : number) {
+		this.stopPseudoProgress();
+		this.pseudoProgressForSerial = loadSerial;
+		this.pseudoProgressStartAt = Date.now();
+		this.pseudoProgressVal = 0;
+		this.emitProgress(0);
+
+		// 体验目标：90% 左右之前用时间推进，避免加载快时条闪烁
+		const rampDurationMs = 1200; // 根据实际体验可微调
+		const tick = () => {
+			// 加载发生变化则忽略旧任务
+			if (loadSerial !== this.loadSerial) return;
+
+			const elapsed = Date.now() - this.pseudoProgressStartAt;
+			const byTime = (elapsed / rampDurationMs) * 90;
+			const next = Math.min(90, byTime);
+			if (next > this.pseudoProgressVal) {
+				this.emitProgress(next);
+			}
+
+			if (this.pseudoProgressVal < 90 && loadSerial === this.loadSerial) {
+				this.pseudoProgressTid = setTimeout(tick, 60) as unknown as number;
+			}
+		}
+		this.pseudoProgressTid = setTimeout(tick, 60) as unknown as number;
+	}
+
+	private stopPseudoProgress() {
+		if (this.pseudoProgressTid != null) {
+			clearTimeout(this.pseudoProgressTid);
+			this.pseudoProgressTid = null;
+		}
+	}
+
+	private handleIframeLoad() {
+		// 旧的 load 事件可能在新的 src 切换后才触发，这里只接受当前序列。
+		if (this.pseudoProgressForSerial !== this.loadSerial) return;
+		this.stopPseudoProgress();
+		// 真实加载完成：进度 100 + 完成回调
+		this.emitProgress(100);
+		
+	}
+
+	private handleIframeError() {
+		if (this.pseudoProgressForSerial !== this.loadSerial) return;
+		this.stopPseudoProgress();
+		// 出错/中止：进度直接结束，避免进度条卡住
+		this.emitProgress(100);
+		this.config.onPageError?.(this.lastRequestedUrl);
+		
+	}
+
+
+}

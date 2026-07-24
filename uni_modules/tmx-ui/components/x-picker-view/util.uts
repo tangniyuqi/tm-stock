@@ -1,0 +1,328 @@
+import { X_PICKER_PATH_MENU_TYPE } from "./interface.uts"
+import {  X_PICKER_X_ITEM } from "../../interface.uts"
+/**
+ * 当前树有多少个被选中了。
+ */
+export function getTreeSelectedNum(item : X_PICKER_X_ITEM[], target : Set<string>) : number {
+	let inx = 0;
+	function jshz(tree : X_PICKER_X_ITEM[]) {
+		for (let i = 0; i < tree.length; i++) {
+			let item = tree[i]
+			if (item.children.length > 0) {
+				jshz(item.children)
+			} else if (target.has(item.id)) {
+				inx += 1
+			}
+		}
+	}
+	jshz(item)
+	return inx;
+}
+
+/**
+ * 根据目标节点，过滤掉父节点。
+ * @param item 
+ * @param target 
+ */
+export function filterParentNode(item : X_PICKER_X_ITEM[], target : Set<string>) : string[] {
+	function jshz(tree : X_PICKER_X_ITEM[]) : string[] {
+		let arr = [] as string[]
+		for (let i = 0; i < tree.length; i++) {
+			let item = tree[i]
+			if (item.children.length > 0) {
+				arr = arr.concat(jshz(item.children))
+			} else if (target.has(item.id)) {
+				arr.push(item.id)
+			}
+		}
+		return arr;
+	}
+	return jshz(item)
+}
+
+/**
+ * 根据给定的长度值，赋值默认值
+ */
+export function setDefaultByValueAr(list : X_PICKER_X_ITEM[], value : string[], maxLen : number) : string[] {
+	let v = value;
+	let pr = [] as string[];
+	for (let j = 0; j < maxLen; j++) {
+		pr.push("")
+	}
+	v = v.concat(pr).slice(0, maxLen)
+	let defaultAr = [] as string[];
+	function setvalue(item : X_PICKER_X_ITEM[]) {
+		if (item.length > 0) {
+			defaultAr.push(item[0].id);
+			if (item[0].children.length > 0) {
+				setvalue(item[0].children)
+			}
+		}
+	}
+
+	setvalue(list);
+
+	for (let i = 0; i < maxLen; i++) {
+		if (defaultAr.length - 1 >= i && v[i] == "") {
+			v[i] = defaultAr[i]
+		}
+	}
+
+
+	return v;
+}
+
+
+
+// 通过 ID 查找节点的函数
+export function findNodeById(TreeNode : X_PICKER_X_ITEM[], id : string) : X_PICKER_X_ITEM | null {
+	let newnode = null as X_PICKER_X_ITEM | null
+	for (let i = 0; i < TreeNode.length; i++) {
+		let node = TreeNode[i]
+		if (node.id == id) {
+			newnode = node;
+			break;
+		}
+		if (node.children.length > 0) {
+			const foundNode = findNodeById(node.children, id);
+			if (foundNode != null) {
+				newnode = foundNode;
+				break;
+			}
+		}
+
+	}
+
+	return newnode;
+}
+
+
+// 查找节点的上级节点
+export function findParentNode(nodes: X_PICKER_X_ITEM[], targetNodeId: string ): X_PICKER_X_ITEM | null {
+  function search(node: X_PICKER_X_ITEM): X_PICKER_X_ITEM | null {
+    if (node.children.length>0) {
+      for (let i = 0; i < node.children.length; i++) {
+        const child = node.children[i];
+        if (child.id == targetNodeId) {
+          return node;
+        } else {
+          const foundParent = search(child);
+          if (foundParent !=null) {
+            return foundParent;
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
+  // 使用for循环遍历根节点数组
+  for (let i = 0; i < nodes.length; i++) {
+    const root = nodes[i];
+    const parentNode = search(root);
+    if (parentNode!=null) {
+      return parentNode;
+    }
+  }
+
+  return null; // 如果未找到目标节点的父节点，则返回undefined
+}
+
+
+
+/** 通过节点获取当前节点的索引路径和ids数组 */
+export function getIndexPathAndIds(tree : X_PICKER_X_ITEM[], targetId : string) : string[] {
+	const path : string[] = [];
+
+	function dfs(node : X_PICKER_X_ITEM[]) : boolean {
+		for (let i = 0; i < node.length; i++) {
+			let item = node[i];
+			path.push(item.id);
+			if (item.id == targetId) {
+				return true;
+			}
+			if (dfs(item.children)) {
+				return true;
+			}
+			path.pop();
+		}
+		return false;
+	}
+
+	if (dfs(tree)) {
+		return path;
+	} else {
+		return [] as string[];
+	}
+}
+
+/** 通过节点获取当前节点的索引路径和ids数组 */
+export function getTreeNodesPath(tree : X_PICKER_X_ITEM[], targetId : string) : X_PICKER_PATH_MENU_TYPE|null {
+	const path : string[] = [];
+	const indexPaths:number[] = [];
+	const pathData:X_PICKER_X_ITEM[] = [];
+	const list:X_PICKER_X_ITEM[][] = [];
+
+	if (targetId.length == 0) {
+		if (tree.length == 0) {
+			return null;
+		}
+		const defaultIndexPaths:number[] = [];
+		const defaultIds:string[] = [];
+		const defaultPathData:X_PICKER_X_ITEM[] = [];
+		function buildDefault(nodes:X_PICKER_X_ITEM[]) {
+			if (nodes.length == 0) {
+				return;
+			}
+			list.push(nodes);
+			const first = nodes[0];
+			defaultIds.push(first.id);
+			defaultIndexPaths.push(0);
+			defaultPathData.push(first);
+			if (first.children.length > 0) {
+				buildDefault(first.children);
+			}
+		}
+		buildDefault(tree);
+		return {
+			indexPath:defaultIndexPaths,
+			ids:defaultIds,
+			pathData:defaultPathData,
+			list
+		} as X_PICKER_PATH_MENU_TYPE;
+	}
+
+	function dfs(node : X_PICKER_X_ITEM[], depth : number) : boolean {
+		if (node.length > 0) {
+			if (list.length > depth) {
+				list[depth] = node;
+				list.splice(depth + 1);
+			} else {
+				list.push(node);
+			}
+		}
+		for (let i = 0; i < node.length; i++) {
+			let item = node[i];
+			path.push(item.id);
+			indexPaths.push(i)
+			pathData.push(item)
+			if (item.id == targetId) {
+				return true;
+			}
+			if (dfs(item.children, depth + 1)) {
+				return true;
+			}
+			path.pop();
+			indexPaths.pop();
+			pathData.pop();
+			list.splice(depth + 1);
+		}
+		return false;
+	}
+
+	if (dfs(tree, 0)) {
+		return {
+			indexPath:indexPaths,
+			ids:path,
+			pathData,
+			list
+		} as X_PICKER_PATH_MENU_TYPE;
+	}
+	
+	return null
+}
+
+/**
+ * 处理picker数据联动
+ * 当某个层级的选项发生变化时，重新计算后续层级的有效索引和ID
+ * @param tree 树形数据
+ * @param oldIndex 旧的索引数组
+ * @param newIndex 变动后的索引数组
+ * @returns 重新计算后的路径信息，格式与getTreeNodesPath相同
+ */
+export function updatePickerLinkage(
+  tree: X_PICKER_X_ITEM[], 
+  oldIndex: number[], 
+  newIndex: number[]
+): X_PICKER_PATH_MENU_TYPE | null {
+  // 从根节点开始遍历
+  let currentNodes = tree;
+  
+  // 存储路径信息
+  const path: string[] = [];
+  const indexPaths: number[] = [];
+  const pathData: X_PICKER_X_ITEM[] = [];
+  const list: X_PICKER_X_ITEM[][] = [];
+  
+  // 找到第一个不同的索引位置（变化点）
+  let firstDiffIndex = 0;
+  for (let i = 0; i < Math.min(oldIndex.length, newIndex.length); i++) {
+    if (oldIndex[i] !== newIndex[i]) {
+      firstDiffIndex = i;
+      break;
+    }
+    firstDiffIndex = i + 1;
+  }
+  
+  // 如果新数组更长且前面部分都相同，则从旧数组长度开始
+  if (firstDiffIndex === Math.min(oldIndex.length, newIndex.length) && newIndex.length > oldIndex.length) {
+    firstDiffIndex = oldIndex.length;
+  }
+  
+  // 从根节点开始构建路径
+  // 不再限制循环次数，而是根据树形数据的实际层级深度决定
+  currentNodes = tree;
+  
+  let level = 0;
+  while (currentNodes.length > 0) {
+    let targetIndex: number;
+    
+    if (level <= firstDiffIndex) {
+      // 变化点及之前的层级：使用 newIndex 中的索引
+      if (level < newIndex.length) {
+        targetIndex = newIndex[level];
+      } else {
+        targetIndex = 0;
+      }
+    } else {
+      // 变化点之后的层级：优先使用 oldIndex 中的索引（如果有效）
+      const oldIdx = level < oldIndex.length ? oldIndex[level] : 0;
+      if (oldIdx >= 0 && oldIdx < currentNodes.length) {
+        // 旧索引在新数据中有效，使用旧索引
+        targetIndex = oldIdx;
+      } else {
+        // 旧索引超出范围，使用最后一个有效索引
+        targetIndex = currentNodes.length - 1;
+      }
+    }
+    
+    // 确保索引有效
+    if (targetIndex < 0 || targetIndex >= currentNodes.length) {
+      targetIndex = 0;
+    }
+    
+    // 获取节点数据
+    const foundNode = currentNodes[targetIndex];
+    path.push(foundNode.id);
+    indexPaths.push(targetIndex);
+    pathData.push(foundNode);
+    list.push(currentNodes);
+    
+    // 更新到下一级的节点
+    currentNodes = foundNode.children;
+    level++;
+  }
+  
+  // 如果路径为空，返回null
+  if (path.length === 0) {
+    return null;
+  }
+  
+  return {
+    indexPath: indexPaths,
+    ids: path,
+    pathData: pathData,
+    list: list
+  } as X_PICKER_PATH_MENU_TYPE;
+}

@@ -1,0 +1,509 @@
+<script lang="ts" setup>
+	import { getDefaultColor, getDefaultColorObj, getTextColorObj, getThinColorObj, getOutlineColorObj } from "../../core/util/xCoreColorUtil.uts"
+	import { checkIsCssUnit, getUnit,noramlNoziNoArVal } from "../../core/util/xCoreUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	import { computed, getCurrentInstance, ref } from 'vue'
+	
+	/**
+	 * @name 按钮 xButton
+	 * @page /pages/index/button
+	 * @category 常用组件
+	 * @description 圆角，主题可通过配置统一设置或者动态全局设置，使设计风格统一并保持一致性。让你的风格独一无二。
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({ name: 'xButton' })
+
+	type SkinType = "default" | "secondary" | "text" | "outline" | "dashed" | "thin"
+	type SizeType = "mini" | "large" | "normal" | "small"
+
+	export type XButtonProps = {
+		/** 主题颜色，空取全局 */
+		color : string,
+		/** 暗黑主题颜色，空取全局 */
+		darkColor : string,
+		/** 自定背景色 */
+		bgColor : string,
+		/** 渐变[方向，颜色1，颜色2] */
+		linearGradient : string[],
+		/** 字号颜色 */
+		fontColor : string,
+		/** 暗黑字号颜色 */
+		fontDarkColor : string,
+		/** 字号大小 */
+		fontSize : string|number,
+		/** 圆角，空取全局 */
+		round : string|number,
+		/** 边线大小 */
+		border : number|string,
+		/** 投影[x,y,大小] */
+		shadow : number[],
+		/** 边线颜色 */
+		borderColor : string,
+		/** 样式主题"default" | "secondary" | "text" | "outline" | "dashed" | "thin" */
+		skin : SkinType,
+		/** 按钮图标 */
+		icon : string,
+		/** 是否是纯按钮图标 */
+		iconBtn : boolean,
+		/** 图标大小 */
+		iconSize : string|number,
+		/** 按钮大小"mini" | "large" | "normal" | "small" */
+		size : SizeType,
+		/** 跳转链接 */
+		url : string,
+		/** 跳转方式，同官方 */
+		navigateMode : string,
+		/** 是否禁用 */
+		disabled : boolean,
+		/** 加载状态 */
+		loading : boolean,
+		/** 高 */
+		height : string|number,
+		/** 宽 */
+		width : string|number,
+		/** 是否占据整行 */
+		block : boolean|string,
+		/** 是否作为x-form提交表单用于触发提交表单 */
+		formType : 'form' | '',
+		/** 行高 */
+		lineHeight : string|number,
+		/** 加粗 */
+		fontWeight : string,
+		/** 开放类型，同官方 */
+		openType : string,
+		lang : string,
+		sessionFrom : string,
+		sendMessageTitle : string,
+		sendMessagePath : string,
+		sendMessageImg : string,
+		appParameter : string,
+		showMessageCard : boolean,
+		phoneNumberNoQuotaToast : boolean
+	}
+
+	const props = withDefaults(defineProps<XButtonProps>(), {
+		color: '',
+		darkColor: '',
+		bgColor: '',
+		linearGradient: ():string[] => [] as string[],
+		fontColor: '',
+		fontDarkColor: '',
+		fontSize: '',
+		round: '',
+		border: 0.5,
+		shadow: ():number[] => [] as number[],
+		borderColor: '',
+		skin: 'default' as SkinType,
+		icon: '',
+		iconBtn: false,
+		iconSize: '',
+		size: 'normal' as SizeType,
+		url: '',
+		navigateMode: 'navigateTo',
+		disabled: false,
+		loading: false,
+		height: '',
+		width: '',
+		block: false,
+		formType: '' as 'form' | '',
+		lineHeight: '1.4',
+		fontWeight: 'normal',
+		openType: '',
+		lang: 'en',
+		sessionFrom: '',
+		sendMessageTitle: '',
+		sendMessagePath: '',
+		sendMessageImg: '',
+		appParameter: '',
+		showMessageCard: false,
+		phoneNumberNoQuotaToast: true
+	})
+
+	const emits = defineEmits([
+		'click',
+		'getuserinfo',
+		'contact',
+		'getphonenumber',
+		'getrealtimephonenumber',
+		'error',
+		'opensetting',
+		'launchapp',
+		'chooseavatar',
+		'chooseaddress',
+		'chooseinvoicetitle',
+		'addgroupapp',
+		'subscribe',
+		'login',
+		'agreeprivacyauthorization'
+	])
+
+	const proxy = getCurrentInstance()?.proxy ?? null
+
+	const _isHover = ref(false)
+
+	const _color = computed(() : string => {
+		let color = props.color
+		if (xConfig.dark == 'dark' && props.darkColor != '') {
+			color = props.darkColor
+		} else {
+			if (color == '') {
+				color = xConfig.color
+			}
+		}
+		return color
+	})
+
+	const _fontSize = computed(() : string => {
+		let fontSize = noramlNoziNoArVal(props.fontSize)
+		if (fontSize == '') {
+			if (props.size == 'mini') fontSize = '12'
+			if (props.size == 'small') fontSize = '14'
+			if (props.size == 'normal') fontSize = '16'
+			if (props.size == 'large') fontSize = '17'
+		}
+		fontSize = checkIsCssUnit(fontSize, xConfig.unit)
+		if (xConfig.fontScale == 1) return fontSize
+		let sizeNumber = parseInt(fontSize)
+		if (isNaN(sizeNumber)) sizeNumber = 16
+		return (sizeNumber * xConfig.fontScale).toString() + getUnit(fontSize)
+	})
+
+	const _iconSize = computed(() : string => {
+		let iconSize = noramlNoziNoArVal(props.iconSize)
+		if (iconSize != '') {
+			iconSize = checkIsCssUnit(iconSize, xConfig.unit)
+			if (xConfig.fontScale == 1) return iconSize
+			let sizeNumber = parseInt(iconSize)
+			if (isNaN(sizeNumber)) sizeNumber = 16
+			return (sizeNumber * xConfig.fontScale).toString() + getUnit(iconSize)
+		}
+		return _fontSize.value
+	})
+
+	const _radius = computed(() : string => {
+		let radius = noramlNoziNoArVal(props.round)
+		if (radius == '') {
+			radius = xConfig.buttonRadius
+			if (props.size == 'mini') radius = '6'
+			if (props.size == 'small') radius = '8'
+		}
+		return checkIsCssUnit(radius, xConfig.unit)
+	})
+
+	const _height = computed(() : string => {
+		const height = noramlNoziNoArVal(props.height)
+		if (height != '') return checkIsCssUnit(height, xConfig.unit)
+		if (props.size == 'mini') return checkIsCssUnit('28', xConfig.unit)
+		if (props.size == 'small') return checkIsCssUnit('34', xConfig.unit)
+		if (props.size == 'normal') return checkIsCssUnit('42', xConfig.unit)
+		return checkIsCssUnit('52', xConfig.unit)
+	})
+
+	const _width = computed(() : string => {
+		if (props.iconBtn) return _height.value
+		if (props.block==true||props.block=='true') return '100%'
+		const width = noramlNoziNoArVal(props.width)
+		if (width != '') return checkIsCssUnit(width, xConfig.unit)
+		if (props.size == 'mini') return checkIsCssUnit('46', xConfig.unit)
+		if (props.size == 'small') return checkIsCssUnit('60', xConfig.unit)
+		if (props.size == 'normal') return checkIsCssUnit('98', xConfig.unit)
+		if (props.size == 'large') return checkIsCssUnit('128', xConfig.unit)
+		return checkIsCssUnit(width, xConfig.unit)
+	})
+
+	type _ColorResult = {
+		border : string,
+		background : string,
+		backgroundImage : string,
+		fontColor : string
+	}
+
+	const _resolvedColors = computed(() : _ColorResult => {
+		let hover = _isHover.value
+		let dePrimarycolor = getDefaultColor(xConfig.color)
+		let color = getDefaultColor(_color.value)
+		let hoverColor = props.color == 'info' ? getDefaultColor(xConfig.color) : color
+		let colorInit : UTSJSONObject = getDefaultColorObj(color, hoverColor, xConfig.dark == 'dark')
+		let borderStyle = "solid"
+		if (props.skin == 'text') {
+			colorInit = getTextColorObj(color, hoverColor, xConfig.dark == 'dark')
+		} else if (props.skin == 'thin') {
+			colorInit = getThinColorObj(color, hoverColor, xConfig.dark == 'dark')
+		} else if (props.skin == 'outline' || props.skin == 'dashed') {
+			colorInit = getOutlineColorObj(color, hoverColor, xConfig.dark == 'dark')
+		}
+		if (props.skin == 'dashed') {
+			borderStyle = 'dashed'
+		}
+		let stateObj : UTSJSONObject = hover ? colorInit.getJSON("active")! : colorInit.getJSON("default")!
+		let borderWidth = checkIsCssUnit(noramlNoziNoArVal(props.border,'0'), 'rpx')
+		let dbordercolor = getDefaultColor(props.borderColor)
+		let background = getDefaultColor(props.bgColor)
+		let fontcolor = getDefaultColor(props.fontColor)
+		let resultBorder = `${borderWidth} ${borderStyle} ${dbordercolor == "" ? stateObj.getString("borderColor")! : dbordercolor}`
+		let realBackground = background == "" ? stateObj.getString("background")! : background
+		let realColor = fontcolor
+		if (props.color == 'info') {
+			realColor = dePrimarycolor
+		} else {
+			realColor = fontcolor == "" ? stateObj.getString("fontColor")! : fontcolor
+		}
+		let realBackImg = ''
+		if (props.linearGradient.length > 0) {
+			let dirs = props.linearGradient[0]
+			if (dirs == 'top') dirs = 'to top'
+			else if (dirs == 'bottom') dirs = 'to bottom'
+			else if (dirs == 'left') dirs = 'to left'
+			else if (dirs == 'right') dirs = 'to right'
+			realBackground = ''
+			realBackImg = `linear-gradient(${dirs},${props.linearGradient[1]},${props.linearGradient[2]})`
+		}
+		if (props.fontDarkColor != '' && xConfig.dark == 'dark') {
+			realColor = getDefaultColor(props.fontDarkColor)
+		}
+		return {
+			border: resultBorder,
+			background: realBackground,
+			backgroundImage: realBackImg,
+			fontColor: realColor
+		} as _ColorResult
+	})
+
+	const _styleMap = computed(() : Map<string, any> => {
+		let cs = _resolvedColors.value
+		const styleMap = new Map<string, any>()
+		styleMap.set('width', _width.value)
+		styleMap.set('height', _height.value)
+		styleMap.set('border', cs.border)
+		styleMap.set('backgroundColor', cs.background)
+		if (cs.backgroundImage != '') {
+			styleMap.set('backgroundImage', cs.backgroundImage)
+		}
+		styleMap.set('borderRadius', _radius.value)
+		styleMap.set('opacity', (props.disabled || props.loading) ? '0.5' : '1')
+		return styleMap
+	})
+
+	function findParent(parent : VueComponent | null) : VueComponent | null {
+		if (parent == null) return null;
+		// #ifdef WEB||APP-IOS||MP-WEIXIN||APP-HARMONY
+		if((parent.$parent?.id?.indexOf('xFormParent')??-1)>-1) return parent.$parent;
+		// #endif
+	
+		// #ifdef APP-ANDROID
+		if (parent.$parent instanceof XFormComponentPublicInstance) return parent.$parent;
+		// #endif
+		let parents = findParent(parent.$parent)
+		// #ifdef WEB||APP-IOS||MP-WEIXIN||APP-HARMONY
+		if ((parents?.id?.indexOf('xFormParent')??-1) > -1) return parents;
+		// #endif
+	
+		// #ifdef APP-ANDROID
+		if (parents instanceof XFormComponentPublicInstance) return parents;
+		// #endif
+		return null;
+	}
+
+	function formSubmit() {
+		let pelement = findParent(proxy);
+		if (pelement == null) return;
+		let parent : XFormComponentPublicInstance = pelement as XFormComponentPublicInstance;
+		parent.submit();
+	}
+
+	function touchStart() {
+		if (props.disabled || props.loading) return;
+		_isHover.value = true;
+	}
+	function touchCacel() {
+		_isHover.value = false
+	}
+	function touchEnd() {
+		_isHover.value = false
+	}
+
+	function clickListen(e : UniPointerEvent) {
+		if (!props.disabled && !props.loading) {
+			emits('click', e)
+			if (props.formType == 'form') {
+				formSubmit();
+			}
+		}
+		if (!props.disabled && props.url != "" && !props.loading) {
+			if (props.navigateMode == 'navigateTo') {
+				uni.navigateTo({
+					url: props.url,
+					fail: (error) => {
+						console.error(error)
+					}
+				})
+			} else if (props.navigateMode == 'redirectTo') {
+				uni.redirectTo({
+					url: props.url,
+					fail: (error) => {
+						console.error(error)
+					}
+				})
+			} else if (props.navigateMode == 'switchTab') {
+				uni.switchTab({
+					url: props.url,
+					fail: (error) => {
+						console.error(error)
+					}
+				})
+			} else if (props.navigateMode == 'reLaunch') {
+				uni.reLaunch({
+					url: props.url,
+					fail: (error) => {
+						console.error(error)
+					}
+				})
+			} else if (props.navigateMode == 'navigateBack') {
+				uni.navigateBack({
+					fail: (error) => {
+						console.error(error)
+					}
+				})
+			}
+		}
+	}
+
+	// #ifdef MP-WEIXIN
+	function getuserinfo(event : UniEvent) { emits('getuserinfo', event) }
+	function contact(event : UniEvent) { emits('contact', event) }
+	function getphonenumber(event : UniEvent) { emits('getphonenumber', event) }
+	function getrealtimephonenumber(event : UniEvent) { emits('getrealtimephonenumber', event) }
+	function error(event : UniEvent) { emits('error', event) }
+	function opensetting(event : UniEvent) { emits('opensetting', event) }
+	function launchapp(event : UniEvent) { emits('launchapp', event) }
+	function chooseavatar(event : UniEvent) { emits('chooseavatar', event) }
+	function chooseaddress(event : UniEvent) { emits('chooseaddress', event) }
+	function chooseinvoicetitle(event : UniEvent) { emits('chooseinvoicetitle', event) }
+	function addgroupapp(event : UniEvent) { emits('addgroupapp', event) }
+	function subscribe(event : UniEvent) { emits('subscribe', event) }
+	function login(event : UniEvent) { emits('login', event) }
+	function agreeprivacyauthorization(event : UniEvent) { emits('agreeprivacyauthorization', event) }
+	// #endif
+
+</script>
+<template>
+	
+	<view <!-- #ifdef APP||H5 -->
+		@touchcancel="touchCacel"
+		@touchend="touchEnd"
+		@touchstart="touchStart"
+		@click="clickListen"
+		<!-- #endif -->
+
+		<!-- #ifdef WEB -->
+		@mousedown="touchStart"
+		@mouseup="touchEnd"
+		@mouseleave="touchEnd"
+		<!-- #endif -->
+
+
+		:style="_styleMap" class="parentButton" :class="[disabled||loading?'noDrag':'']">
+		<view :class="['xButton',loading?'load':'']">
+			<x-icon v-if="icon!=''&&!loading" :style="{marginRight:iconBtn?'0px':' 3px'}" :font-size="_iconSize"
+				:color="_resolvedColors.fontColor" :name="icon"></x-icon>
+			<x-icon v-if="loading" :color="_resolvedColors.fontColor" :font-size="_iconSize" :spin="true" name="loader-fill"></x-icon>
+
+
+			<!-- #ifdef MP -->
+			<view v-if="!iconBtn"
+				:style="{fontWeight:fontWeight,'color':_resolvedColors.fontColor,fontSize:_fontSize,lineHeight:lineHeight}">
+				<!--
+				@slot 默认插槽
+				-->
+				<slot></slot>
+			</view>
+			<!-- #endif -->
+			<!-- #ifndef MP -->
+			<text v-if="!iconBtn"
+				:style="{fontWeight:fontWeight,'color':_resolvedColors.fontColor,fontSize:_fontSize,lineHeight:lineHeight}">
+				<!--
+				@slot 默认插槽
+				-->
+				<slot></slot>
+			</text>
+			<!-- #endif -->
+
+
+		</view>
+		<!-- #ifdef MP-WEIXIN -->
+		<button :disabled="disabled||loading" :open-type="openType" :lang="lang" :sessionFrom="sessionFrom"
+			:sendMessageTitle="sendMessageTitle" :sendMessagePath="sendMessagePath" :sendMessageImg="sendMessageImg"
+			:appParameter="appParameter" :showMessageCard="showMessageCard"
+			:phoneNumberNoQuotaToast="phoneNumberNoQuotaToast" @touchcancel="touchCacel" @touchend="touchEnd"
+			@touchstart="touchStart" @click="clickListen" @getuserinfo="getuserinfo" @contact="contact"
+			@getphonenumber="getphonenumber" @getrealtimephonenumber="getrealtimephonenumber" @error="error"
+			@opensetting="opensetting" @launchapp="launchapp" @chooseavatar="chooseavatar"
+			@chooseaddress="chooseaddress" @chooseinvoicetitle="chooseinvoicetitle" @addgroupapp="addgroupapp"
+			@subscribe="subscribe" @login="login" @agreeprivacyauthorization="agreeprivacyauthorization"
+			class="xButtonReal">
+		</button>
+		<!-- #endif -->
+	</view>
+</template>
+<style scoped lang="scss">
+	.parentButton {
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+		align-items: center;
+		position: relative;
+		/* #ifdef WEB*/
+		box-sizing: border-box;
+		cursor: pointer;
+		/* #endif */
+	}
+
+	/* #ifdef WEB*/
+	.parentButton.noDrag {
+		cursor: no-drop;
+	}
+
+	.parentButton:hover {}
+
+	.parentButton:active {}
+
+	/* #endif */
+
+	/* #ifdef MP-WEIXIN */
+	.xButtonReal {
+		width: 100%;
+		height: 100%;
+		position: absolute;
+		left: 0;
+		top: 0;
+		box-sizing: border-box;
+		border: none;
+		background: transparent !important;
+		border-width: 0;
+		margin: 0;
+		padding: 0;
+		pointer-events: all;
+
+		&::after {
+			border: none;
+			border-width: 0;
+		}
+	}
+
+	/* #endif */
+
+
+	.xButton {
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+		align-items: center;
+		width: 100%;
+		height: 100%;
+
+	}
+
+</style>

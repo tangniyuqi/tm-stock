@@ -1,0 +1,97 @@
+import {
+	CONNECT_STATUS, MQTT_EVENT_TYPE, MQTT_EVENT_CALL, MQTT_EVENT_PUBLISH, MQTT_SUBSCRIBE, MQTT_EVENTS_CALL,
+	MQTT_PUBLISH_TOPIC, MQTT_CONNECT_OPTS
+} from "../interface.uts"
+import { x_xMqtt } from "x_mqtt_s"
+
+export class xMqtt {
+	mqtt : x_xMqtt | null = null;
+	mqttConnectOptions : MQTT_CONNECT_OPTS | null = null;
+	connectStatus : CONNECT_STATUS = 'wait'
+	events = new Map<string, MQTT_EVENTS_CALL>();
+	constructor() { }
+	/**
+	 * @param ulr {string} 连接地址
+	 * @param clientIdStr {string} 客户端id
+	 * @param username {string|null} 用户名称，如果不需要，设置为null即可
+	 * @param password {string|null} 登录密码，如果不需要，设置为null即可
+	 */
+	create(opts : MQTT_CONNECT_OPTS) : xMqtt {
+		this.mqttConnectOptions = opts;
+		this.mqtt = new x_xMqtt(UTSHarmony.getCurrentWindow()!.getUIContext(), this.mqttConnectOptions!)
+		this.mqtt!.setCallBack((type: string, topic: string | null, str: string)=>{
+			console.log('88888',str)
+			this.buildCallEvents(type as MQTT_EVENT_TYPE,topic,str)
+		})
+		return this;
+	}
+	/**
+	 * @param type {MQTT_EVENT_TYPE} 事件名称
+	 * @param call {MQTT_EVENT_CALL} 事件回调
+	 */
+	addEventListener(type:MQTT_EVENT_TYPE,call:MQTT_EVENT_CALL):string{
+		let id = Date.now().toString()+(Math.random()*100).toString()
+		this.events.set(id,
+			{
+				type,
+				value:call
+			} as MQTT_EVENTS_CALL
+		)
+		
+		return id;
+	}
+	/**
+	 * @param id {string} addEventListener返回的事件id
+	 */
+	removeEventListener(id:string):xMqtt{
+		this.events.delete(id)
+		return this;
+	}
+	private buildCallEvents(type:MQTT_EVENT_TYPE,toppic:string|null,str:string){
+		this.events.forEach((value:MQTT_EVENTS_CALL,key:string)=>{
+			if(value.type == type){
+				value.value(type,toppic,str)
+			}
+		})
+	}
+	
+	connect():xMqtt{
+		this.mqtt!.connect();
+		return this;
+	}
+	
+	/**
+	 * 订阅
+	 * @param data {MQTT_SUBSCRIBE[]} 订阅的消息数组
+	 */
+	subscribe(data:MQTT_SUBSCRIBE[]):xMqtt{
+		this.mqtt!.subscribe(data)
+		return this;
+	}
+	
+	/**
+	 * 推送消息
+	 * @param message {MQTT_EVENT_PUBLISH}
+	 * @param call ()=>void 推送消息成功时的回调【web端永为真】
+	 */
+	publish(message:MQTT_PUBLISH_TOPIC,call:MQTT_EVENT_PUBLISH):xMqtt{
+		this.mqtt!.publish(message,call)
+		return this;
+	}
+	/**
+	 * 取消订阅
+	 * @param topics {string[]} 主题数组
+	 */
+	unsubscribe(topics:string[]):xMqtt{
+		this.mqtt!.unsubscribe(topics)
+		return this;
+	}
+	/**
+	 * 断开连接
+	 */
+	disconnect():xMqtt{
+		if(this.mqtt == null) return this;
+		this.mqtt!.disconnect()
+		return this;
+	}
+}

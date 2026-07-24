@@ -1,0 +1,107 @@
+<script lang="ts" setup>
+	import { computed } from "vue"
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { checkIsCssUnit } from "../../core/util/xCoreUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+
+	/**
+	 * @name 加载中 xLoading
+	 * @description 加载中占位符，场景用到页面加载前。请在标签内写上你的文本, 如果不写，默认显示"加载中..."
+	 * @page /pages/index/loading
+	 * @category 反馈组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({name:"xLoading"})
+
+	const i18n = xConfig.i18n
+
+	defineSlots<{
+		default(): any
+	}>()
+
+	type xLoadingPropsType = {
+		/**
+		 * 图标颜色
+		 */
+		color: string,
+		/**
+		 * 文字颜色
+		 */
+		textColor: string,
+		/**
+		 * 文字大小
+		 */
+		textSize: string,
+		/**
+		 * 图标大小
+		 */
+		iconSize: string,
+		/**
+		 * 是否垂直，默认是水平
+		 */
+		vertical: boolean,
+		/**
+		 * 图标
+		 */
+		icon: string,
+		/**
+		 * 隐藏加载文本插槽
+		 */
+		hideText: boolean,
+		/**
+		 * 加载中的文本,加载中...
+		 */
+		label: string
+	}
+
+	const props = withDefaults(defineProps<xLoadingPropsType>(), {
+		color: "#8b8b8b",
+		textColor: "#8b8b8b",
+		textSize: "12",
+		iconSize: "21",
+		vertical: true,
+		icon: "loader-line",
+		hideText: false,
+		label: ""
+	})
+
+	// 计算属性
+	const _label = computed((): string => {
+		if(props.label == '') return i18n.t("tmui4x.xloading.label");
+		return props.label;
+	})
+	const _color = computed((): string => {
+		return getDefaultColor(props.color)
+	})
+	const _textColor = computed((): string => {
+		return getDefaultColor(props.textColor)
+	})
+	const _textSize = computed((): string => {
+		return checkIsCssUnit(props.textSize, xConfig.unit)
+	})
+	const _iconSize = computed((): string => {
+		return checkIsCssUnit(props.iconSize, xConfig.unit)
+	})
+</script>
+<template>
+	<view class="xLoading" :style="{'flex-direction':vertical?'column':'row'}">
+		<x-icon :font-size="_iconSize" :color="_color" :name="icon" :spin="true"></x-icon>
+		<text v-if="!hideText" :style="{'font-size': _textSize,'color': _textColor,marginLeft:vertical?'0px':'5px',marginTop:vertical?'8px':'0px',lineHeight:'1.1'}">
+			<!-- 
+			 @slot 请在插槽内写上你的文本, 如果不写，默认显示"加载中..."
+			 -->
+			<slot>{{_label}}</slot>
+		</text>
+	</view>
+</template>
+<style scoped>
+	.xLoading {
+		display: flex;
+		/* flex-direction: column; */
+		align-items: center;
+		justify-content: center;
+	}
+</style>

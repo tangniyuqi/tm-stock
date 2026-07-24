@@ -1,0 +1,211 @@
+export type xCamreaUOpts = {
+	autoOpenCamera : boolean,
+	/**
+	 * 是否打开闪光灯,对于orientation为back有效.
+	 */
+	flash : boolean,
+	/**
+	 * 摄像头朝向,默认是后置
+	 * back,front
+	 */
+	orientation : string,
+	/**
+	 * 相机的像素宽
+	 */
+	cameraWidth : number,
+	/**
+	 * 相机的像素高
+	 */
+	cameraHeight : number,
+	/**
+	 * 容器的宽和高
+	 */
+	width : number,
+	/**
+	 * 容器的宽和高
+	 */
+	height : number
+}
+
+export class xCamreaU {
+	$element : HTMLDivElement;
+	targetView : HTMLVideoElement = document.createElement("video");
+	config : xCamreaUOpts;
+	opening = false;
+	private stream:any = null;
+	private takeModelType = 'photo'
+	private mediaRecorder:  null | MediaRecorder = null
+	private startRecoderVideoFunc = (path:string)=>{}
+	
+	constructor(element : HTMLDivElement, opts : xCamreaUOpts) {
+		this.config = opts;
+		this.$element = element;
+		this.createVideo();
+	}
+	private createVideo(){
+		this.targetView.style.width = "100%"
+		this.targetView.style.height = "100%"
+		this.targetView.style.objectFit = "cover"
+		this.targetView.playsInline = true;
+		this.targetView.muted = true;
+		this.targetView.autoplay = true;
+		this.targetView.controls = false;
+		// 针对微信的x5内核
+		this.targetView.setAttribute('playsinline',true)
+		this.targetView.setAttribute('webkit-playsinline',true)
+		this.targetView.setAttribute('x5-playsinline',true)
+		this.targetView.setAttribute('x5-video-player-type','h5')
+		this.targetView.setAttribute('x5-video-player-fullscreen','false')
+		
+		this.$element.appendChild(this.targetView)
+	}
+	getIsOpeningCameraing():boolean{
+		return this.opening
+	}
+	setCameraDir(dir:string){
+	}
+	setFlash(flash:boolean){
+	}
+	start(call:(path:string)=>void) {
+		this.takeModelType = 'video'
+		this.startRecoderVideoFunc = call;
+		if(!this.opening){
+			this.openCamrea();
+		}
+		
+	}
+	/** 关闭相机 */
+	close() {
+		let t = this;
+		this.targetView.pause()
+		if (t.stream) {
+			t.stream.getTracks().forEach(function (track) {
+				track.stop();
+			});
+			t.stream = null;
+		}
+		this.mediaRecorder = null;
+		this.opening = false;
+	}
+	createMediaRecorder() {
+		let t = this;
+		if (!MediaRecorder.isTypeSupported('video/mp4')) {
+			console.error("设备不支持录制 mp4 格式")
+			this.startRecoderVideoFunc('')
+			return;
+		}
+		const options = { mimeType: 'video/mp4' }; // 默认格式为 WebM
+		this.mediaRecorder = new MediaRecorder(t.stream, options);
+		let chunks = [];
+	
+		this.mediaRecorder!.ondataavailable = (event) => {
+			if (event.data.size > 0) {
+				chunks.push(event.data);
+			}
+		};
+		
+		this.mediaRecorder!.onstop = () => {
+			// 将录制的片段合并为 Blob 对象
+			const blob = new Blob(chunks, { type: 'video/mp4' });
+			chunks = [];
+			const dataURL = URL.createObjectURL(blob)
+			this.startRecoderVideoFunc(dataURL)
+		};
+		this.mediaRecorder!.onerror = () => {
+			console.error("录制出错，请重试。")
+			this.startRecoderVideoFunc('')
+		}
+		this.mediaRecorder!.start()
+	}
+	openCamrea(){
+		
+		if(this.opening) return;
+		this.opening = true;
+		let t = this;
+		let facingMode = this.config.orientation == 'front' ? 'user' : 'environment';
+		var constraints = {
+			audio: true, 
+			video: {
+				width: { ideal: this.config.cameraWidth || 1920 }, 
+				height: { ideal: this.config.cameraHeight || 1080 },
+				facingMode: facingMode
+			}
+		};
+		
+		window.navigator.mediaDevices
+			.getUserMedia(constraints)
+			.catch(function () {
+				// facingMode 不支持时降级：仅保留分辨率约束
+				return window.navigator.mediaDevices.getUserMedia({
+					audio: true,
+					video: {
+						width: { ideal: t.config.cameraWidth || 1920 },
+						height: { ideal: t.config.cameraHeight || 1080 }
+					}
+				});
+			})
+			.then(function (mediaStream) {
+				t.stream = mediaStream
+				t.targetView.srcObject = t.stream;
+				t.targetView.onloadedmetadata = function (e) {
+					t.targetView.play();
+					
+					if (t.takeModelType == 'video') {
+						t.createMediaRecorder()
+					}
+				};
+		
+			})
+			.catch(function (err) {
+				console.log(err.name + ": " + err.message);
+				t.close()
+			});
+		
+	}
+	takePhoto(call:(path:string)=>void){
+		let t = this;
+		if (!t.targetView || !t.stream || !t.opening) return call('');
+		var canvas = document.createElement('canvas');
+		canvas.width = t.targetView.videoWidth; // 设置canvas的宽度为视频的宽度
+		canvas.height = t.targetView.videoHeight; // 设置canvas的高度为视频的高度
+		var ctx = canvas.getContext('2d');
+		ctx!.drawImage(t.targetView, 0, 0, canvas.width, canvas.height);
+		canvas.toBlob((data) => {
+			const dataURL = data ? URL.createObjectURL(data) : ""
+			call(dataURL)
+		}, 'image/png', 1)
+	}
+	
+	pause(){
+		// this.mediaRecorder?.pause()
+		this.close();
+	}
+	
+	stop(){
+		this.mediaRecorder?.stop()
+	}
+	
+}
+
+// 检查权限
+export function checkPermissions():Promise<boolean> {
+	return new Promise(async (res, rej) => {
+		
+		let devices = await navigator.mediaDevices.enumerateDevices()
+		let videoDevices = devices.filter(
+			(device) => device.kind === 'videoinput'
+		);
+		
+		if (videoDevices.length == 0) {
+			rej(false)
+			console.error('没有找到可用的摄像设备')
+			return;
+		}
+		if(!(window.navigator?.mediaDevices??undefined)){
+			rej(false)
+			console.error('设备不支持')
+			return;
+		}
+		res(true)
+	})
+}

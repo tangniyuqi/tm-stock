@@ -1,0 +1,44 @@
+import { x_facedetection_imgcheck } from "x_facedetection"
+
+import { XFACE_CHECK_OPTS, XFACE_EVENT_SUCCESS, XFACE_TEST_EYE_TYPE, XFACE_FACE_Direction, XFACE_EVENT_CHECK_SUCCESS } from "../interface.uts"
+import { XFACE_CHECK_OPTS_REAL, getDefaultConfig } from "../libs/config.uts"
+
+
+export function checkFaceByImage(config : XFACE_CHECK_OPTS | null = null) {
+	const cfg = getDefaultConfig(config)
+	// @ts-ignore
+	uni.chooseImage({
+		count: 1,
+		// @ts-ignore
+		success(evt : ChooseImageSuccess) {
+			if (evt.tempFilePaths.length == 0) return;
+			const imgs = evt.tempFilePaths[0] as string;
+			x_facedetection_imgcheck(imgs, (ispass : boolean) => {
+				cfg.success({
+					isPass: ispass,
+					images: [] as string[],
+					videoPath: ""
+				})
+			})
+		},
+		fail() {
+			cfg.fail("解析错误")
+		}
+	})
+}
+
+
+/**
+ * 提供外部图片地址检测当前图片是否存在人脸
+ */
+export function checkFaceByImageFromFilePath(config : XFACE_CHECK_OPTS) {
+	const cfg = getDefaultConfig(config)
+	const imgs = cfg.url;
+	x_facedetection_imgcheck(imgs, (ispass : boolean) => {
+		cfg.success({
+			isPass: ispass,
+			images: [] as string[],
+			videoPath: ""
+		})
+	})
+}

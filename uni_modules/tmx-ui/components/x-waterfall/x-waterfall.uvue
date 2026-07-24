@@ -1,0 +1,393 @@
+<script lang="ts" setup>
+	
+
+	import { computed, ref, provide, nextTick, onMounted, getCurrentInstance, watch, onBeforeUnmount } from "vue"
+	import { getUnit, checkIsCssUnit } from "../../core/util/xCoreUtil.uts"
+	import { xWaterfallDataItemType } from "../../interface.uts"
+	import { xConfig, xProvitae } from "../../config/xConfig.uts"
+	type callType = () => Promise<boolean>
+	
+	/**
+	* @name 瀑布流 xWaterfall
+	* @description 可以通过columnu来控制排版列数，默认是2列排版。可以无限加载不卡,全异步流加载.使用时请参考demo布局,已精心为你规划如何提高性能.
+	* @page /pages/index/waterfall
+	* @category 展示组件
+	* @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	*/
+	defineOptions({name:"xWaterfall"})
+	const emit = defineEmits([
+		'bottom',
+		'top',
+	])
+	const proxy = getCurrentInstance()?.proxy
+	const xWaterFallWrap = ref<UniElement|null>(null)
+	let resizeObserver = null as UniResizeObserver | null
+	const props = defineProps({
+		/**
+		 * 瀑布流的列数
+		 * 不可动态动态更改。
+		 */
+		column: {
+			type: Number,
+			default: 2
+		},
+		/**
+		 * 用来刷新数据的，你可以通过你的外面list.length来传递进来
+		 * 比如为0时，自动清空瀑布流数据。
+		 */
+		listCount: {
+			type: Number,
+			default: 0
+		},
+		/**
+		 * 间距,单位不能为%比，可以是数字字符，带rpx,px等单位
+		 * 默认的数字符单位是全局的unit单位。
+		 */
+		gutter: {
+			type: String,
+			default: '8'
+		},
+		/**
+		 * 是否响应尺寸监测。设置为false可以关闭
+		 * 关闭后能增加性能。
+		 */
+		isResize:{
+			type:Boolean,
+			default:false
+		},
+		disabledScroll:{
+			type:Boolean,
+			default:false
+		}
+	})
+	const domList = ref<xWaterfallDataItemType[]>([])
+	const parentWidth = ref(0)
+	// 视图的顶点.
+	const parentTop = ref(0)
+	const parentPositonTop = ref(0)
+	// 可视范围高
+	const parentShowViewHeight = ref(uni.getWindowInfo().windowHeight)
+
+	const tidkey = ref(true)
+	const _disabledScroll = ref(true)
+	// #ifdef APP-HARMONY
+	_disabledScroll.value = false;
+	// #endif
+	const harScrollTop = ref(0)
+	let timeid = 0
+	let scrollWatchTid = 0
+	const cols = ref<number[]>([])
+	const totalHeight = ref(0)
+	const updateTotalHeight = () => {
+		if (cols.value.length == 0) {
+			totalHeight.value = 0
+			return;
+		}
+		let max = cols.value[0]
+		for (let i = 1; i < cols.value.length; i++) {
+			if (cols.value[i] > max) {
+				max = cols.value[i]
+			}
+		}
+		totalHeight.value = max
+	}
+	const renderQueue = ref<Map<string, boolean>>(new Map())
+	const renderedSet = new Set<string>()
+	const domIndexMap = new Map<string, number>()
+	const renderBatchSize = 4
+	let _lastQueueKeys = ''
+
+	const resetRenderPipeline = () => {
+		renderQueue.value = new Map<string,boolean>()
+		renderedSet.clear()
+		_lastQueueKeys = ''
+	}
+
+	const scheduleRenderBatch = () => {
+		if (domList.value.length == 0) return;
+		const nextQueue = new Map<string, boolean>()
+		let count = 0
+		let keysStr = ''
+		for (let i = 0; i < domList.value.length; i++) {
+			if (count >= renderBatchSize) break;
+			const id = domList.value[i].id
+			if (!renderedSet.has(id)) {
+				nextQueue.set(id, true)
+				keysStr += id + ','
+				count++
+			}
+		}
+		if (count == 0) return;
+		if (keysStr == _lastQueueKeys) return;
+		_lastQueueKeys = keysStr
+		renderQueue.value = nextQueue
+	}
+	const markRendered = (id : string) => {
+		if (id == "") return;
+		if (!renderedSet.has(id)) {
+			renderedSet.add(id)
+			scheduleRenderBatch()
+		}
+	}
+
+	/**
+	 * 添加元素。
+	 * @hidden
+	 */
+	const pushChild = (item : xWaterfallDataItemType) : number[] => {
+		let index = domIndexMap.has(item.id) ? domIndexMap.get(item.id)! : -1
+		let col = -1;
+		let minHeight = 0;
+		if (item.col == -1 && item.height > 0) {
+			let minindex = 0;
+			let minnumber = cols.value[0];
+			for (let i = 1; i < cols.value.length; i++) {
+				if (cols.value[i] < minnumber) {
+					minnumber = cols.value[i];
+					minindex = i;
+				}
+			}
+			col = minindex;
+			minHeight = minnumber;
+			cols.value[minindex] = cols.value[minindex] + item.height
+			item.col = col;
+			updateTotalHeight()
+		}
+		if (index == -1) {
+			domIndexMap.set(item.id, domList.value.length)
+			domList.value.push(item)
+		} else {
+			domList.value[index] = item;
+		}
+		item.top = minHeight
+		nextTick(() => {
+			scheduleRenderBatch()
+		})
+		return [col, minHeight] as number[];
+	}
+	const getColunm = () : number[] => {
+		// #ifdef APP-ANDROID
+		return Array.fromNative(new IntArray((props.column).toInt()))
+		// #endif
+
+		return new Array(props.column).fill(0)
+	}
+
+	/**
+	 * 移除元素。
+	 * @hidden
+	 */
+	const removeChild = (id : string, height : number, mycol : number) => {
+		let index = domIndexMap.has(id) ? domIndexMap.get(id)! : -1
+		if (index > -1 && mycol > -1) {
+			domList.value.splice(index, 1)
+			domIndexMap.delete(id)
+			for (let i = index; i < domList.value.length; i++) {
+				domIndexMap.set(domList.value[i].id, i)
+			}
+			cols.value[mycol] = cols.value[mycol] - height
+			updateTotalHeight()
+			renderedSet.delete(id)
+			_lastQueueKeys = ''
+			nextTick(() => {
+				scheduleRenderBatch()
+			})
+		}
+	}
+	
+	provide("xWaterFallColumn", computed(() : number => props.column))
+	provide("xWaterGutter", computed(() : number => {
+		let p = checkIsCssUnit(props.gutter, xConfig.unit)
+		let unit = getUnit(p)
+		let n = parseInt(p)
+		if (unit == 'rpx') {
+			n = uni.rpx2px(n)
+		}
+		return n;
+	}))
+	provide("xWaterWidthParent", computed(() : number => parentWidth.value))
+	provide("xWaterTopParent", computed(() : number => parentTop.value))
+	provide("xWaterPositionTopParent", computed(() : number => parentPositonTop.value))
+	provide("xWaterParentShowViewHeight", computed(() : number => parentShowViewHeight.value))
+	provide("xWaterFallRenderQueue", renderQueue)
+	watch(() : number => props.listCount, (newVal : number) => {
+		if (newVal == 0) {
+			cols.value = getColunm()
+			updateTotalHeight()
+			domList.value = [] as xWaterfallDataItemType[];
+			domIndexMap.clear()
+			resetRenderPipeline()
+		}
+	})
+	const resize = ()=>{
+		
+		let ele = xWaterFallWrap.value
+		if (ele == null) return;
+		// #ifdef APP||WEB
+		resizeObserver = new UniResizeObserver((entries : Array<UniResizeObserverEntry>) => {
+			entries.forEach(entry => {
+				if(!props.isResize) return;
+				if (entry.target == ele) {
+					let bound = ele.getBoundingClientRect();
+					if(bound.width==parentWidth.value) return;
+					clearTimeout(timeid)
+					timeid = setTimeout(function() {
+						tidkey.value = false
+						domList.value = [] as xWaterfallDataItemType[];
+						domIndexMap.clear()
+						cols.value = getColunm()
+						updateTotalHeight()
+						parentWidth.value = bound.width!;
+						resetRenderPipeline()
+						timeid = setTimeout(function() {
+							tidkey.value = true
+							scheduleRenderBatch()
+						}, 50);
+						
+					}, 250);
+				}
+			})
+		})
+		resizeObserver?.observe(ele!)
+		// #endif
+		
+		// #ifdef MP-WEIXIN
+		ele.getBoundingClientRectAsync().then(bound=>{
+		
+			if(bound.width==parentWidth.value) return;
+			tidkey.value = false
+			domList.value = [] as xWaterfallDataItemType[];
+			domIndexMap.clear()
+			cols.value = getColunm()
+			updateTotalHeight()
+			parentWidth.value = bound.width!;
+			resetRenderPipeline()
+			timeid = setTimeout(function() {
+				tidkey.value = true
+				scheduleRenderBatch()
+			}, 50);
+		})
+		
+		
+		// #endif
+		
+		
+	}
+	
+	const getParentNodeinfo = () => {
+		uni.createSelectorQuery()
+			.in(proxy)
+			.select(".xWaterFallWrap")
+			.boundingClientRect()
+			.exec((res) => {
+			
+				let node = res[0] as NodeInfo;
+				parentWidth.value = node.width!;
+				// parentShowViewHeight.value = node.bottom!
+				parentPositonTop.value = node.top!;
+				resize();
+			})
+	}
+	let tidsd = 12
+
+	// 节流：每次滚动最多触发一次 DOM 测量（32ms 间隔 ≈ 30fps）
+	watch(():number => xProvitae.scrollTop,(newval:number)=>{
+		clearTimeout(scrollWatchTid)
+		scrollWatchTid = setTimeout(() => {
+			let ele = xWaterFallWrap.value
+			if (ele == null) return;
+			ele.getBoundingClientRectAsync()?.then((drect)=>{
+				const sys = uni.getWindowInfo()
+				const dtop = Math.floor(drect.top! - sys.windowTop)
+				_disabledScroll.value = dtop > 0
+				parentWidth.value = drect.width!;
+				parentPositonTop.value = dtop;
+			})
+		}, 32)
+	})
+	function onScroll(evt:UniScrollEvent){
+		let ele = xWaterFallWrap.value
+		if (ele == null) return;
+		parentTop.value = evt.detail.scrollTop + xProvitae.scrollTop;
+	}
+	
+	function topCallFun(){
+		emit('top')
+	}
+	function bootomCallFun(){
+		emit('bottom')
+	}
+	onMounted(() => {
+		cols.value = getColunm()
+		updateTotalHeight()
+		// #ifndef APP-HARMONY
+		getParentNodeinfo()
+		// #endif
+		// #ifdef APP-HARMONY
+		tidsd = setTimeout(function() {
+			parentShowViewHeight.value = uni.getSystemInfoSync().windowHeight
+			getParentNodeinfo()
+		}, 150);
+		// #endif
+		
+		
+	})
+	onBeforeUnmount(() => {
+		// uni.$off("onResize",resize)
+		resizeObserver?.disconnect()
+		clearTimeout(timeid)
+		clearTimeout(tidsd)
+		clearTimeout(scrollWatchTid)
+		
+	})
+	defineExpose({
+		pushChild,
+		notifyRendered: markRendered,
+		removeChild
+	})
+</script>
+<template>
+	<view style="flex:1" ref="xWaterFallWrap">
+		<slot name="header">
+		</slot>
+		<view  style="flex:1" >
+			<scroll-view
+			:show-scrollbar="false"
+			@scrolltolower="bootomCallFun"
+			@scrolltoupper="topCallFun"
+			:key="harScrollTop"
+			<!--  #ifndef MP -->
+			:direction="_disabledScroll?'none':'vertical'"
+			<!--  #endif -->
+			<!--  #ifdef MP -->
+			:scroll-y="!_disabledScroll"
+			<!--  #endif -->
+			:scroll-top="harScrollTop"
+			@scroll="onScroll"
+			class="xWaterFallWrapScoll">
+				<view v-if="tidkey"  class="xWaterFallWrap" :style="{height:totalHeight+'px'}">
+					<!-- 
+					 @slot 只能放置直接子节点x-waterfall-item
+					 -->
+					<slot></slot>
+				</view>
+			</scroll-view>
+		</view>
+	</view>
+</template>
+<style scoped>
+	.xWaterFallWrapScoll{
+		height:100%;
+	}
+	.xWaterFallWrap {
+		display: flex;
+		flex-direction: row;
+		flex-wrap: wrap;
+		align-items: flex-start;
+		justify-content: flex-start;
+	
+	}
+</style>

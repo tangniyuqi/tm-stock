@@ -1,0 +1,113 @@
+import { ICanvas } from '@/uni_modules/tmx-ui/core/canvas/ICanvas.uts';
+import { Shape } from '../../shape.uts';
+
+// 灰度调整参数
+export type GrayscaleOptionsOpts = {
+    // 灰度强度 (0-1)
+    intensity?: number;
+    // 是否启用
+    enabled?: boolean;
+}
+// 灰度调整参数
+export type GrayscaleOptions = {
+    // 灰度强度 (0-1)
+    intensity: number;
+    // 是否启用
+    enabled: boolean;
+}
+// 默认灰度选项
+export const defaultGrayscaleOptions: GrayscaleOptions = {
+    intensity: 1.0,
+    enabled: true
+};
+
+/**
+ * 灰度调整特效
+ */
+export class GrayscaleFilter {
+    private canvas: ICanvas;
+    private options: GrayscaleOptions;
+
+    constructor(canvas: ICanvas, options?: GrayscaleOptionsOpts) {
+        this.canvas = canvas;
+        this.options = {
+		 intensity: options?.intensity??defaultGrayscaleOptions.intensity,
+		 enabled:  options?.enabled??defaultGrayscaleOptions.enabled
+		} as GrayscaleOptions;
+    }
+
+    /**
+     * 设置灰度参数
+     */
+    setOptions(options: GrayscaleOptionsOpts): GrayscaleFilter {
+        this.options = {
+         intensity: options?.intensity??this.options.intensity,
+         enabled:  options?.enabled??this.options.enabled
+        } as GrayscaleOptions;
+        return this;
+    }
+
+    /**
+     * 应用灰度效果到指定区域
+     */
+    applyToArea(x: number, y: number, width: number, height: number): void {
+        if (!this.options.enabled || this.options.intensity <= 0) return;
+
+        const ctx = this.canvas.ctx
+        if (ctx==null) return;
+
+        // 保存当前状态
+        ctx.save();
+
+        // 设置裁剪区域
+        ctx.beginPath();
+        ctx.rect(x, y, width, height);
+        ctx.clip();
+
+        // 获取当前图像数据
+        const imageData = ctx.getImageData(x, y, width, height);
+        const data = imageData.data;
+
+        // 应用灰度算法
+        for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+
+            // 计算灰度值 (使用标准的亮度权重)
+            const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+
+            // 应用强度混合
+            data[i] = r + (gray - r) * this.options.intensity!;     // Red
+            data[i + 1] = g + (gray - g) * this.options.intensity!; // Green
+            data[i + 2] = b + (gray - b) * this.options.intensity!; // Blue
+        }
+
+        // 将修改后的数据绘制回画布
+        ctx.putImageData(imageData, x, y);
+
+        // 恢复状态
+        ctx.restore();
+    }
+
+    /**
+     * 应用灰度效果到Shape
+     */
+    applyToShape(shape: Shape): void {
+        this.applyToArea(shape.x, shape.y, shape.width, shape.height);
+    }
+
+    /**
+     * 应用灰度效果到整个画布
+     */
+    applyToCanvas(): void {
+        this.applyToArea(0, 0, this.canvas.width, this.canvas.height);
+    }
+
+    /**
+     * 获取当前选项
+     */
+    getOptions(): GrayscaleOptions {
+        return { ...this.options };
+    }
+}

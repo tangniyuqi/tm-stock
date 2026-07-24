@@ -1,0 +1,588 @@
+<script lang="ts" setup>
+	import { PropType, SlotsType } from "vue"
+	import { getUid } from "../../core/util/xCoreUtil.uts"
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { checkIsCssUnit, getUnit } from "../../core/util/xCoreUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	import { TABS_ITEM_INFO, TABS_ITEM } from "../../interface.uts"
+	import tabsItem from "./tabs-item.uvue"
+
+	/**
+	 * Props 类型定义
+	 */
+	type XTabsProps = {
+		/** 圆角 */
+		round?: string
+		/** 宽 */
+		width?: string
+		/** 指示线条的宽，单位为px，注意不是rpx单位的数字。 */
+		lineWidth?: number
+		/** 高是必填，不可为auto。 */
+		height?: string
+		/** 背景 */
+		color?: string
+		/** 暗黑时的背景,如果不填写读取sheetDark */
+		darkColor?: string
+		/** 文本激活时的颜色 ，空值默认取全局主题色 */
+		activeTitleColor?: string
+		/** 文本默认颜色 */
+		titleColor?: string
+		/** 文本默认的暗黑颜色，如果不填写取白色。 */
+		darkTitleColor?: string
+		/** 底部线条激活时的颜色，空值默认取全局主题色 */
+		lineColor?: string
+		/**
+		 * 渐变背景
+		 * 数组格式如下
+		 * [方向:top,bottom,left,right,自定义值例:45deg,颜色1:,颜色2]
+		 * 例:['left','black','white']
+		 * 如提供，暗黑及主题失效。
+		 */
+		lineGradient?: string[]
+		/** 行高 */
+		lineHeight?: string
+		/** 底部的线条是与项目等宽还是固定默认的小宽度。 */
+		lineFull?: boolean
+		/** 是否显示底部的线条 */
+		showLine?: boolean
+		list?: TABS_ITEM_INFO[]
+		/**
+		 * id值，如果数据没有提供id属性
+		 * 等同v-model
+		 */
+		modelValue?: string|number
+		/** 标题字号 */
+		fontSize?: string
+		/** 激活时的标题字号 */
+		activeFontSize?: string
+		/**
+		 * 项目宽度，默认是auto，即自动根据标题内容自动撑开宽度。
+		 * 如果你想均分（适合不超过一行），比如你有5个标签，那么你就可以设置为"20%"
+		 */
+		itemWidth?: string
+		/** 标题的padding是左右的间隙。 */
+		titlePadding?: string
+		/**
+		 * 是否让内容居中显示,
+		 * 默认为false,如果你开启了项目超过了宽出现滚动时,会自动向左对齐以便
+		 * 让内容能滚动,但如果内容少于可滚动,内容会自动居中.
+		 */
+		isItemCenter?: boolean
+		/** 激活时的项目自定样式 */
+		itemActiveStyle?: string
+		/** 未激活时的项目自定样式 */
+		itemStyle?: string
+		/** 激活时文本样式 */
+		textActiveStyle?: string
+		/** 未激活时的文本样式 */
+		textStyle?: string
+	}
+
+	/**
+	 * @name 标签导航 xTabs
+	 * @description 标签导航，常用于页面顶部导航时使用，角标，数字角标功能。如果使用了活动文字大小与未选中不一样的大小，那么要设定itemwidth
+	 * @page /pages/index/tabs
+	 * @category 导航组件
+	 * @constant 平台兼容
+	 * 	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({ name: "xTabs" })
+	
+	const emit = defineEmits([
+		/**
+		 * 单元格被点击
+		 * @param {TABS_ITEM} item - 类型是：TABS_ITEM 当前选中的标签项
+		 * @param {string|number} index - 当前选中的标签项index
+		 */
+		'change',
+		'update:modelValue'
+	])
+	
+	const props = withDefaults(defineProps<XTabsProps>(), {
+		round: "0",
+		width: "auto",
+		lineWidth: 18,
+		height: "44",
+		color: "white",
+		darkColor: "",
+		activeTitleColor: "",
+		titleColor: "#888888",
+		darkTitleColor: "#cacaca",
+		lineColor: "",
+		lineGradient: ():string[] => [] as string[],
+		lineHeight: "2px",
+		lineFull: false,
+		showLine: true,
+		list: ():TABS_ITEM_INFO[] => [] as TABS_ITEM_INFO[],
+		modelValue: "0",
+		fontSize: "16",
+		activeFontSize: "16",
+		itemWidth: "auto",
+		titlePadding: "12px",
+		isItemCenter: false,
+		itemActiveStyle: "",
+		itemStyle: "",
+		textActiveStyle: "",
+		textStyle: ""
+	})
+	defineSlots<{
+		 default(props: { active: boolean ,item:TABS_ITEM}): any
+	}>()
+	
+	const nowActiveId = ref<string|number>("")
+	const id = ref(('xTabsItem-' + getUid() + "-") as string)
+	const lineLeft = ref(0)
+	const activeLineWidth = ref(18)
+	const totalWidth = ref(0)
+	const scrollNowPosId = ref("")
+	const first = ref(true)
+	const isQueryOk = ref(false)
+	const tid = ref(0)
+	const tid2 = ref(12)
+	const tid3 = ref(133)
+	const tid4 = ref(1033)
+	const tabsList = ref<Map<string, NodeInfo>>(new Map<string, NodeInfo>())
+	const tabsItemLeft = ref(0)
+	const tabasItemCenter = ref(false)
+	
+	const proxy = getCurrentInstance()?.proxy
+	
+	const _itemActiveStyle = computed(() : string => {
+		return props.itemActiveStyle
+	})
+	const _itemStyle = computed(() : string => {
+		return props.itemStyle
+	})
+	const _textActiveStyle = computed(() : string => {
+		return props.textActiveStyle
+	})
+	const _textStyle = computed(() : string => {
+		return props.textStyle
+	})
+	const _showLine = computed(() : boolean => {
+		return props.showLine
+	})
+	const _lineFull = computed(() : boolean => {
+		return props.lineFull
+	})
+	const _fontSize = computed(() : string => {
+		let fontSize = checkIsCssUnit(props.fontSize, xConfig.unit);
+		if (xConfig.fontScale == 1) return fontSize;
+		let sizeNumber = parseInt(fontSize)
+		if (isNaN(sizeNumber)) {
+			sizeNumber = 14
+		}
+		return (sizeNumber * xConfig.fontScale).toString() + getUnit(fontSize)
+	})
+	const _itemWidth = computed(() : string => {
+		return checkIsCssUnit(props.itemWidth, xConfig.unit)
+	})
+	const _round = computed(() : string => {
+		return checkIsCssUnit(props.round, xConfig.unit)
+	})
+	const _activeFontSize = computed(() : string => {
+		return checkIsCssUnit(props.activeFontSize, xConfig.unit)
+	})
+	const _lineHeight = computed(() : string => {
+		return checkIsCssUnit(props.lineHeight, xConfig.unit)
+	})
+	const _height = computed(() : string => {
+		return checkIsCssUnit(props.height, xConfig.unit)
+	})
+	const _width = computed(() : string => {
+		return checkIsCssUnit(props.width, xConfig.unit)
+	})
+	const _color = computed(() : string => {
+		if (xConfig.dark == 'dark') {
+			if (props.darkColor != '') {
+				return getDefaultColor(props.darkColor)
+			} else {
+				return getDefaultColor(xConfig.sheetDarkColor)
+			}
+		}
+		return getDefaultColor(props.color)
+	})
+	const _activeTitleColor = computed(() : string => {
+		if (props.activeTitleColor == "") return getDefaultColor(xConfig.color);
+		return getDefaultColor(props.activeTitleColor)
+	})
+	const _titleColor = computed(() : string => {
+		if (xConfig.dark == 'dark') {
+			if (props.darkTitleColor != '') {
+				return getDefaultColor(props.darkTitleColor)
+			} else {
+				return "#ffffff"
+			}
+		}
+		return getDefaultColor(props.titleColor)
+	})
+	const _lineColor = computed(() : Map<string,string> => {
+		let colorstyleline = new Map<string,string>()
+		if(props.lineGradient.length==3){
+			
+			let dirs = props.lineGradient[0]
+			if (props.lineGradient[0] == 'top') {
+				dirs = 'to top'
+			} else if (props.lineGradient[0] == 'bottom') {
+				dirs = 'to bottom'
+			} else if (props.lineGradient[0] == 'left') {
+				dirs = 'to left'
+			} else if (props.lineGradient[0] == 'right') {
+				dirs = 'to right'
+			}
+			colorstyleline.set('backgroundImage',`linear-gradient(${dirs},${props.lineGradient[1]},${props.lineGradient[2]})`)
+			
+			return colorstyleline;
+		}
+		if (props.lineColor == ""){
+			colorstyleline.set('background-color',_activeTitleColor.value)
+			return colorstyleline;
+		}
+		colorstyleline.set('background-color',props.lineColor)
+		return colorstyleline
+	})
+	const _list = computed(() : TABS_ITEM[] => {
+		let lits = [] as TABS_ITEM[]
+
+		props.list.forEach((el : TABS_ITEM_INFO, index : number) => {
+			lits.push({
+				id: el.id == null ? (index.toString()): el.id!,
+				title: el.title,
+				disabled: el.disabled == null ? false : el.disabled! as boolean,
+				dotType: el.dotType == null ? "" : el.dotType! as string,
+				dotColor: el.dotColor == null ? "red" : getDefaultColor(el.dotColor!),
+				dotText: el.dotText == null ? "" : el.dotText! as string,
+
+			} as TABS_ITEM)
+		})
+
+		return lits
+	})
+	
+	const getNodeInfo = (idStr : string|number) => {
+		if (_list.value.length == 0) return;
+	
+		let _this = proxy;
+		uni.createSelectorQuery().in(_this)
+			.select(".xTabs")
+			.boundingClientRect((ret) => {
+				let parentNodeinfo = ret as NodeInfo
+				
+				try {
+					uni.createSelectorQuery().in(_this)
+						.selectAll(".xTabsItem")
+						.boundingClientRect().exec((ret) => {
+	
+							let allItems = ret[0] as NodeInfo[];
+							// console.log(allItems)
+							let totalWidthVal = 0;
+							// 从索引0算起，计算line的位置在每个项目的中间
+							let totalNowWidth = 0;
+							let isNow = false;
+							let nowNndex = 0;
+							allItems.forEach((el : NodeInfo, index : number) => {
+								totalWidthVal += el.width!;
+								
+								if (idStr == el.id) {
+									isNow = true;
+									nowNndex = index;
+								}
+								if (!isNow) {
+									totalNowWidth += el.width!;
+								}
+								
+							})
+							let realTargetlinewidth = allItems[nowNndex].width!
+							if (_lineFull.value) {
+								activeLineWidth.value = allItems[nowNndex].width!
+							} else {
+								activeLineWidth.value = (allItems[nowNndex].width!) / 2
+								realTargetlinewidth = props.lineWidth
+							}
+							
+							let parentWidth = parentNodeinfo.width!;
+							
+							let center = parentWidth/2
+							tabasItemCenter.value = (totalWidthVal - parentWidth)<=0&&props.isItemCenter
+							
+							tabsItemLeft.value = totalNowWidth - parentWidth + center + (allItems[nowNndex].width!)/2
+							
+							first.value = false;
+						
+							
+							let totalNowWidths = totalNowWidth + ((allItems[nowNndex].width!) - activeLineWidth.value) / 2;
+	
+							totalWidth.value = totalWidthVal;
+							
+							if (!_lineFull.value) {
+								// 下面的动画在4.71版本比较卡，先暂时隐藏。
+								// clearTimeout(tid2.value)
+								// tid2.value = setTimeout(function () {
+								// 	activeLineWidth.value = realTargetlinewidth
+									// let etotalNowWidth = totalNowWidth + ((allItems[nowNndex].width!) - realTargetlinewidth) / 2;
+									// totalWidth.value = totalWidthVal;
+									// lineLeft.value = etotalNowWidth;
+								// }, 100);
+								activeLineWidth.value = realTargetlinewidth
+								let etotalNowWidth = totalNowWidth + ((allItems[nowNndex].width!) - realTargetlinewidth) / 2;
+								lineLeft.value = etotalNowWidth;
+							}else{
+								lineLeft.value = totalNowWidths;
+							}
+	
+	
+							let idnex = Math.max(0, nowNndex)
+							scrollNowPosId.value = allItems[idnex].id!;
+	
+	
+						})
+	
+				} catch (e) {
+					console.error("xTabs:没有找到对应的index id，请检查你的数据。")
+				}
+			})
+			.exec()
+	
+	}
+	
+	
+	const setActiveId = (newValue : string|number) => {
+		if (_list.value.length == 0) return;
+		let index = -1
+		for (let i = 0; i < _list.value.length; i++) {
+			if (_list.value[i].id == newValue) {
+				index = i;
+				break;
+			}
+		}
+		index = Math.max(0, index)
+		let newval = _list.value[index].id
+		nowActiveId.value = newval;
+
+		if (index > -1) {
+			getNodeInfo(id.value + index.toString())
+		}
+	}
+	
+
+	const lineTranslateEnd = () => {
+
+	}
+	
+	const itemClick = (item : TABS_ITEM, classid : string, index : number) => {
+		if (item.disabled || nowActiveId.value == item.id) {
+			return;
+		}
+		nowActiveId.value = item.id;
+		/**
+		 * 当前选中的id值等同v-model
+		 */
+		emit('update:modelValue', item.id);
+		/**
+		 * 切换时触发
+		 * @param {TABS_ITEM} item 当前选中的标签项
+		 * @param {number} index 当前选中的标签项index
+		 */
+		emit('change', item, index);
+		let t = proxy;
+		if(_activeFontSize.value!=_fontSize.value){
+			clearTimeout(tid4.value)
+			tid4.value = setTimeout(function() {
+				getNodeInfo(classid)
+			}, 50);
+		}else{
+			getNodeInfo(classid)
+		}
+		
+	}
+
+	const calcTotalWidth = () => {
+		let totalWidthVal = 0;
+		tabsList.value.forEach((item : NodeInfo) => {
+			totalWidthVal += item.width!
+		})
+		totalWidth.value = totalWidthVal;
+	}
+	
+	const tabsItemChange = (recnode : NodeInfo, rectId : string) => {
+		tabsList.value.set(rectId, recnode)
+		calcTotalWidth()
+	}
+	
+	const tabsItemDestory = (idStr : string) => {
+		tabsList.value.delete(idStr)
+		calcTotalWidth()
+	}
+	
+	
+	
+	watch(():string|number => props.modelValue,(newValue : string|number) => {
+		if (newValue == nowActiveId.value || newValue == "") return;
+		setActiveId(newValue)
+	})
+	
+	watch(():TABS_ITEM_INFO[] => props.list,() => {
+		clearTimeout(tid3.value)
+		tid3.value = setTimeout(function() {
+			setActiveId(nowActiveId.value)
+		}, 50);
+	})
+	const resizechange = () => {
+		setActiveId(nowActiveId.value)
+	}
+	onMounted(() => {
+		activeLineWidth.value = props.lineWidth;
+		nowActiveId.value = props.modelValue;
+		// #ifndef APP-HARMONY
+		nextTick(() => {
+			setActiveId(nowActiveId.value)
+		})
+		// #endif
+		// #ifdef APP-HARMONY
+		tid.value = setTimeout(()=>{
+			setActiveId(nowActiveId.value)
+		},200)
+		// #endif
+		uni.$on("onResize", resizechange)
+	})
+
+	onBeforeUnmount(() => {
+		uni.$off("onResize", resizechange)
+		clearTimeout(tid.value)
+		clearTimeout(tid2.value)
+		clearTimeout(tid3.value)
+		clearTimeout(tid4.value)
+		
+	})
+</script>
+<template>
+	<view class="xTabs" ref="xTabs" :style="{width:_width,borderRadius:_round,height:_height,backgroundColor:_color,}">
+		<!-- :scroll-into-view="scrollNowPosId" -->
+		<scroll-view :scroll-left="tabsItemLeft" :scroll-with-animation="true" class="xTabsWrap"
+			:show-scrollbar="false" 
+			<!-- #ifndef MP-WEIXIN -->
+			:style="{justifyContent:tabasItemCenter?'center':'flex-start'}"
+			<!-- #endif -->
+			direction="horizontal">
+			<!-- #ifdef MP-WEIXIN -->
+			<view class="xTabsWrapMp" :style="{justifyContent:tabasItemCenter?'center':'flex-start'}">
+			<!-- #endif -->
+				<view class="xTabsItem" ref="xTabsItem" :id="(id+index)" v-for="(item,index) in _list" :key="index"
+					:style="[
+						{width:_itemWidth,height:'100%',opacity:item.disabled?'0.6':1},
+						nowActiveId==item.id?_itemActiveStyle:_itemStyle
+					]"
+					@click="itemClick(item,(id+index),index)">
+				
+					<tabs-item :id="(id+index)" @change="tabsItemChange" @destory="tabsItemDestory" :style="{with:'100%'}">
+						<x-badge v-if="item.dotType!=''" :bg-color="item.dotColor" :dot="item.dotType=='dot'"
+							:label="item.dotText">
+					
+							<view :key="index" :style="{paddingLeft:titlePadding,paddingRight:titlePadding}">
+								<!--
+								 @slot tabs循环节点插槽,插件名称是tabs_+item.id,使用时请务必通过
+								 -->
+								<slot :item="item" :active="nowActiveId==item.id">
+									<text class="xTabsWrapText" :style="[
+										{
+											fontSize:nowActiveId==item.id?_activeFontSize:_fontSize,
+											color:nowActiveId==item.id?_activeTitleColor:_titleColor,
+										},
+										nowActiveId==item.id?_textActiveStyle:_textStyle
+									]">
+										{{item.title}}
+									</text>
+								</slot>
+							</view>
+						</x-badge>
+						<view v-else>
+							<slot :item="item" :active="nowActiveId==item.id">
+								<text class="xTabsWrapText" :style="[
+									{
+										fontSize:nowActiveId==item.id?_activeFontSize:_fontSize,
+										color:nowActiveId==item.id?_activeTitleColor:_titleColor,
+										paddingLeft:titlePadding,
+										paddingRight:titlePadding
+									},
+									nowActiveId==item.id?_textActiveStyle:_textStyle
+								]">
+									{{item.title}}
+								</text>
+							</slot>
+						</view>
+					</tabs-item>
+				
+				</view>
+			
+				<view class="xLineWrap" :style="{width:totalWidth+'px',height:_lineHeight}">
+					<!-- 未知原因，首次进来更改下面的width是不生效的。只好利用first来切换刷新下。 -->
+					<view @transitionend="lineTranslateEnd" v-if="_showLine&&!first" class="xLine" ref="xLine"
+						:style="[{transform:`translateX(${lineLeft}px)`,height:_lineHeight,width:activeLineWidth+'px',borderRadius:_lineHeight},_lineColor]">
+					</view>
+				</view>
+			<!-- #ifdef MP-WEIXIN -->
+			</view>
+			<!-- #endif -->
+		</scroll-view>
+	</view>
+</template>
+<style scoped>
+	.xTabs{
+		overflow: hidden;
+	}
+	.xTabsItem {
+		display: flex;
+		flex-direction: row;
+		flex-wrap: nowrap;
+		justify-content: center;
+		align-items: center;
+		
+	}
+
+	.xLineWrap {
+		position: absolute;
+		bottom: 0px;
+
+	}
+
+	.xLine {
+		width: 20px;
+		position: relative;
+		left: 0px;
+		transition-duration: 300ms;
+		transition-property: transform, width;
+		transition-timing-function: cubic-bezier(0, 0.55, 0.45, 1);
+	}
+
+	.xTabsWrap {
+		width: 100%;
+		height: 100%;
+		display: flex;
+		flex-direction: row;
+		flex-wrap: nowrap;
+		/* justify-content: flex-start; */
+		
+		/* align-items: center; */
+	}
+	.xTabsWrapMp {
+		/* #ifdef MP-WEIXIN */
+		z-index: 1;
+		min-width: 100%;
+		height: 100%;
+		display: flex;
+		flex-direction: row;
+		flex-wrap: nowrap;
+		box-sizing: border-box;
+		white-space:nowrap;
+		/* #endif */
+	}
+
+	.xTabsWrapText {
+		/* transition-duration: 350ms;
+		transition-property: font-size, color;
+		transition-timing-function: cubic-bezier(0, 0.55, 0.45, 1); */
+		white-space: nowrap;
+	}
+</style>

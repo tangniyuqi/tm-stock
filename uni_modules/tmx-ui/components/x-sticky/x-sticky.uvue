@@ -1,0 +1,175 @@
+﻿﻿<script lang="ts" setup>
+	import { xProvitae } from "../../config/xConfig.uts"
+	import { PropType } from "vue"
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { checkIsCssUnit, rpx2px, getUid } from "../../core/util/xCoreUtil.uts"
+	type OBJINFO = {
+		width: number,
+		top: number,
+		left: number,
+		height: number
+	}
+	
+	type XStickyProps = {
+		/** 顶部的偏移量 */
+		top?: string
+		/** 左边的偏移量。 */
+		left?: string
+		/**
+		 * 触发距离，默认0，意思是组件距离顶部多远时触发悬停。
+		 * 对于需要多个悬停时此属性非常有用。
+		 * 这个值不允许使用%单位，可以是：px,rpx,数字（默认是rpx）
+		 */
+		diffTop?: string
+		/** 层级 */
+		zIndex?: number
+	}
+
+	/**
+	 * @name 粘性布局 Sticky
+	 * @description 可以同时存在多个悬停，多个悬停时，还支持触发距离悬停的设置，
+	 * 在复杂页面需要多个菜单吸附时非常有用。并且配合切换change事件做到更复杂的布局。
+	 * @page /pages/index/sticky
+	 * @category 导航组件
+	 * @constant 平台兼容
+	 * 	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({ name: "xSticky" })
+
+	const emit = defineEmits([
+		/**
+		 * 当触发悬停切换时触发
+		 * @description 当你有多个悬停，复杂布局页面时这个事件非常有用，可以帮助您做一些逻辑操作。
+		 * @param {boolean} isFixed - 是否悬停的状态
+		 */
+		'change'
+	])
+
+	const props = withDefaults(defineProps<XStickyProps>(), {
+		top: "0",
+		left: "0",
+		diffTop: '0',
+		zIndex: 88
+	})
+
+	defineSlots<{
+		default(props: { status: boolean }): any
+	}>()
+
+	const id = ref('xSticky-' + getUid())
+	const sizes = ref<OBJINFO>({
+		width: 0,
+		height: 0,
+		left: 0,
+		top: 0
+	})
+	const isFiexd = ref(false)
+	const xStickyWrapRef = ref<UniElement|null>(null)
+	const proxy = getCurrentInstance()?.proxy
+	const pageRouter = ref('')
+	
+	const getPage = ()=>{
+		const pages = getCurrentPages()
+		if(pages.length==0) return;
+		pageRouter.value = pages[pages.length-1].route
+	}
+	const _stop = ref(0)
+
+	const _top = computed((): string => {
+		if (!isFiexd.value) return "0px"
+
+		let p = parseInt(props.top);
+		if (props.top.lastIndexOf('rpx') > -1) {
+			p = rpx2px(p);
+		}
+
+		// #ifdef H5
+		let headerNode = document.querySelector(".uni-page-head")
+		let headeerTop = uni.getWindowInfo().windowTop
+		p = p + headeerTop
+		// #endif
+
+		return p.toString() + 'px';
+	})
+
+	const _left = computed((): string => {
+		if (!isFiexd.value) return "0px"
+		return checkIsCssUnit(props.left, 'rpx');
+	})
+
+	const _diffTop = computed((): number => {
+		let p = checkIsCssUnit(props.diffTop, 'rpx')
+		let tp = 0
+
+		if (p.lastIndexOf('rpx') > -1) {
+			tp = rpx2px(parseInt(p))
+		}
+		tp = parseInt(p);
+
+		return tp
+	})
+
+	const getNodes = () => {
+		xStickyWrapRef.value?.getBoundingClientRectAsync()?.then((nodeinfo:DOMRect)=>{
+			sizes.value = {
+				width: nodeinfo.width!,
+				height: nodeinfo.height!,
+				left: nodeinfo.left!,
+				top: nodeinfo.top!
+			} as OBJINFO
+		})
+	}
+
+	const getParentTop = () => {
+		// const parent = proxy?.$parent;
+	}
+
+
+	const setScrollTop = (evt:UTSJSONObject)=>{
+		const cpage = evt.getString('page')!
+		const top = evt.getNumber('top')!
+		_stop.value = top;
+		if(cpage!=pageRouter.value) return;
+		let isf = top >= (sizes.value.top - _diffTop.value)
+		if (isf != isFiexd.value) {
+			isFiexd.value = isf;
+			/**
+			 * 当触发悬停切换时触发
+			 * @description 当你有多个悬停，复杂布局页面时这个事件非常有用，可以帮助您做一些逻辑操作。
+			 * @param isFixed {boolean} 是否悬停的状态
+			 */
+			emit('change', isf)
+		}
+	}
+	onMounted(() => {
+		getPage()
+		nextTick(() => {
+			getNodes();
+		})
+		uni.$on('onPageScroll',setScrollTop)
+	})
+	onBeforeMount(()=>{
+		uni.$off('onPageScroll',setScrollTop)
+	})
+</script>
+<template>
+	<view class="xSticky">
+
+		<view :id="id" class="xStickyWrap" ref="xStickyWrapRef"
+			:style="{position:isFiexd?'fixed':'relative',left:_left,top:_top,zIndex:isFiexd?zIndex:0}">
+			<!-- 
+			 @slot 默认插槽，你要悬停的布局放在这里。
+			 @prop {boolean} status - 当前悬停的状态.
+			 -->
+			<slot :status="isFiexd"></slot>
+		</view>
+		<view v-if="isFiexd" :style="{height:sizes.height+'px'}"></view>
+	</view>
+</template>
+<style scoped>
+	.xStickyWrap {
+		width: 100%;
+	}
+</style>

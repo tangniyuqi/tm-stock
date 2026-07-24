@@ -1,0 +1,256 @@
+<script lang="ts" setup>
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { checkIsCssUnit } from "../../core/util/xCoreUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	import { getUid } from '../../core/util/xCoreUtil.uts';
+
+	/**
+	 * @name 进度条 xProgress
+	 * @description 使用，允许设置min,max值，如果你的双向绑定的vale值超过min,max的合法值，将会被转换为正确值。
+	 * @page /pages/index/progress
+	 * @category 展示组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({ name: "xProgress" })
+	type xProgeressPropsType = {
+		/**
+		 * 最小值
+		 */
+		min : number,
+		/**
+		 * 最大值
+		 */
+		max : number,
+		/**
+		 * 当前的值
+		 * 等同v-model=""
+		 */
+		modelValue : number,
+		/**
+		 * 进度条激活时的颜色
+		 * 为空时，取全局配置的值
+		 */
+		color : string,
+		/**
+		 * 背景颜色
+		 */
+		bgColor : string,
+		/**
+		 * 暗黑背景颜色，如果不设置取inputDarkColor
+		 */
+		darkBgColor : string,
+		/**
+		 * 是否显示进度条上的label文本
+		 */
+		showLabel : boolean,
+		/**
+		 * 文本颜色
+		 */
+		labelColor : string,
+		/**
+		 * 文本文字大小
+		 */
+		labelFontSize : string,
+		/**
+		 * 进度条的大小
+		 */
+		size : string,
+		/**
+		 * 圆角。
+		 * 为空值时，取全局的统一值
+		 */
+		round : string,
+		/**
+		 * 动画持续的时间
+		 */
+		duration : number,
+		/**
+		 * 渐变背景，使用使用正经的background-image请查阅官方文档,例：'linear-gradient(to bottom,red,green)'
+		 * 注意不要动态在渐变和color间切换原生不支持这样操作，会渲染异常的。
+		 */
+		linearColor : string
+	}
+	const emit = defineEmits(['update:modelValue'])
+	const props = withDefaults(defineProps<xProgeressPropsType>(), {
+		min: 0,
+		max: 100,
+		modelValue: 0,
+		color: "",
+		bgColor: "info",
+		darkBgColor: "",
+		showLabel: false,
+		labelColor: "white",
+		labelFontSize: "10",
+		size: "4",
+		round: "",
+		duration: 350,
+		linearColor:''
+
+	})
+	const xPropressRef = ref<UniElement | null>(null)
+	/** 百分值，目前3.98有bug动态更改view的百分比不会生效。暂且取宽度值 */
+	const percentage = ref(0)
+	const _val = ref(0)
+	const boxwidth = ref(0)
+	const boxheight = ref(0)
+	const _round = computed(() : string => {
+		if (props.round == "") {
+			return checkIsCssUnit(xConfig.progressRadius, xConfig.unit)
+		}
+		return checkIsCssUnit(props.round, xConfig.unit)
+	})
+	const _min = computed(() : number => props.min)
+	const _max = computed(() : number => props.max)
+	const _showLabel = computed(() : boolean => props.showLabel)
+	const _color = computed(() : string => {
+		if (props.color == "") {
+			return getDefaultColor(xConfig.color)
+		}
+		return getDefaultColor(props.color)
+	})
+	const _bgColor = computed(() : string => {
+		if (xConfig.dark == 'dark') {
+			if (props.darkBgColor != '') return getDefaultColor(props.darkBgColor)
+			return getDefaultColor(xConfig.inputDarkColor)
+		}
+		return getDefaultColor(props.bgColor)
+	})
+	const _labelColor = computed(() : string => getDefaultColor(props.labelColor))
+	const _labelFontSize = computed(() : string => checkIsCssUnit(props.labelFontSize, xConfig.unit))
+	const _size = computed(() : string => checkIsCssUnit(props.size, xConfig.unit))
+	const _bgStyle = computed(():UTSJSONObject=>{
+		let obj:UTSJSONObject = {};
+		if(props.linearColor!=''){
+			obj.set('background-image',props.linearColor)
+		}else{
+			obj.set('background-color',_color.value)
+		}
+		return obj;
+	})
+	// linearColor
+	/**值转比例*/
+	const valueToPro = (val : number) : number => {
+		let min = Math.min(_min.value, _max.value);
+		let max = Math.max(_min.value, _max.value);
+		let realval = Math.max(Math.min(val, max), min);
+		/**
+		 * 等同v-model=""
+		 * 如果你的双向绑定的vale值超过min,max的合法值，将会被转换为正确值。
+		 */
+		emit('update:modelValue', realval);
+		return (realval - min) / (max - min) * 100;
+	}
+
+	/**比例转值*/
+	const proToValue = (val : number) : number => {
+		const minValue = Math.min(_min.value, _max.value);
+		const maxValue = Math.max(_min.value, _max.value);
+		if (minValue === maxValue) {
+			return minValue;
+		}
+		return (val / 100) * (maxValue - minValue) + minValue;
+	}
+	const getNodes = () => {
+		let ele = xPropressRef.value;
+		if (ele == null) return;
+		ele.getBoundingClientRectAsync()?.then((ret : DOMRect) => {
+			boxwidth.value = ret.width;
+			boxheight.value = ret.height;
+		})
+	}
+
+	watch(() : number => props.modelValue, (newval : number) => {
+		if (newval != _val.value) {
+			_val.value = newval
+			percentage.value = valueToPro(_val.value);
+			getNodes()
+		}
+	})
+	onMounted(() => {
+		// #ifdef APP-ANDROID||MP||WEB
+		getNodes();
+		_val.value = props.modelValue
+		percentage.value = valueToPro(_val.value);
+		// #endif
+		// #ifdef APP-HARMONY||APP-IOS
+		setTimeout(function () {
+			getNodes();
+			_val.value = props.modelValue
+			percentage.value = valueToPro(_val.value);
+		}, 100);
+		// #endif
+	})
+</script>
+<template>
+	<view class="xPropressBox">
+		<view ref="xPropressRef" class="xPropress" :style="{backgroundColor:_bgColor,height:_size,borderRadius:_round}">
+			<view class="xPropressBg" :style="[
+				{
+				backgroundColor:_color,
+				width:`${(percentage/100)*boxwidth}px`,
+				borderRadius:_round,
+				transitionDuration:`${duration}ms`
+				},
+				_bgStyle
+			]">
+				<view v-if="showLabel" class="xPropressBtn">
+					<text class="xPropressTxt" :style="{color:_labelColor,fontSize:_labelFontSize}">
+						<!-- 
+						 @slot 默认标签文本插槽，需要设置:showLabel="true"
+						 @prop {number} value - 当前的值
+						 @prop {number} percentage - 当前的百分比值
+						 -->
+						<slot :value="_val" :percentage="percentage.toFixed(0)">{{percentage.toFixed(0)}}%</slot>
+					</text>
+				</view>
+			</view>
+		</view>
+		<view class="xPropressBoxRight">
+			<!--
+			 @slot 右插槽
+			 @prop {number} value - 当前的值
+			 @prop {number} percentage - 当前的百分比值
+			 -->
+			<slot name="right" :value="_val" :percentage="percentage.toFixed(0)"></slot>
+		</view>
+	</view>
+</template>
+<style scoped>
+	.xPropressBox {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+	}
+
+	.xPropressBoxRight {}
+
+	.xPropress {
+		flex: 1;
+	}
+
+	.xPropressBg {
+		height: 100%;
+		display: flex;
+		flex-direction: row;
+		justify-content: flex-end;
+		align-items: center;
+		transition-duration: 0ms;
+		transition-property: width;
+		transition-timing-function: ease;
+	}
+
+	.xPropressBtn {
+		height: 100%;
+		/* background-color: yellow; */
+		padding: 0rpx 10rpx;
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+		align-items: center;
+	}
+
+	.xPropressTxt {}
+</style>

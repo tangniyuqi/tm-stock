@@ -1,0 +1,179 @@
+{
+	"tmui4x": {
+		"cancel": "キャンセル",
+		"confirm": "確認",
+		"success": "成功",
+		"fail": "失敗",
+		"warn": "警告",
+		"info": "情報",
+		"clear":"クリア",
+		"pickerTitle":"選択してください",
+		"calendar":{
+			"year": "年",
+			"month": "月",
+			"day": "日",
+			"hour": "時",
+			"minute": "分",
+			"second": "秒",
+			"titleCurrentMonth":"{0}年{1}月",
+			"monthCountSelected":"{count}ヶ月",
+			"selectedStatus":"選択済み{count}日 | 日付未選択 | 選択済み | 終了日未選択",
+			"rangStatus":"開始 | 終了 | 本日",
+			"tips":"最大選択{count}日",
+			"currentMonthTitle":"今月",
+			"week":"月曜日 | 火曜日 | 水曜日 | 木曜日 | 金曜日 | 土曜日 | 日曜日"
+		},
+		"betweentTime": {
+			"start": "開始時間",
+			"end": "終了時間",
+			"quiakListTitle":"本日 | 今週 | 今月 | 今年 | 今四半期",
+			"quiakListTitle2":"最近{count}日",
+			"quiakListTitle3":"前{count}年",
+			"title":"時間を選択してください",
+			"splite":"から"
+		},
+		"uploadFile":{
+			"title":"ファイルを選択",
+			"uploadStatus":"アップロード待機 | アップロード中... | アップロード失敗 | アップロード成功 | サイズ超過",
+			"tips1":"アップロード中は削除禁止",
+			"tips2":"アップロード済みファイルは削除禁止"
+		},
+		"pickerSelected":{
+			"placeholder":"キーワードを入力してください",
+			"search":"検索",
+			"selected":"選択済み{count}項目",
+			"claer":"選択をクリア",
+			"selectedMode":"現在は単一選択モード",
+			"selectedALl":"すべて選択"
+		},
+		"tree":{
+			"changeTitle":"内容を変更",
+			"addTitle":"下位を追加",
+			"inputTitle":"タイトル",
+			"inputId":"識別ID",
+			"inputTips1":"重複しないでください、空の場合は自動生成"
+		},
+		"input":{
+			"placeholder":"選択または入力してください"
+		},
+		"inputTag":{
+			"placeholder":"入力してEnterを押してください",
+			"tips":"空にできません",
+			"tips2":"制限最大数を超過:{count}",
+			"btnText":"タグを追加"
+		},
+		"keyboard":{
+			"placeholder":"安全キーボードで安心入力",
+			"space":"スペース",
+			"confirm":"確認"
+		},
+		"pickerTime":{
+			"hour":"時間",
+			"minute":"分",
+			"second":"秒数"
+		},
+		"cascader":{
+			"placeholder":"選択してください",
+			"currentPlaceholder":"本級を選択"
+		},
+		"pickerDate":{
+			"placeholder":"時間を選択してください",
+			"year":"年",
+			"month":"月",
+			"day":"日",
+			"hour":"時",
+			"minute":"分",
+			"second":"秒"
+		},
+		"uploadMedia":{
+			"tips1":"アップロード中はドラッグソート禁止",
+			"videoPreview":"ビデオプレビュー",
+			"close":"閉じる",
+			"systemError":"システム異常",
+			"limitMaxCount":"最大アップロード数を超過",
+			"uploadStatus":"アップロード待機 | アップロード中... | アップロード失敗 | アップロード成功 | サイズ超過"
+		},
+		"checkbox":{
+			"tips":"最大選択数を超過"
+		},
+		"weekbar":{
+			"week":"月曜日 | 火曜日 | 水曜日 | 木曜日 | 金曜日 | 土曜日 | 日曜日"
+		},
+		"pagination":{
+			"prev": "前のページ",
+			"next": "次のページ"
+		},
+		"search":{
+			"placeholder":"キーワードを入力",
+			"cancel":"キャンセル"
+		},
+		"xmore":{
+			"off": "もっと展開",
+			"on": "もっと収納"
+		},
+		"empty":{
+			"moreLabel": "データなし",
+			"errorLabel": "エラー",
+			"btnLabel": "リトライ",
+			"title":"データなし"
+		},
+		"xloading":{
+			"label":"ロード中..."
+		},
+		"actionModal":{
+			"title":"リマインダー",
+			"btnText":"確認"
+		},
+		"actionMenu":{
+			"title":"選択してください",
+			"btnText":"確認"
+		},
+		"pullRefresh":{
+			"status_1":"リフレッシュ中",
+			"status_2":"さらに下に引っ張る",
+			"status_3":"離してリフレッシュ",
+			"status_4":"リフレッシュ完了",
+			"status_5":"リフレッシュ失敗"
+		},
+		"virtualList":{
+			"status_0":"さらに下に引っ張る",
+			"status_1":"離してリフレッシュ",
+			"status_2":"リフレッシュ中",
+			"status_3":"リフレッシュキャンセル",
+			"status_4":"リフレッシュタイムアウト、リトライ",
+			"status_5":"リフレッシュ完了"
+		},
+		"imageResize":{
+			"ok":"完了",
+			"cancel":"キャンセル",
+			"reset":"リセット"
+		},
+		"colorView":{
+			"rgb":"RGB",
+			"hub":"スペクトル",
+			"grid":"カラーパレット",
+			"alpha":"透明度",
+			"hex":"HEX",
+			"r":"赤",
+			"g":"緑",
+			"b":"青"
+		},
+		"modal": {
+			"title": "タイトル"
+		},
+		"mention": {
+			"placeholder": "内容を入力、@で友達選択、確認押す"
+		},
+		"slideVerify": {
+			"tipsText": "指定位置にドラッグ",
+			"tipsTextSuccess": "検証成功",
+			"tipsTextFail": "検証失敗"
+		},
+		"xRequest":{
+			"error":"サーバーエラー:",
+			"success":"操作成功",
+			"hostFailEmpty":"リクエストドメイン未入力",
+			"loading":"ロード中"
+		}
+	}
+}

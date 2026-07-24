@@ -1,0 +1,155 @@
+<template>
+	<view>
+		<view v-if="_currentId!=''" class="xGuidBgColorBox">
+			<!-- 聚焦框（四向遮罩，中间挖空露出目标元素） -->
+			<view class="xGuidItemBox" v-for="(item,index) in maskList" :key="index" :style="{
+				backgroundColor:props.maskColor,
+				width:`${item.width}px`,
+				height:`${item.height}px`,
+				top:`${item.top}px`,
+				left:`${item.left}px`,
+			}"></view>
+		</view>
+		<!-- 
+		@slot 插槽内只可放置x-guid-item
+		-->
+		<slot></slot>
+	</view>
+</template>
+
+<script setup lang="ts">
+	import { computed, provide, ComputedRef } from "vue"
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { checkIsCssUnit } from "../../core/util/xCoreUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	import { XGuidItems,MaskIitemStyle } from "./interface.uts"
+	
+	/**
+	 * @name 引导 xGuid
+	 * @description 内部只可放置x-guid-item。在app上根节点必须是scroll-view或者list-view等可滚动的页面使用。
+	 * 还要设置容器:scroll-with-animation="false"禁止滚去动画。
+	 * 且你的元素唯一id必须是容器的直接子节点，否则会无效(安卓会无效，为了所有平台有效，必须是容器的直接第一级子节点)。
+	 * 您可以参考我的dmeo页面使用，严格按照demo使用！！！
+	 * @page /pages/daohang/guid
+	 * @category 导航组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.87+ | 1.1.21 |
+	 */
+	defineOptions({ name: "xGuid" })
+	type xGuidPropsType = {
+		maskColor : string,
+		/** 如果要双向绑定请使用v-model:active-id,您在子组件上定义的target-id属性，且是唯一的 */
+		activeId : string,
+		// 初始默认选中的id。
+		defaultActiveId : string,
+	}
+	const props = withDefaults(defineProps<xGuidPropsType>(), {
+		maskColor: 'rgba(0,0,0,0.4)',
+		activeId: '',
+		defaultActiveId: ''
+	})
+	const emit = defineEmits([
+		/** 用记点上、下步时的变化 */
+		"change",
+		/** 双向同步手动控制，默认可以不配置，如果要自行控制请v-model:activeId*/
+		"update:activeId",
+		/** 点击完成时触发 */
+		"complete",
+	])
+	const _ids = ref<XGuidItems[]>([])
+	// maskList
+	const maskList = ref<MaskIitemStyle[]>([])
+	const _nowId = ref('')
+	// 预备切换中的目标 id：新子项会在不可见状态下先完成测量，就绪后父组件才真正把 _nowId 改过去，
+	// 避免"旧项卸载 → 新项还没算好"的中间空帧（整屏无遮罩的闪烁）。
+	let tid = 1351
+	const _currentId = computed<string>({
+		get: () : string => {
+			return _nowId.value;
+		},
+		set: (id : string) => {
+			_nowId.value = id;
+			emit('update:activeId', id)
+		}
+	} as WritableComputedOptions<string>)
+	provide('xGuidCurrentId', _currentId)
+	provide('xGuidIds', computed(() : XGuidItems[] => _ids.value))
+	
+
+	watch(() : string => props.activeId, () => {
+		_nowId.value = props.activeId;
+	})
+
+	const addId = (id : string, order : number) => {
+		if (id == '') return;
+		const index = _ids.value.findIndex((el : XGuidItems, index : Number) : boolean => el.id == id);
+		if (index == -1) {
+			_ids.value.push({ id, order } as XGuidItems)
+		} else {
+			_ids.value.splice(index, 1, { id, order } as XGuidItems)
+		}
+	}
+	const removeId = (id : string) => {
+		const index = _ids.value.findIndex((el : XGuidItems, index : Number) : boolean => el.id == id);
+		if (index > -1) {
+			_ids.value.splice(index, 1,)
+		}
+	}
+	// 供子组件切换当前激活项；传空字符串表示关闭引导
+	const setCurrentId = (id : string) => {
+		if (_currentId.value == id) return
+		_currentId.value = id
+		emit('update:activeId', id)
+		emit('change', id)
+
+	}
+	
+	const setMaskList = (listMst:MaskIitemStyle[])=>{
+		maskList.value = listMst;
+	}
+	const complete = ()=>{
+		emit('complete')
+	}
+	provide("addId", addId)
+	provide("removeId", removeId)
+	provide("setCurrentId", setCurrentId)
+	provide("setMaskList", setMaskList)
+	provide("complete", complete)
+	onMounted(() => {
+		clearTimeout(tid)
+		if(props.defaultActiveId!=''){
+			tid = setTimeout(function () {
+				setCurrentId(props.defaultActiveId)
+			}, 120);
+		}
+	})
+	onBeforeUnmount(() => {
+		clearTimeout(tid)
+	})
+</script>
+
+<style>
+	.xGuidBgColorBox {
+		position: fixed;
+		z-index: 885;
+		left: 0;
+		width: 100%;
+		/* #ifdef WEB */
+		top: var(--uni-safe-area-inset-top);
+		height: 100%;
+		/* #endif */
+		/* #ifndef WEB */
+		top: 0;
+		height: 100%;
+		/* #endif */
+	}
+
+	.xGuidItemBox {
+		position: absolute;
+		transition-property: all;
+		transition-timing-function: cubic-bezier(.42,.38,.15,.93);
+		transition-duration: 250ms;
+	}
+</style>

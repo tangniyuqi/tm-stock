@@ -1,0 +1,113 @@
+<template>
+<view class="page">
+	<view class="mb-12">
+		<x-tabs 
+			:list="tabList" 
+			v-model="activeTab" 
+			@change="handleTabChange"
+			color="#FFF"
+			:line-full="false"
+      activeFontSize="17"
+			:line-width="28"
+			:line-color="xConfig.color"
+      titleColor="#333"
+      class="px-12"
+		>
+		</x-tabs>
+	</view>
+	
+	<x-sheet class="m-12" :padding="[12, 0, 12, 0]">
+		<x-list padding="0">
+			<view 
+				v-for="(item, index) in newsList" 
+				:key="index"
+				class="news-item-wrapper px-4 py-24"
+				@click="goDetail(item)"
+			>
+				<view class="flex flex-row justify-between align-start">
+          <view class="text-area flex-1 mr-24">
+            <x-text color="#333" font-size="15" class="text-base text-black font-weight-b text-overflow-2">{{ item.title }}</x-text>
+            
+            <view class="flex flex-row align-center mt-auto mt-10">
+              <text class="text-xs text-grey">{{ item.datetime }}</text>
+            </view>
+          </view>
+				</view>
+			</view>
+		</x-list>
+	</x-sheet>
+</view>
+</template>
+
+<script setup lang="ts">
+import { ref } from 'vue';
+import { xConfig } from '@/uni_modules/tmx-ui/config/xConfig.uts';
+
+// 标签页数据
+const tabList = ref([
+  { id: 2, title: '题材动态' },
+  { id: 3, title: '题材轮动' },
+  { id: 4, title: '题材库' }
+]);
+
+const activeTab = ref('1');
+
+const newsList = ref([
+  {
+    title: '半导体设备国产化率创历史新高！关键零部件领域取得重大技术突破',
+    datetime: '2026-07-20',
+    isHot: true,
+    cover: 'https://picsum.photos/200/140?random=1'
+  },
+  {
+    title: '重磅！多部委联合发文推动新材料产业高质量发展，这些板块将迎来黄金期',
+    datetime: '2026-07-19',
+  },
+  {
+    title: '如何评价当前人工智能在硬件整机领域的自主可控趋势？专家这样说...',
+    datetime: '2026-07-18',
+  }
+]);
+
+const goDetail = (item: any) => {
+  console.log('跳转到新闻详情:', item.title);
+};
+
+const handleTabChange = (item: any, index: number) => {
+  switch(item.id) {
+    case '1':
+      // 显示题材热点内容
+      break;
+    case '2':
+      // 显示题材动态内容
+      break;
+    case '3':
+      // 显示题材轮动内容
+      break;
+  }
+};
+</script>
+
+<style scoped>
+.page {
+  padding: 0 0 0 0;
+}
+
+.news-item-wrapper {
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.text-area {
+  display: flex;
+  flex-direction: column;
+  min-height: 140rpx; /* 与图片高度一致 */
+}
+
+.text-overflow-2 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  line-height: 1.4;
+}
+</style>

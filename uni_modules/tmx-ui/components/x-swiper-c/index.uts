@@ -1,0 +1,34 @@
+/**
+ * Canvas轮播图组件
+ * 统一导出入口
+ */
+
+// 导出主类和缓动函数
+export { SwiperManger, Easing } from './swiperManger.uts';
+export type { EasingFunction } from './swiperManger.uts';
+
+// 导出动画效果
+export { 
+	ScaleSlideEffect, 
+	SimpleSlideEffect, 
+	FadeEffect,
+	FlipXEffect,
+	FlipYEffect,
+	ZoomFadeEffect,
+	PushPullEffect,
+	StretchYEffect,
+	StackCardEffect,
+	StackingEffect,
+	InStackingEffect,
+	OutStackingEffect,
+	StackingSlideEffect
+} from './animationEffects.uts';
+
+// 导出类型定义
+export type { 
+	SwiperItem, 
+	IAnimationEffect, 
+	AnimationFrameState, 
+	RenderItemConfig 
+} from './animationEffects.uts';
+

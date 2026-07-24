@@ -1,0 +1,5 @@
+{
+	"dependencies": {
+		"x_library_s": "./lib/x_library_s.har"
+	}
+}

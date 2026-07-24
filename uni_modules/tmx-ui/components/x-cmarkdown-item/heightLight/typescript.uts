@@ -1,0 +1,41 @@
+import { HighlightConfig } from "../heightlight.uts"
+
+export function getTypeScriptConfig(): HighlightConfig {
+	const config = new HighlightConfig()
+	
+	// TypeScript 关键字（包含 JavaScript 关键字）
+	config.keywords = [
+		'abstract', 'as', 'async', 'await', 'break', 'case', 'catch', 'class',
+		'const', 'continue', 'debugger', 'declare', 'default', 'delete', 'do',
+		'else', 'enum', 'export', 'extends', 'false', 'finally', 'for', 'from',
+		'function', 'get', 'if', 'implements', 'import', 'in', 'infer', 'instanceof',
+		'interface', 'is', 'keyof', 'let', 'module', 'namespace', 'never', 'new',
+		'null', 'of', 'package', 'private', 'protected', 'public', 'readonly',
+		'return', 'require', 'set', 'static', 'super', 'switch', 'this', 'throw',
+		'true', 'try', 'type', 'typeof', 'undefined', 'var', 'void', 'while',
+		'with', 'yield'
+	]
+	
+	// TypeScript 内置对象
+	config.builtins = [
+		'any', 'unknown', 'number', 'string', 'boolean', 'symbol', 'bigint',
+		'Array', 'Object', 'String', 'Number', 'Boolean', 'Function', 'Symbol',
+		'Date', 'Math', 'JSON', 'Promise', 'Map', 'Set', 'WeakMap', 'WeakSet',
+		'Proxy', 'Reflect', 'RegExp', 'Error', 'TypeError', 'RangeError',
+		'console', 'window', 'document', 'process', 'global',
+		'Partial', 'Required', 'Readonly', 'Record', 'Pick', 'Omit', 'Exclude',
+		'Extract', 'NonNullable', 'ReturnType', 'InstanceType', 'Parameters'
+	]
+	
+	// TypeScript 操作符
+	config.operators = [
+		'+', '-', '*', '/', '%', '=', '==', '===', '!=', '!==',
+		'<', '>', '<=', '>=', '&&', '||', '!', '&', '|', '^',
+		'~', '<<', '>>', '>>>', '++', '--', '?', ':', '=>',
+		'+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=', '<<=', '>>=', '>>>=',
+		'?.', '??', '??='
+	]
+	
+	return config
+}
+

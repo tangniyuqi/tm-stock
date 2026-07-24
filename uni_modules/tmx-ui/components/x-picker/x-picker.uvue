@@ -1,0 +1,414 @@
+﻿﻿<script setup lang="ts">
+	import { type PropType, toRaw, computed, ref, watch, onMounted, onBeforeUnmount } from "vue"
+	import { getUid,setPagePullRefresh,getPagePullRefresh } from "../../core/util/xCoreUtil.uts"
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	import { PICKER_ITEM_INFO, X_PICKER_X_ITEM } from "../../interface.uts"
+	const i18n = xConfig.i18n
+	/**
+	 * @name 选择器 xPicker
+	 * @description 组件采用数组id式选择，非索引。考虑到实际实用中多以id为交互提交数据。因此摒弃了传统的索引选项
+	 * @page /pages/index/picker
+	 * @category 表单组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({ name: "xPicker" })
+	type XPickerProps = {
+		/**
+		 * 数据项同x-picker-view的PICKER_ITEM_INFO
+		 */
+		list?: PICKER_ITEM_INFO[]
+		/**
+		 * 当前选中项的id值
+		 */
+		modelValue?: string[]
+		/**
+		 * 当前选中项的回显文本等同v-model:model-str
+		 * 请不要更改此值，此值只对外输出显示。
+		 * 如果空值，将内部首次递归渲染回显文本。如果你后台返回，就不会计算。
+		 * 因此如果对性能有要求的请务必让后台在首次显示时先回显文本，
+		 * 这样内部在第一次时不会递归计算回显文本，提高性能。
+		 */
+		modelStr?: string
+		/**
+		 * 当前打开的状态。
+		 * 等同v-model:model-show
+		 */
+		modelShow?: boolean
+		/**
+		 * 顶部标题
+		 */
+		title?: string
+		/**
+		 * 取消按钮的文本
+		 */
+		cancelText?: string
+		/**
+		 * 确认按钮的文本
+		 */
+		confirmText?: string
+		/**
+		 * 是否懒加载内部内容。
+		 * 当前你的列表内容非常多，且影响打开的动画性能时，请务必
+		 * 设置此项为true，以获得流畅视觉效果。如果选择数据较少没有必要打开
+		 * 注意:由于要兼容微信,此属性从1.1.9开始必须打开,除非不用微信小程序可以关闭.
+		 */
+		lazyContent?: boolean
+		/**
+		 * 显示在顶部的单位名称
+		 */
+		cellUnits?: string[]
+		/**
+		 * 单位字体大小
+		 */
+		unitsFontSize?: string
+		/**
+		 * 自动同步modelstr拼接时的符号.
+		 */
+		modelStrJoin?: string
+		/**
+		 * 层级
+		 */
+		zIndex?: number
+		/**
+		 * 是否显示关闭按钮
+		 */
+		showClose?: boolean
+		/**
+		 * 是否禁用弹出
+		 */
+		disabled?: boolean
+		/**
+		 * 宽屏时是否让内容剧中显示
+		 * 并限制其宽为屏幕宽，只展示中间内容以适应宽屏。
+		 */
+		widthCoverCenter?: boolean
+		/**
+		 * 自定义容器背景层样式
+		 */
+		customWrapStyle?: string
+	}
+
+	const props = withDefaults(defineProps<XPickerProps>(), {
+		list: () => [] as PICKER_ITEM_INFO[],
+		modelValue: () => [] as string[],
+		modelStr: "",
+		modelShow: false,
+		title: "",
+		cancelText: "",
+		confirmText: "",
+		lazyContent: true,
+		cellUnits: () => [] as string[],
+		unitsFontSize: '12',
+		modelStrJoin: ",",
+		zIndex: 1100,
+		showClose: false,
+		disabled: false,
+		widthCoverCenter: false,
+		customWrapStyle: ""
+	})
+
+	const emit = defineEmits([
+		/**
+		 * 取消时触发
+		 */
+		'cancel',
+		/**
+		 * 确认触发
+		 * @param {string[]} ids 当前选中项的id值
+		 */
+		'confirm',
+		/**
+		 * 滑动变换时触发
+		 * @param {string[]} ids 当前选中项的id值
+		 */
+		'change',
+		/**
+		 * 变量控制打开状态
+		 * 等同v-model:model-show
+		 */
+		'update:modelShow',
+		/**
+		 * 等同v-model:model-str
+		 * 只对外输出当前回选区的选中项的文本，不要外部改变此值。
+		 */
+		'update:modelStr',
+		'update:modelValue'
+	])
+
+	const show = ref(false)
+	const nowValue = ref<string[]>([])
+	const modelStrValue = ref("")
+	const nowPull = ref(false)
+	const yanchiDuration = ref(false)
+
+	const _list = computed((): PICKER_ITEM_INFO[] => {
+		return props.list.slice(0)
+	})
+
+	const _lazyContent = computed((): boolean => {
+		return props.lazyContent
+	})
+
+	const _cellUnits = computed((): string[] => {
+		return props.cellUnits
+	})
+
+	const _disabled = computed((): boolean => {
+		return props.disabled
+	})
+
+	
+
+	const _cancelText = computed((): string => {
+		if (props.cancelText == '') {
+			return i18n.t("tmui4x.cancel")
+		}
+		return props.cancelText
+	})
+
+	const _confirmText = computed((): string => {
+		if (props.confirmText == '') {
+			return i18n.t("tmui4x.confirm")
+		}
+		return props.confirmText
+	})
+
+	const _title = computed((): string => {
+		if (props.title == '') {
+			return i18n.t("tmui4x.pickerTitle")
+		}
+		return props.title
+	})
+	const listDatas = (): X_PICKER_X_ITEM[] => {
+		if (props.list.length == 0) return [] as X_PICKER_X_ITEM[]
+		let list = props.list.slice(0) as PICKER_ITEM_INFO[]
+		function addOptionalFieldsToTreeClolone(tree: PICKER_ITEM_INFO[]): X_PICKER_X_ITEM[] {
+			let nowlist = [] as X_PICKER_X_ITEM[]
+			for (let i = 0; i < tree.length; i++) {
+				const node = tree[i]
+				node.disabled = node.disabled == null ? false : node.disabled! as boolean
+				node.id = node.id == null ? i.toString() : node.id! as string
+				node.children = node.children == null ? ([] as PICKER_ITEM_INFO[]) : node.children! as PICKER_ITEM_INFO[]
+				let item = {
+					id: node.id!,
+					title: node.title,
+					disabled: node.disabled!,
+					children: [] as X_PICKER_X_ITEM[]
+				} as X_PICKER_X_ITEM
+				if ((node.children!).length > 0) {
+					item.children = addOptionalFieldsToTreeClolone(node.children! as PICKER_ITEM_INFO[])
+				}
+				nowlist.push(item)
+			}
+			return nowlist
+		}
+		return addOptionalFieldsToTreeClolone(list)
+	}
+	const getIdeBystr = (): string[] => {
+		let list = listDatas()
+		if (list.length == 0) return [] as string[]
+		let index = 0
+		let val = nowValue.value.slice(0)
+		let strs = [] as string[]
+		function getIndex(nodes: X_PICKER_X_ITEM[]) {
+			if (val.length <= index || val.length == 0) return
+			let id = val[index]
+			let sindex = 0
+			for (let i = 0; i < nodes.length; i++) {
+				let item = nodes[i]
+				if (item.id == id) {
+					sindex = i
+					strs.push(item.title)
+					if (item.children.length > 0) {
+						index += 1
+						getIndex(item.children)
+					}
+				}
+			}
+		}
+		getIndex(list)
+		return strs
+	}
+	
+	const getIdeBystrBylist = (ids: string[]): string[] => {
+		let list = listDatas()
+		if (list.length == 0) return [] as string[]
+		let index = 0
+		let val = ids.slice(0)
+		let strs = [] as string[]
+		function getIndex(nodes: X_PICKER_X_ITEM[]) {
+			if (val.length <= index || val.length == 0) return
+			let id = val[index]
+			let sindex = 0
+			for (let i = 0; i < nodes.length; i++) {
+				let item = nodes[i]
+				if (item.id == id) {
+					sindex = i
+					strs.push(item.title)
+					if (item.children.length > 0) {
+						index += 1
+						getIndex(item.children)
+					}
+				}
+			}
+		}
+		getIndex(list)
+		return strs
+	}
+	
+	const _modelStrValue = computed((): string => {
+		return getIdeBystrBylist(props.modelValue).join(props.modelStrJoin)
+	})
+
+	
+
+	const onSetDefaultStr = () => {
+		if (props.modelStr == "" && _list.value.length > 0) {
+			let str = getIdeBystr()
+			emit('update:modelStr', str.join(props.modelStrJoin))
+			modelStrValue.value = str.join(props.modelStrJoin)
+		}
+	}
+
+	const openShow = () => {
+		if (_disabled.value) return
+		show.value = true
+		/**
+		 * 变量控制打开状态
+		 * 等同v-model:model-show
+		 */
+		emit('update:modelShow', true)
+		setPagePullRefresh(false)
+	}
+
+	const onClose = () => {
+		/**
+		 * 变量控制打开状态
+		 * 等同v-model:model-show
+		 */
+		emit('update:modelShow', false)
+		nowValue.value = props.modelValue.slice(0)
+		setPagePullRefresh(nowPull.value)
+		if (_lazyContent.value) {
+			yanchiDuration.value = false
+		}
+	}
+
+	const strChange = (str: string) => {
+		modelStrValue.value = str
+	}
+
+	const onOpen = () => {
+		yanchiDuration.value = true
+	}
+
+	const mchange = (ids: string[]) => {
+		/**
+		 * 滑动变换时触发
+		 * @param {string[]} ids 当前选中项的id值
+		 */
+		emit('change', ids.slice(0))
+	}
+
+	const onCancel = () => {
+		emit('cancel')
+		nowValue.value = props.modelValue.slice(0)
+	}
+	
+
+	const getDefaultSeledids = (): string[] => {
+		let list = _list.value
+		let ids = [] as string[]
+		function getid(listitem: PICKER_ITEM_INFO[]) {
+			if (listitem.length == 0) return
+			let id = listitem[0].id
+			ids.push(id == null ? '0' : id!)
+
+			let children = listitem[0].children == null ? ([] as PICKER_ITEM_INFO[]) : listitem[0].children!
+			if (children.length > 0) {
+				getid(children)
+			}
+		}
+		getid(list)
+		return ids
+	}
+
+	const onConfirm = () => {
+		let ids = nowValue.value.slice(0)
+		let nowModelStr = getIdeBystr()
+		// 读取用户提供的值计算str，如果str数组为0表示用户提供 的值是错误的， 不有存在于list中，因此需要纠正。
+		ids = ids.length == 0 || nowModelStr.length == 0 ? getDefaultSeledids() : ids
+		nowValue.value = ids
+		/**
+		 * 点击确认时同步。等同v-model
+		 */
+		emit('update:modelValue', ids)
+		emit('update:modelStr', modelStrValue.value)
+		emit('confirm', ids)
+	}
+
+	
+
+	
+
+	
+	
+	watch(():string[] => props.modelValue, (newvalue: string[]) => {
+		if (newvalue.join('') == nowValue.value.join('')) return
+		nowValue.value = newvalue.slice(0)
+		let str = getIdeBystr()
+		emit('update:modelStr', str.join(props.modelStrJoin))
+		modelStrValue.value = str.join(props.modelStrJoin)
+	}, { deep: true })
+	
+	watch(():boolean => props.modelShow, (newValue: boolean) => {
+		if (newValue == show.value) return
+		show.value = newValue
+	})
+	
+	watch(_list, () => {
+		if (show.value) {
+			return
+		}
+		if (_list.value.length == 0) {
+			emit('update:modelStr', '')
+			modelStrValue.value = ''
+			return
+		}
+		if (_list.value.length > 0) {
+			onSetDefaultStr()
+		}
+	}, { deep: true })
+	
+	onMounted(() => {
+		nowValue.value = props.modelValue.slice(0)
+		yanchiDuration.value = _lazyContent.value ? false : true
+		nowPull.value = getPagePullRefresh()
+		onSetDefaultStr()
+	})
+</script>
+<template>
+	<view @click="openShow">
+		<!-- 
+		 @slot 插槽,默认触发打开选择器。你的默认布局可以放置在这里。
+		 @prop {string} label - 当前选中的字符串
+		 -->
+		<slot :label="_modelStrValue"></slot>
+	</view>
+	<x-drawer :customWrapStyle="customWrapStyle" :lazy="_lazyContent" 
+	:cancel-text="_cancelText" 
+	:confirm-text="_confirmText" 
+	@open="onOpen" :zIndex="zIndex" :widthCoverCenter="widthCoverCenter"  :disabledScroll="true" 
+	max-height="80%" size="450" 
+	:title="_title" @close="onClose" @confirm="onConfirm" 
+	@cancel="onCancel"
+		:showFooter="true" v-model:show="show" :show-close="showClose">
+		<x-picker-view v-if="yanchiDuration" :unitsFontSize="unitsFontSize"  :modelStrJoin="modelStrJoin" :cell-units="_cellUnits" @update:modelStr="strChange" @change="mchange" v-model="nowValue" :list="_list"></x-picker-view>
+	</x-drawer>
+</template>
+<style scoped>
+</style>

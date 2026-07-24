@@ -1,0 +1,21 @@
+import { x_share } from "x_library_s";
+
+/**
+ * title:分享的标题
+ * minType:分享的内容格式
+ * 文本：text/plain
+ * 图片：image/*
+ * 音频: audio/*
+ * 视频: video/*
+ * 任意文件: *//* ,注意不要//,只要单个/就行。编译器无法注释单个/
+* 
+*/
+export function xShare(title : string, minType : string, content ?: string, path ?: string) {
+	const context = UTSHarmony.getCurrentWindow()!.getUIContext();
+	x_share(context,{
+		minType,
+		title,
+		content:content??"",
+		path:path??""
+	} as UTSJSONObject)
+}

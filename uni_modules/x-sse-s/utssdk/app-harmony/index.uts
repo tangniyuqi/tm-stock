@@ -1,0 +1,65 @@
+import { x_SSEClient } from "x_sse_s";
+import {xSSEOptions,xSSEMethod} from "../interface.uts"
+export class SSEClientApp {
+	private eventSource : x_SSEClient | null = null;
+	private url : string;
+	private method : xSSEMethod = "get"
+	private body : string | ArrayBuffer | UTSJSONObject = ''
+	private onOpenEvt = () => { }
+	private onErrorEvt = () => { }
+	private onClosedEvt = () => { }
+	private onMessageEvt = (data : string) => { }
+	private headers:UTSJSONObject
+	constructor(options:xSSEOptions) {
+		this.url = options.url;
+		this.method = options.method==null?'get':options.method;
+		this.headers = options?.header??({} as UTSJSONObject)
+	}
+
+	// 打开连接
+	public connect() : void {
+		if (this.eventSource||this.isConnected()) {
+			console.error('已有打开的，不允许重复');
+			return;
+		}
+		this.eventSource = new x_SSEClient(this.url,this.headers,this.method);
+		this.eventSource.onOpen(this.onOpenEvt)
+		this.eventSource.onError(this.onErrorEvt)
+		this.eventSource.onClosed(this.onClosedEvt)
+		this.eventSource.onMessage(this.onMessageEvt)
+		this.eventSource.connect();
+	}
+	
+	onOpen(callback:()=>void){
+		this.onOpenEvt = callback
+	}
+	onError(callback:()=>void){
+		this.onErrorEvt = callback
+	}
+	onClosed(callback:()=>void){
+		this.onClosedEvt = callback
+	}
+	onMessage(callback:(data:string)=>void){
+		this.onMessageEvt = callback
+	}
+	public setBody(bodyStr : string | ArrayBuffer | UTSJSONObject) : void {
+		this.body = bodyStr;
+		if (!this.eventSource) {
+			return;
+		}
+		this.eventSource.setBody(bodyStr)
+	}
+	// 关闭连接
+	public disconnect() : void {
+		if (!this.eventSource) {
+			return;
+		}
+		this.eventSource.disconnect();
+		this.onClosedEvt()
+		this.eventSource = null;
+	}
+
+	isConnected():boolean {
+		return this.eventSource?.isConnected()??false
+	}
+}

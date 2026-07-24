@@ -1,0 +1,412 @@
+<script lang="ts" setup>
+	import { ref, computed, watch, onMounted, onBeforeUnmount, onUpdated, getCurrentInstance } from "vue"
+	import { checkIsCssUnit, getUid, getUnit } from "../../core/util/xCoreUtil.uts"
+	import { xConfig, xProvitae } from "../../config/xConfig.uts"
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+
+	type IMG_MODEL = "fill" | "top" | "bottom" | "center" | "left" | "right" | "top left" | "top right" | "bottom left" | "bottom right" | "aspectFit" | "aspectFill" | "widthFix" | "heightFix" | "scaleToFill";
+	type IMG_SIZE_INFO_PLACE = {
+		width : string,
+		height : string,
+	}
+
+	/**
+	 * @name 图片 xImage
+	 * @description 宽高可以设置，支持百分比，px,rpx
+	 * @page /pages/index/image
+	 * @category 展示组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({ name: "xImage" })
+
+	type xImagePropsType = {
+		/** 宽度，18rpx,18px,15%，只写"18"表示18rpx */
+		width : string,
+		/** 高度，auto,%,rpx,px */
+		height : string,
+		/** 图片源 */
+		src : string,
+		/** 预览的图片源，为空则与src同步 */
+		previewSrc : string,
+		/** 模式 */
+		model : IMG_MODEL,
+		/** 点击后是否预览图片,默认值是'null'字符串哦，这样就可以读取全局统一的配置，因为在x平台空值就会编译为true，因此使用字符串null代替空值。 */
+		preview : boolean|string,
+		/** 预览占位比例 宽/高，默认5/4=1.25 */
+		ratio : number,
+		/** 圆角 */
+		round : string,
+		/** 加载和失败时的图标大小 */
+		iconSize : string,
+		/** 占位背景色 */
+		placeBgColor : string,
+		/** 占位暗黑时的背景，不填默认inputDarkColor */
+		placeDarkBgColor : string,
+		/** 是否在安卓上显示过渡动画 */
+		fadeShow : boolean,
+		/** 用于在scrollview根节点的页面进行懒加载 */
+		lazy : boolean,
+	}
+
+	const props = withDefaults(defineProps<xImagePropsType>(), {
+		width: "100%",
+		height: "auto",
+		src: "",
+		previewSrc: "",
+		model: "fill",
+		preview: "null",
+		ratio: 1.25,
+		round: '0',
+		iconSize: "16",
+		placeBgColor: "#F5F5F5",
+		placeDarkBgColor: "",
+		fadeShow: false,
+		lazy: false,
+	})
+
+	const emits = defineEmits([
+		/** 图片被点击 */
+		'click'
+	])
+
+	const instance = getCurrentInstance()
+
+	const idBox = ("xImage-" + getUid()) as string
+	const isLoading = ref<boolean>(true)
+	const isError = ref<boolean>(false)
+	const imgrealWidth = ref<number>(0)
+	const imgrealHeight = ref<number>(0)
+	const boxWidth = ref<number>(0)
+	const boxHeight = ref<number>(0)
+	const isLoaded = ref<boolean>(false)
+	let tid = 0
+	let tid2 = 0
+	let resizeObserver = null as UniResizeObserver | null
+	const androidAndWebUrl = ref<string>("")
+	const isVisibled = ref<boolean>(false)
+	const keyidsf = ref<number>(0)
+
+	const _round = computed(() : string => checkIsCssUnit(props.round, xConfig.unit))
+
+	const _previewSrc = computed(() : string => {
+		if (props.previewSrc == '') return props.src;
+		return props.previewSrc;
+	})
+
+	const _placeBgColor = computed(() : string => {
+		let bgcolor = props.placeBgColor;
+		if (xConfig.dark == 'dark') {
+			bgcolor = props.placeDarkBgColor
+			if (props.placeDarkBgColor == '') {
+				bgcolor = xConfig.inputDarkColor
+			}
+		}
+		return getDefaultColor(bgcolor)
+	})
+
+	const _place_size = computed(() : IMG_SIZE_INFO_PLACE => {
+		return {
+			width: checkIsCssUnit(props.width, xConfig.unit),
+			height: checkIsCssUnit(props.height, xConfig.unit),
+		} as IMG_SIZE_INFO_PLACE
+	})
+
+	const _scrollTop = computed(() : number => xProvitae.scrollTop)
+
+	const _img_size = computed(() : IMG_SIZE_INFO_PLACE => {
+		let us_w = checkIsCssUnit(props.width, xConfig.unit)
+		let us_h = checkIsCssUnit(props.height, xConfig.unit)
+
+		if (!isLoaded.value) {
+			return { width: "300px", height: "300px" } as IMG_SIZE_INFO_PLACE
+		}
+
+		if (boxWidth.value > 0) {
+			let ratio = boxWidth.value / imgrealWidth.value;
+
+			if (props.height == 'auto') {
+				us_h = (ratio * imgrealHeight.value).toString() + 'px'
+			}
+			if (props.width == 'auto') {
+				us_w = boxWidth.value.toString() + 'px'
+			}
+			if (props.height.lastIndexOf('%') > -1) {
+				us_h = boxHeight.value.toString() + 'px'
+			}
+			if (props.width.lastIndexOf('%') > -1) {
+				us_w = boxWidth.value.toString() + 'px'
+			}
+		}
+
+		return { width: us_w, height: us_h } as IMG_SIZE_INFO_PLACE
+	})
+
+	const _img_box_size = computed(() : IMG_SIZE_INFO_PLACE => {
+		if (imgrealHeight.value > 0) {
+			return _img_size.value;
+		}
+
+		let _h = props.height;
+		let us_w = checkIsCssUnit(props.width, xConfig.unit)
+		let us_h = checkIsCssUnit(props.height, xConfig.unit)
+		let _w = props.width
+		if (props.width.lastIndexOf('%') > -1 || props.width == 'auto') {
+			_w = '100%'
+		}
+
+		if (props.height.lastIndexOf('%') > -1 || props.height == 'auto' || isError.value) {
+			if (boxHeight.value >= 5) {
+				_h = boxHeight.value.toString() + 'px'
+			} else {
+				if (props.width.lastIndexOf('%') > -1 || props.width == 'auto') {
+					if (props.height == '100%') {
+						_h = (props.ratio * boxHeight.value).toString() + 'px'
+					} else {
+						_h = (props.ratio * boxWidth.value).toString() + 'px'
+					}
+				} else {
+					_h = (props.ratio * parseFloat(us_w)).toString() + getUnit(us_w)
+				}
+			}
+			return { width: _w, height: _h } as IMG_SIZE_INFO_PLACE
+		}
+
+		return { width: us_w, height: us_h } as IMG_SIZE_INFO_PLACE
+	})
+
+	const _styleMap = computed(() : Map<string, string> => {
+		let styleMap = new Map<string, string>();
+		styleMap.set("width", _img_size.value.width)
+		styleMap.set("height", _img_size.value.height)
+		styleMap.set("transform", isLoading.value ? 'scale(0.1)' : 'scale(1)')
+		styleMap.set("visibility", isLoading.value ? 'visible' : (!isError.value ? 'visible' : 'hidden'))
+		styleMap.set("opacity", isLoading.value ? '0' : '1')
+		styleMap.set("border-radius", _round.value)
+		return styleMap;
+	})
+
+	function setIsVisibledShow() {
+		let win = uni.getWindowInfo()
+		uni.createSelectorQuery().in(instance!.proxy)
+			.select(".xImage")
+			.boundingClientRect().exec((ret) => {
+				if (ret.length == 0) return;
+				let nodeinfo = ret[0] as NodeInfo;
+				if (nodeinfo == null) return;
+				let winHeight = win.windowHeight;
+				let eleTop = nodeinfo.top!
+				let eleBotom = nodeinfo.bottom!
+				isVisibled.value = eleBotom < 0 || eleTop > winHeight ? false : true;
+			})
+	}
+
+	function prevImage() {
+		emits('click')
+		if (props.preview!='null') {
+			if(props.preview == true || props.preview == 'true'){
+				uni.previewImage({
+					current: _previewSrc.value,
+					urls: [_previewSrc.value]
+				})
+			}
+		}else{
+			if(xConfig.previewImage){
+				uni.previewImage({
+					current: _previewSrc.value,
+					urls: [_previewSrc.value]
+				})
+			}
+		}
+	}
+
+	function imgLoad2(evt : ImageLoadEvent) {
+		imgrealWidth.value = evt.detail.width;
+		imgrealHeight.value = evt.detail.height;
+		isLoading.value = false;
+		androidAndWebUrl.value = props.src
+		isError.value = false;
+		isLoaded.value = true;
+	}
+
+	function imgLoad() {
+		uni.getImageInfo({
+			src: props.src,
+			fail(error : IMediaError) {
+				isError.value = true;
+				isLoading.value = false
+				console.log('error', error.errMsg, props.src)
+			},
+			success(result : GetImageInfoSuccess) {
+				isLoading.value = false;
+				isError.value = false;
+				isLoaded.value = true;
+				if (result.path != androidAndWebUrl.value) {
+					imgrealWidth.value = result.width
+					imgrealHeight.value = result.height
+					androidAndWebUrl.value = result.path;
+					keyidsf.value += 1;
+				}
+			}
+		} as GetImageInfoOptions)
+	}
+
+	function imgError(evt : UniImageErrorEvent) {
+		isError.value = true;
+		isLoading.value = false
+		console.error(evt)
+	}
+
+	function getNodes() {
+		uni.createSelectorQuery().in(instance!.proxy)
+			.select(".xImage")
+			.boundingClientRect().exec((ret) => {
+				if (ret.length == 0) return;
+				let nodeinfo = ret[0] as NodeInfo;
+				if (nodeinfo == null) return;
+				boxWidth.value = nodeinfo.width!
+				boxHeight.value = nodeinfo.height!
+			})
+	}
+
+	function resize() {
+		isLoaded.value = false
+		uni.createSelectorQuery().in(instance!.proxy)
+			.select(".xImage")
+			.boundingClientRect().exec((ret) => {
+				if (ret.length == 0) return;
+				let nodeinfo = ret[0] as NodeInfo;
+				if (nodeinfo == null) return;
+				boxWidth.value = nodeinfo.width!
+				boxHeight.value = nodeinfo.height!
+				isLoaded.value = true
+			})
+	}
+
+	watch(() : string => props.src, () => {
+		// #ifdef APP-ANDROID || WEB
+		imgLoad()
+		// #endif
+	})
+
+	watch(_scrollTop, () => {
+		if (!props.lazy) return;
+		clearTimeout(tid2)
+		tid2 = setTimeout(function () {
+			setIsVisibledShow()
+		}, 10);
+	})
+
+	onMounted(() => {
+		// #ifdef APP
+		imgLoad()
+		// #endif
+		let ele = uni.getElementById(idBox);
+		if (ele == null) return;
+		// #ifdef APP || WEB
+		if (resizeObserver == null) {
+			resizeObserver = new UniResizeObserver((entries : Array<UniResizeObserverEntry>) => {
+				entries.forEach(entry => {
+					if (entry.target == ele) {
+						// #ifdef APP
+						tid = setTimeout(function () {
+							getNodes();
+						}, 50);
+						// #endif
+						// #ifdef WEB
+						getNodes();
+						// #endif
+					}
+				})
+			})
+		}
+		resizeObserver!.observe(ele!)
+		// #ifdef uniVersion >= 4.31 && APP-ANDROID
+		tid = setTimeout(function () {
+			getNodes();
+		}, 50);
+		// #endif
+		// #endif
+		// #ifdef MP-WEIXIN
+		getNodes();
+		// #endif
+		setIsVisibledShow()
+	})
+
+	onBeforeUnmount(() => {
+		clearTimeout(tid)
+		clearTimeout(tid2)
+		resizeObserver?.disconnect()
+	})
+
+	onUpdated(() => {
+		// #ifdef MP-WEIXIN
+		getNodes()
+		// #endif
+	})
+
+	defineExpose({
+		resize,
+	})
+</script>
+<template>
+	<view
+	 :key="keyidsf"
+	 @click="prevImage"
+	 class="xImage" ref="xImage" :id="idBox" :style="{width:_place_size.width,height:_place_size.height}">
+		<view class="xImageBox"
+			:style="{width:_img_box_size.width,height:_img_box_size.height,borderRadius:_round,pointerEvent:'none'}">
+			<!-- 
+			 @slot 加载中的插槽,插槽内自行给你布局的view宽和高写100%
+			 -->
+			<slot name="loading" v-if="isLoading">
+				<view  class="xImagePlace" :style="{backgroundColor:_placeBgColor}">
+					<x-icon :font-size="iconSize" v-if="isLoading" name="loader-2-line" color="primary" :spin="true"></x-icon>
+				</view>
+			</slot>
+			<!-- 
+			 @slot 加载失败时的插槽,插槽内自行给你布局的view宽和高写100%
+			 -->
+			<slot name="error" v-if="isError">
+				<view  class="xImagePlace" :style="{backgroundColor:_placeBgColor}">
+					<x-icon :font-size="iconSize" v-if="isError" color="error" name="landscape-line"></x-icon>
+				</view>
+			</slot>
+			<!-- #ifdef APP -->
+			<image :fade-show="fadeShow" v-if="!isError" class="xImageImg" :class="[isLoading?'xImageImgAbs':'']"
+				 :mode="model" :style="[_styleMap,{visibility:isVisibled||!lazy?'visible':'hidden'}]" :src="src" >
+			</image>
+			<!-- #endif -->
+			<!-- #ifndef APP -->
+			<image @load="imgLoad2" @error="imgError" :fade-show="fadeShow" v-if="!isError" class="xImageImg" :class="[isLoading?'xImageImgAbs':'']"
+				 :mode="model" :style="[_styleMap,{visibility:isVisibled||!lazy?'visible':'hidden'}]" :src="src" >
+			</image>
+			<!-- #endif -->
+		</view>
+	</view>
+</template>
+<style scoped>
+
+	.xImage {
+		position: relative;
+		overflow: hidden;
+	}
+	.xImageBox{
+		pointer-events: none;
+	}
+	.xImagePlace {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: center;
+		width: 100%;
+		height: 100%
+	}
+
+	.xImageImgAbs {
+		position: absolute;
+		pointer-events: none;
+	}
+</style>

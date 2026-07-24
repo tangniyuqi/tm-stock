@@ -1,0 +1,242 @@
+import { ICanvas } from '@/uni_modules/tmx-ui/core/canvas/ICanvas.uts';
+import { Shape } from '../../shape.uts';
+
+// 色调调整参数
+export type HueOptionsOpts = {
+    // 色调偏移 (-180 到 180 度)
+    hueShift?: number;
+    // 饱和度调整 (-100 到 100)
+    saturation?: number;
+    // 亮度调整 (-100 到 100)
+    lightness?: number;
+    // 是否启用
+    enabled?: boolean;
+}
+export type HueOptions = {
+    // 色调偏移 (-180 到 180 度)
+    hueShift: number;
+    // 饱和度调整 (-100 到 100)
+    saturation: number;
+    // 亮度调整 (-100 到 100)
+    lightness: number;
+    // 是否启用
+    enabled: boolean;
+}
+// 默认色调选项
+export const defaultHueOptions: HueOptions = {
+    hueShift: 0,
+    saturation: 0,
+    lightness: 0,
+    enabled: true
+};
+
+/**
+ * 色调调整特效
+ */
+export class HueFilter {
+    private canvas: ICanvas;
+    private options: HueOptions;
+
+    constructor(canvas: ICanvas, options?: HueOptionsOpts) {
+        this.canvas = canvas;
+        this.options = { 
+			hueShift: options?.hueShift??defaultHueOptions.hueShift,
+			saturation: options?.saturation??defaultHueOptions.saturation,
+			lightness: options?.lightness??defaultHueOptions.lightness,
+			enabled: options?.enabled??defaultHueOptions.enabled
+		} as HueOptions;
+    }
+
+    /**
+     * 设置色调参数
+     */
+    setOptions(options: HueOptionsOpts): HueFilter {
+        this.options = {
+        	hueShift: options?.hueShift??this.options.hueShift,
+        	saturation: options?.saturation??this.options.saturation,
+        	lightness: options?.lightness??this.options.lightness,
+        	enabled: options?.enabled??this.options.enabled
+        } as HueOptions;
+        return this;
+    }
+
+    /**
+     * RGB 转 HSL
+     */
+    private rgbToHsl(r1: number, g1: number, b1: number): Array<number> {
+        const r = r1/255;
+        const g = g1/255;
+        const b = b1/255;
+
+        const max = Math.max(r, g, b);
+        const min = Math.min(r, g, b);
+        let h = 0;
+		let s = 0
+		let l = (max + min) / 2;
+
+        if (max == min) {
+            h = 0 
+			s = 0;
+        } else {
+            const d = max - min;
+            s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+            switch (max) {
+                case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                case g: h = (b - r) / d + 2; break;
+                case b: h = (r - g) / d + 4; break;
+            }
+            h /= 6;
+        }
+
+        return [h * 360, s * 100, l * 100];
+    }
+
+    /**
+     * HSL 转 RGB
+     */
+    private hslToRgb(h1: number, s1: number, l1: number):  Array<number>  {
+       const h = h1/360;
+       const s = s1/100;
+       const l = l1/100;
+
+        let r = 0
+        let g = 0
+        let b = 0
+
+        if (s == 0) {
+            r = l
+			g = l 
+			b = l;
+        } else {
+            const hue2rgb = (p1: number, q1: number, t1: number) => {
+				let p = p1
+				let q = q1
+				let t = t1
+                if (t < 0) {t += 1}
+                if (t > 1) {t -= 1}
+                if (t < 1/6) {
+					return p + (q - p) * 6 * t;
+				}
+                if (t < 1/2) {
+					return q;
+				}
+                if (t < 2/3) {
+					return p + (q - p) * (2/3 - t) * 6;
+				}
+                return p;
+            };
+
+            const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+            const p = 2 * l - q;
+            r = hue2rgb(p, q, h + 1/3);
+            g = hue2rgb(p, q, h);
+            b = hue2rgb(p, q, h - 1/3);
+        }
+
+        return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+    }
+
+    /**
+     * 应用色调调整
+     */
+    private applyHueAdjustment(imageData: ImageData): ImageData {
+        const { width, height, data } = imageData;
+        const newData = new Uint8ClampedArray(data);
+
+        for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            const a = data[i + 3];
+
+            // 转换为 HSL
+            let [h, s, l] = this.rgbToHsl(r, g, b);
+
+            // 应用色调调整
+            if (this.options.hueShift !== 0) {
+                h += this.options.hueShift!;
+                if (h < 0) h += 360;
+                if (h >= 360) h -= 360;
+            }
+
+            // 应用饱和度调整
+            if (this.options.saturation !== 0) {
+                s = Math.max(0, Math.min(100, s + this.options.saturation!));
+            }
+
+            // 应用亮度调整
+            if (this.options.lightness !== 0) {
+                l = Math.max(0, Math.min(100, l + this.options.lightness!));
+            }
+
+            // 转换回 RGB
+            const [newR, newG, newB] = this.hslToRgb(h, s, l);
+
+            newData[i] = newR;
+            newData[i + 1] = newG;
+            newData[i + 2] = newB;
+            newData[i + 3] = a; // 保持透明度不变
+        }
+
+        // 直接修改原始 ImageData 的 data 属性，而不是创建新的 ImageData
+        for (let i = 0; i < newData.length; i++) {
+            imageData.data[i] = newData[i];
+        }
+        
+        return imageData;
+    }
+
+    /**
+     * 应用色调效果到指定区域
+     */
+    applyToArea(x: number, y: number, width: number, height: number): void {
+        if (!this.options.enabled || 
+            (this.options.hueShift === 0 && this.options.saturation === 0 && this.options.lightness === 0)) {
+            return;
+        }
+
+        const ctx = this.canvas.ctx;
+        if (ctx==null) return;
+
+        // 保存当前状态
+        ctx.save();
+
+        // 设置裁剪区域
+        ctx.beginPath();
+        ctx.rect(x, y, width, height);
+        ctx.clip();
+
+        // 获取当前图像数据
+        const imageData = ctx.getImageData(x, y, width, height);
+        
+        // 应用色调调整
+        const adjustedData = this.applyHueAdjustment(imageData);
+
+        // 将修改后的数据绘制回画布
+        ctx.putImageData(adjustedData, x, y);
+
+        // 恢复状态
+        ctx.restore();
+    }
+
+    /**
+     * 应用色调效果到Shape
+     */
+    applyToShape(shape: Shape): void {
+        this.applyToArea(shape.x, shape.y, shape.width, shape.height);
+    }
+
+    /**
+     * 应用色调效果到整个画布
+     */
+    applyToCanvas(): void {
+        this.applyToArea(0, 0, this.canvas.width, this.canvas.height);
+    }
+
+    /**
+     * 获取当前选项
+     */
+    getOptions(): HueOptions {
+        return { ...this.options };
+    }
+}

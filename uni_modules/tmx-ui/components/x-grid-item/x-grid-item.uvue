@@ -1,0 +1,215 @@
+<script setup lang="ts">
+	import { ref, computed, inject } from "vue"
+	import { getUid } from "../../core/util/xCoreUtil.uts"
+	import { getDefaultColor, colorAddDeepen } from "../../core/util/xCoreColorUtil.uts"
+	import { checkIsCssUnit } from "../../core/util/xCoreUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	import { XGRID_ITEM_INFO } from "../../interface.uts"
+
+	/**
+	 * @name 宫格子组件 xGridItem
+	 * @description 不可单独使用，请把放它在x-grid标签内。
+	 * @page /pages/index/grid
+	 * @category 导航组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({ name: "xGridItem" })
+
+	const emits = defineEmits([
+		/**
+		 * 项目点击时触发
+		 */
+		'click'
+	])
+
+	const isHover = ref(false)
+
+	type xGridItemPropsType = {
+		/**
+		 * 背景，默认为空值，读取父xGrid组件统一设置的背景
+		 * 如果这里提供了，以子组件为准。
+		 */
+		bgColor: string,
+		/**
+		 * 项目在列表中的索引,从0开始
+		 * 请务必在循环gridItem时提供order为循环的index
+		 */
+		order: number,
+		
+		/**
+		 * 图标
+		 */
+		icon: string,
+		/**
+		 * 文字
+		 */
+		text: string,
+		/**
+		 * 图标颜色，空值取父xGrid的值
+		 */
+		iconColor: string,
+		/**
+		 * 文字亮系，空值取父xGrid的值
+		 */
+		textColor: string,
+		/**
+		 * 文字暗黑颜色，空值取父xGrid的值
+		 */
+		textDarkColor: string,
+		/**
+		 * 文字大小，空值取父xGrid的值
+		 */
+		fontSize: string,
+		/**
+		 * 图标大小，空值取父xGrid的值
+		 */
+		iconSize: string,
+		/**
+		 * 是否开启链接hover效果
+		 */
+		isLink: boolean,
+		/**
+		 * url链接地址，如果填写，点击会跳转
+		 */
+		url: string,
+	}
+
+	const props = withDefaults(defineProps<xGridItemPropsType>(), {
+		bgColor: 'transparent',
+		order: -1,
+		icon: '',
+		text: '',
+		iconColor: '',
+		textColor: '',
+		textDarkColor: '',
+		fontSize: '',
+		iconSize: '',
+		isLink: true,
+		url: '',
+	})
+
+	// gird共有几列
+	const xGridCol = inject('xGridCol', computed(() : number => 1))
+	const xGridHeight = inject('xGridHeight', computed(() : string => '0px'))
+	const xGridItemBgColor = inject('xGridItemBgColor', computed(() : string => 'rgba(0,0,0,0)'))
+	const xGridItemGlobalProptype = inject('xGridItemGlobalProptype', computed(() : XGRID_ITEM_INFO => {
+		return {
+			iconSize: '',
+			fontSize: '',
+			iconColor: '',
+			fontColor: '',
+			fontDarkColor: '',
+			darkIconColor: ''
+		} as XGRID_ITEM_INFO
+	}))
+	const borderColor = inject('borderColor', computed(() : string => 'rgba(0,0,0,0)'))
+	const showBorder = inject('showBorder', computed(() : boolean => false))
+	const _xGridColBl = computed(():string => `${100 / xGridCol.value}%`)
+	const _currentBgColor = computed(():string => {
+		if (isHover.value && (props.isLink || props.url != '')) {
+			if (props.bgColor == '') return colorAddDeepen(xGridItemBgColor.value)
+			return colorAddDeepen(props.bgColor)
+		}
+		if (props.bgColor == '') return xGridItemBgColor.value
+		return getDefaultColor(props.bgColor)
+	})
+	const _iconColor = computed(():string => {
+		if (props.iconColor == "") {
+			if (xConfig.dark == 'dark') {
+				return xGridItemGlobalProptype.value.darkIconColor
+			}
+			return xGridItemGlobalProptype.value.iconColor
+		}
+		return getDefaultColor(props.iconColor);
+	})
+	const _textColor = computed(():string => {
+		if (xConfig.dark == 'dark') {
+			if (props.textDarkColor == "") return xGridItemGlobalProptype.value.fontDarkColor == '' ? '#ffffff' : xGridItemGlobalProptype.value.fontDarkColor
+			return props.textDarkColor
+		}
+		if (props.textColor == "") return xGridItemGlobalProptype.value.fontColor
+		return getDefaultColor(props.textColor);
+	})
+	const _fontSize = computed(():string => {
+		if (props.fontSize == "") return xGridItemGlobalProptype.value.fontSize
+		return checkIsCssUnit(props.fontSize, 'px');
+	})
+	const _iconSize = computed(():string => {
+		if (props.iconSize == "") return xGridItemGlobalProptype.value.iconSize
+		return checkIsCssUnit(props.iconSize, 'px');
+	})
+	
+
+	const borderMaps = computed(():Map<string,any> => {
+		const borderMap = new Map<string, any>()
+		
+		// 如果没有开启边线显示，返回空Map
+		if (!showBorder.value) {
+			return borderMap
+		}
+		// 计算当前项目在第几行第几列
+		const currentCol = props.order % xGridCol.value
+		const currentRow = Math.floor(props.order / xGridCol.value)
+		
+		// 设置边线样式
+		const borderStyle = `1px solid ${borderColor.value}`
+		
+		// 上边线：只有非第一行才显示
+		if (currentRow > 0) {
+			borderMap.set('border-top', borderStyle)
+		}
+		// 右边线：只有非最右列才显示
+		if (currentCol < xGridCol.value - 1) {
+			borderMap.set('border-right', borderStyle)
+		}
+		return borderMap
+	})
+	
+	const itemClick = () => {
+		if (props.url != '') {
+			uni.navigateTo({
+				url: props.url
+			})
+			return;
+		}
+		/**
+		 * 项目点击时触发。
+		 */
+		emits('click')
+	}
+	
+	
+</script>
+<template>
+	<view @touchend="isHover = false" @touchcancel="isHover = false" @touchstart="isHover = true" @click="itemClick"
+		class="xGridItem"
+		:style="[{width:_xGridColBl,height:xGridHeight,backgroundColor:_currentBgColor},borderMaps]">
+		<!-- 
+		@slot 默认插槽内容
+		 -->
+		<slot>
+			<x-icon v-if="icon" :name="icon" :font-size="_iconSize" :color="_iconColor"
+				style="margin-bottom: 8px;"></x-icon>
+			<text :style="{
+				color:_textColor,
+				fontSize:_fontSize,
+				textAlign:'center'
+			}">{{text}}</text>
+		</slot>
+	</view>
+</template>
+<style scoped>
+	.xGridItem {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		overflow: hidden;
+		/* #ifndef APP */
+		box-sizing:border-box;
+		/* #endif */
+	}
+</style>

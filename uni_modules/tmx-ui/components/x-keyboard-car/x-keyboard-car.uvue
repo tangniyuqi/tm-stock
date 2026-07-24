@@ -1,0 +1,410 @@
+<script lang="ts" setup>
+	import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue"
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	import { checkIsCssUnit } from "../../core/util/xCoreUtil.uts"
+
+	/**
+	 * @name 车牌键盘 xKeyboardCar
+	 * @description 功能齐全的车牌快速输入键盘。
+	 * @page /pages/index/keyboard
+	 * @category 表单组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({name:"xKeyboardCar"})
+
+	const i18n = xConfig.i18n
+
+	defineSlots<{
+		default(props:{show:boolean}): any
+	}>()
+
+	const emits = defineEmits([
+		/**
+		 * 值变化时触发
+		 * @param {string} value - 当前值
+		 */
+		'change',
+		/**
+		 * 变量控制打开状态
+		 * 等同v-model:model-show
+		 */
+		'update:modelShow',
+		/**
+		 * 确认时触发
+		 * @param {string} value - 当前值
+		 */
+		'confirm',
+		/**
+		 * 关闭取消时触发
+		 * @param {string} value - 当前值
+		 */
+		'cancel',
+		'update:modelValue'
+	])
+
+	type xKeyboardCarPropsType = {
+		/**
+		 * 当前输入的值
+		 */
+		modelValue: string,
+		/**
+		 * 最大长度
+		 */
+		maxLen: number,
+		/**
+		 * 当前打开的状态。
+		 * 等同v-model:model-show
+		 */
+		modelShow: boolean,
+		/**
+		 * 顶部标题，默认：安全键盘请放心输入
+		 */
+		title: string,
+		/**
+		 * 主按钮色，空值取全局主题
+		 */
+		color: string,
+		/**
+		 * 按钮背景
+		 */
+		btnColor: string,
+		/**
+		 * 键盘背景
+		 */
+		bgColor: string,
+		/**
+		 * 文字颜色
+		 */
+		fontColor: string,
+		/**
+		 * 点击确认是否保持键盘不收起
+		 */
+		hold: boolean
+	}
+
+	const props = withDefaults(defineProps<xKeyboardCarPropsType>(), {
+		modelValue: "",
+		maxLen: 8,
+		modelShow: false,
+		title: "",
+		color: "",
+		btnColor: 'white',
+		bgColor: 'info',
+		fontColor: '#3b3b3b',
+		hold: false
+	})
+
+	// 响应式数据
+	const show = ref(false)
+	const nowValue = ref("")
+	const model = ref<'省份' | 'abc'>('省份')
+	const abcList = ref([
+		['京', '沪', '津', '渝', '鲁', '冀', '晋','蒙','辽','吉' ],
+		['黑', '苏', '浙', '皖', '闽','赣','豫', '湘', '鄂','粤'],
+		['桂', '琼', '川', '贵','云', '藏', '陕', '甘', '青', '宁'],
+		['新', '港', '澳', '台', '警', '使', '学', '教'],
+		['abc', 'del', '确认'],
+	])
+	const numList = ref([
+		['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'],
+		['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K'],
+		['L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'U', 'V'],
+		['省份','W', 'X', 'Y', 'Z', 'del', '确认'],
+	])
+	const isShift = ref(false)
+	const tid = ref(0)
+
+	// 计算属性
+	const _color = computed((): string => {
+		if (props.color == '') return getDefaultColor(xConfig.color)
+		return getDefaultColor(props.color)
+	})
+	const _btnColor = computed((): string => {
+		if (xConfig.dark == 'dark') return xConfig.inputDarkColor
+		return getDefaultColor(props.btnColor)
+	})
+	const _btnBorderColor = computed((): string => {
+		if (xConfig.dark == 'dark') return xConfig.borderDarkColor
+		return "#f5f5f5"
+	})
+	const _bgColor = computed((): string => {
+		return getDefaultColor(props.bgColor)
+	})
+	const _fontColor = computed((): string => {
+		if (xConfig.dark == 'dark') return "#ffffff"
+		return getDefaultColor(props.fontColor)
+	})
+	const _title = computed((): string => {
+		if(props.title=='') return i18n.t('tmui4x.keyboard.placeholder')
+		return props.title
+	})
+	const _carvalue = computed((): string[] => {
+		if(nowValue.value.length<=2){
+			return [nowValue.value.substring(0,2),'']
+		}
+		return [nowValue.value.substring(0,2),nowValue.value.substring(2)]
+	})
+
+	// 方法
+	function getFontSize(k: string): string {
+		return checkIsCssUnit(k, xConfig.unit)
+	}
+
+	function openShow(): void {
+		show.value = true;
+		/**
+		 * 变量控制打开状态
+		 * 等同v-model:model-show
+		 */
+		emits('update:modelShow', true)
+	}
+
+	function onCancel(): void {
+		/**
+		 * 关闭取消时触发
+		 */
+		emits('cancel', nowValue.value);
+	}
+
+	function onClose(): void {
+		emits('update:modelShow', false)
+	}
+	
+	function ok(): void {
+		/**
+		 * 点击确认时触发
+		 */
+		emits('confirm', nowValue.value);
+		
+		if(!props.hold){
+			show.value = false;
+			emits('update:modelShow', false)
+		}
+	}
+	
+	function del(): void {
+		if (nowValue.value.split('').length == 0) return;
+		let stp = nowValue.value.split('');
+		stp = stp.slice(0, stp.length - 1)
+		nowValue.value = stp.join("")
+		/**
+		 * 等同v-model
+		 */
+		emits('update:modelValue', nowValue.value);
+		/**
+		 * 值变化时触发
+		 * @paramt {string} value
+		 */
+		emits('change', nowValue.value);
+		if(nowValue.value.length==0){
+			model.value = '省份'
+		}
+	}
+	
+	function getFontColor(value: string): string {
+		if (value == "确认") return 'white'
+		if (value == 'del') return _color.value
+		if (value == 'shift' && isShift.value) return _color.value
+		return _fontColor.value
+	}
+
+	function itemClick(value: string): void {
+		let value_convaer = value
+		if (value == 'abc') {
+			model.value = 'abc'
+			return;
+		} else if (value == '省份') {
+			model.value = '省份'
+			return;
+		} else if (value == 'shift') {
+			isShift.value = !isShift.value
+			return;
+		} else if (value == 'del') {
+			del()
+			return;
+		} else if (value == '确认') {
+			ok()
+			return;
+		} else if (value == '空格') {
+			value_convaer = " "
+		}
+		if (isShift.value) {
+			value_convaer = value_convaer.toLocaleUpperCase()
+		}
+
+		let isMaxvalu = nowValue.value.split('').length >= props.maxLen;
+		if (isMaxvalu) {
+			uni.showToast({ title: '最多输入' + props.maxLen.toString() + '个字符', icon: 'error' })
+			return;
+		}
+
+		nowValue.value = nowValue.value + value_convaer;
+		/**
+		 * 等同v-model
+		 */
+		emits('update:modelValue', nowValue.value);
+		/**
+		 * 值变化时触发
+		 * @paramt {string} value
+		 */
+		emits('change', nowValue.value);
+		if(model.value=='省份'){
+			model.value = 'abc'
+		}
+	}
+
+
+
+	// 监听器
+	watch((): string => props.modelValue, (newvalue: string) => {
+		if (newvalue == nowValue.value) return;
+		nowValue.value = newvalue
+	})
+
+	watch((): boolean => props.modelShow, (newValue: boolean) => {
+		if (newValue == show.value) return;
+		show.value = newValue
+	})
+
+	// 生命周期
+	onMounted(() => {
+		nowValue.value = props.modelValue
+		if (props.modelShow) {
+			tid.value = setTimeout(function () {
+				show.value = props.modelShow
+			}, 200);
+		}
+	})
+
+	onBeforeUnmount(() => {
+		clearTimeout(tid.value)
+	})
+</script>
+<template>
+	<view @click="openShow">
+
+		<!-- 
+		 @slot 插槽,默认触发打开选择器。你的默认布局可以放置在这里。
+		 @prop {boolean} show - 控制打开关闭状态
+		 -->
+		<slot :show="show"></slot>
+	</view>
+	<x-drawer @close="onClose" :widthCoverCenter="true" :disabled-scroll="true" :bgColor="_bgColor" size="auto" overflayBgColor="rgba(0,0,0,0)" :title="_title"
+		@cancel="onCancel" v-model:show="show" :show-close="true">
+		<template v-slot:title>
+			
+			<view style="height: 44px;display: flex;justify-content: center;align-items: center;flex-direction: row;">
+				 <text v-if="nowValue.split('').length==0" :style="{fontSize:getFontSize('12'),color:_fontColor}">{{_title}}</text>
+				 <text v-if="nowValue.split('').length>0" :style="{fontSize:getFontSize('16'),color:_fontColor}">{{_carvalue[0]}}</text>
+				 <text v-if="nowValue.split('').length>0" :style="{fontSize:getFontSize('16'),color:_fontColor,margin: '0 8px'}">·</text>
+				 <text v-if="nowValue.split('').length>0" :style="{fontSize:getFontSize('16'),color:_fontColor}">{{_carvalue[1]}}</text>
+			</view>
+			
+		</template>
+		<template v-slot:default>
+			<view v-if="model=='省份'" class="xKeyboardNumber">
+				<view class="xKeyboardLeft">
+					<view v-for="(item,index) in abcList"  :key="index" class="xKeyboardLeftLine">
+						<view @click="itemClick(item2)" 
+						v-for="(item2,index2) in item" 
+						:key="index2"
+						class="xKeyboardItem" :hover-start-time="20" :hover-stay-time="250"
+						hover-class="xKeyboardHover" 
+						:style="{
+							backgroundColor:item2=='确认'?_color:_btnColor,
+							flex:item2=='空格'?'2':'1',
+							border:`1px solid ${_btnBorderColor}`
+						}">
+							<text v-if="item2!='shift'&&item2!=='del'" :style="{color:getFontColor(item2)}"
+								class="xKeyboardText">
+								
+								{{item2=='确认'?i18n.t('tmui4x.keyboard.confirm'):(isShift?item2.toLocaleUpperCase():item2)}}
+							</text>
+							<x-icon v-if="item2=='del'" :color="_color" name="delete-back-2-line"
+								font-size="19"></x-icon>
+							<x-icon v-if="item2=='shift'" :color="isShift?_color:_fontColor" name="upload-fill"
+								font-size="19" color="white"></x-icon>
+						</view>
+					</view>
+
+				</view>
+			</view>
+			<view v-if="model=='abc'" class="xKeyboardNumber">
+				<view class="xKeyboardLeft">
+					<view v-for="(item,index) in numList" :key="index" class="xKeyboardLeftLine">
+						<view @click="itemClick(item2)" v-for="(item2,index2) in item" :key="index2"
+							class="xKeyboardItem" :hover-start-time="20" :hover-stay-time="250"
+							hover-class="xKeyboardHover" :style="{
+								backgroundColor:item2=='确认'?_color:_btnColor,
+								flex:item2=='确认'||item2=='abc'?'2':'1',
+								border:`1px solid ${_btnBorderColor}`
+							}">
+
+							<text v-if="item2!='shift'&&item2!=='del'" :style="{color:getFontColor(item2)}"
+								class="xKeyboardText">
+								{{(item2=='确认'?i18n.t('tmui4x.keyboard.confirm'):item2)}}
+								</text>
+							<x-icon v-if="item2=='del'" :color="_color" name="delete-back-2-line"
+								font-size="19"></x-icon>
+							<x-icon v-if="item2=='shift'" :color="isShift?_color:_fontColor" name="upload-fill"
+								font-size="19" color="white"></x-icon>
+						</view>
+					</view>
+
+				</view>
+			</view>
+			<view style="height:12px"></view>
+		</template>
+
+	</x-drawer>
+</template>
+<style scoped>
+	.xKeyboardText {
+		font-weight: bold;
+		font-size: 16px;
+	}
+
+	.xKeyboardHover {
+		opacity: 0.6;
+	}
+
+	.xKeyboardLeftLine {
+		display: flex;
+		flex-direction: row;
+	}
+
+	.xKeyboardNumber {
+		display: flex;
+		flex-direction: row;
+	}
+
+	.xKeyboardLeft {
+		flex: 1;
+	}
+
+	.xKeyboardItem {
+		height: 50px;
+		/* background-color: white; */
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: center;
+		margin-right: 5px;
+		margin-bottom: 5px;
+		border-radius: 6px;
+	}
+
+	.xKeyboardItemNoright {
+		margin-right: 0px;
+	}
+
+	.xKeyboardRight {
+		width: 70px;
+		display: flex;
+		flex-direction: column;
+	}
+</style>

@@ -1,0 +1,115 @@
+{
+  "id": "tmx-ui",
+  "displayName": "TM-UI-4.0原生应用开发解决方案套装【官方赛事连续两届一等奖和二等奖】",
+  "version": "1.1.22",
+  "description": "高质量uniappx UI组件库,原生Uts插件，原生组件基类,让开发原生级应用流畅性高度保持一致",
+  "keywords": [
+    "ios,安卓,鸿蒙,小程序,web"
+],
+  "repository": "",
+  "engines": {
+    "HBuilderX": "^4.87",
+    "uni-app": "",
+    "uni-app-x": "^5.07"
+  },
+  "dcloudext": {
+    "type": "component-uts",
+    "sale": {
+      "regular": {
+        "price": "599.00"
+      },
+      "sourcecode": {
+        "price": "599.01"
+      }
+    },
+    "contact": {
+      "qq": "369986563"
+    },
+    "declaration": {
+      "ads": "无",
+      "data": "无",
+      "permissions": "无"
+    },
+    "npmurl": "",
+    "darkmode": "√",
+    "i18n": "√",
+    "widescreen": "√"
+  },
+  "uni_modules": {
+    "dependencies": [],
+    "encrypt": [],
+    "platforms": {
+      "cloud": {
+        "tcb": "√",
+        "aliyun": "√",
+        "alipay": "√"
+      },
+      "client": {
+        "uni-app": {
+          "vue": {
+            "vue2": "-",
+            "vue3": "-"
+          },
+          "web": {
+            "safari": "-",
+            "chrome": "-"
+          },
+          "app": {
+            "vue": "-",
+            "nvue": "-",
+            "android": "-",
+            "ios": "-",
+            "harmony": "-"
+          },
+          "mp": {
+            "weixin": "-",
+            "alipay": "-",
+            "toutiao": "-",
+            "baidu": "-",
+            "kuaishou": "-",
+            "jd": "-",
+            "harmony": "-",
+            "qq": "-",
+            "lark": "-"
+          },
+          "quickapp": {
+            "huawei": "-",
+            "union": "-"
+          }
+        },
+        "uni-app-x": {
+          "web": {
+            "safari": {
+                "extVersion": "1.1.22",
+                "minVersion": "103"
+            },
+            "chrome": {
+                "extVersion": "1.1.22",
+                "minVersion": "103"
+            }
+          },
+          "app": {
+            "android": {
+                "extVersion": "1.1.22",
+                "minVersion": "21"
+            },
+            "ios": {
+				"extVersion": "1.1.22",
+				"minVersion": "12"
+            },
+            "harmony": {
+                "extVersion": "1.1.22",
+                "minVersion": "5.1.1"
+            }
+          },
+          "mp": {
+            "weixin": {
+                "extVersion": "1.1.22",
+                "minVersion": "2.9.3"
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,38 @@
+import { x_createTestFile, x_addZip, x_unZip,x_addZipAndSaveDisk } from "x_zip_s"
+
+/**
+ * 测试函数
+ */
+export const testZipFile = ()=>{
+	x_createTestFile(UTSHarmony.getCurrentWindow()!.getUIContext())
+}
+
+/**
+ * 压缩文件或者文件夹
+ * @description 必须是沙盒路径
+ * @param path 待压缩的文件夹 x/x
+ * @param target 压缩后存放的文件路径如x/x.zip
+ */
+export const addZip = (path : string, target : string,callback:(path:string)=>void) => {
+	x_addZip(path,target,callback)
+}
+
+/**
+ * 压缩文件至系统手机目录
+ * @description 必须是沙盒路径
+ * @param path 文件路径如：x.zip
+ * @param filename 保存的文件名
+ */
+export const addZipAndSaveDisk = (path : string, filename:string,callback:(path:string)=>void) => {
+	x_addZipAndSaveDisk(UTSHarmony.getCurrentWindow()!.getUIContext(),path,filename,callback)
+}
+
+/**
+ * 解压缩文件
+ * @description 必须是沙盒路径
+ * @param path 文件路径如：x/x.zip
+ * @param target 解压至目录文件夹 x/x
+ */
+export const unZip = (path : string, target : string) => {
+	x_unZip(path,target)
+}

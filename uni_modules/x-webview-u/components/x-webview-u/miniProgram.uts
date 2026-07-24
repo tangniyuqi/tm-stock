@@ -1,0 +1,195 @@
+import {xMiniProgramsInstallType,xMiniProgramsImpls} from "../../interface.uts"
+// #ifdef APP
+// @ts-ignore
+import { xWebviewU, xWebviewUOpts,xWebviewUCallMethodType,uniAppDownLoadMessageType, uniAppEvaJsTypeCallBackFun,uniAppPostmessageType, uniAppEvaJsTypeOnUpdate,TmuiSchemaType } from '@/uni_modules/x-webview-u';
+// #endif
+// #ifdef WEB
+// @ts-ignore
+type uniAppEvaJsTypeCallBackFun = any
+type xWebviewU = any
+type xWebviewUOpts = any
+type xWebviewUCallMethodType = any
+type uniAppDownLoadMessageType = any
+type uniAppPostmessageType = any
+type uniAppEvaJsTypeOnUpdate = any
+type TmuiSchemaType  = any
+// #endif
+/**
+ * 应用程序管理
+ * @description 网页应用其实就是一个离线的小程序机制。我们可以模仿uniapp或者微信小程序来实现离线下载安装和缓存
+ * 让你的webview应用和他们一样的机制。
+ */
+
+export class xMiniPrograms implements xMiniProgramsImpls{
+	fs:FileSystemManager = uni.getFileSystemManager();
+	appHostRootDir:string = (uni.env.USER_DATA_PATH+"tmuiAppMiniProgram")
+	appHostMiniProgramsIniConfigName:string = "tmuiMiniPrograms.json"
+	ins:xWebviewU;
+	constructor(w:xWebviewU){
+		this.ins = w;
+		// #ifdef APP-ANDROID
+		this.appHostRootDir = uni.env.ANDROID_INTERNAL_SANDBOX_PATH+"tmuiAppMiniProgram"
+		// #endif
+	}
+	private normalFilePath(path:string):string{
+		return this.appHostRootDir + "/" + path
+	}
+	private checkFile(path:string):Promise<FileStats|null>{
+		const _this = this;
+		return new Promise((resolve,reject)=>{
+			_this.fs.stat({
+				path:path,
+				recursive:false,
+				success(result){
+					if(result.stats.length==0){
+						resolve(null)
+						return;
+					}
+					const status = result.stats[0]! as FileStats;
+					resolve(status)
+				},
+				fail(error){
+					console.error(error.errMsg)
+					resolve(null)
+				}
+			})
+		})
+	}
+	private downLoadFile(url:string,header:UTSJSONObject|null = null):Promise<string|null>{
+		return new Promise((resolve,reject)=>{
+			uni.downloadFile({
+				url:url,
+				header,
+				success(result){
+					resolve(result.tempFilePath)
+				},
+				fail(error){
+					console.error(error.errMsg)
+					resolve(null)
+				}
+			})
+		})
+	}
+	private mkDir(path:string):Promise<string|null>{
+		const _this = this;
+		return new Promise((resolve,reject)=>{
+			_this.fs.mkdir({
+				dirPath:path,
+				recursive:true,
+				success(){
+					resolve(path)
+				},
+				fail(error){
+					console.error(error.errMsg)
+					resolve(null)
+				}
+			})
+		})
+	}
+	private unZip(zipPath:string,target:string):Promise<boolean>{
+		const _this = this;
+		return new Promise((resolve,reject)=>{
+			_this.fs.unzip({
+				zipFilePath:zipPath,
+				targetPath:target,
+				success(){
+					resolve(true)
+				},
+				fail(error){
+					console.error(error.errMsg)
+					resolve(false)
+				}
+			})
+		})
+	}
+	
+	/**
+	 * 删除目录
+	 * @param path 删除的目录
+	 * @param [recursive=true] 是否递归删除所有。
+	 */
+	private removeDir(path:string,recursive:boolean = true):Promise<boolean>{
+		const _this = this;
+		return new Promise((resolve,reject)=>{
+			_this.fs.rmdir({
+				dirPath:path,
+				recursive:recursive,
+				success(){
+					resolve(true)
+				},
+				fail(error){
+					console.error(error.errMsg)
+					resolve(false)
+				}
+			})
+		})
+	}
+	//检查是否安装了指定id小程序
+	checkAppInstall(id:string):Promise<xMiniProgramsInstallType|null>{
+		const _this = this;
+		return new Promise((resolve,reject)=>{
+			const appDir = _this.normalFilePath(id+"/"+_this.appHostMiniProgramsIniConfigName);
+		
+			_this.checkFile(appDir)
+			.then((result:FileStats|null)=>{
+				if(result==null||!(result?.stats?.isFile()??false)){
+					resolve(null)
+					return
+				}
+				
+				_this.fs.readFile({
+					filePath:appDir,
+					encoding:'utf-8',
+					success(res){
+						const data = res.data as string;
+						const rj = JSON.parse<xMiniProgramsInstallType>(data)!;
+						resolve(rj)
+					},
+					fail(error){
+						console.error(error.errMsg)
+						resolve(null)
+					}
+				})
+			}).catch(()=>resolve(null))
+			
+		})
+	}
+	//安装/更新指定id小程序，如果原有的存在会删除。
+	async installApp(ini:xMiniProgramsInstallType,header:UTSJSONObject|null):Promise<boolean>{
+		const _this = this;
+		//先检查是不是存在。
+		const isInstall = await this.checkAppInstall(ini.appid)
+		if(isInstall!=null){
+			//删除。
+			await _this.removeDir(_this.normalFilePath(ini.appid))
+		}
+		
+		//下载安装。
+		const result = await _this.downLoadFile(ini.installUrl,header);
+		if(result == null) return Promise.resolve(false)
+		const appdir = _this.normalFilePath(ini.appid)
+		//创建目录。
+		await _this.mkDir(appdir)
+		//解压文件。
+	
+		await _this.unZip(result,appdir)
+		return Promise.resolve(true)
+	}
+	private getHostUrlRoot(id:string):string{
+		let path = this.normalFilePath(id)+"/index.html";
+		return path;
+	}
+	
+	async openMiniProgramHostUrl(id:string):Promise<any|null>{
+		const isInstall = await this.checkAppInstall(id)
+		const ic = await this.checkFile(this.normalFilePath(id+"/"+"index.html"))
+	
+		if(isInstall == null) {
+			console.error("你的小程序应用不存在！")
+			return Promise.resolve(false)
+		}
+		const url = this.getHostUrlRoot(id)
+		this.ins.loadUrlmini(url)
+		return Promise.resolve(true)
+	}
+}

@@ -1,0 +1,235 @@
+import { ICanvas } from '@/uni_modules/tmx-ui/core/canvas/ICanvas.uts';
+import { Shape } from '@/uni_modules/tmx-ui/core/canvas/lib/shape.uts';
+import { ILinePolygon } from '@/uni_modules/tmx-ui/core/canvas/lib/linePolygon.uts';
+import { ICircle } from '@/uni_modules/tmx-ui/core/canvas/lib/circle.uts';
+import { getDatumNumber, getDatumString, getBandWidth, measureTextW } from '../scale.uts';
+import { mapLineOrBarPoints, PlotRect } from '../map.uts';
+import { ChartDatum, ChartSeriesOptions, ChartLabelOptions, ChartSeriesContext, sXField, sYField, sColor, sSmooth, sShowPoint, sLineWidth, sSmoothStrength, sPointSize, POINT_BORDER_WIDTH } from '../types.uts';
+import { XYPoint } from '../map.uts';
+import { IRect } from '@/uni_modules/tmx-ui/core/canvas/lib/rect.uts';
+import { IText } from '@/uni_modules/tmx-ui/core/canvas/lib/text.uts';
+import { resolveLinearAxisRange } from '../axis.uts';
+
+const _sign = (x : number) : number => x < 0 ? -1 : 1
+
+const _slope3 = (x0 : number, y0 : number, x1 : number, y1 : number, x2 : number, y2 : number) : number => {
+	const h0 = x1 - x0
+	const h1 = x2 - x1
+	const divH0 = h0 == 0 ? 0 : h0
+	const divH1 = h1 == 0 ? 0 : h1
+	const s0 = divH0 == 0 ? 0 : (y1 - y0) / divH0
+	const s1 = divH1 == 0 ? 0 : (y2 - y1) / divH1
+	const p = (h0 + h1) == 0 ? 0 : (s0 * h1 + s1 * h0) / (h0 + h1)
+	const val = (_sign(s0) + _sign(s1)) * Math.min(Math.abs(s0), Math.abs(s1), 0.5 * Math.abs(p))
+	return isNaN(val) ? 0 : val
+}
+
+const _slope2 = (x0 : number, y0 : number, x1 : number, y1 : number, t : number) : number => {
+	const h = x1 - x0
+	return h == 0 ? t : (3 * (y1 - y0) / h - t) / 2
+}
+
+export const buildSmoothLinePoints = (src : XYPoint[], _strength : number) : number[] => {
+	const n = src.length
+	if (n <= 1) {
+		const raw = [] as number[]
+		if (n == 1) { raw.push(src[0].x); raw.push(src[0].y) }
+		return raw
+	}
+	if (n == 2) {
+		return [src[0].x, src[0].y, src[1].x, src[1].y] as number[]
+	}
+
+	const tangents = [] as number[]
+	for (let i = 0; i < n; i++) {
+		if (i == 0) {
+			const t1 = _slope3(src[0].x, src[0].y, src[1].x, src[1].y, src[2].x, src[2].y)
+			tangents.push(_slope2(src[0].x, src[0].y, src[1].x, src[1].y, t1))
+		} else if (i == n - 1) {
+			tangents.push(_slope2(src[n - 2].x, src[n - 2].y, src[n - 1].x, src[n - 1].y, tangents[n - 2]))
+		} else {
+			tangents.push(_slope3(src[i - 1].x, src[i - 1].y, src[i].x, src[i].y, src[i + 1].x, src[i + 1].y))
+		}
+	}
+
+	const segs = 16
+	const out = [] as number[]
+	for (let i = 0; i < n - 1; i++) {
+		const x0 = src[i].x
+		const y0 = src[i].y
+		const x1 = src[i + 1].x
+		const y1 = src[i + 1].y
+		const dx = (x1 - x0) / 3
+		const cp1x = x0 + dx
+		const cp1y = y0 + dx * tangents[i]
+		const cp2x = x1 - dx
+		const cp2y = y1 - dx * tangents[i + 1]
+		for (let s = 0; s < segs; s++) {
+			const t = s / segs
+			const mt = 1 - t
+			const mt2 = mt * mt
+			const mt3 = mt2 * mt
+			const t2 = t * t
+			const t3 = t2 * t
+			out.push(mt3 * x0 + 3 * mt2 * t * cp1x + 3 * mt * t2 * cp2x + t3 * x1)
+			out.push(mt3 * y0 + 3 * mt2 * t * cp1y + 3 * mt * t2 * cp2y + t3 * y1)
+		}
+	}
+	out.push(src[n - 1].x)
+	out.push(src[n - 1].y)
+	return out
+}
+
+export function renderLineSeries(
+	canvas : ICanvas,
+	series : ChartSeriesOptions,
+	data : ChartDatum[],
+	rect : PlotRect,
+	seriesIdx : number,
+	ctx : ChartSeriesContext,
+	forcedMinY ?: number|null,
+	forcedMaxY ?: number|null
+) : Shape[]{
+	const shapes = [] as Shape[]
+	const xf = sXField(series)
+	const yf = sYField(series)
+	const mapped = mapLineOrBarPoints(data, xf, yf, rect, forcedMinY, forcedMaxY)
+	const lineWidth = sLineWidth(series, 3)
+	const pointSize = sPointSize(series)
+	const smoothStrength = sSmoothStrength(series)
+	const color = sColor(series, seriesIdx)
+
+	const points = sSmooth(series) ? buildSmoothLinePoints(mapped.points, smoothStrength) : (() : number[] => {
+		const raw = [] as number[]
+		for (let i = 0; i < mapped.points.length; i++) {
+			raw.push(mapped.points[i].x)
+			raw.push(mapped.points[i].y)
+		}
+		return raw
+	})()
+
+	const gradient = series.gradient
+	const hasGradient = gradient != null && gradient!.length >= 2
+	let lineGradient = [] as string[]
+	if (hasGradient) {
+		lineGradient.push('to right')
+		const gColors = [] as string[]
+		for (let gi = 0; gi < gradient!.length; gi++) {
+			const gItem = gradient![gi]
+			if (gItem.includes('deg') || gItem.startsWith('to ')) continue
+			gColors.push(gItem.split(' ')[0])
+		}
+		for (let ci = 0; ci < gColors.length; ci++) {
+			const pct = Math.round(ci / Math.max(1, gColors.length - 1) * 100)
+			lineGradient.push(`${gColors[ci]} ${pct}`)
+		}
+	}
+
+	let adjGradient = [] as string[]
+	if (hasGradient) {
+		const startPct = (rect.right > 0) ? Math.round(rect.left / rect.right * 100) : 0
+		adjGradient.push('to right')
+		const gLen2 = lineGradient.length - 1
+		for (let ai = 0; ai < gLen2; ai++) {
+			const rawParts = lineGradient[ai + 1].split(' ')
+			const pct = startPct + Math.round(ai / Math.max(1, gLen2 - 1) * (100 - startPct))
+			adjGradient.push(`${rawParts[0]} ${pct}`)
+		}
+	}
+
+	shapes.push(new ILinePolygon({
+		points: points,
+		width: rect.right,
+		stroke: hasGradient ? '' : color,
+		strokeGradient: hasGradient ? adjGradient : [] as string[],
+		strokeWidth: lineWidth,
+		lineCap: 'round',
+		lineJoin: 'round',
+		closed: false,
+		tension: 0
+	}, canvas))
+
+	const lineBand = getBandWidth(mapped.domain, rect.left, rect.right)
+	const isDense = lineBand < 3
+	let _ci : number = 0
+	for (let i = 0; i < mapped.points.length; i++) {
+		_ci = i
+		const idx = _ci
+		const isActive = ctx.activeType == 'line' && ctx.activeIndex == idx
+		const xLabel = getDatumString(data[i], xf, `${i}`)
+		const yValue = getDatumNumber(data[i], yf, 0)
+		const px = mapped.points[i].x
+		const py = mapped.points[i].y
+
+		if (isActive) {
+			shapes.push(new IRect({
+				x: px - lineBand / 2, y: rect.top,
+				width: lineBand, height: rect.bottom - rect.top,
+				fill: ctx.activeStyle.backdrop
+			}, canvas))
+		}
+
+		if (!isDense || isActive) {
+			const colHit = new IRect({
+				x: px - lineBand / 2,
+				y: rect.top,
+				width: lineBand,
+				height: rect.bottom - rect.top,
+				fill: 'rgba(0,0,0,0)', opacity: 0
+			}, canvas)
+			colHit.addEventListener('click', () => {
+				ctx.onClickPoint('line', idx, px, py, xLabel, `${yf}: ${yValue}`, color)
+			})
+			shapes.push(colHit)
+
+			const dot = new ICircle({
+				x: px,
+				y: py,
+			radius: isActive ? pointSize / 2 + ctx.activeStyle.pointScale : (sShowPoint(series, true) ? pointSize / 2 : Math.max(2, pointSize / 3)),
+			fill: isActive ? ctx.activeStyle.pointColor : '#ffffff',
+			stroke: color,
+			strokeWidth: isActive ? ctx.activeStyle.pointBorderWidth : POINT_BORDER_WIDTH
+			}, canvas)
+			dot.addEventListener('click', () => {
+				ctx.onClickPoint('line', idx, px, py, xLabel, `${yf}: ${yValue}`, color)
+			})
+			shapes.push(dot)
+		}
+	}
+
+	const labelOpts = series.label
+	if (labelOpts?.show == true) {
+		const lFontSize = labelOpts?.fontSize ?? 10
+		const lColor = labelOpts?.color ?? '#6b7280'
+		const lFmt = labelOpts?.formatter ?? ''
+		for (let i = 0; i < mapped.points.length; i++) {
+			const yValue = getDatumNumber(data[i], yf, 0)
+			const labelText = lFmt != '' ? lFmt.replace('{value}', `${yValue}`) : `${yValue}`
+			shapes.push(new IText({
+				x: mapped.points[i].x - measureTextW(labelText, lFontSize, canvas.ctx) / 2,
+				y: mapped.points[i].y - pointSize / 2 - lFontSize - 2,
+				text: labelText,
+				fill: lColor,
+				fontSize: lFontSize
+			}, canvas))
+		}
+	}
+
+	return shapes
+}
+
+export type LineMapResult = {
+	domain : string[],
+	minY : number,
+	maxY : number
+}
+
+export const getLineSeriesRange = (data : ChartDatum[], series : ChartSeriesOptions, rect : PlotRect) : LineMapResult => {
+	const mapped = mapLineOrBarPoints(data, sXField(series), sYField(series), rect, null, null)
+	const yRange = resolveLinearAxisRange(mapped.yScale.min, mapped.yScale.max, 5)
+	return {
+		domain: mapped.domain,
+		minY: yRange.min,
+		maxY: yRange.max
+	} as LineMapResult
+}

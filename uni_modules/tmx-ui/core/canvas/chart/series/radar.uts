@@ -1,0 +1,257 @@
+import { ICanvas } from '@/uni_modules/tmx-ui/core/canvas/ICanvas.uts';
+import { Shape } from '@/uni_modules/tmx-ui/core/canvas/lib/shape.uts';
+import { ILinePolygon } from '@/uni_modules/tmx-ui/core/canvas/lib/linePolygon.uts';
+import { ICircle } from '@/uni_modules/tmx-ui/core/canvas/lib/circle.uts';
+import { IArc } from '@/uni_modules/tmx-ui/core/canvas/lib/arc.uts';
+import { ILine } from '@/uni_modules/tmx-ui/core/canvas/lib/line.uts';
+import { IText } from '@/uni_modules/tmx-ui/core/canvas/lib/text.uts';
+import { getDatumNumber, getDatumString, measureTextW } from '../scale.uts';
+import { PlotRect } from '../map.uts';
+import { getChartColor } from '../palette.uts';
+import { ChartDatum, ChartSeriesOptions, ChartSeriesContext } from '../types.uts';
+
+import { xConfig } from '@/uni_modules/tmx-ui/config/xConfig.uts';
+const isDark = () : boolean => xConfig.dark == 'dark'
+const GRID_COLOR = () : string => isDark() ? '#2d3748' : '#e5e7eb'
+const GRID_FILL_EVEN = () : string => isDark() ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)'
+const LABEL_COLOR = () : string => isDark() ? '#a0aec0' : '#6b7280'
+const LABEL_FONT_SIZE = 10
+const TICK_FONT_SIZE = 9
+
+let radarGridDrawn = false
+
+export const resetRadarGrid = () => {
+	radarGridDrawn = false
+}
+
+const buildRadarDomain = (data : ChartDatum[], xField : string) : string[] => {
+	const values = [] as string[]
+	for (let i = 0; i < data.length; i++) {
+		const label = getDatumString(data[i], xField, `${i}`)
+		if (!values.includes(label)) values.push(label)
+	}
+	return values
+}
+
+const getRadarMaxValue = (data : ChartDatum[], series : ChartSeriesOptions[], domain : string[], xField : string) : number => {
+	let maxVal = 0
+	for (let si = 0; si < series.length; si++) {
+		const yf = series[si].yField ?? ''
+		if (yf == '') continue
+		for (let di = 0; di < data.length; di++) {
+			const v = getDatumNumber(data[di], yf, 0)
+			if (v > maxVal) maxVal = v
+		}
+	}
+	if (maxVal <= 0) maxVal = 100
+	return maxVal
+}
+
+const niceRadarMax = (raw : number) : number => {
+	if (raw <= 0) return 100
+	const exponent = Math.floor(Math.log10(raw))
+	const pow = Math.pow(10, exponent)
+	const fraction = raw / pow
+	if (fraction <= 1) return 1 * pow
+	if (fraction <= 2) return 2 * pow
+	if (fraction <= 5) return 5 * pow
+	return 10 * pow
+}
+
+export const renderRadarSeries = (
+	canvas : ICanvas,
+	series : ChartSeriesOptions,
+	allRadarSeries : ChartSeriesOptions[],
+	data : ChartDatum[],
+	rect : PlotRect,
+	seriesIdx : number,
+	gridFill : boolean,
+	gridType : string,
+	ctx : ChartSeriesContext
+) : Shape[] => {
+	const shapes = [] as Shape[]
+	const xf = series.xField ?? ''
+	const yf = series.yField ?? ''
+	if (xf == '' || yf == '') return shapes
+
+	const domain = buildRadarDomain(data, xf)
+	const n = domain.length
+	if (n < 3) return shapes
+
+	const cx = (rect.left + rect.right) / 2
+	const cy = (rect.top + rect.bottom) / 2
+	const maxR = Math.min(rect.right - rect.left, rect.bottom - rect.top) / 2 * 0.72
+
+	const rawMax = getRadarMaxValue(data, allRadarSeries, domain, xf)
+	const maxVal = niceRadarMax(rawMax)
+	const tickCount = 4
+	const angleStep = 2 * Math.PI / n
+	const startAngle = -Math.PI / 2
+
+	if (!radarGridDrawn) {
+		radarGridDrawn = true
+
+		const useArc = gridType != 'polygon'
+		for (let ti = tickCount; ti >= 1; ti--) {
+			const r = maxR * ti / tickCount
+			if (useArc) {
+				if (gridFill && ti % 2 == 0) {
+					shapes.push(new ICircle({ x: cx, y: cy, radius: r, fill: GRID_FILL_EVEN() }, canvas))
+				}
+				shapes.push(new IArc({
+					x: cx, y: cy, radius: r,
+					startAngle: 0, endAngle: 360,
+					stroke: GRID_COLOR(), strokeWidth: 1
+				}, canvas))
+			} else {
+				const pts = [] as number[]
+				for (let i = 0; i < n; i++) {
+					const angle = startAngle + i * angleStep
+					pts.push(cx + Math.cos(angle) * r)
+					pts.push(cy + Math.sin(angle) * r)
+				}
+				if (pts.length >= 2) {
+					pts.push(pts[0])
+					pts.push(pts[1])
+				}
+				if (gridFill && ti % 2 == 0) {
+					shapes.push(new ILinePolygon({
+						points: pts, fill: GRID_FILL_EVEN(), closed: true, tension: 0
+					}, canvas))
+				}
+				shapes.push(new ILinePolygon({
+					points: pts, stroke: GRID_COLOR(), strokeWidth: 1, closed: true, tension: 0
+				}, canvas))
+			}
+		}
+
+		for (let i = 0; i < n; i++) {
+			const angle = startAngle + i * angleStep
+			const ex = cx + Math.cos(angle) * maxR
+			const ey = cy + Math.sin(angle) * maxR
+			shapes.push(new ILine({
+				pointStart: { x: cx, y: cy },
+				pointEnd: { x: ex, y: ey },
+				stroke: GRID_COLOR(), strokeWidth: 1
+			}, canvas))
+		}
+
+		for (let ti = 1; ti <= tickCount; ti++) {
+			const tickVal = maxVal * ti / tickCount
+			const r = maxR * ti / tickCount
+			const tx = cx + Math.cos(startAngle) * r
+			const ty = cy + Math.sin(startAngle) * r
+			const text = tickVal >= 1000 ? `${Math.round(tickVal / 1000)}k` : `${Math.round(tickVal)}`
+			shapes.push(new IText({
+				x: tx + 4, y: ty - TICK_FONT_SIZE / 2,
+				text: text, fill: LABEL_COLOR(), fontSize: TICK_FONT_SIZE
+			}, canvas))
+		}
+
+		const catLabelCtx = canvas.ctx
+		if (catLabelCtx != null) catLabelCtx!.font = `${LABEL_FONT_SIZE}px Arial`
+		for (let i = 0; i < n; i++) {
+			const angle = startAngle + i * angleStep
+			const cosA = Math.cos(angle)
+			const sinA = Math.sin(angle)
+			const vx = cx + cosA * maxR
+			const vy = cy + sinA * maxR
+			const label = domain[i]
+			const labelW = measureTextW(label, LABEL_FONT_SIZE, canvas.ctx)
+			const gap = 6
+
+			let textX = vx
+			let textY = vy - LABEL_FONT_SIZE / 2
+			if (Math.abs(cosA) < 0.15) {
+				textX = vx - labelW / 2
+				textY = sinA < 0 ? vy - LABEL_FONT_SIZE - gap : vy + gap
+			} else if (cosA > 0) {
+				textX = vx + gap
+				textY = vy - LABEL_FONT_SIZE / 2
+			} else {
+				textX = vx - labelW - gap
+				textY = vy - LABEL_FONT_SIZE / 2
+			}
+
+			shapes.push(new IText({
+				x: textX, y: textY,
+				text: label, fill: LABEL_COLOR(), fontSize: LABEL_FONT_SIZE
+			}, canvas))
+		}
+	}
+
+	const color = series.color ?? getChartColor(seriesIdx)
+	const lineWidth = Math.max(1, series.lineWidth ?? 2)
+	const pointSize = Math.max(4, series.pointSize ?? 6)
+	const showPoint = series.showPoint ?? true
+	const areaOpacity = series.areaOpacity ?? 0
+
+	const dataPts = [] as number[]
+	type RadarPoint = { x : number, y : number, value : number, label : string }
+	const pointList = [] as RadarPoint[]
+
+	for (let i = 0; i < n; i++) {
+		const label = domain[i]
+		let value = 0
+		for (let di = 0; di < data.length; di++) {
+			if (getDatumString(data[di], xf, '') == label) {
+				value = getDatumNumber(data[di], yf, 0)
+				break
+			}
+		}
+		const r = Math.max(0, value / maxVal) * maxR
+		const angle = startAngle + i * angleStep
+		const px = cx + Math.cos(angle) * r
+		const py = cy + Math.sin(angle) * r
+		dataPts.push(px)
+		dataPts.push(py)
+		pointList.push({ x: px, y: py, value: value, label: label } as RadarPoint)
+	}
+
+	if (dataPts.length >= 2) {
+		dataPts.push(dataPts[0])
+		dataPts.push(dataPts[1])
+	}
+
+	if (areaOpacity > 0) {
+		shapes.push(new ILinePolygon({
+			points: dataPts, fill: color, opacity: areaOpacity,
+			closed: true, tension: 0
+		}, canvas))
+	}
+
+	shapes.push(new ILinePolygon({
+		points: dataPts, stroke: color, strokeWidth: lineWidth,
+		closed: true, tension: 0
+	}, canvas))
+
+	let _ci : number = 0
+	for (let i = 0; i < pointList.length; i++) {
+		_ci = i
+		const idx = _ci
+		const pt = pointList[i]
+		const isActive = ctx.activeType == 'radar' && ctx.activeIndex == idx
+
+		if (showPoint || isActive) {
+			shapes.push(new ICircle({
+				x: pt.x, y: pt.y,
+				radius: isActive ? pointSize / 2 + ctx.activeStyle.pointScale : pointSize / 2,
+				fill: isActive ? ctx.activeStyle.pointColor : color,
+				stroke: isActive ? color : '#ffffff',
+				strokeWidth: isActive ? ctx.activeStyle.pointBorderWidth : 1
+			}, canvas))
+		}
+
+		const hitR = Math.max(12, maxR / n)
+		const hit = new ICircle({
+			x: pt.x, y: pt.y, radius: hitR,
+			fill: 'rgba(0,0,0,0)', opacity: 0
+		}, canvas)
+		hit.addEventListener('click', () => {
+			ctx.onClickPoint('radar', idx, pt.x, pt.y, pt.label, `${yf}: ${pt.value}`, color)
+		})
+		shapes.push(hit)
+	}
+
+	return shapes
+}

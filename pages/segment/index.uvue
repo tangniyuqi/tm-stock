@@ -1,0 +1,119 @@
+<template>
+	<view class="page">
+		<x-sheet color="#FFFBE6" >
+			<x-text font-size="16" class="text-weight-b mb-8">OCS</x-text>
+			<x-text color="#999" font-size="12">
+			PCB 全称印制电路板，是所有电子产品的核心载体：在绝缘基材上通过蚀刻铜箔形成固定导电线路，实现元器件机械支撑 + 电气互连,是电子设备的 "骨架 + 神经线路"。
+			</x-text>
+		</x-sheet>
+
+		<!-- 核心折叠面板 -->
+		<x-sheet color="#FFF" padding="0">
+			<x-collapse v-model="activeNames" :multiple="false">
+				<!-- 细分领域 -->
+				<x-collapse-item 
+					v-for="(item, index) in items" 
+					:key="index"
+					:name="'field-' + index" 
+					:title="item.segment.name + '（+' + (5.5-index) + '%）'"
+					activeColor="rgba(255, 10, 10, 1)"
+				>
+					<view class="pa-12 d-flex flex-wrap" style="gap: 8px;">
+						<x-tag 
+							v-for="(symbol, idx) in item.symbols" 
+							:key="idx"
+							size="large"
+							round="0"
+							:color="symbol.leader === 1 ? 'warn' : 'info'"
+						>{{ symbol.name }}</x-tag>
+					</view>
+				</x-collapse-item>
+			</x-collapse>
+		</x-sheet>
+	</view>
+</template>
+
+<script>
+import { ref } from "vue"
+
+export default {
+  data() {
+    // 折叠面板激活项
+    const activeNames = ref<string[]>(['field-0'])
+
+    // 细分领域数据源
+    const items = [
+      { 
+        'segment': {
+			'id': 10001,
+			'name': '光源',
+		}, 
+		'symbols':  [
+			{
+				'id': 10001,
+				'name': '茂莱光学',
+				'leader': 1
+			},
+			{
+				'id': 10002,
+				'name': '波长光电',
+				'leader': 0
+			},
+			{
+				'id': 10003,
+				'name': '福晶科技',
+				'leader': 0
+			},
+			{
+				'id': 10004,
+				'name': '永新光学',
+				'leader': 0
+			},
+			{
+				'id': 10005,
+				'name': '国光电气',
+				'leader': 0
+			}
+		]
+      },
+      {
+        'segment': {
+			'id': 10002,
+			'name': '物镜',
+		}, 
+		'symbols':  [
+			{
+				'id': 10001,
+				'name': '赛微电子',
+				'leader': 1
+			},
+			{
+				'id': 10002,
+				'name': '阿石创',
+				'leader': 0
+			},
+			{
+				'id': 10003,
+				'name': '洪田股份',
+				'leader': 0
+			}
+	  	]
+      }
+    ]
+
+    return {
+      activeNames,
+      items,
+    }
+  },
+  methods: {
+    
+  }
+}
+</script>
+
+<style lang="scss">
+.page {
+	padding: 10px 0 0 0;
+}
+</style>

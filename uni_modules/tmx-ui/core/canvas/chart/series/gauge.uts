@@ -1,0 +1,218 @@
+import { ICanvas } from '@/uni_modules/tmx-ui/core/canvas/ICanvas.uts';
+import { Shape } from '@/uni_modules/tmx-ui/core/canvas/lib/shape.uts';
+import { IArc } from '@/uni_modules/tmx-ui/core/canvas/lib/arc.uts';
+import { ILinePolygon } from '@/uni_modules/tmx-ui/core/canvas/lib/linePolygon.uts';
+import { ILine } from '@/uni_modules/tmx-ui/core/canvas/lib/line.uts';
+import { IText } from '@/uni_modules/tmx-ui/core/canvas/lib/text.uts';
+import { ICircle } from '@/uni_modules/tmx-ui/core/canvas/lib/circle.uts';
+import { PlotRect } from '../map.uts';
+import { ChartDatum, ChartSeriesOptions, ChartSeriesContext } from '../types.uts';
+import { xConfig } from '@/uni_modules/tmx-ui/config/xConfig.uts';
+import { measureTextW } from '../scale.uts';
+
+const isDark = () : boolean => xConfig.dark == 'dark'
+
+/** 与饼图 label.formatter 占位一致：{name} 为 pieCenterText，{value} 为 0～100 整数，{percent} 为带一位小数的百分比串 */
+const formatGaugeValueLabel = (fmt : string, pct01 : number, centerName : string) : string => {
+	const vInt = Math.round(pct01 * 100)
+	const vStr = `${vInt}`
+	const pctStr = `${(pct01 * 100).toFixed(1)}%`
+	return fmt.replace('{name}', centerName).replace('{value}', vStr).replace('{percent}', pctStr)
+}
+
+/** 与柱/折线一致：支持 ['#a','#b'] 或首项 'to right'/'to bottom' 指定方向（弧上渐变穿过圆心） */
+const buildGaugeProgressStrokeGradient = (gradient : string[]) : string[] => {
+	if (gradient.length < 2) return [] as string[]
+	let dir = 'to right'
+	let startIdx = 0
+	const first = gradient[0]
+	if (first.startsWith('to ')) {
+		dir = first
+		startIdx = 1
+	}
+	const colors = [] as string[]
+	for (let gi = startIdx; gi < gradient.length; gi++) {
+		const item = gradient[gi]
+		if (item.includes('deg') || item.startsWith('to ')) continue
+		const parts = item.split(' ')
+		colors.push(parts[0])
+	}
+	if (colors.length < 2) return [] as string[]
+	const out = [] as string[]
+	out.push(dir)
+	for (let ci = 0; ci < colors.length; ci++) {
+		const pct = Math.round(ci / Math.max(1, colors.length - 1) * 100)
+		out.push(`${colors[ci]} ${pct}`)
+	}
+	return out
+}
+
+export const renderGaugeSeries = (
+	canvas : ICanvas,
+	series : ChartSeriesOptions,
+	data : ChartDatum[],
+	rect : PlotRect,
+	ctx : ChartSeriesContext
+) : Shape[] => {
+	const shapes = [] as Shape[]
+	const percent = Math.max(0, Math.min(1, series.percent ?? 0.5))
+	const startDeg = series.gaugeStartAngle ?? -210
+	const endDeg = series.gaugeEndAngle ?? 30
+	const tickCount = series.gaugeTickCount ?? 10
+	const pointerColor = series.gaugePointerColor ?? (isDark() ? '#63b3ed' : '#3b82f6')
+	const trackColor = series.gaugeTrackColor ?? (isDark() ? '#2d3748' : '#e5e7eb')
+	const progressColor = series.gaugeProgressColor ?? pointerColor
+	const labelText = series.pieCenterText ?? ''
+	const subText = series.pieCenterSubText ?? ''
+	const lbl = series.label
+	/** 与其它图数据标签一致：仅控制中心区 percent 数值，不影响刻度与 pieCenterText/副标题 */
+	const showValueText = lbl == null ? true : (lbl.show ?? true)
+	const valueColorStr = lbl != null ? (lbl.color ?? '') : ''
+	const valueColor = valueColorStr != '' ? valueColorStr : null
+	const valueLabelFont = lbl != null && (lbl.fontSize ?? 0) > 0 ? lbl.fontSize! : 0
+	const valueFmt = lbl != null ? (lbl.formatter ?? '') : ''
+	const valDisplay = valueFmt != '' ? formatGaugeValueLabel(valueFmt, percent, labelText) : `${Math.round(percent * 100)}`
+
+	const plotW = rect.right - rect.left
+	const plotH = rect.bottom - rect.top
+	const cx = rect.left + plotW / 2
+	const cy = rect.top + plotH / 2
+	const maxR = Math.min(plotW, plotH) / 2 * 0.85
+	const trackW = Math.max(8, maxR * 0.12)
+	const outerR = maxR
+	const innerR = outerR - trackW
+
+	const sweepTotal = endDeg - startDeg
+
+	const trackArc = new IArc({
+		x: cx, y: cy, radius: outerR - trackW / 2,
+		startAngle: startDeg, endAngle: endDeg,
+		stroke: trackColor, strokeWidth: trackW,
+		lineCap: 'round'
+	}, canvas)
+	trackArc.skipEntranceAnimation = true
+	shapes.push(trackArc)
+
+	const progressEnd = startDeg + sweepTotal * percent
+	const grad = series.gradient
+	const strokeGrad = grad != null && grad.length >= 2 ? buildGaugeProgressStrokeGradient(grad) : ([] as string[])
+	const hasProgressGradient = strokeGrad.length > 1
+	if (percent > 0.005) {
+		shapes.push(new IArc({
+			x: cx, y: cy, radius: outerR - trackW / 2,
+			startAngle: startDeg, endAngle: progressEnd,
+			stroke: hasProgressGradient ? '' : progressColor,
+			strokeGradient: hasProgressGradient ? strokeGrad : [] as string[],
+			strokeWidth: trackW,
+			lineCap: 'round'
+		}, canvas))
+	}
+
+	const majorInterval = sweepTotal / tickCount
+	const tickR = outerR + 4
+	const majorLen = 8
+	const minorLen = 4
+	const labelR = outerR + 18
+	const minorPerMajor = 5
+	const totalMinor = tickCount * minorPerMajor
+	const minorInterval = sweepTotal / totalMinor
+	const tickColor = isDark() ? '#a0aec0' : '#4a5568'
+	const tickLabelColor = isDark() ? '#a0aec0' : '#6b7280'
+	const tickFontSize = 11
+
+	for (let mi = 0; mi <= totalMinor; mi++) {
+		const deg = startDeg + mi * minorInterval
+		const rad = deg * Math.PI / 180
+		const isMajor = mi % minorPerMajor == 0
+		const len = isMajor ? majorLen : minorLen
+		const cosR = Math.cos(rad)
+		const sinR = Math.sin(rad)
+		const x1 = cx + cosR * tickR
+		const y1 = cy + sinR * tickR
+		const x2 = cx + cosR * (tickR + len)
+		const y2 = cy + sinR * (tickR + len)
+		shapes.push(new ILine({
+			pointStart: { x: x1, y: y1 },
+			pointEnd: { x: x2, y: y2 },
+			stroke: tickColor,
+			strokeWidth: isMajor ? 2 : 1
+		}, canvas))
+
+		if (isMajor) {
+			const majorIdx = mi / minorPerMajor
+			const valNum = Math.round(majorIdx / tickCount * 100)
+			const valText = `${valNum}`
+			const tw = measureTextW(valText, tickFontSize, canvas.ctx)
+			const lx = cx + cosR * labelR
+			const ly = cy + sinR * labelR
+			const tx = lx - tw * (1 - cosR) / 2
+			const ty = ly - tickFontSize * (1 - sinR) / 2
+			shapes.push(new IText({
+				x: tx, y: ty,
+				text: valText, fill: tickLabelColor, fontSize: tickFontSize
+			}, canvas))
+		}
+	}
+
+	const pointerAngle = startDeg + sweepTotal * percent
+	const pointerLen = innerR - 8
+	const baseW = 4
+	const tailLen = 12
+	/** 局部坐标：针尖朝 +X，绕 (cx,cy) 旋转 pointerAngle 度，与进度弧同步入场 */
+	const ptrPts = [pointerLen, 0, 0, baseW, -tailLen, 0, 0, -baseW, pointerLen, 0] as number[]
+	const pointerPoly = new ILinePolygon({
+		x: cx, y: cy,
+		points: ptrPts,
+		fill: pointerColor, closed: true, tension: 0,
+		rotation: startDeg
+	}, canvas)
+	pointerPoly.gaugeRotationEnd = pointerAngle
+	shapes.push(pointerPoly)
+
+	shapes.push(new ICircle({
+		x: cx, y: cy, radius: 6,
+		fill: isDark() ? '#1a202c' : '#ffffff',
+		stroke: pointerColor, strokeWidth: 2
+	}, canvas))
+
+	const centerTitleColor = isDark() ? '#a0aec0' : '#6b7280'
+	const centerTitleFs = 13
+	const centerValueColor = valueColor != null ? valueColor : (isDark() ? '#e2e8f0' : '#111827')
+	let valFontSize = Math.max(18, Math.floor(maxR * 0.22))
+	if (valueLabelFont > 0) {
+		valFontSize = Math.max(14, Math.floor(valueLabelFont * 1.35))
+	}
+
+	let stackY = cy + maxR * 0.25
+	if (labelText != '') {
+		const ltw = measureTextW(labelText, centerTitleFs, canvas.ctx)
+		shapes.push(new IText({
+			x: cx - ltw / 2, y: stackY,
+			text: labelText,
+			fill: centerTitleColor,
+			fontSize: centerTitleFs
+		}, canvas))
+		stackY = cy + maxR * 0.25 + 22
+	}
+	if (showValueText) {
+		const vtw = measureTextW(valDisplay, valFontSize, canvas.ctx)
+		shapes.push(new IText({
+			x: cx - vtw / 2, y: stackY,
+			text: valDisplay,
+			fill: centerValueColor,
+			fontSize: valFontSize
+		}, canvas))
+		stackY = stackY + valFontSize + 6
+	}
+	if (subText != '') {
+		const stw = measureTextW(subText, 12, canvas.ctx)
+		shapes.push(new IText({
+			x: cx - stw / 2, y: stackY,
+			text: subText,
+			fill: isDark() ? '#718096' : '#9ca3af',
+			fontSize: 12
+		}, canvas))
+	}
+
+	return shapes
+}

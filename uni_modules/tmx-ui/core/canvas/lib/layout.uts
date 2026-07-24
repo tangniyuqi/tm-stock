@@ -1,0 +1,355 @@
+import { Shape } from '@/uni_modules/tmx-ui/core/canvas/lib/shape.uts';
+import { ICanvas } from '@/uni_modules/tmx-ui/core/canvas/ICanvas.uts';
+type LayoutDirection = 'horizontal'|'vertical'
+type LayoutAnchor = 'top'|'bottom'
+type LayoutMode = 'left'|'right'|'between'|'center';//左对齐，右对齐，两边对齐均分，中间对齐
+type CurSizeType = {width:number,height:number}
+type RoysType = {items:Shape[], sizes:CurSizeType[], rowWidth:number, rowHeight:number}
+type CoysType = {items:Shape[], sizes:CurSizeType[], colWidth:number, colHeight:number}
+export class ILayout {
+	x:number = 0
+	y:number = 0
+	width:number = 0;
+	height:number = 0;
+	shapeList:Shape[] = [];
+	colSpace:number = 10
+	rowSpace:number = 10
+	direction:LayoutDirection = 'horizontal'
+	mode:LayoutMode  = 'left'
+	anchor:LayoutAnchor = 'top';//是以顶开始往排，还是以容器底往上排
+	// 自动断行
+	wrap:boolean = false
+	icanvas:ICanvas;
+	/**
+	 * 创建布局容器
+	 * @param ic 画布实例（默认用于初始化容器宽高）
+	 */
+	constructor(ic:ICanvas){
+		this.icanvas = ic;
+		this.width = ic.width
+		this.height = ic.height
+	}
+	/**
+	 * 添加需要参与布局的元素（按 id 去重）
+	 * @param shapes 形状列表
+	 */
+	addShape(shapes:Shape[]){
+		let ids = this.shapeList.map((el:Shape):string => el.id)
+		let realShapes = shapes.filter((el:Shape):boolean => !ids.includes(el.id))
+		this.shapeList.push(...realShapes)
+	}
+	/**
+	 * 设置容器 X 偏移
+	 * @param val X 坐标
+	 */
+	setsX(val:number){
+		this.x = val
+	}
+	/**
+	 * 设置容器 Y 偏移
+	 * @param val Y 坐标
+	 */
+	setsY(val:number){
+		this.y = val
+	}
+	/**
+	 * 设置容器位置
+	 * @param x X 坐标
+	 * @param y Y 坐标
+	 */
+	setsPosition(x:number,y:number){
+		this.x = x
+		this.y = y
+	}
+	/**
+	 * 设置容器尺寸
+	 * @param w 宽度
+	 * @param h 高度
+	 */
+	setsSize(w:number,h:number){
+		this.width = w;
+		this.height = h;
+	}
+	/**
+	 * 设置容器宽度
+	 * @param w 宽度
+	 */
+	setsWidth(w:number){
+		this.width = w;
+	}
+	/**
+	 * 设置容器高度
+	 * @param h 高度
+	 */
+	setsHeight(h:number){
+		this.height = h;
+	}
+	/**
+	 * 设置列间距（横向相邻元素间距）
+	 * @param val 间距像素
+	 */
+	setsSpaceCol(val:number){
+		this.colSpace = val;
+	}
+	/**
+	 * 设置行间距（纵向相邻元素间距）
+	 * @param val 间距像素
+	 */
+	setsSpaceRow(val:number){
+		this.rowSpace = val
+	}
+	/**
+	 * 同时设置列/行间距
+	 * @param col 列间距
+	 * @param row 行间距
+	 */
+	setsSpace(col:number,row:number){
+		this.colSpace = col;
+		this.rowSpace = row
+	}
+	/**
+	 * 设置主轴方向
+	 * @param val 'horizontal' | 'vertical'
+	 */
+	setsLayoutDirection(val:LayoutDirection){
+		this.direction = val;
+	}
+	/**
+	 * 设置主轴对齐模式
+	 * @param val 'left' | 'right' | 'between' | 'center'
+	 */
+	setsMode(val:LayoutMode){
+		this.mode = val;
+	}
+	/**
+	 * 设置交叉轴锚点（顶/底对齐）
+	 * @param val 'top' | 'bottom'
+	 */
+	setsAnchor(val:LayoutAnchor){
+		this.anchor = val;
+	}
+	/**
+	 * 设置是否自动换行/换列
+	 * @param val true 开启
+	 */
+	setsWrap(val:boolean){
+		this.wrap = val;
+	}
+	/**
+	 * 执行布局：根据 direction / mode / anchor / wrap / spacing 将 shapeList 定位
+	 */
+	render(){
+		const items = this.shapeList.filter((s:Shape)=> s.visible);
+		if(items.length==0) return;
+		if(this.direction=='horizontal'){
+			this.layoutHorizontal(items);
+		}else{
+			this.layoutVertical(items);
+		}
+		items.forEach((el) => {
+			el.needsUpdate = true
+		})
+	}
+
+	/**
+	 * 获取元素参与布局的尺寸（来自元素 getBoundRect）
+	 * @param shape 形状
+	 * @returns width/height
+	 */
+	private getItemSize(shape:Shape):CurSizeType{
+		const rect = shape.getBoundRect();
+		const w = Math.max(0, rect.width);
+		const h = Math.max(0, rect.height);
+		return {width:w,height:h};
+	}
+
+	/**
+	 * 横向布局：按主轴水平排列，支持均分与换行
+	 * @param items 待布局元素
+	 */
+	private layoutHorizontal(items:Shape[]){
+		if(!this.wrap){
+			// single row
+			const sizes = items.map(s=> this.getItemSize(s));
+			const totalWidth = sizes.reduce((acc,it)=> acc + it.width, 0);
+			const gaps = Math.max(0, items.length-1);
+			let spacing = this.colSpace;
+			let startX = this.x;
+			if(this.mode=='between' && gaps>0){
+				spacing = Math.max(0, (this.width - totalWidth) / gaps);
+				startX = this.x;
+			}else if(this.mode=='center'){
+				startX = this.x + Math.max(0, (this.width - (totalWidth + spacing*gaps)) / 2);
+			}else if(this.mode=='right'){
+				startX = this.x + Math.max(0, this.width - (totalWidth + spacing*gaps));
+			}else{
+				startX = this.x;
+			}
+			let x = startX;
+			for(let i=0;i<items.length;i++){
+				const s = items[i];
+				const sz = sizes[i];
+				const y = this.anchor=='top' ? this.y : this.y + Math.max(0, this.height - sz.height);
+				s.setX(x).setY(y);
+				x += sz.width + spacing;
+			}
+			return;
+		}
+
+		// wrapping: multiple rows
+		let rows: RoysType[] = [];
+		let curItems:Shape[] = [];
+		let curSizes:CurSizeType[] = [];
+		let curWidth = 0;
+		let curHeight = 0;
+		for(let i=0;i<items.length;i++){
+			const s = items[i];
+			const sz = this.getItemSize(s);
+			const addWidth = (curItems.length>0? this.colSpace:0) + sz.width;
+			if(curItems.length>0 && curWidth + addWidth > this.width){
+				rows.push({items:curItems, sizes:curSizes, rowWidth:curWidth, rowHeight:curHeight});
+				curItems = [];
+				curSizes = [];
+				curWidth = 0;
+				curHeight = 0;
+			}
+			if(curItems.length>0){
+				curWidth += this.colSpace;
+			}
+			curItems.push(s);
+			curSizes.push(sz);
+			curWidth += sz.width;
+			curHeight = Math.max(curHeight, sz.height);
+		}
+		if(curItems.length>0){
+			rows.push({items:curItems, sizes:curSizes, rowWidth:curWidth, rowHeight:curHeight});
+		}
+		// total height with row spaces
+		const totalRowsHeight = rows.reduce((acc,r)=> acc + r.rowHeight, 0);
+		const totalRowSpaces = this.rowSpace * Math.max(0, rows.length-1);
+		let startY = this.anchor=='top' ? this.y : this.y + Math.max(0, this.height - (totalRowsHeight + totalRowSpaces));
+		let y = startY;
+		for(let r=0;r<rows.length;r++){
+			const row = rows[r];
+			// horizontal positioning per row by mode
+			const gaps = Math.max(0, row.items.length-1);
+			let spacing = this.colSpace;
+			let startX = this.x;
+			if(this.mode=='between' && gaps>0){
+				spacing = Math.max(0, (this.width - row.rowWidth + this.colSpace*gaps) / gaps);
+				startX = this.x;
+			}else if(this.mode=='center'){
+				startX = this.x + Math.max(0, (this.width - (row.rowWidth + this.colSpace*gaps)) / 2);
+			}else if(this.mode=='right'){
+				startX = this.x + Math.max(0, this.width - (row.rowWidth + this.colSpace*gaps));
+			}else{
+				startX = this.x;
+			}
+			let x = startX;
+			for(let i=0;i<row.items.length;i++){
+				const s = row.items[i];
+				const sz = row.sizes[i];
+				const offsetY = this.anchor=='top' ? 0 : (row.rowHeight - sz.height);
+				s.setX(x).setY(y + offsetY);
+				x += sz.width + spacing;
+			}
+			y += row.rowHeight + this.rowSpace;
+		}
+	}
+
+	/**
+	 * 纵向布局：按主轴垂直排列，支持均分与换列
+	 * @param items 待布局元素
+	 */
+	private layoutVertical(items:Shape[]){
+		if(!this.wrap){
+			// single column
+			const sizes = items.map(s=> this.getItemSize(s));
+			const totalHeight = sizes.reduce((acc,it)=> acc + it.height, 0);
+			const gaps = Math.max(0, items.length-1);
+			let spacing = this.rowSpace;
+			let startY = this.y;
+			if(this.mode=='between' && gaps>0){
+				spacing = Math.max(0, (this.height - totalHeight) / gaps);
+				startY = this.y;
+			}else if(this.anchor=='top'){
+				startY = this.y;
+			}else{
+				startY = this.y + Math.max(0, this.height - (totalHeight + spacing*gaps));
+			}
+			let y = startY;
+			for(let i=0;i<items.length;i++){
+				const s = items[i];
+				const sz = sizes[i];
+				let x = this.x;
+				if(this.mode=='center') x = this.x + Math.max(0, (this.width - sz.width)/2);
+				else if(this.mode=='right') x = this.x + Math.max(0, this.width - sz.width);
+				else x = this.x; // left or between on single column
+				s.setX(x).setY(y);
+				y += sz.height + spacing;
+			}
+			return;
+		}
+		// wrapping into columns
+		let cols: CoysType[] = [];
+		let curItems:Shape[] = [];
+		let curSizes:CurSizeType[] = [];
+		let curHeight = 0;
+		let curWidth = 0;
+		for(let i=0;i<items.length;i++){
+			const s = items[i];
+			const sz = this.getItemSize(s);
+			const addHeight = (curItems.length>0? this.rowSpace:0) + sz.height;
+			if(curItems.length>0 && curHeight + addHeight > this.height){
+				cols.push({items:curItems, sizes:curSizes, colWidth:curWidth, colHeight:curHeight});
+				curItems = [];
+				curSizes = [];
+				curHeight = 0;
+				curWidth = 0;
+			}
+			if(curItems.length>0){
+				curHeight += this.rowSpace;
+			}
+			curItems.push(s);
+			curSizes.push(sz);
+			curHeight += sz.height;
+			curWidth = Math.max(curWidth, sz.width);
+		}
+		if(curItems.length>0){
+			cols.push({items:curItems, sizes:curSizes, colWidth:curWidth, colHeight:curHeight});
+		}
+		const totalColsWidth = cols.reduce((acc,c)=> acc + c.colWidth, 0);
+		const totalColSpaces = this.colSpace * Math.max(0, cols.length-1);
+		let startX = this.x;
+		if(this.mode=='between' && cols.length>1){
+			// distribute columns
+			startX = this.x;
+		}else if(this.mode=='center'){
+			startX = this.x + Math.max(0, (this.width - (totalColsWidth + totalColSpaces))/2);
+		}else if(this.mode=='right'){
+			startX = this.x + Math.max(0, this.width - (totalColsWidth + totalColSpaces));
+		}else{
+			startX = this.x;
+		}
+		let x = startX;
+		let betweenSpacing = this.colSpace;
+		if(this.mode=='between' && cols.length>1){
+			betweenSpacing = Math.max(0, (this.width - totalColsWidth) / (cols.length-1));
+		}
+		for(let c=0;c<cols.length;c++){
+			const col = cols[c];
+			let y = this.anchor=='top' ? this.y : this.y + Math.max(0, this.height - col.colHeight - this.rowSpace*(col.items.length-1));
+			for(let i=0;i<col.items.length;i++){
+				const s = col.items[i];
+				const sz = col.sizes[i];
+				let offsetX = 0;
+				if(this.mode=='center') offsetX = Math.max(0, (col.colWidth - sz.width)/2);
+				else if(this.mode=='right') offsetX = Math.max(0, col.colWidth - sz.width);
+				else offsetX = 0;
+				s.setX(x + offsetX).setY(y);
+				y += sz.height + this.rowSpace;
+			}
+			x += col.colWidth + betweenSpacing;
+		}
+	}
+}

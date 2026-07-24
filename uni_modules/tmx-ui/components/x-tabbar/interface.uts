@@ -1,0 +1,11 @@
+export type xTabbarCanvasDrawProps = {
+	bgColor:string,
+	bgLigth:string[],
+	listCount:number,
+	img:string,
+	/** 1正常背景，2渐变,3背景图 */
+	bgType:1|2|3,
+	active:number,
+	/** 1 向下凹陷，2向上凸起 */
+	tuqiType:1|2
+}

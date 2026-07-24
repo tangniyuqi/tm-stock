@@ -1,0 +1,43 @@
+import { HighlightConfig } from "../heightlight.uts"
+
+export function getPerlConfig(): HighlightConfig {
+	const config = new HighlightConfig()
+	
+	// Perl 关键字
+	config.keywords = [
+		'if', 'elsif', 'else', 'unless', 'while', 'until', 'for', 'foreach',
+		'do', 'continue', 'last', 'next', 'redo', 'goto', 'return',
+		'sub', 'my', 'our', 'local', 'state', 'use', 'require', 'package',
+		'BEGIN', 'END', 'CHECK', 'INIT', 'UNITCHECK',
+		'defined', 'undef', 'and', 'or', 'not', 'xor', 'eq', 'ne', 'lt',
+		'gt', 'le', 'ge', 'cmp', '__FILE__', '__LINE__', '__PACKAGE__',
+		'__SUB__', '__END__', '__DATA__'
+	]
+	
+	// Perl 内置函数
+	config.builtins = [
+		'print', 'printf', 'say', 'warn', 'die', 'exit',
+		'open', 'close', 'read', 'readline', 'readdir', 'write',
+		'chomp', 'chop', 'split', 'join', 'substr', 'index', 'rindex',
+		'length', 'lc', 'uc', 'lcfirst', 'ucfirst', 'tr', 's', 'm',
+		'push', 'pop', 'shift', 'unshift', 'splice', 'reverse', 'sort',
+		'grep', 'map', 'each', 'keys', 'values', 'exists', 'delete',
+		'scalar', 'ref', 'bless', 'tie', 'untie', 'tied',
+		'eval', 'exec', 'system', 'fork', 'wait', 'waitpid', 'kill',
+		'sleep', 'time', 'localtime', 'gmtime', 'abs', 'sqrt', 'sin',
+		'cos', 'atan2', 'exp', 'log', 'int', 'hex', 'oct', 'rand', 'srand',
+		'pack', 'unpack', 'vec', 'chr', 'ord'
+	]
+	
+	// Perl 操作符
+	config.operators = [
+		'+', '-', '*', '/', '%', '**', '=', '==', '!=', '<', '>', '<=', '>=',
+		'<==>', 'eq', 'ne', 'lt', 'gt', 'le', 'ge', 'cmp',
+		'&&', '||', '!', '&', '|', '^', '~', '<<', '>>',
+		'++', '--', '+=', '-=', '*=', '/=', '%=', '**=', '&=', '|=', '^=',
+		'.=', 'x', 'x=', '..', '...', '?', ':', '=>', '->', '=~', '!~'
+	]
+	
+	return config
+}
+

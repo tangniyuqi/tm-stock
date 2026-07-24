@@ -1,0 +1,747 @@
+<script lang="ts" setup>
+	import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue"
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { xDate, xDateTypeTime, createDate } from "../../core/util/xDate.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	import { PICKER_ITEM_INFO } from "../../interface.uts"
+	import { DateTimeFormatOrNull} from "@/uni_modules/x-vuei18n-s/interface.uts"
+
+	type coverValueType = {
+		value : string[],
+		str : string
+	}
+
+	type ModelType = "year" | "month" | "day" | "hour" | "minute" | "second";
+	
+	/**
+	 * @name 时间区间选择 xBetweenTime
+	 * @description 快速的时间区间选择器，方便时间选择自动判断前后时间大小并校正。
+	 * @page /pages/index/between-time
+	 * @category 表单组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({name:"xBetweenTime"})
+
+	const i18n = xConfig.i18n
+
+	defineSlots<{
+		default(props: { show: boolean, startVal: string, endVal: string }): any
+	}>()
+
+	const emits = defineEmits([
+			/**
+			 * 取消时触发
+			 */
+			'cancel',
+			/**
+			 * 确认触发
+			 * @param {string} date 当前选中时间id值
+			 */
+			'confirm',
+			/**
+			 * 滑动变换时触发
+			 * @param {string} date - 当前选中时间
+			 */
+			'change',
+			/**
+			 * 快速日期被选中时触发
+			 * @param {UTSJSONObject<{text:string,value:string[]}>} item - 当前选中时间组
+			 */
+			'dateClick',
+			/**
+			 * 变量控制打开状态
+			 * 等同v-model:model-show
+			 */
+			'update:modelShow',
+			/**
+			 * 经格式化后的值。等同v-model:model-str
+			 */
+			'update:modelStr',
+			'update:modelValue'
+	])
+
+	type xBetweenTimePropsType = {
+			/**
+			 * 当前时间,与modelStr不同，此提供的值必须是正常的时间格式
+			 * 否则报错，无法运行。
+			 */
+		modelValue: string[],
+			/**
+			 * 当前时间经过format格式化后输出的值。
+			 * 此值不会处理输入，只输出显示。
+			 */
+		modelStr: string,
+			/**
+			 * 当前打开的状态。
+			 * 等同v-model:model-show
+			 */
+		modelShow: boolean,
+			/**
+			 * 顶部标题
+			 * 空默认为：请选择时间（根据语言不同也不同）
+			 * 如果你提供了值，组件内的多语言失效以你设定的为准
+			 */
+		title: string,
+			/**
+			 * 开始时间,提供时，请提供完整到秒的格式
+			 */
+		start: string,
+			/**
+			 * 结束时间,提供时，请提供完整到秒的格式
+			 */
+		end: string,
+			/**
+			 * 精确到的级别,这里只是展示，具体的返回值还是完整的值。
+			 * year:年
+			 * month:年月
+			 * day:年月日
+			 * hour:年月日小时
+			 * minute:年月日小时分钟
+			 * second:年月日小时分钟秒
+			 */
+		type: ModelType,
+			/**
+			 * 输出时间格式，只对v-model:modelStr及输入框展示有效YYYY-MM-DD，为空时由当前语文决定
+			 * 因此它可能不是一个标准时间，比如YY SS ,所以不能作为modelValue使用
+			 * 有效格式：
+			 * YYYY年
+			 * MM月
+			 * DD日
+			 * hh小时
+			 * mm分钟
+			 * ss秒
+			 */
+		format: string,
+			/**
+			 * 上方的单位名称
+			 * 默认为：['年', '月', '日', '时', '分', '秒']
+			 */
+		cellUnits: string[],
+			/**
+			 * 快速时间区间选择，如果直接填写数字字符，会以你提供的数字最近多少来天来算。
+			 * d:本日
+			 * w:本周
+			 * m:本月
+			 * y:本年
+			 * q:本季度
+			 * 7:最近7天，后面的依此类推，数字的就是最近xx天。
+			 * px:前x年，p+[x]数字依此类推，表示前x年,如：p1,p2...
+			 * 如果提供以下json结构，则以你自定的为准。
+			 * UTSJSONObject:{title:'本学年',start:'2025-1-1',end:'2025-12-31'} as UTSJSONObject
+			 */
+		quickDate: Array<any>,
+			/**
+			 * 是否懒加载内部内容。
+			 * 当前你的列表内容非常多，且影响打开的动画性能时，请务必
+			 * 设置此项为true，以获得流畅视觉效果。如果选择数据较少没有必要打开
+			 * 要兼容微信,必须设置为true,非微信可以为false
+			 */
+		lazyContent: boolean,
+			/**
+			 * 如果你的快捷选择较多可能会让高度不足，需要自行设置下高。
+			 */
+		drawerSize: string,
+			/**
+			 * 是否禁用清除按钮，默认不禁用，允许用户清空选择。点确认，以清空选项数据
+			 */
+		disabledClear: boolean,
+			/**
+			 * 是否禁用弹出
+			 */
+		disabled: boolean,
+			/**
+			 * 宽屏时是否让内容剧中显示
+			 * 并限制其宽为屏幕宽，只展示中间内容以适应宽屏。
+			 */
+		widthCoverCenter: boolean
+	}
+
+	const props = withDefaults(defineProps<xBetweenTimePropsType>(), {
+		modelValue: () : string[] => [] as string[],
+		modelStr: "",
+		modelShow: false,
+		title: "",
+		start: "",
+		end: "",
+		type: "day",
+		format: "",
+		cellUnits: () : string[] => [] as string[],
+		quickDate: () : Array<any> => ['d', 'w', 'm', 'y', 'q'] as Array<any>,
+		lazyContent: true,
+		drawerSize: '540px',
+		disabledClear: false,
+		disabled: false,
+		widthCoverCenter: true
+	})
+
+	// 响应式数据
+	let startValue = new xDate(new xDate().format("YYYY-MM-DD 00:00:00"));
+	let endValue = new xDate(new xDate().format("YYYY-MM-DD 23:59:59"));
+	startValue.subtraction(1, 'y')
+
+	const show = ref(false)
+	const nowValue = ref(['', ''] as string[])
+	const nowModelValue = ref(['', ''] as string[])
+	const startDate = ref(startValue)
+	const endDate = ref(endValue)
+	const changeIndex = ref(0)
+	const yanchiDuration = ref(false)
+	const quicklist = ref([] as coverValueType[])
+	const quicklistSelectedStr = ref('')
+	let tid = 0
+
+	// 计算属性
+	const _formatValStr = computed((): string[] => {
+		let estrt = nowValue.value?.[0]??'';
+		let eend = nowValue.value?.[1]??'';
+		let selfformat = props.format==''?'YYYY-MM-DD':props.format
+				let start = estrt == '' ? '' : (new xDate(estrt)).format(selfformat)
+				let ebd = eend == '' ? '' : (new xDate(eend)).format(selfformat)
+		return [start,ebd] as string[]
+	})
+
+	const _start_date = computed((): xDate => {
+		if (props.start == "") return startDate.value as xDate
+		return new xDate(props.start)
+	})
+
+	const _end_date = computed((): xDate => {
+		if (props.end == "") return endDate.value as xDate
+		return new xDate(props.end)
+	})
+
+	const _start_date_str = computed((): string => _start_date.value.format())
+	const _end_date_str = computed((): string => _end_date.value.format())
+
+	const _start_date_str_format = computed((): string => {
+				// '开始时间'
+		if (nowValue.value[0] == '') return xConfig.i18n.t("tmui4x.betweentTime.start")
+		// const date = (new xDate(nowValue.value[0])).format(props.format);
+		if(props.format!=''){
+			return (new xDate(nowValue.value[0])).format(props.format);
+		}
+		return xConfig.i18n.d(nowValue.value[0],null,{year:"numeric",month:"numeric",day:"numeric"} as DateTimeFormatOrNull)
+	})
+
+	const _end_date_str_format = computed((): string => {
+				// '结束时间'
+		if (nowValue.value[1] == '') return xConfig.i18n.t("tmui4x.betweentTime.end")
+		// (new xDate(nowValue.value[1])).format(props.format) 
+		if(props.format!=''){
+			return (new xDate(nowValue.value[1])).format(props.format) 
+		}
+		return xConfig.i18n.d(nowValue.value[1],null,{year:"numeric",month:"numeric",day:"numeric"} as DateTimeFormatOrNull)
+	})
+
+	const _backgroundColor = computed((): string => {
+				if (xConfig.dark == 'dark') {
+					return getDefaultColor(xConfig.inputDarkColor)
+				}
+				return getDefaultColor(xConfig.inputBgColor)
+	})
+
+	const _borderColor = computed((): string => {
+				if (xConfig.dark == 'dark') {
+					return getDefaultColor(xConfig.borderDarkColor)
+				}
+				return getDefaultColor(xConfig.inputBgColor)
+	})
+
+	const _activeBorderColor = computed((): string => getDefaultColor(xConfig.color))
+
+	const _placeStyle = computed((): string => {
+				if (xConfig.dark == 'dark') {
+					return "color:#c7c7c7;"
+				}
+				return "color:#838383;"
+	})
+
+	const _fontColor = computed((): string => {
+				if (xConfig.dark == 'dark') {
+					return "#efefef"
+				}
+				return "#333"
+	})
+
+	const _isDark = computed((): boolean => xConfig.dark == 'dark')
+
+	const _checkPass = computed((): boolean => nowValue.value.some((el:string):boolean=>el==''))
+
+	const _cellUnits = computed((): string[] => {
+		if(props.cellUnits.length==0){
+					return [
+						xConfig.i18n.t("tmui4x.pickerDate.year"),
+						xConfig.i18n.t("tmui4x.pickerDate.month"),
+						xConfig.i18n.t("tmui4x.pickerDate.day"),
+						xConfig.i18n.t("tmui4x.pickerDate.hour"),
+						xConfig.i18n.t("tmui4x.pickerDate.minute"),
+						xConfig.i18n.t("tmui4x.pickerDate.second"),
+					]
+				}
+		return props.cellUnits;
+	})
+
+	
+	function getTypes() : xDateTypeTime {
+		
+		if (props.type == 'year') {
+			return 'y' as xDateTypeTime
+		} else if (props.type == 'month') {
+			return 'm' as xDateTypeTime
+		} else if (props.type == 'day') {
+			return 'd' as xDateTypeTime
+		} else if (props.type == 'hour') {
+			return 'h' as xDateTypeTime
+		} else if (props.type == 'minute') {
+			return 'M' as xDateTypeTime
+		} else if (props.type == 'second') {
+			return 's' as xDateTypeTime
+		}
+		return 's' as xDateTypeTime
+	}
+	
+	function coverStrVal() : string {
+		let estrt = nowValue.value[0];
+		let eend = nowValue.value[1];
+		let selfformat = props.format==''?'YYYY-MM-DD':props.format
+		let start = estrt == '' ? '' : (new xDate(estrt)).format(selfformat)
+		let ebd = eend == '' ? '' : (new xDate(eend)).format(selfformat)
+		return start + '~' + ebd
+	}
+	
+	function sorDateVaild(str : string[]) : string[] {
+		let types = getTypes()
+		str.sort((a : string, b : string) : number => {
+			return new xDate(a).getTime(types) - new xDate(b).getTime(types)
+		})
+		return str;
+	}
+	
+	function validTimeDate(val : string[]) : string[] {
+		// let defaulttime = new xDate().format()
+		let str = ['', '']
+		if (val.length >= 1) {
+			str[0] = val[0]!
+		}
+		if (val.length >= 2) {
+			str[1] = val[1]!
+		}
+
+		return sorDateVaild(str)
+	}
+
+	
+
+	function tongbuModelStr(){
+		let str = coverStrVal()
+				/**
+				 * 经格式化后的值。等同v-model:model-str
+				 */
+		emits('update:modelStr', str == '~' ? '' : str);
+	}
+
+	function getQuickDateType() : coverValueType[] {
+				let typelist = [] as coverValueType[];
+		let list:Array<any> = props.quickDate;
+				if (list.length == 0) return typelist;
+				let _date = new xDate()
+				let startFDate = "YYYY/MM/DD 00:00:00"
+				let endFDate = "YYYY/MM/DD 23:59:59"
+		let _start = new xDate(new xDate().getBetweenDate(_start_date_str.value,_end_date_str.value,'min')).format(startFDate)
+		let _end = new xDate(new xDate().getBetweenDate(_start_date_str.value,_end_date_str.value,'max')).format(endFDate)
+				_date = new xDate(_start)
+				for (let i = 0; i < list.length; i++) {
+					let item : any = list[i];
+					
+					if(typeof item == 'string'){
+						if(item.substring(0,1)=='p'){
+							let dshi = parseInt(item.substring(1))! as number
+							let date = _date.getClone()
+							let start = _start
+							date.subtraction(dshi, 'y')
+					date = new xDate(date.getBetweenDate(_start_date_str.value,_end_date_str.value,'min'))
+							let end = date.format()
+							// '前' + dshi + '年'
+							typelist.push({ value: [end, start], str: xConfig.i18n.t("tmui4x.betweentTime.quiakListTitle3",dshi) } as coverValueType)
+						}else if (!isNaN(parseInt(item))) {
+							let dshi = parseInt(item)! as number;
+							let date = _date.getClone()
+							let start = _start
+							date.subtraction(dshi, 'd')
+					date = new xDate(date.getBetweenDate(_start_date_str.value,_end_date_str.value,'min'))
+							let end = date.format()
+							// '最近' + item + '天'
+							typelist.push({ value: [end, start], str: xConfig.i18n.t("tmui4x.betweentTime.quiakListTitle2",dshi) } as coverValueType)
+						} else {
+							let dshi = 0;
+							let date = new xDate(_end)
+							let startFDate = "YYYY/MM/DD 00:00:00"
+							let endFDate = "YYYY/MM/DD 23:59:59"
+							let start = date.format(startFDate)
+							let end = date.format(endFDate)
+							
+							// "本日"
+							let desc = xConfig.i18n.t("tmui4x.betweentTime.quiakListTitle",0)
+							if (item == 'w') {
+								start = date.getDateStartOf('w').format(startFDate)
+								end = date.getDateEndOf('w').format(endFDate)
+						start = new xDate(new xDate(start).getBetweenDate(_start_date_str.value,_end_date_str.value,'min')).format(startFDate)
+						end = new xDate(new xDate(end).getBetweenDate(_start_date_str.value,_end_date_str.value,'max')).format(endFDate)
+								desc = xConfig.i18n.t("tmui4x.betweentTime.quiakListTitle",1);//"本周"
+							} else if (item == 'm') {
+								start = date.getDateStartOf('m').format(startFDate)
+								end = date.getDateEndOf('m').format(endFDate)
+						start = new xDate(new xDate(start).getBetweenDate(_start_date_str.value,_end_date_str.value,'min')).format(startFDate)
+						end = new xDate(new xDate(end).getBetweenDate(_start_date_str.value,_end_date_str.value,'max')).format(endFDate)
+								desc = xConfig.i18n.t("tmui4x.betweentTime.quiakListTitle",2);//"本月"
+							} else if (item == 'y') {
+								start = date.getDateStartOf('y').format(startFDate)
+								end = date.getDateEndOf('y').format(endFDate)
+						start = new xDate(new xDate(start).getBetweenDate(_start_date_str.value,_end_date_str.value,'min')).format(startFDate)
+						end = new xDate(new xDate(end).getBetweenDate(_start_date_str.value,_end_date_str.value,'max')).format(endFDate)
+								desc = xConfig.i18n.t("tmui4x.betweentTime.quiakListTitle",3);//"本年"
+							} else if (item == 'q') {
+								let nowq = date.getQuarter('')
+								let itemqatar = nowq[0]
+								start = itemqatar.start
+								end = itemqatar.end
+						start = new xDate(new xDate(start).getBetweenDate(_start_date_str.value,_end_date_str.value,'min')).format(startFDate)
+						end = new xDate(new xDate(end).getBetweenDate(_start_date_str.value,_end_date_str.value,'max')).format(endFDate)
+								desc = xConfig.i18n.t("tmui4x.betweentTime.quiakListTitle",4);//"本季度"
+							}
+										
+							typelist.push({ value: [start, end], str: desc } as coverValueType)
+						}
+					}else if(typeof item == 'number'){
+						let dshi = item as number;
+						let date = _date.getClone()
+						let start = _start
+						date.subtraction(dshi, 'd')
+				date = new xDate(date.getBetweenDate(_start_date_str.value,_end_date_str.value,'min'))
+						let end = date.format()
+						// '最近' + item + '天'
+						typelist.push({ value: [end, start], str: xConfig.i18n.t("tmui4x.betweentTime.quiakListTitle2",dshi) } as coverValueType)
+					}
+					
+					else if(item instanceof UTSJSONObject){
+						let title = item.getString('title')
+						let v_start = item.getString('start')
+						let v_end = item.getString('end')
+						if(title!=null&&v_start!=null&&v_end!=null){
+							typelist.push({ value: [v_start, v_end], str: title } as coverValueType)
+						}
+					}
+					
+				}
+				
+				return typelist;
+	}
+	function cancelResetDataCol() {
+		nowValue.value = nowModelValue.value.slice(0)
+	}
+	
+
+	
+
+	function clearDate(){
+		let dst = ['',''] as string[]
+		nowValue.value = dst
+	}
+
+	function dateChangeView(datestr : string) {
+		
+		clearTimeout(tid)
+		tid = setTimeout(function() {
+			quicklistSelectedStr.value = ''
+			let nowvalu = nowValue.value.slice(0)
+			nowvalu[changeIndex.value] = datestr;
+			let strStart = nowvalu[0]
+			let strEnd = nowvalu[1]
+			
+			let types = getTypes()
+			if (strEnd != '' && strStart != '') {
+				if (changeIndex.value == 0) {
+					if (new xDate(strStart).isBetweenOf(new xDate(strEnd), '>', types)) {
+						strEnd = strStart
+					}
+				} else if (changeIndex.value == 1) {
+					if (new xDate(strEnd).isBetweenOf(new xDate(strStart), '<', types)) {
+						strStart = strEnd
+					}
+				}
+			}
+			
+			nowValue.value = [strStart, strEnd]
+		
+		}, 50);
+	}
+
+	function tagsClick(item : coverValueType) {
+		nowValue.value = item.value
+		quicklistSelectedStr.value = item.str
+
+		emits('dateClick',{text:item.str,value:item.value.slice(0)} as UTSJSONObject)
+	}
+
+	function inputClick(index : number) {
+		changeIndex.value = index;
+
+		let nowvalu = nowValue.value.slice(0)
+		let strStart = nowvalu[0]
+		let strEnd = nowvalu[1]
+
+		if (changeIndex.value == 0) {
+			if (strStart == '') {
+				// strStart = strEnd != '' ? strEnd : (endDate.value.format())
+				let tempStart = new xDate().getBetweenDate(_start_date_str.value,_end_date_str.value,'max')
+				strStart = new xDate(tempStart).format()
+				nowValue.value = [strStart, strEnd]
+			}
+		} else if (changeIndex.value == 1) {
+			if (strEnd == '') {
+				// strEnd = strStart != '' ? strStart : (endDate.value.format())
+				let tempEnd = new xDate().getBetweenDate(_start_date_str.value,_end_date_str.value,'max')
+				strEnd = new xDate(tempEnd).format()
+				nowValue.value = [strStart, strEnd]
+			}
+		}
+		
+	}
+
+	function openShow() {
+		if(props.disabled) return;
+		show.value = true;
+				/**
+				 * 变量控制打开状态
+				 * 等同v-model:model-show
+				 */
+		emits('update:modelShow', true)
+	}
+
+	function onClose() {
+				/**
+				 * 变量控制打开状态
+				 * 等同v-model:model-show
+				 */
+		emits('update:modelShow', false)
+		cancelResetDataCol()
+		if (props.lazyContent) {
+			yanchiDuration.value = false
+		}
+	}
+
+	function onOpen() {
+		yanchiDuration.value = true
+	}
+
+	function onCancel() {
+		emits('cancel')
+		cancelResetDataCol()
+	}
+
+	
+
+	function onConfirm() {
+		let nowval = nowModelValue.value.slice(0)
+		
+		let str = coverStrVal()
+				let tmdate = [] as string[];
+		if(nowValue.value[0]!=''&&nowValue.value[1]!=''){
+			tmdate = nowValue.value.slice(0)
+			nowModelValue.value = tmdate
+				}
+				/**
+				 * 点击确认时同步。等同v-model
+				 */
+		emits('update:modelValue', tmdate);
+
+				/**
+				 * 经格式化后的值。等同v-model:model-str
+				 */
+		emits('update:modelStr', str == '~' ? '' : str);
+
+		emits('confirm', tmdate);
+	}
+	
+	// 监听器
+	watch((): string[] => props.modelValue, (newvalue : string[]) => {
+		let sortvalue = sorDateVaild(validTimeDate(newvalue))
+		let newvaluestr = sortvalue.join('');
+		if (newvaluestr == nowModelValue.value.join('')) return;
+		nowValue.value = sortvalue;
+		nowModelValue.value = sortvalue;
+		tongbuModelStr()
+		quicklistSelectedStr.value = ''
+		
+		
+	},{deep:true})
+	
+	watch((): boolean => props.modelShow, (newValue : boolean) => {
+		if (newValue == show.value) return;
+		show.value = newValue
+	})
+	
+	watch((): Array<any> => props.quickDate, (newvalue : Array<any>) => {
+		quicklist.value = getQuickDateType()
+	},{deep:true})
+	
+
+
+	// 生命周期
+	onMounted(() => {
+		yanchiDuration.value = props.lazyContent ? false : true
+
+		let str = validTimeDate(props.modelValue)
+		nowValue.value = str;
+		nowModelValue.value = str;
+		quicklist.value = getQuickDateType()
+		tongbuModelStr()
+	})
+
+	onBeforeUnmount(() => {
+		clearTimeout(tid)
+	})
+
+	defineExpose({
+		/** 打开选择器 **/
+		open: () => openShow(),
+		/** 关闭选择器 **/
+		close: () => onClose(),
+		/** 清空选择 **/
+		clear: () => clearDate()
+	})
+	
+</script>
+<template>
+	<view @click="openShow">
+		<!--
+		 @slot 插槽,默认触发打开选择器。你的默认布局可以放置在这里。
+		 @prop {boolean} show - 控制打开关闭状态
+		 @prop {boolean} startVal - 选日期的开始值，可能为空值
+		 @prop {boolean} endVal - 选日期的结束值，可能为空值
+		 -->
+		<slot :show="show" :startVal="_formatValStr[0]" :endVal="_formatValStr[1]"></slot>
+	</view>
+	<x-drawer :disabledConfirm="_checkPass&&props.disabledClear" @open="onOpen" :widthCoverCenter="widthCoverCenter" :disabledScroll="true" @close="onClose"
+		@confirm="onConfirm" @cancel="onCancel" :showFooter="true" v-model:show="show"
+		:size="drawerSize" :showClose="false">
+		<template v-slot:title>
+			<view class="xPickerClear" :style="{height:'50px'}">
+				<x-text>{{title!=''?title:i18n!.t("tmui4x.betweentTime.title")}}</x-text>
+				<!-- 清空 -->
+				<x-text v-if="!props.disabledClear" @click="clearDate" style="opacity: 0.5;">{{i18n!.t("tmui4x.clear")}}</x-text>
+			</view>
+		</template>
+		<view class="xPickerDateWrap">
+			<view v-if="quicklist.length>0" class="xPickerDateWrapQuickTags">
+				<x-tag font-size="14" :font-color="(_isDark?'white':'')" @click="tagsClick(item)" :skin='quicklistSelectedStr==item.str?"normal":"thin"' :round="8" size="large"
+					style="margin-right:10px;margin-bottom: 5px;" v-for="(item,index) in quicklist" :key="index">{{item.str}}</x-tag>
+			</view>
+
+			<x-divider></x-divider>
+			<view style="height: 8px;"></view>
+			
+			<view class="xPickerDateWrapQuickInput">
+				<view  class="xPickerInputMaskerParent" @click="inputClick(0)" :style="{flex:'1',height:'40px'}">
+					<input :placeholder-style="_placeStyle"
+						:style="{color:changeIndex==0?_activeBorderColor:_fontColor,
+						border: `2px solid ${changeIndex==0?_activeBorderColor:_backgroundColor}`,
+						backgroundColor:_backgroundColor,
+						fontSize:'15px',
+						}"
+						class="xPickerInput" :value="_start_date_str_format" />
+						<view class="xPickerInputMasker"></view>
+				</view>
+				<!-- 至 -->
+				<x-text font-size="11" style="width: 36px;text-align: center;">
+					{{i18n!.t("tmui4x.betweentTime.splite")}}
+				</x-text>
+				<view class="xPickerInputMaskerParent" @click="inputClick(1)" :style="{flex:'1',height:'40px'}">
+					<input :placeholder-style="_placeStyle"
+						:style="{color:changeIndex==1?_activeBorderColor:_fontColor,
+						border: `2px solid ${changeIndex==1?_activeBorderColor:_backgroundColor}`,
+						backgroundColor:_backgroundColor,
+						fontSize:'15px',
+						}"
+						class="xPickerInput" :value="_end_date_str_format" />
+						<view class="xPickerInputMasker"></view>
+				</view>
+			</view>
+			<x-divider style="margin-bottom: 8px;"></x-divider>
+			<!-- #ifdef APP-IOS || APP-HARMONY -->
+			<x-date-view  v-if="yanchiDuration&&changeIndex==0"  @change="dateChangeView" :format="format" :type="type" :cell-units="_cellUnits"
+				:start="_start_date_str" :end="_end_date_str" :model-value='nowValue[0]'></x-date-view>
+			<x-date-view v-if="yanchiDuration&&changeIndex==1"  @change="dateChangeView" :format="format" :type="type" :cell-units="_cellUnits"
+				:start="_start_date_str" :end="_end_date_str" :model-value='nowValue[1]'></x-date-view>
+			<!-- #endif -->
+			<!-- #ifdef APP-ANDROID || MP || WEB -->
+			<x-date-view v-if="yanchiDuration"  @change="dateChangeView" :format="format" :type="type" :cell-units="_cellUnits"
+				:start="_start_date_str" :end="_end_date_str" :model-value='nowValue[changeIndex]'></x-date-view>
+			<!-- #endif -->
+		</view>
+		<x-loading v-if="!yanchiDuration"></x-loading>
+	</x-drawer>
+</template>
+<style scoped>
+	.xPickerClear{
+		padding: 0 20px;
+		/* height:50px; */
+		display: flex;flex-direction: row;
+		justify-content: space-between;
+		align-items: center;
+	}
+	.xPickerDateText {
+		text-align: left;
+		transition-duration: 350ms;
+		transition-timing-function: linear;
+		transition-property: transform, opacity;
+		transform: translateY(100%) scale(0);
+		opacity: 0;
+
+	}
+
+	.xPickerDateWrapQuickInputPlackeTips {
+		flex: 1;
+		display: flex;
+		flex-direction: row;
+		pointer-events: none;
+	}
+	.xPickerInputMaskerParent{
+		position: relative;
+	}
+	.xPickerInputMasker{
+		position: absolute;
+		width:100%;
+		height:100%;
+		
+	}
+	.xPickerInput {
+		border-radius: 40px;
+		height: 100%;
+		padding: 0 10px;
+		/* font-size: 16px; */
+		flex: 1;
+		pointer-events: none;
+		text-align: center;
+	}
+
+	.xPickerDateWrapQuickInput {
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 8px;
+	}
+
+	.xPickerDateWrapQuickTags {
+		display: flex;
+		flex-direction: row;
+		flex-wrap: wrap;
+		margin-bottom: 8px;
+	}
+
+	.xPickerDateWrap {}
+</style>

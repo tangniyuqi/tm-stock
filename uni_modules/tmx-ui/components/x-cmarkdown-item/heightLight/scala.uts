@@ -1,0 +1,39 @@
+import { HighlightConfig } from "../heightlight.uts"
+
+export function getScalaConfig(): HighlightConfig {
+	const config = new HighlightConfig()
+	
+	// Scala 关键字
+	config.keywords = [
+		'abstract', 'case', 'catch', 'class', 'def', 'do', 'else', 'extends',
+		'false', 'final', 'finally', 'for', 'forSome', 'if', 'implicit',
+		'import', 'lazy', 'match', 'new', 'null', 'object', 'override',
+		'package', 'private', 'protected', 'return', 'sealed', 'super',
+		'this', 'throw', 'trait', 'try', 'true', 'type', 'val', 'var',
+		'while', 'with', 'yield'
+	]
+	
+	// Scala 内置类型和对象
+	config.builtins = [
+		'Boolean', 'Byte', 'Short', 'Int', 'Long', 'Float', 'Double', 'Char',
+		'String', 'Unit', 'Null', 'Nothing', 'Any', 'AnyRef', 'AnyVal',
+		'Array', 'List', 'Seq', 'Set', 'Map', 'Vector', 'Range', 'Stream',
+		'Option', 'Some', 'None', 'Either', 'Left', 'Right', 'Try', 'Success',
+		'Failure', 'Future', 'Promise', 'Tuple2', 'Tuple3',
+		'println', 'print', 'printf', 'readLine', 'readInt', 'readDouble',
+		'assert', 'require', 'ensuring', 'assume',
+		'Predef', 'Console', 'Math', 'Seq', 'IndexedSeq', 'LinearSeq',
+		'Iterable', 'Iterator', 'Traversable', 'BigInt', 'BigDecimal'
+	]
+	
+	// Scala 操作符
+	config.operators = [
+		'+', '-', '*', '/', '%', '=', '==', '!=', '<', '>', '<=', '>=',
+		'&&', '||', '!', '&', '|', '^', '~', '<<', '>>>', '>>',
+		'+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=', '<<=', '>>=',
+		'=>', '<-', '->', '<:', '<%', '>:', '#', '@', '_', ':', '::'
+	]
+	
+	return config
+}
+

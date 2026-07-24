@@ -1,0 +1,179 @@
+{
+	"tmui4x": {
+		"cancel": "Cancel",
+		"confirm": "Confirm",
+		"success": "Success",
+		"fail": "Failed",
+		"warn": "Warning",
+		"info": "Info",
+		"clear":"Clear",
+		"pickerTitle":"Please select",
+		"calendar":{
+			"year": "Year",
+			"month": "Month",
+			"day": "Day",
+			"hour": "Hour",
+			"minute": "Minute",
+			"second": "Second",
+			"titleCurrentMonth":"{0} {1}",
+			"monthCountSelected":"{count} months",
+			"selectedStatus":"{count} days selected | No date selected | Selected | End date not selected",
+			"rangStatus":"Start | End | Today",
+			"tips":"Max {count} days",
+			"currentMonthTitle":"This month",
+			"week":"Mon | Tue | Wed | Thu | Fri | Sat | Sun"
+		},
+		"betweentTime": {
+			"start": "Start time",
+			"end": "End time",
+			"quiakListTitle":"Today | This week | This month | This year | This quarter",
+			"quiakListTitle2":"Last {count} days",
+			"quiakListTitle3":"Previous {count} years",
+			"title":"Please select time",
+			"splite":"to"
+		},
+		"uploadFile":{
+			"title":"Select file",
+			"uploadStatus":"Pending upload | Uploading... | Upload failed | Upload successful | Exceeds size",
+			"tips1":"Deletion prohibited during upload",
+			"tips2":"Deletion prohibited for uploaded files"
+		},
+		"pickerSelected":{
+			"placeholder":"Please enter keywords",
+			"search":"Search",
+			"selected":"{count} items selected",
+			"claer":"Clear selection",
+			"selectedMode":"Currently in single selection mode",
+			"selectedALl":"Select all"
+		},
+		"tree":{
+			"changeTitle":"Modify content",
+			"addTitle":"Add subordinate",
+			"inputTitle":"Title",
+			"inputId":"Identifier ID",
+			"inputTips1":"Do not repeat, auto-generate when empty"
+		},
+		"input":{
+			"placeholder":"Please select or fill in"
+		},
+		"inputTag":{
+			"placeholder": "Please enter and press Enter",
+			"tips": "Cannot be empty",
+			"tips2": "Exceeds maximum limit: {count}",
+			"btnText": "Add Tag"
+		},
+		"keyboard":{
+			"placeholder":"Safe keyboard for secure input",
+			"space":"Space",
+			"confirm":"Confirm"
+		},
+		"pickerTime":{
+			"hour":"Hour",
+			"minute":"Minute",
+			"second":"Second"
+		},
+		"cascader":{
+			"placeholder":"Please select",
+			"currentPlaceholder":"Select current"
+		},
+		"pickerDate":{
+			"placeholder":"Please select time",
+			"year":"Year",
+			"month":"Month",
+			"day":"Day",
+			"hour":"Hour",
+			"minute":"Minute",
+			"second":"Second"
+		},
+		"uploadMedia":{
+			"tips1":"Dragging sort not allowed during upload",
+			"videoPreview":"Video preview",
+			"close":"Close",
+			"systemError":"System error",
+			"limitMaxCount":"Exceeded max upload count",
+			"uploadStatus":"Pending upload | Uploading... | Upload failed | Upload successful | Exceeds size"
+		},
+		"checkbox":{
+			"tips":"Exceeds maximum selection"
+		},
+		"weekbar":{
+			"week":"Mon | Tue | Wed | Thu | Fri | Sat | Sun"
+		},
+		"pagination":{
+			"prev": "Previous",
+			"next": "Next"
+		},
+		"search":{
+			"placeholder":"Enter keywords",
+			"cancel":"Cancel"
+		},
+		"xmore":{
+			"off": "Expand more",
+			"on": "Collapse more"
+		},
+		"empty":{
+			"moreLabel": "No more data",
+			"errorLabel": "Error~",
+			"btnLabel": "Retry",
+			"title":"No data"
+		},
+		"xloading":{
+			"label":"Loading..."
+		},
+		"actionModal":{
+			"title":"Reminder",
+			"btnText":"Confirm"
+		},
+		"actionMenu":{
+			"title":"Please select",
+			"btnText":"Confirm"
+		},
+		"pullRefresh":{
+			"status_1":"Refreshing",
+			"status_2":"Pull down more",
+			"status_3":"Release to refresh",
+			"status_4":"Refresh done",
+			"status_5":"Refresh failed"
+		},
+		"virtualList":{
+			"status_0":"Pull down more",
+			"status_1":"Release to refresh",
+			"status_2":"Refreshing",
+			"status_3":"Cancel refresh",
+			"status_4":"Refresh timeout, retry",
+			"status_5":"Refresh done"
+		},
+		"imageResize":{
+			"ok":"Done",
+			"cancel":"Cancel",
+			"reset":"Reset"
+		},
+		"colorView":{
+			"rgb":"RGB",
+			"hub":"Spectrum",
+			"grid":"Palette",
+			"alpha":"Alpha",
+			"hex":"HEX",
+			"r":"Red",
+			"g":"Green",
+			"b":"Blue"
+		},
+		"modal": {
+			"title": "Title"
+		},
+		"mention": {
+			"placeholder": "Enter content, @select friend, press confirm"
+		},
+		"slideVerify": {
+			"tipsText": "Drag to position",
+			"tipsTextSuccess": "Verified",
+			"tipsTextFail": "Verification failed"
+		},
+		"xRequest":{
+			"error":"Server error:",
+			"success":"Success",
+			"hostFailEmpty":"Domain empty",
+			"loading":"Loading"
+		}
+	}
+}

@@ -1,0 +1,10 @@
+export type XGuidItems = {
+	id:string,
+	order:number
+}
+export	type MaskIitemStyle = {
+		width:number,
+		height:number,
+		left:number,
+		top:number
+	}

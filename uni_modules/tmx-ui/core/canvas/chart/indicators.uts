@@ -1,0 +1,294 @@
+/**
+ * K 线金融指标计算工具（纯函数，无 UI 依赖）
+ *
+ * 所有函数对"周期不足"的位置输出 NaN，绘制层须跳过 NaN 点。
+ * 默认取字段 `end`（收盘价）——与 candlestick 系列保持一致。
+ */
+import { ChartDatum } from './types.uts'
+import { getDatumNumber } from './scale.uts'
+
+/** BOLL / ENV 结果（三条线：中轨 mb、上轨 up、下轨 dn） */
+export type BandResult = {
+	mb : number[],
+	up : number[],
+	dn : number[]
+}
+
+/**
+ * 简单移动平均（SMA / MA）- 严格通达信风格
+ *
+ * 必须满 period 个有效数据才输出 MA 值；前 period-1 天为 NaN（绘制跳过）。
+ * 注意：必须对"全量 data"调用，视口切片后再按索引截取，否则每次 pan/zoom
+ *       切片都"从头算起"导致 period-1 天永远空缺在视口左侧。
+ */
+export const calcMA = (data : ChartDatum[], field : string, period : number) : number[] => {
+	const n = data.length
+	const out = [] as number[]
+	if (period <= 0 || n == 0) return out
+	const vals = [] as number[]
+	for (let i = 0; i < n; i++) {
+		vals.push(getDatumNumber(data[i], field, NaN))
+	}
+	let sum : number = 0
+	let cnt : number = 0
+	for (let i = 0; i < n; i++) {
+		const v = vals[i]
+		if (!isNaN(v)) { sum += v; cnt += 1 }
+		if (i >= period) {
+			const old = vals[i - period]
+			if (!isNaN(old)) { sum -= old; cnt -= 1 }
+		}
+		if (i < period - 1) {
+			out.push(NaN)
+		} else {
+			out.push(cnt > 0 ? sum / cnt : NaN)
+		}
+	}
+	return out
+}
+
+/**
+ * 指数移动平均（EMA）
+ *
+ * alpha = 2 / (period + 1)
+ * ema[0] = x[0]，ema[i] = alpha * x[i] + (1-alpha) * ema[i-1]
+ * EMA 从第一个有效点开始就有值（不像 MA 前 period-1 位置为 NaN），符合主流行情软件做法
+ */
+export const calcEMA = (data : ChartDatum[], field : string, period : number) : number[] => {
+	const n = data.length
+	const out = [] as number[]
+	if (period <= 0 || n == 0) return out
+	const alpha = 2 / (period + 1)
+	let prev : number = NaN
+	for (let i = 0; i < n; i++) {
+		const v = getDatumNumber(data[i], field, NaN)
+		if (isNaN(v)) {
+			out.push(prev)
+			continue
+		}
+		if (isNaN(prev)) {
+			prev = v
+		} else {
+			prev = alpha * v + (1 - alpha) * prev
+		}
+		out.push(prev)
+	}
+	return out
+}
+
+/**
+ * 布林带（BOLL / Bollinger Bands）- 严格通达信风格
+ *
+ * mb = MA(period)（严格，不足周期为 NaN）
+ * up = mb + k * σ；dn = mb - k * σ
+ * σ 为以 mb 为均值的 period 日样本标准差
+ * 同样必须对全量 data 调用，再按视口索引切片绘制。
+ */
+export const calcBOLL = (data : ChartDatum[], field : string, period : number, k : number) : BandResult => {
+	const n = data.length
+	const mb = calcMA(data, field, period)
+	const up = [] as number[]
+	const dn = [] as number[]
+	for (let i = 0; i < n; i++) {
+		const m = mb[i]
+		if (isNaN(m) || i < period - 1) {
+			up.push(NaN); dn.push(NaN); continue
+		}
+		let sumSq : number = 0
+		let cnt : number = 0
+		for (let j = i - period + 1; j <= i; j++) {
+			const v = getDatumNumber(data[j], field, NaN)
+			if (!isNaN(v)) {
+				const diff = v - m
+				sumSq += diff * diff
+				cnt += 1
+			}
+		}
+		const std = cnt > 0 ? Math.sqrt(sumSq / cnt) : 0
+		up.push(m + k * std)
+		dn.push(m - k * std)
+	}
+	return { mb: mb, up: up, dn: dn } as BandResult
+}
+
+/**
+ * 轨道线（ENV）
+ *
+ * mb = MA(period)
+ * up = mb * (1 + deviation)；dn = mb * (1 - deviation)
+ * deviation 常用 0.05 ~ 0.1
+ */
+export const calcENV = (data : ChartDatum[], field : string, period : number, deviation : number) : BandResult => {
+	const n = data.length
+	const mb = calcMA(data, field, period)
+	const up = [] as number[]
+	const dn = [] as number[]
+	for (let i = 0; i < n; i++) {
+		const m = mb[i]
+		if (isNaN(m)) { up.push(NaN); dn.push(NaN); continue }
+		up.push(m * (1 + deviation))
+		dn.push(m * (1 - deviation))
+	}
+	return { mb: mb, up: up, dn: dn } as BandResult
+}
+
+/** 对已有一维数值数组做 EMA（内部用，MACD/KDJ 的 dif/rsv 等中间数组需要） */
+const calcEMAOnArray = (arr : number[], period : number) : number[] => {
+	const n = arr.length
+	const out = [] as number[]
+	if (period <= 0 || n == 0) return out
+	const alpha = 2 / (period + 1)
+	let prev : number = NaN
+	for (let i = 0; i < n; i++) {
+		const v = arr[i]
+		if (isNaN(v)) { out.push(prev); continue }
+		if (isNaN(prev)) { prev = v } else { prev = alpha * v + (1 - alpha) * prev }
+		out.push(prev)
+	}
+	return out
+}
+
+/** MACD 结果：DIF（快慢线差）、DEA（信号线）、HIST（柱=dif-dea，部分软件用 *2） */
+export type MACDResult = {
+	dif : number[],
+	dea : number[],
+	hist : number[]
+}
+
+/**
+ * MACD（Moving Average Convergence / Divergence）
+ *
+ * 默认参数：short=12, long=26, signal=9
+ * DIF  = EMA(close, short) - EMA(close, long)
+ * DEA  = EMA(DIF, signal)
+ * HIST = (DIF - DEA) * 2   ← 按通达信/同花顺约定放大 2 倍更直观
+ */
+export const calcMACD = (data : ChartDatum[], field : string, short : number, long : number, signal : number) : MACDResult => {
+	const n = data.length
+	const emaS = calcEMA(data, field, short)
+	const emaL = calcEMA(data, field, long)
+	const dif = [] as number[]
+	for (let i = 0; i < n; i++) {
+		const a = emaS[i]
+		const b = emaL[i]
+		if (isNaN(a) || isNaN(b)) { dif.push(NaN); continue }
+		dif.push(a - b)
+	}
+	const dea = calcEMAOnArray(dif, signal)
+	const hist = [] as number[]
+	for (let i = 0; i < n; i++) {
+		const a = dif[i]
+		const b = dea[i]
+		if (isNaN(a) || isNaN(b)) { hist.push(NaN); continue }
+		hist.push((a - b) * 2)
+	}
+	return { dif: dif, dea: dea, hist: hist } as MACDResult
+}
+
+/** KDJ 结果 */
+export type KDJResult = {
+	k : number[],
+	d : number[],
+	j : number[]
+}
+
+/**
+ * KDJ（随机指标）
+ *
+ * 默认参数：n=9, m1=3, m2=3
+ * RSV = (close - LLV(low, n)) / (HHV(high, n) - LLV(low, n)) * 100
+ * K   = SMA(RSV, m1, 1)  ≈ EMA-like with alpha=1/m1
+ * D   = SMA(K,   m2, 1)
+ * J   = 3K - 2D
+ * 使用字段：max（最高价）、min（最低价）、end（收盘价），与 candlestick 保持一致
+ */
+export const calcKDJ = (data : ChartDatum[], n : number, m1 : number, m2 : number) : KDJResult => {
+	const len = data.length
+	const k = [] as number[]
+	const d = [] as number[]
+	const j = [] as number[]
+	if (len == 0 || n <= 0) return { k: k, d: d, j: j } as KDJResult
+
+	let prevK : number = 50
+	let prevD : number = 50
+	for (let i = 0; i < len; i++) {
+		const start = Math.max(0, i - n + 1)
+		let hh : number = Number.NEGATIVE_INFINITY
+		let ll : number = Number.POSITIVE_INFINITY
+		for (let p = start; p <= i; p++) {
+			const hi = getDatumNumber(data[p], 'max', NaN)
+			const lo = getDatumNumber(data[p], 'min', NaN)
+			if (!isNaN(hi) && hi > hh) hh = hi
+			if (!isNaN(lo) && lo < ll) ll = lo
+		}
+		const close = getDatumNumber(data[i], 'end', NaN)
+		let rsv : number = 50
+		if (!isNaN(close) && isFinite(hh) && isFinite(ll) && hh != ll) {
+			rsv = (close - ll) / (hh - ll) * 100
+		}
+		const kVal = (prevK * (m1 - 1) + rsv) / m1
+		const dVal = (prevD * (m2 - 1) + kVal) / m2
+		const jVal = 3 * kVal - 2 * dVal
+		prevK = kVal
+		prevD = dVal
+		// KDJ 需要前 n-1 天累计才稳定，这里统一返回（从第一天起就有估算值，主流软件也这样）
+		k.push(kVal)
+		d.push(dVal)
+		j.push(jVal)
+	}
+	return { k: k, d: d, j: j } as KDJResult
+}
+
+/**
+ * RSI（Relative Strength Index，相对强弱指数）
+ *
+ * 使用 Wilder 平滑（等效于 alpha = 1/period 的 EMA）：
+ *   avgGain[i] = (avgGain[i-1] * (period-1) + gain[i]) / period
+ *   avgLoss[i] = (avgLoss[i-1] * (period-1) + loss[i]) / period
+ *   RSI = 100 - 100 / (1 + avgGain / avgLoss)
+ * period 前的值用简单平均初始化
+ */
+export const calcRSI = (data : ChartDatum[], field : string, period : number) : number[] => {
+	const n = data.length
+	const out = [] as number[]
+	if (n == 0 || period <= 0) return out
+	let prevClose : number = NaN
+	let avgGain : number = NaN
+	let avgLoss : number = NaN
+	let sumG : number = 0
+	let sumL : number = 0
+	for (let i = 0; i < n; i++) {
+		const c = getDatumNumber(data[i], field, NaN)
+		if (i == 0 || isNaN(prevClose) || isNaN(c)) {
+			prevClose = c
+			out.push(NaN)
+			continue
+		}
+		const diff = c - prevClose
+		const gain = diff > 0 ? diff : 0
+		const loss = diff < 0 ? -diff : 0
+		if (i <= period) {
+			sumG += gain
+			sumL += loss
+			if (i == period) {
+				avgGain = sumG / period
+				avgLoss = sumL / period
+			}
+		} else {
+			avgGain = (avgGain * (period - 1) + gain) / period
+			avgLoss = (avgLoss * (period - 1) + loss) / period
+		}
+		if (i < period) {
+			out.push(NaN)
+		} else {
+			if (avgLoss == 0) {
+				out.push(100)
+			} else {
+				const rs = avgGain / avgLoss
+				out.push(100 - 100 / (1 + rs))
+			}
+		}
+		prevClose = c
+	}
+	return out
+}

@@ -1,0 +1,22 @@
+/* 此规范为 uni 规范，可以按照自己的需要选择是否实现 */
+import { XuiTextToVoiceFail } from "./interface.uts"
+
+export const XuiErrors : Map<number, string> = new Map([
+	[1000, '没有相关权限'],
+	[1001, '初始化失败'],
+	[1002, '设置的语文包在系统中缺失'],
+	[1003, '初始化中或者还在报播中'],
+	[1004, '播放中出现错误'],
+]);
+
+export class XuiTextToVoiceFailImpl extends UniError implements XuiTextToVoiceFail {
+	/**
+	 * 错误对象构造函数
+	 */
+	constructor(errCode : number) {
+		super();
+		this.errSubject = "x-chinesetopinyin-s";
+		this.errCode = errCode;
+		this.errMsg = XuiErrors.get(errCode) ?? "";
+	}
+}

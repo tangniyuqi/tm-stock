@@ -1,0 +1,87 @@
+import { ICanvas } from '@/uni_modules/tmx-ui/core/canvas/ICanvas.uts';
+import { Shape } from '@/uni_modules/tmx-ui/core/canvas/lib/shape.uts';
+import { ICircle } from '@/uni_modules/tmx-ui/core/canvas/lib/circle.uts';
+import { getDatumNumber, getDatumString, createLinearScale, mapLinear } from '../scale.uts';
+import { PlotRect } from '../map.uts';
+import { getChartColor } from '../palette.uts';
+import { ChartDatum, ChartSeriesOptions, ChartSeriesContext } from '../types.uts';
+
+export type ScatterRange = {
+	xMin : number,
+	xMax : number,
+	yMin : number,
+	yMax : number
+}
+
+export const getScatterRange = (data : ChartDatum[], series : ChartSeriesOptions) : ScatterRange => {
+	const xf = series.xField ?? ''
+	const yf = series.yField ?? ''
+	let xMin = Infinity as number
+	let xMax = -Infinity as number
+	let yMin = Infinity as number
+	let yMax = -Infinity as number
+	for (let i = 0; i < data.length; i++) {
+		const xv = getDatumNumber(data[i], xf, 0)
+		const yv = getDatumNumber(data[i], yf, 0)
+		if (xv < xMin) xMin = xv
+		if (xv > xMax) xMax = xv
+		if (yv < yMin) yMin = yv
+		if (yv > yMax) yMax = yv
+	}
+	if (xMin == Infinity) { xMin = 0; xMax = 100 }
+	if (yMin == Infinity) { yMin = 0; yMax = 100 }
+	if (xMax == xMin) xMax = xMin + 1
+	if (yMax == yMin) yMax = yMin + 1
+	return { xMin: xMin, xMax: xMax, yMin: yMin, yMax: yMax } as ScatterRange
+}
+
+export const renderScatterSeries = (
+	canvas : ICanvas,
+	series : ChartSeriesOptions,
+	data : ChartDatum[],
+	rect : PlotRect,
+	seriesIdx : number,
+	xMin : number,
+	xMax : number,
+	yMin : number,
+	yMax : number,
+	ctx : ChartSeriesContext
+) : Shape[] => {
+	const shapes = [] as Shape[]
+	const xf = series.xField ?? ''
+	const yf = series.yField ?? ''
+	if (xf == '' || yf == '') return shapes
+
+	const color = series.color ?? getChartColor(seriesIdx)
+	const pointSize = Math.max(4, series.pointSize ?? 6)
+	const opacity = series.areaOpacity ?? 0.65
+
+	const xScale = createLinearScale(xMin, xMax, rect.left, rect.right)
+	const yScale = createLinearScale(yMin, yMax, rect.bottom, rect.top)
+
+	let _ci : number = 0
+	for (let i = 0; i < data.length; i++) {
+		_ci = i
+		const idx = _ci
+		const xv = getDatumNumber(data[i], xf, 0)
+		const yv = getDatumNumber(data[i], yf, 0)
+		const px = mapLinear(xv, xScale)
+		const py = mapLinear(yv, yScale)
+		const isActive = ctx.activeType == 'scatter' && ctx.activeIndex == idx
+
+		const dot = new ICircle({
+			x: px, y: py,
+			radius: isActive ? pointSize / 2 + ctx.activeStyle.pointScale : pointSize / 2,
+			fill: color,
+			opacity: isActive ? 1 : opacity,
+			stroke: isActive ? ctx.activeStyle.pointColor : '',
+			strokeWidth: isActive ? ctx.activeStyle.pointBorderWidth : 0
+		}, canvas)
+		dot.addEventListener('click', () => {
+			ctx.onClickPoint('scatter', idx, px, py, `${xf}: ${xv}`, `${yf}: ${yv}`, color)
+		})
+		shapes.push(dot)
+	}
+
+	return shapes
+}

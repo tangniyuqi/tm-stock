@@ -1,0 +1,253 @@
+<script lang="ts" setup>
+	import { getDefaultColor, colorAddDeepen, setBgColorLightByDark, isBlackAndWhite } from "../../core/util/xCoreColorUtil.uts"
+	import { fillArrayCssValue, fillArrayCssValueBycolor, fillArrayCssValueByround, checkIsCssUnit } from "../../core/util/xCoreUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	import { computed, ref } from 'vue'
+
+	/**
+	 * @name 容器 xSheet
+	 * @description 可方便快速的更改属性以塑造符合你的设计风格。背景，圆角，间隙等统一风格可全局配置。
+	 * 主要是用来统一页面风格，间距等可统一设置，提高设计的一致性。
+	 * @page /pages/index/sheet
+	 * @category 常用组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({ name: 'xSheet' })
+
+	type XSheetProps = {
+		/** 主题背景 */
+		color: string,
+		/** 暗黑时的主题背景，空值取全局 */
+		darkColor: string,
+		/** 是否让背景色跟随主题，默认是白色，不跟随。 */
+		followTheme: boolean,
+		/** 按下时的焦点色 */
+		hoverColor: string,
+		/** 页面地址，提供时，点击可导航到该页面 */
+		url: string,
+		/** 渐变背景，提供时前面的color,dakColor将失效，格式为数组3长度[方向，颜色1，颜色2] */
+		linearGradient: string[],
+		/** 圆角空值取全局[全部]，[左，右],[左，上，右],[左，上，右，下] */
+		round: any,
+		/** 边大小[全部]，[左，右],[左，上，右],[左，上，右，下] */
+		border: any,
+		/** 投影：[y轴值，模糊值，颜色] */
+		shadow: string[],
+		/** 边颜色[全部]，[左，右],[左，上，右],[左，上，右，下] */
+		borderColor: string[],
+		/** 暗黑时边颜色[全部]，[左，右],[左，上，右],[左，上，右，下] */
+		darkBorderColor: string[],
+		/** 边类型[全部]，[左，右],[左，上，右],[左，上，右，下] */
+		borderStyle: string,
+		/** 外边距[全部]，[左，右],[左，上，右],[左，上，右，下] */
+		margin: any,
+		/** 内边距[全部]，[左，右],[左，上，右],[左，上，右，下] */
+		padding: any,
+		/** 是否为链接类型，是的话有点按效果 */
+		isLink: boolean,
+		/** 是否让内容处于加载状态 */
+		loading: boolean,
+		/** 高：rpx,px,%，数字等都行 */
+		height: string|number,
+		/** 宽：rpx,px,%，数字等都行 */
+		width: string|number,
+	}
+
+	const props = withDefaults(defineProps<XSheetProps>(), {
+		color: 'white',
+		darkColor: '',
+		followTheme: false,
+		hoverColor: '',
+		url: '',
+		linearGradient: [] as string[],
+		round: '',
+		border: '',
+		shadow: ():string[] => ([] as string[]),
+		borderColor: ():string[] => ([] as string[]),
+		darkBorderColor: ():string[] => ([] as string[]),
+		borderStyle: 'solid',
+		margin: '',
+		padding: '',
+		isLink: false,
+		loading: false,
+		height: 'auto',
+		width: 'auto'
+	})
+
+	const emits = defineEmits([
+		"click"
+	])
+
+	const isHover = ref(false)
+
+	const _color = computed((): string => {
+		if (props.linearGradient.length > 0 || props.color == 'transparent') return 'transparent'
+		let tcolor = props.color
+		if (props.followTheme && xConfig.color != "") {
+			tcolor = xConfig.color
+		}
+		if (isHover.value) {
+			return props.hoverColor == "" ? colorAddDeepen(tcolor) : getDefaultColor(props.hoverColor)
+		}
+		let color = getDefaultColor(tcolor)
+		if (xConfig.dark == 'dark' && props.darkColor != '') {
+			color = getDefaultColor(props.darkColor)
+		}
+		if (xConfig.dark == 'dark' && props.darkColor == '') {
+			if (isBlackAndWhite(color)) {
+				color = xConfig.sheetDarkColor
+			} else {
+				color = setBgColorLightByDark(color)
+			}
+		}
+		return color
+	})
+
+	const _width = computed((): string => checkIsCssUnit(props.width, xConfig.unit))
+	const _height = computed((): string => checkIsCssUnit(props.height, xConfig.unit))
+
+	const _linearGradient = computed((): string => {
+		if (props.linearGradient.length == 0) return ''
+		let dirs = props.linearGradient[0]
+		if (dirs == 'top') dirs = 'to top'
+		else if (dirs == 'bottom') dirs = 'to bottom'
+		else if (dirs == 'left') dirs = 'to left'
+		else if (dirs == 'right') dirs = 'to right'
+		return `linear-gradient(${dirs},${props.linearGradient[1]},${props.linearGradient[2]})`
+	})
+
+	const _round = computed((): string => {
+		let val = fillArrayCssValueByround(props.round)
+		if (val.length == 0) {
+			let par = fillArrayCssValueByround(xConfig.sheetRadius)
+			if (par.length == 0) return "0px 0px 0px 0px"
+			return par.join(" ")
+		}
+		return val.join(" ")
+	})
+
+	const _border = computed((): string => {
+		
+		let val = fillArrayCssValue(props.border)
+		if (val.length == 0) return "0px 0px 0px 0px"
+		return val.join(" ")
+	})
+
+	const _borderColor = computed((): string => {
+		let bordercolor = props.borderColor as string[]
+		if (xConfig.dark == 'dark') {
+			bordercolor = props.darkBorderColor.length == 0 ? xConfig.sheetDarkBorderColor : props.darkBorderColor
+		}
+		let ar: string[] = fillArrayCssValueBycolor(bordercolor as string[])
+		if (ar.length == 0) return "transparent transparent transparent transparent"
+		return ar.join(" ")
+	})
+
+	const _margin = computed((): string => {
+		let val = fillArrayCssValue(props.margin)
+		if (val.length == 0) {
+			let par = fillArrayCssValue(xConfig.sheetMargin)
+			if (par.length == 0) return "0px 0px 0px 0px"
+			return par.join(" ")
+		}
+		return val.join(" ")
+	})
+
+	const _padding = computed((): string => {
+		let val = fillArrayCssValue(props.padding)
+		if (val.length == 0) {
+			let par = fillArrayCssValue(xConfig.sheetPadding)
+			if (par.length == 0) return "0px 0px 0px 0px"
+			return par.join(" ")
+		}
+		return val.join(" ")
+	})
+
+	const _shadow = computed((): string => {
+		if (props.shadow.length != 3) return 'none'
+		return `0px ${checkIsCssUnit(props.shadow[0], xConfig.unit)} ${checkIsCssUnit(props.shadow[1], xConfig.unit)} ${props.shadow[2]}`
+	})
+
+	const _styleMap = computed((): Map<string, any> => {
+		let stylemap = new Map<string, any>()
+		stylemap.set("backgroundColor", _color.value)
+		stylemap.set("width", _width.value)
+		stylemap.set("height", _height.value)
+		if (_linearGradient.value != '') {
+			stylemap.set("backgroundImage", _linearGradient.value)
+		}
+		stylemap.set("borderRadius", _round.value)
+		stylemap.set("borderWidth", _border.value)
+		stylemap.set("borderColor", _borderColor.value)
+		stylemap.set("margin", _margin.value)
+		stylemap.set("padding", _padding.value)
+		if (_shadow.value != '' && _shadow.value != 'none') {
+			stylemap.set("boxShadow", _shadow.value)
+		}
+		stylemap.set("borderStyle", props.borderStyle)
+		return stylemap
+	})
+
+	function onclick() {
+		if (props.url != "") {
+			uni.navigateTo({
+				url: props.url,
+				fail(error) {
+					console.error(error)
+				}
+			})
+			return
+		}
+		emits("click")
+	}
+	function mst() {
+		if (props.url != "" || props.isLink) {
+			isHover.value = true
+		}
+	}
+	function mend() {
+		if (props.url != "" || props.isLink) {
+			isHover.value = false
+		}
+	}
+</script>
+<template>
+	<view @click="onclick" @touchend="mend" @touchcancel="mend" @touchstart="mst" class="xSheet" :style="_styleMap">
+		<view v-if="loading" @click.stop="" class="xSheetLoading" :style="{borderRadius:_round}">
+			<x-icon :spin="true" font-size="42" name="loader-fill" :color="xConfig.color"></x-icon>
+		</view>
+		<!-- 
+		@slot 默认插槽 
+		 -->
+		<slot></slot>
+	</view>
+</template>
+<style scoped>
+	.xSheet {
+		position: relative;
+		/* #ifdef MP||WEB */
+		overflow: hidden;
+		/* #endif */
+	}
+
+	.xSheetLoading {
+		position: absolute;
+		z-index: 2;
+		background-color: rgba(60, 60, 60, 0.5);
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+		align-items: center;
+		width: 100%;
+		height: 100%;
+		left: 0px;
+		top: 0px;
+		/* #ifdef MP-WEIXIN */
+		backdrop-filter: blur(3px);
+		/* #endif */
+
+	}
+</style>

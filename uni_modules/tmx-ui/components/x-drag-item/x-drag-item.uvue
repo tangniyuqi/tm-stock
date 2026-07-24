@@ -1,0 +1,311 @@
+<script lang="ts" setup>
+	import { ref, computed, inject, watch, onMounted, onBeforeUnmount, getCurrentInstance } from "vue"
+	import { getUid } from "../../core/util/xCoreUtil.uts"
+	import { CHILDREN_INFO, CHILDREN_SIZE } from "../x-drag/interface.uts"
+
+	/**
+	 * @name 拖拽排序子组件 xDragItem
+	 * @description 仅可放置在父容器x-drag中，如果在组件上写style时，不可写left,top,width,height等属性来影响组件的高和宽。
+	 * 也不可直接写padding,margin来影响组件的位置。你可以在组件中自己写view后，再自由的布局写间隙等。
+	 * @page /pages/index/drag
+	 * @category 反馈组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({ name: "xDragItem" })
+
+	type xDragItemPropsType = {
+		/** 索引，vfor时提供index,必填。一定是正确的索引列表顺序 */
+		order : number,
+		/** 禁用本项目被拖动，禁用时顺序会被固定 */
+		disabled : boolean,
+	}
+
+	const props = withDefaults(defineProps<xDragItemPropsType>(), {
+		order: 0,
+		disabled: false,
+	})
+
+	const emits = defineEmits<{
+		click : []
+	}>()
+
+	const XDRAGE_HEIGHT = inject<string>('XDRAGE_HEIGHT', '0px')
+	const XDRAGE_COL = inject<number>('XDRAGE_COL', 0)
+	const XDRAGE_MAX_LEN = inject<number>('XDRAGE_MAX_LEN', 0)
+
+	const xDragItem = ref<UniElement | null>(null)
+
+	const id = ref('xDragItem-' + getUid())
+	const cellHeight = ref(0)
+	const cellWidth = ref(0)
+	const orderIndex = ref(-1)
+	const nowId = ref('')
+
+	// #ifdef MP
+	const _mpTop = ref<string | null>(null)
+	const _mpLeft = ref<string | null>(null)
+	const _mpZIndex = ref<string | null>(null)
+	const _mpDuration = ref<string | null>(null)
+	// #endif
+
+	const instance = getCurrentInstance()
+
+	const _height = computed(() : string => {
+		return XDRAGE_HEIGHT
+	})
+	const _width = computed(() : string => {
+		return (100 / XDRAGE_COL).toString() + '%'
+	})
+	const _defaultTop = computed(() : number => {
+		let rowIndex = Math.floor(orderIndex.value / XDRAGE_COL);
+		return cellHeight.value * rowIndex
+	})
+	const _defaultLeft = computed(() : number => {
+		let colindex = orderIndex.value % XDRAGE_COL;
+		return cellWidth.value * colindex
+	})
+	const _disabled = computed(() : boolean => {
+		return props.disabled
+	})
+
+	const _finalTop = computed(() : string => {
+		// #ifdef MP
+		if (_mpTop.value != null) return _mpTop.value!
+		// #endif
+		return _defaultTop.value + 'px'
+	})
+	const _finalLeft = computed(() : string => {
+		// #ifdef MP
+		if (_mpLeft.value != null) return _mpLeft.value!
+		// #endif
+		return _defaultLeft.value + 'px'
+	})
+	const _finalZIndex = computed(() : string => {
+		// #ifdef MP
+		if (_mpZIndex.value != null) return _mpZIndex.value!
+		// #endif
+		return (nowId.value == id.value && nowId.value != '') ? '5' : '1'
+	})
+	const _finalDuration = computed(() : string => {
+		// #ifdef MP
+		if (_mpDuration.value != null) return _mpDuration.value!
+		// #endif
+		return (nowId.value != id.value && nowId.value != '') ? '0.4s' : '0s'
+	})
+
+	const setStylSetProperty = (name : string, value : any | null) => {
+		// #ifdef MP
+		if (value == null) return
+		let v = value as string
+		if (name == 'top') _mpTop.value = v
+		else if (name == 'left') _mpLeft.value = v
+		else if (name == 'z-index') _mpZIndex.value = v
+		else if (name == 'transition-duration') _mpDuration.value = v
+		// #endif
+		// #ifndef MP
+		let ele = xDragItem.value as UniElement
+		ele.style.setProperty(name, value)
+		// #endif
+	}
+
+	const getStylSetProperty = (name : string) : any | null => {
+		// #ifdef MP
+		if (name == 'top') return _mpTop.value != null ? _mpTop.value! : (_defaultTop.value + 'px')
+		if (name == 'left') return _mpLeft.value != null ? _mpLeft.value! : (_defaultLeft.value + 'px')
+		return null
+		// #endif
+		// #ifndef MP
+		let ele = xDragItem.value as UniElement
+		return ele.style.getPropertyValue(name);
+		// #endif
+	}
+
+	const pushChildren = (node : DOMRect) => {
+		// @ts-ignore
+		let parent : XDragComponentPublicInstance | null = null;
+		try {
+			// @ts-ignore
+			parent = instance!.proxy!.$parent as XDragComponentPublicInstance
+		} catch (e) {
+
+		}
+		if (parent != null) {
+			let mpRefsVal : any | null = null
+			// #ifdef MP
+			mpRefsVal = {
+				top: _mpTop,
+				left: _mpLeft,
+				zIndex: _mpZIndex,
+				duration: _mpDuration,
+				orderIndex: orderIndex,
+				nowId: nowId,
+			}
+			// #endif
+			parent!.addItem({
+				id: id.value,
+				index: props.order,
+				oldindex: props.order,
+				// @ts-ignore
+				ele: instance!.proxy as XDragItemComponentPublicInstance,
+				disabled: _disabled.value,
+				node: node,
+				mpRefs: mpRefsVal
+			} as CHILDREN_INFO)
+		}
+	}
+
+	const getNodes = () => {
+		let ele = xDragItem.value as UniElement | null;
+		if (ele == null) return;
+		ele!.getBoundingClientRectAsync()
+			?.then(rect => {
+				cellHeight.value = rect.height!
+				cellWidth.value = rect.width!
+				pushChildren(rect)
+				// #ifndef MP
+				setStylSetProperty('height', _height.value)
+				setStylSetProperty('width', _width.value)
+				setStylSetProperty('top', _defaultTop.value + 'px')
+				setStylSetProperty('left', _defaultLeft.value + 'px')
+				setStylSetProperty('z-index', '1')
+				setStylSetProperty('transition-duration', '0s')
+				// #endif
+			})
+			.catch(() => {})
+	}
+
+	const onClick = () => {
+		emits("click")
+	}
+
+	const updateForce = () => {
+		// #ifdef MP
+		_mpTop.value = null
+		_mpLeft.value = null
+		_mpZIndex.value = null
+		_mpDuration.value = null
+		// #endif
+		// #ifndef MP
+		instance?.proxy?.$forceUpdate()
+		// #endif
+	}
+
+	const setOrderIndex = (index : number) => {
+		orderIndex.value = index;
+	}
+
+	const setActivdId = (newId : string) => {
+		nowId.value = newId;
+	}
+
+	const updatePos = () => {
+		// #ifdef MP
+		_mpDuration.value = '0.4s'
+		_mpZIndex.value = '1'
+		_mpTop.value = null
+		_mpLeft.value = null
+		// #endif
+		// #ifndef MP
+		setStylSetProperty('height', _height.value)
+		setStylSetProperty('width', _width.value)
+		setStylSetProperty('top', _defaultTop.value + 'px')
+		setStylSetProperty('left', _defaultLeft.value + 'px')
+		setStylSetProperty('transition-duration', '0.4s')
+		setStylSetProperty('z-index', '1')
+		// #endif
+	}
+
+	watch(():boolean => props.disabled, () => {
+		getNodes()
+	})
+
+	onMounted(() => {
+		orderIndex.value = props.order
+		uni.$on("onResize", getNodes)
+		// #ifdef APP-ANDROID||MP||WEB
+		getNodes()
+		// #endif
+		// #ifdef APP-IOS
+		setTimeout(function () {
+			getNodes()
+		}, 20);
+		// #endif
+		// #ifdef APP-HARMONY
+		setTimeout(function () {
+			getNodes()
+		}, 100);
+		// #endif
+	})
+
+	onBeforeUnmount(() => {
+		// @ts-ignore
+		let parent : XDragComponentPublicInstance | null = null;
+		try {
+			// @ts-ignore
+			parent = instance!.proxy!.$parent as XDragComponentPublicInstance
+		} catch (e) {
+
+		}
+		if (parent != null) {
+			parent!.delItem(id.value)
+		}
+		uni.$off("onResize", getNodes)
+	})
+
+	defineExpose({
+		setOrderIndex,
+		setActivdId,
+		setStylSetProperty,
+		getStylSetProperty,
+		updateForce,
+		updatePos,
+	})
+</script>
+<template>
+	<view
+
+	<!-- #ifdef APP||MP -->
+	@click="onClick"
+	<!-- #endif -->
+
+	<!-- #ifdef WEB -->
+	@mouseup="onClick"
+	<!-- #endif -->
+
+	ref="xDragItem"
+	class="xDragItem"
+	 :style="{
+		height:_height,
+		width:_width,
+		top:_finalTop,
+		left:_finalLeft,
+		zIndex:_finalZIndex,
+		transitionDuration:_finalDuration,
+	}">
+		<!--
+		@slot 默认插槽
+		 -->
+		<slot :order="orderIndex"></slot>
+	</view>
+</template>
+<style scoped>
+	.xDragItem {
+		position: absolute;
+		left: 0px;
+		top: 0px;
+		transition-timing-function: ease;
+		transition-property: top, left;
+		/* #ifdef WEB */
+		cursor: grab;
+		/* #endif */
+		z-index: 1;
+	}
+	/* #ifdef WEB */
+	.xDragItem:active{
+		cursor: grabbing;
+	}
+	/* #endif */
+</style>

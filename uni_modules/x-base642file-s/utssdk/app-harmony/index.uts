@@ -1,0 +1,14 @@
+import { x_toPngFile } from "x_library_s";
+import { BusinessError } from "@kit.BasicServicesKit";
+
+export function toPngFile(data : string) : Promise<string> {
+	try {
+		const file = x_toPngFile(UTSHarmony.getCurrentWindow()!.getUIContext(),data)
+		return Promise.resolve(file);
+	} catch (error) {
+		const e = error as BusinessError;
+		console.error("TMUI",e.message)
+		return Promise.reject(e.message);
+	}
+	
+}

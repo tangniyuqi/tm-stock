@@ -1,0 +1,38 @@
+import View from "android.view.View";
+import InputStream from "java.io.InputStream";
+import Context from "com.alibaba.fastjson.parser.deserializer.ASMDeserializerFactory.Context";
+import FileInputStream from "java.io.FileInputStream";
+import File from "java.io.File";
+import PictureDrawable from "android.graphics.drawable.PictureDrawable";
+import SVG from "com.caverock.androidsvg.SVG"
+import ImageView from 'android.widget.ImageView';
+
+export class xSvgU {
+	$element : UniNativeViewElement;
+	targetView : ImageView | null = null;
+	constructor(element : UniNativeViewElement) {
+		//接收传递过来的UniNativeViewElement
+		this.$element = element;
+		this.bindView();
+	}
+	bindView() {
+		this.targetView = new ImageView(this.$element.getAndroidActivity()!);  //构建原生view
+		this.$element.bindAndroidView(this.targetView!);
+	}
+	setImage(newval:string){
+		let furl = UTSAndroid.convert2AbsFullPath(newval)
+		let inputStream:InputStream|null = null;
+		if(furl.indexOf('android_asset')==-1){
+			inputStream = new FileInputStream(new File(furl))
+		}else{
+			inputStream = UTSAndroid.getUniActivity()!.getAssets().open(furl.replace("/android_asset/", ""));
+		}
+		if(inputStream ==null) return
+		let svg = SVG.getFromInputStream(inputStream!);
+		let pictureDrawable = new PictureDrawable(svg.renderToPicture());
+		this.targetView?.setImageDrawable(pictureDrawable);
+		
+		
+	}
+
+}

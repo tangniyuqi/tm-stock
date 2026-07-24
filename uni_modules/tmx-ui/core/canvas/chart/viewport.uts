@@ -1,0 +1,125 @@
+import { ChartDatum } from './types.uts';
+
+export type DataViewport = {
+	start : number,
+	end : number
+}
+
+export const normalizeViewport = (vp : DataViewport) : DataViewport => {
+	let start = Math.max(0, Math.min(1, vp.start));
+	let end = Math.max(0, Math.min(1, vp.end));
+	if (end < start) {
+		const tmp = end;
+		end = start;
+		start = tmp;
+	}
+	return {
+		start: start,
+		end: end
+	} as DataViewport;
+}
+
+export const panViewport = (vp : DataViewport, deltaRatio : number) : DataViewport => {
+	const safeVp = normalizeViewport(vp);
+	const span = safeVp.end - safeVp.start;
+	let nextStart = safeVp.start + deltaRatio;
+	let nextEnd = safeVp.end + deltaRatio;
+	if (nextStart < 0) {
+		nextStart = 0;
+		nextEnd = span;
+	}
+	if (nextEnd > 1) {
+		nextEnd = 1;
+		nextStart = 1 - span;
+	}
+	return normalizeViewport({
+		start: nextStart,
+		end: nextEnd
+	} as DataViewport);
+}
+
+export const zoomViewport = (vp : DataViewport, factor : number, center : number, minSpan : number = 0.1) : DataViewport => {
+	const safeVp = normalizeViewport(vp);
+	const currentSpan = safeVp.end - safeVp.start;
+	const clampedCenter = Math.max(0, Math.min(1, center));
+	const rawSpan = currentSpan / factor;
+	const nextSpan = Math.max(minSpan, Math.min(1, rawSpan));
+	let nextStart = clampedCenter - nextSpan / 2;
+	let nextEnd = clampedCenter + nextSpan / 2;
+	if (nextStart < 0) {
+		nextStart = 0;
+		nextEnd = nextSpan;
+	}
+	if (nextEnd > 1) {
+		nextEnd = 1;
+		nextStart = 1 - nextSpan;
+	}
+	return normalizeViewport({
+		start: nextStart,
+		end: nextEnd
+	} as DataViewport);
+}
+
+export const downsampleLTTB = (data : ChartDatum[], maxPoints : number, yField : string) : ChartDatum[] => {
+	const n = data.length
+	if (n <= maxPoints || maxPoints < 3) return data
+
+	const out = [] as ChartDatum[]
+	out.push(data[0])
+
+	const bucketSize = (n - 2) / (maxPoints - 2)
+	let prevIdx = 0
+
+	for (let b = 0; b < maxPoints - 2; b++) {
+		const bStart = Math.floor((b + 1) * bucketSize) + 1
+		const bEnd = Math.min(Math.floor((b + 2) * bucketSize) + 1, n - 1)
+
+		let avgX = 0 as number
+		let avgY = 0 as number
+		let avgCount = 0
+		for (let j = bStart; j < bEnd; j++) {
+			const yv = data[j].get(yField)
+			avgX += j
+			avgY += (yv != null && typeof yv == 'number') ? (yv as number) : 0
+			avgCount++
+		}
+		if (avgCount > 0) { avgX /= avgCount; avgY /= avgCount }
+
+		const curStart = Math.floor(b * bucketSize) + 1
+		const curEnd = bStart
+
+		let bestIdx = curStart
+		let bestArea = -1 as number
+		const prevY = data[prevIdx].get(yField)
+		const pxVal = prevIdx as number
+		const pyVal = (prevY != null && typeof prevY == 'number') ? (prevY as number) : 0
+
+		for (let j = curStart; j < curEnd; j++) {
+			const yv = data[j].get(yField)
+			const cy = (yv != null && typeof yv == 'number') ? (yv as number) : 0
+			const area = Math.abs((pxVal - avgX) * (cy - pyVal) - (pxVal - j) * (avgY - pyVal))
+			if (area > bestArea) {
+				bestArea = area
+				bestIdx = j
+			}
+		}
+		out.push(data[bestIdx])
+		prevIdx = bestIdx
+	}
+
+	out.push(data[n - 1])
+	return out
+}
+
+export const sliceByViewport = (data : ChartDatum[], vp : DataViewport) : ChartDatum[] => {
+	if (data.length == 0) return [] as ChartDatum[];
+	const safeVp = normalizeViewport(vp);
+	const lastIdx = data.length - 1;
+	const startIdx = Math.max(0, Math.floor(lastIdx * safeVp.start));
+	const endIdx = Math.min(lastIdx, Math.ceil(lastIdx * safeVp.end));
+	const out = [] as ChartDatum[];
+	for (let i = startIdx; i <= endIdx; i++) {
+		out.push(data[i]);
+	}
+	return out;
+}

@@ -1,0 +1,109 @@
+import { Shape } from './shape.uts';
+import { IShapeBoundRect, IShapeOptional, QrGenerateFrameResult } from '../interface.uts';
+import { ICanvas } from '@/uni_modules/tmx-ui/core/canvas/ICanvas.uts';
+import { generateFrame } from "./qrcode/qrcode.uts"
+export class IQrcode extends Shape {
+	override type = 'IQrcode'
+	private _qrCache : QrGenerateFrameResult | null = null
+	private _qrCacheText : string = ''
+	constructor(config : IShapeOptional,canvas:ICanvas) {
+		super(config,canvas);
+	}
+
+	override getBoundRect() : IShapeBoundRect {
+		const pad = (this.stroke!='' ? this.strokeWidth/2 : 0);
+		return {
+			x: this.x - pad,
+			y: this.y - pad,
+			width: this.width + pad*2,
+			height: this.height + pad*2
+		} as IShapeBoundRect;
+	}
+
+	setRadius(value : number) : IQrcode {
+		this.radius = value;
+		this.needsUpdate = true;
+		return this;
+	}
+
+	// 根据新高度调整矩形，以左上角 (x,y) 为起点
+	override setHeight(value : number) : Shape {
+		const originalY = this.y;
+		if (value >= 0) {
+			this.y = originalY;
+			this.height = value;
+		} else {
+			this.y = originalY + value; // value 为负，向上扩展
+			this.height = Math.abs(value);
+		}
+		this.needsUpdate = true;
+		return this;
+	}
+
+	// 根据新宽度调整矩形，以左上角 (x,y) 为起点
+	override setWidth(value : number) : Shape {
+		const originalX = this.x;
+		if (value >= 0) {
+			this.x = originalX;
+			this.width = value;
+		} else {
+			this.x = originalX + value; // value 为负，向左扩展
+			this.width = Math.abs(value);
+		}
+		this.needsUpdate = true;
+		return this;
+	}
+
+	// 设置二维码图片图片。
+	setQrcodeLabel(text:string){
+		this.qrcodeText = text;
+		this.needsUpdate = true;
+	}
+	override draw(ctx : CanvasRenderingContext2D) {
+		if (this.visible == false) return;
+		super.draw(ctx);
+
+		ctx.beginPath();
+		if (this.radius > 0) {
+			let radiuss = Math.min(this.radius, this.width / 2, this.height / 2);
+			const radius = Math.max(radiuss, 0)
+			ctx.moveTo(this.x + radius, this.y);
+			ctx.lineTo(this.x + this.width - radius, this.y);
+			ctx.arcTo(this.x + this.width, this.y, this.x + this.width, this.y + radius, radius);
+			ctx.lineTo(this.x + this.width, this.y + this.height - radius);
+			ctx.arcTo(this.x + this.width, this.y + this.height, this.x + this.width - radius, this.y + this.height, radius);
+			ctx.lineTo(this.x + radius, this.y + this.height);
+			ctx.arcTo(this.x, this.y + this.height, this.x, this.y + this.height - radius, radius);
+			ctx.lineTo(this.x, this.y + radius);
+			ctx.arcTo(this.x, this.y, this.x + radius, this.y, radius);
+		} else {
+			ctx.rect(this.x, this.y, this.width, this.height);
+		}
+		ctx.closePath();
+		if (this.fill != "") {
+			ctx.fill();
+		}
+		if (this.stroke != "") {
+			ctx.stroke();
+		}
+		
+		if (this._qrCache == null || this._qrCacheText != this.qrcodeText) {
+			this._qrCache = generateFrame(this.qrcodeText, "H")
+			this._qrCacheText = this.qrcodeText
+		}
+		const qr = this._qrCache!
+		const points = qr.frameBuffer
+		const width = qr.width
+		const px = this.width / width
+		ctx.fillStyle = this.foreground
+		for (let i = 0; i < width; i++) {
+			for (let j = 0; j < width; j++) {
+				if (points[j * width + i] > 0) {
+					ctx.fillRect(px * i + this.x, px * j + this.y, px, px)
+				}
+			}
+		}
+		
+		ctx.restore()
+	}
+}

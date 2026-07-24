@@ -1,0 +1,113 @@
+import { ChartDatum } from './types.uts';
+
+export type LinearScale = {
+	min : number,
+	max : number,
+	startPx : number,
+	endPx : number
+}
+
+export const getDatumNumber = (item : ChartDatum, key : string, fallback : number) : number => {
+	const value = item.get(key)
+	if (value == null) return fallback
+	if (typeof value == 'number') return value as number
+	if (typeof value == 'string') {
+		const parsed = parseFloat(value as string)
+		return isNaN(parsed) ? fallback : parsed
+	}
+	return fallback
+}
+
+export const getDatumString = (item : ChartDatum, key : string, fallback : string) : string => {
+	const value = item.get(key)
+	if (value == null) return fallback
+	if (typeof value == 'string') return value as string
+	if (typeof value == 'number') return `${value}`
+	if (typeof value == 'boolean') return (value as boolean) ? 'true' : 'false'
+	return fallback
+}
+
+export const createLinearScale = (min : number, max : number, startPx : number, endPx : number) : LinearScale => {
+	const safeMax = max == min ? min + 1 : max;
+	return {
+		min: min,
+		max: safeMax,
+		startPx: startPx,
+		endPx: endPx
+	} as LinearScale;
+}
+
+export const mapLinear = (value : number, scale : LinearScale) : number => {
+	const ratio = (value - scale.min) / (scale.max - scale.min);
+	return scale.startPx + ratio * (scale.endPx - scale.startPx);
+}
+
+export const buildLinearTicks = (min : number, max : number, tickCount : number) : number[] => {
+	const count = Math.max(2, tickCount)
+	if (max == min) {
+		const out = [] as number[]
+		for (let i = 0; i < count; i++) out.push(min + i)
+		return out
+	}
+
+	const range = max - min
+	const rawStep = range / (count - 1)
+	const exponent = Math.floor(Math.log10(rawStep))
+	const pow = Math.pow(10, exponent)
+	const fraction = rawStep / pow
+
+	let niceStep = 10 * pow
+	if (fraction < 1.5) niceStep = 1 * pow
+	else if (fraction <= 3) niceStep = 2 * pow
+	else if (fraction < 7) niceStep = 5 * pow
+
+	const niceMin = Math.floor(min / niceStep) * niceStep
+	const niceMax = Math.ceil(max / niceStep) * niceStep
+
+	const out = [] as number[]
+	let v = niceMin
+	while (v <= niceMax + niceStep * 0.001) {
+		out.push(Math.round(v * 1e6) / 1e6)
+		v += niceStep
+	}
+	return out
+}
+
+export const buildBandDomain = (data : ChartDatum[], xField : string) : string[] => {
+	const values = [] as string[]
+	const seen = new Map<string, boolean>()
+	for (let i = 0; i < data.length; i++) {
+		const label = getDatumString(data[i], xField, `${i}`)
+		if (!seen.has(label)) {
+			seen.set(label, true)
+			values.push(label)
+		}
+	}
+	return values
+}
+
+export const mapBandCenter = (label : string, domain : string[], startPx : number, endPx : number) : number => {
+	const idx = domain.indexOf(label);
+	const safeIdx = idx == -1 ? 0 : idx;
+	const count = Math.max(1, domain.length);
+	const step = (endPx - startPx) / count;
+	return startPx + step * safeIdx + step / 2;
+}
+
+export const getBandWidth = (domain : string[], startPx : number, endPx : number) : number => {
+	const count = Math.max(1, domain.length);
+	return (endPx - startPx) / count;
+}
+
+const estimateTextW = (text : string, size : number) : number => {
+	let w = 0
+	for (let i = 0; i < text.length; i++) {
+		const code = text.charCodeAt(i) ?? 0
+		w += (code >= 32 && code <= 126) ? size * 0.62 : size
+	}
+	return w
+}
+
+export const measureTextW = (text : string, size : number, _ctx : CanvasRenderingContext2D | null) : number => {
+	return estimateTextW(text, size)
+}

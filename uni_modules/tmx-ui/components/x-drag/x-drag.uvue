@@ -1,0 +1,671 @@
+<script lang="ts" setup>
+	import { ref, computed, provide, onMounted, onBeforeUnmount, onUpdated } from "vue"
+	import { checkIsCssUnit } from "../../core/util/xCoreUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	import { CHILDREN_INFO, CHILDREN_SIZE } from "../x-drag/interface.uts"
+	import { vibrator } from "@/uni_modules/x-vibrate-s"
+
+	type POSITION = {
+		col : number,
+		row : number,
+		index : number
+	}
+	type POSITION_XY = {
+		x : number,
+		y : number
+	}
+	type XDRAG_DOMRECT = {
+		width : number,
+		height : number,
+		left : number,
+		top : number,
+		right : number,
+		bottom : number,
+	}
+
+	/**
+	 * @name 拖拽排序 xDrag
+	 * @description 自由布局拖拽排序组件,列或者宫格都支持。使用时,需要将需要拖拽排序的子元素设置为x-drag-item。
+	 * 并且子元素和父元素不允许通过style来动态设置宽高,否则拖拽排序会失效。并且list及子元素中的order不允许动态设置,否则拖拽排序会失效。
+	 * 想要动态修改数据可以通过vif切换重新渲染下。web支持响应式屏幕。本插件：引用了原生插件x-vibrate-s
+	 * @page /pages/index/drag
+	 * @category 反馈组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({ name: "xDrag" })
+
+	type xDragPropsType = {
+		/** 项目的高度,不要动态更改 */
+		itemHeight : string,
+		/** 列数，默认1即列表布局,不要动态更改。1以上为宫格布局 */
+		col : number,
+		/** 排序数据list，变动后通过change事件取得 */
+		list : UTSJSONObject[],
+		/** 拖动时滚动进步值 */
+		scrollDiff : number,
+	}
+
+	const props = withDefaults(defineProps<xDragPropsType>(), {
+		itemHeight: '50',
+		col: 1,
+		list: () : UTSJSONObject[] => [] as UTSJSONObject[],
+		scrollDiff: 25,
+	})
+
+	const emits = defineEmits<{
+		/** 排序变动时触发 */
+		change : [list : UTSJSONObject[]],
+		/** 拖动时触发,可根据参数进行滚动。向上为负,向下为正 */
+		move : [diff : number],
+		end : [],
+		start : [],
+	}>()
+
+	const xDrag = ref<UniElement | null>(null)
+
+	const domlist = ref<CHILDREN_INFO[]>([])
+	const backckList = ref<string[]>([])
+	const oldList = ref<UTSJSONObject[]>([])
+	const activeIndex = ref(-1)
+	const targetIndex = ref(-1)
+	const isApplongStartMove = ref(false)
+	const cellHeight = ref(0)
+	const cellWidth = ref(0)
+	const isMoveing = ref(false)
+	const _x = ref(0)
+	const _y = ref(0)
+	const oragie_x = ref(0)
+	const oragie_y = ref(0)
+	const scrollDiffTopJuli = ref(0) // 保留用于记录累计滚动量，mEnd 中重置
+	const oldStartXy = ref<POSITION>({ col: 0, row: 0, index: 0 } as POSITION)
+	const xdragRect = ref<XDRAG_DOMRECT>({
+		width: 0, height: 0, left: 0, top: 0, right: 0, bottom: 0,
+	} as XDRAG_DOMRECT)
+	const hasMoved = ref(false)
+	const moveThreshold = ref(1)
+	const startTouchX = ref(0)
+	const startTouchY = ref(0)
+
+	let tid2 = 12
+
+	const _rows = computed(() : number => {
+		return Math.ceil(domlist.value.length / props.col)
+	})
+	const _cols = computed(() : number => {
+		return props.col
+	})
+	const _totalHeight = computed(() : number => {
+		return _rows.value * cellHeight.value
+	})
+
+	const updataResize = (resize : CHILDREN_SIZE) => {
+		cellHeight.value = resize.height
+		cellWidth.value = resize.width
+	}
+
+	const addItem = (item : CHILDREN_INFO) => {
+		let index = domlist.value.findIndex((el : CHILDREN_INFO) : boolean => el.id == item.id)
+		if (index > -1) {
+			domlist.value.splice(index, 1, item)
+		} else {
+			domlist.value.push(item)
+		}
+		cellHeight.value = item.node.height!;
+		cellWidth.value = item.node.width!;
+	}
+
+	const delItem = (id : string) => {
+		let index = domlist.value.findIndex((el : CHILDREN_INFO) : boolean => el.id == id)
+		if (index > -1) {
+			domlist.value.splice(index, 1)
+		}
+	}
+
+	const indexTransformer = (originalIndex : number) : number => {
+		let detail = targetIndex.value - activeIndex.value;
+		if (detail > 0) {
+			return originalIndex - 1
+		}
+		return originalIndex + 1
+	}
+
+	const getLastMaxCol = () : number => {
+		const lastRowColumns = domlist.value.length % props.col;
+		return lastRowColumns == 0 ? props.col : lastRowColumns;
+	}
+
+	const getByAppDomRect = (ele : UniElement) : XDRAG_DOMRECT => {
+		let rect = {
+			width: 0, height: 0, left: 0, right: 0, top: 0, bottom: 0,
+		} as XDRAG_DOMRECT
+		// #ifdef APP || WEB
+		let res = ele.getBoundingClientRect();
+		rect = {
+			width: res.width, height: res.height,
+			left: res.left, right: res.right,
+			top: res.top, bottom: res.bottom,
+		} as XDRAG_DOMRECT
+		// #endif
+		return rect
+	}
+
+	const getXdrageDomRect = () => {
+		// #ifdef MP-WEIXIN || APP-HARMONY
+		let el = xDrag.value as UniElement;
+		el.getBoundingClientRectAsync()
+			.then(res => {
+				xdragRect.value = {
+					width: res.width, height: res.height,
+					left: res.left, right: res.right,
+					top: res.top, bottom: res.bottom,
+				} as XDRAG_DOMRECT
+			})
+		// #endif
+	}
+
+	const coverXy = (x : number, y : number) : POSITION => {
+		let maxRow = Math.floor((domlist.value.length - 1) / props.col);
+		let lastMacCol = getLastMaxCol();
+		let el = xDrag.value as UniElement;
+		let bounce = xdragRect.value;
+		// #ifdef APP||WEB
+		bounce = getByAppDomRect(el)
+		// #endif
+		let row = Math.floor((y - bounce.top!) / cellHeight.value)
+		let col = Math.floor((x - bounce.left!) / cellWidth.value)
+
+		row = Math.min(Math.max(0, row), maxRow)
+		col = Math.min(Math.max(0, col), props.col - 1)
+
+		let index = (row + 1) * props.col - (props.col - col);
+		col = maxRow == row ? Math.min(lastMacCol - 1, col) : col;
+		index = Math.min(Math.max(0, index), domlist.value.length - 1)
+
+		return { row, col, index } as POSITION
+	}
+
+	const _setStyle = (info : CHILDREN_INFO, name : string, value : string) => {
+		// #ifdef MP
+		if (info.mpRefs != null) {
+			let refs = info.mpRefs as any
+			if (name == 'top') refs.top = value
+			else if (name == 'left') refs.left = value
+			else if (name == 'z-index') refs.zIndex = value
+			else if (name == 'transition-duration') refs.duration = value
+		}
+		// #endif
+		// #ifndef MP
+		info.ele!.$callMethod('setStylSetProperty', name, value)
+		// #endif
+	}
+	const _getStyle = (info : CHILDREN_INFO, name : string) : string => {
+		// #ifdef MP
+		if (info.mpRefs != null) {
+			let refs = info.mpRefs as any
+			if (name == 'top') {
+				if (refs.top != null) return refs.top as string
+				let oi = refs.orderIndex as number
+				return (cellHeight.value * Math.floor(oi / props.col)).toString() + 'px'
+			}
+			if (name == 'left') {
+				if (refs.left != null) return refs.left as string
+				let oi = refs.orderIndex as number
+				return (cellWidth.value * (oi % props.col)).toString() + 'px'
+			}
+		}
+		return '0px'
+		// #endif
+		// #ifndef MP
+		return info.ele!.$callMethod('getStylSetProperty', name) as string
+		// #endif
+	}
+	const _setOrder = (info : CHILDREN_INFO, index : number) => {
+		// #ifdef MP
+		if (info.mpRefs != null) {
+			(info.mpRefs as any).orderIndex = index
+		}
+		// #endif
+		// #ifndef MP
+		info.ele!.$callMethod('setOrderIndex', index)
+		// #endif
+	}
+	const _setActive = (info : CHILDREN_INFO, newId : string) => {
+		// #ifdef MP
+		if (info.mpRefs != null) {
+			(info.mpRefs as any).nowId = newId
+		}
+		// #endif
+		// #ifndef MP
+		info.ele!.$callMethod('setActivdId', newId)
+		// #endif
+	}
+	const _forceUpdate = (info : CHILDREN_INFO) => {
+		// #ifdef MP
+		if (info.mpRefs != null) {
+			let refs = info.mpRefs as any
+			refs.top = null
+			refs.left = null
+			refs.zIndex = null
+			refs.duration = null
+		}
+		// #endif
+		// #ifndef MP
+		info.ele!.$callMethod('updateForce')
+		// #endif
+	}
+
+	const eventTransformer_start = (evt : POSITION_XY) => {
+		if (domlist.value.length == 0) return;
+		backckList.value = domlist.value.map((el) : string => el.id)
+
+		let x = evt.x;
+		let y = evt.y;
+		const startPos = coverXy(x, y);
+		activeIndex.value = startPos.index
+		targetIndex.value = activeIndex.value;
+
+		oldStartXy.value = startPos
+		let childrenIndex = domlist.value.findIndex((el) : boolean => el.id == backckList.value[activeIndex.value])
+		if (childrenIndex == -1) return;
+		let children = domlist.value[childrenIndex]!;
+		let top = _getStyle(children, 'top')
+		let left = _getStyle(children, 'left')
+		let childrenTop = parseFloat(top);
+		let childrenLeft = parseFloat(left);
+		_setStyle(children, 'transition-duration', '0s')
+		_setStyle(children, 'z-index', '5')
+
+		_x.value = x - childrenLeft;
+		_y.value = y - childrenTop;
+		for (let i = 0; i < backckList.value.length; i++) {
+			let temdom = backckList.value[i]
+			let elIndex = domlist.value.findIndex((el) : boolean => el.id == temdom)
+			let el = domlist.value[elIndex];
+			_setActive(el, children.id)
+
+		}
+		// #ifdef MP
+		domlist.value.forEach((el, index) : boolean => {
+			if (index != childrenIndex && el.mpRefs != null) {
+				let refs = el.mpRefs as any
+				refs.duration = '0.4s'
+				refs.zIndex = '1'
+				refs.top = null
+				refs.left = null
+			}
+		})
+		// #endif
+	}
+
+	const eventTransformer_move = (evt : POSITION_XY) => {
+		if (domlist.value.length == 0 || backckList.value.length == 0) return;
+		let x = evt.x;
+		let y = evt.y;
+		let childrenIndex = domlist.value.findIndex((el) : boolean => el.id == backckList.value[activeIndex.value])
+		if (childrenIndex == -1) return
+		let children = domlist.value[childrenIndex]!;
+
+		let offsetY = y - _y.value
+		let offsetX = x - _x.value
+		
+		
+		_setStyle(children, 'top', offsetY.toString() + 'px')
+		_setStyle(children, 'left', offsetX.toString() + 'px')
+		_setStyle(children, 'transition-duration', '0s')
+		_setStyle(children, 'z-index', '5')
+
+		let target = coverXy(x, y)
+		let tIndex = target.index
+		let targetChildren = domlist.value[tIndex]!;
+		if (targetChildren.disabled) {
+			return;
+		}
+		if (tIndex == activeIndex.value) {
+			return;
+		}
+		oldStartXy.value = target
+
+		let backChildrent = backckList.value.slice(0)[activeIndex.value];
+		let backTargChildren = backckList.value.slice(0)[tIndex];
+
+		targetIndex.value = tIndex;
+		let backChildrent_model = oldList.value.slice(0)[activeIndex.value];
+		let backTargChildren_model = oldList.value.slice(0)[targetIndex.value];
+
+		backckList.value.splice(activeIndex.value, 1, backTargChildren)
+		backckList.value.splice(targetIndex.value, 1, backChildrent)
+
+		oldList.value.splice(activeIndex.value, 1, backTargChildren_model)
+		oldList.value.splice(targetIndex.value, 1, backChildrent_model)
+
+		for (let i = 0; i < backckList.value.length; i++) {
+			let temdom = backckList.value[i]
+			let elIndex = domlist.value.findIndex((el) : boolean => el.id == temdom)
+			let el = domlist.value[elIndex];
+			el.oldindex = el.index;
+			el.index = i;
+			_setOrder(el, i)
+
+		}
+		// #ifdef MP
+		domlist.value.forEach((el, index) : boolean => {
+			if (index != childrenIndex && el.mpRefs != null) {
+				let refs = el.mpRefs as any
+				refs.duration = '0.4s'
+				refs.zIndex = '1'
+				refs.top = null
+				refs.left = null
+			}
+		})
+		// #endif
+		activeIndex.value = targetIndex.value
+	}
+
+	const eventTransformer_end = (evt : POSITION_XY) => {
+		if (domlist.value.length == 0 || backckList.value.length == 0) return;
+
+		let x = evt.x;
+		let y = evt.y;
+
+		let childrenIndex = domlist.value.findIndex((el) : boolean => el.id == backckList.value[activeIndex.value])
+		if (childrenIndex == -1) return
+		let children = domlist.value[childrenIndex]!;
+
+		let result = coverXy(x, y);
+		let targetChildren = domlist.value[result.index]!;
+
+		if (targetChildren.disabled) {
+			result = oldStartXy.value
+		}
+
+		let col = result.col;
+		let row = result.row;
+		_setStyle(children, 'top', (cellHeight.value * row) + 'px')
+		_setStyle(children, 'left', (cellWidth.value * col) + 'px')
+	
+
+		domlist.value.sort((ela, elb) : number => ela.index - elb.index)
+		for (let i = 0; i < domlist.value.length; i++) {
+			let temdom = domlist.value[i]
+			temdom.oldindex = temdom.index
+			temdom.index = i
+			_setOrder(temdom, i)
+			_setActive(temdom, "")
+			_forceUpdate(temdom)
+		}
+		// #ifdef MP
+		domlist.value.forEach((el, index) : boolean => {
+			if (index != childrenIndex && el.mpRefs != null) {
+				let refs = el.mpRefs as any
+				refs.duration = '0.4s'
+				refs.zIndex = '1'
+				refs.top = null
+				refs.left = null
+			}
+		})
+		// #endif
+
+		emits('change', JSON.parseArray<UTSJSONObject>(JSON.stringify(oldList.value)!)!)
+	}
+
+	
+
+	const mStart = (evt : UniTouchEvent) => {
+		let x = evt.changedTouches[0].clientX;
+		let y = evt.changedTouches[0].clientY;
+
+		startTouchX.value = x;
+		startTouchY.value = y;
+		hasMoved.value = false;
+
+		oragie_x.value = x
+		oragie_y.value = y
+		let tempActiveIndex = coverXy(x, y).index
+		if (tempActiveIndex == -1) return;
+		let children = domlist.value[tempActiveIndex]!;
+		if (children.disabled) return;
+		isMoveing.value = true;
+		getXdrageDomRect()
+		scrollDiffTopJuli.value = 0
+		clearTimeout(tid2)
+
+		vibrator(100)
+		eventTransformer_start({ x: x, y: y } as POSITION_XY)
+		emits('start')
+	}
+
+	const mMove = (evt : UniTouchEvent) => {
+		if (!isMoveing.value || activeIndex.value == -1) return;
+		let x = evt.changedTouches[0].clientX;
+		let y = evt.changedTouches[0].clientY;
+
+		if (!hasMoved.value) {
+			let deltaX = Math.abs(x - startTouchX.value);
+			let deltaY = Math.abs(y - startTouchY.value);
+			let distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+			if (distance > moveThreshold.value) {
+				hasMoved.value = true;
+				evt.preventDefault();
+				evt.stopPropagation();
+			} else {
+				return;
+			}
+		} else if (isApplongStartMove.value || hasMoved.value) {
+			evt.preventDefault();
+			evt.stopPropagation();
+		}
+
+		eventTransformer_move({ x: x, y: y } as POSITION_XY)
+		let el = xDrag.value as UniElement;
+		let bounce = xdragRect.value;
+		// #ifdef APP||WEB
+		bounce = getByAppDomRect(el)
+		// #endif
+		let maxheight = uni.getWindowInfo().windowHeight
+		let diffBottom = Math.abs(bounce.bottom - maxheight)
+		// #ifdef APP||WEB
+		clearTimeout(tid2)
+		tid2 = setTimeout(() => {
+			if (bounce.bottom - maxheight > 0 && diffBottom > 25) {
+				emits('move', props.scrollDiff)
+				_y.value -= props.scrollDiff
+				scrollDiffTopJuli.value += props.scrollDiff
+			} else if (bounce.top < 0 && Math.abs(bounce.top) > 25) {
+				emits('move', props.scrollDiff * -1)
+				_y.value += props.scrollDiff
+				scrollDiffTopJuli.value -= props.scrollDiff
+			}
+		}, 200)
+		// #endif
+
+		// #ifdef MP-WEIXIN
+		clearTimeout(tid2)
+		tid2 = setTimeout(async () => {
+			bounce = await el.getBoundingClientRectAsync();
+			diffBottom = Math.abs(bounce.bottom - maxheight)
+
+			if (bounce.bottom - maxheight > 0 && diffBottom > 25) {
+				emits('move', props.scrollDiff)
+				_y.value -= props.scrollDiff
+				scrollDiffTopJuli.value += props.scrollDiff
+			} else if (bounce.top < 0 && Math.abs(bounce.top) > 25) {
+				emits('move', props.scrollDiff * -1)
+				_y.value += props.scrollDiff
+				scrollDiffTopJuli.value -= props.scrollDiff
+			}
+		}, 200)
+		// #endif
+	}
+
+	const mEnd = (evt : UniTouchEvent) => {
+		isApplongStartMove.value = false;
+		scrollDiffTopJuli.value = 0
+		clearTimeout(tid2)
+		emits('end')
+		if (!isMoveing.value) return;
+		isMoveing.value = false;
+
+		hasMoved.value = false;
+		startTouchX.value = 0;
+		startTouchY.value = 0;
+
+		let x = evt.changedTouches[0].clientX;
+		let y = evt.changedTouches[0].clientY;
+
+		eventTransformer_end({ x: x, y: y } as POSITION_XY)
+	}
+
+	// #ifdef WEB
+	const mmStart = (evt : UniMouseEvent) => {
+		if (evt instanceof TouchEvent) return;
+		let x = evt.clientX;
+		let y = evt.clientY;
+
+		startTouchX.value = x;
+		startTouchY.value = y;
+		hasMoved.value = false;
+
+		let tempActiveIndex = coverXy(x, y).index
+		if (tempActiveIndex == -1) return;
+		let children = domlist.value[tempActiveIndex]!;
+		if (children.disabled) return;
+
+		isMoveing.value = true;
+		eventTransformer_start({ x: x, y: y } as POSITION_XY)
+		emits('start')
+	}
+
+	const mmMove = (evt : UniMouseEvent) => {
+		if (evt instanceof TouchEvent) return;
+		if (!isMoveing.value || activeIndex.value == -1) return;
+
+		let x = evt.clientX;
+		let y = evt.clientY;
+
+		if (!hasMoved.value) {
+			let deltaX = Math.abs(x - startTouchX.value);
+			let deltaY = Math.abs(y - startTouchY.value);
+			let distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+			if (distance > moveThreshold.value) {
+				hasMoved.value = true;
+				evt.preventDefault();
+				evt.stopPropagation();
+			} else {
+				return;
+			}
+		} else {
+			evt.preventDefault();
+			evt.stopPropagation();
+		}
+
+		eventTransformer_move({ x: x, y: y } as POSITION_XY)
+
+		let el = xDrag.value as UniElement;
+		let bounce = xdragRect.value;
+		bounce = getByAppDomRect(el)
+		let maxheight = uni.getWindowInfo().windowHeight
+		let diffBottom = Math.abs(bounce.bottom - maxheight)
+		clearTimeout(tid2)
+		tid2 = setTimeout(() => {
+			if (bounce.bottom - maxheight > 0 && diffBottom > 25) {
+				emits('move', props.scrollDiff)
+				_y.value -= props.scrollDiff
+				scrollDiffTopJuli.value += props.scrollDiff
+			} else if (bounce.top < 0 && Math.abs(bounce.top) > 25) {
+				emits('move', props.scrollDiff * -1)
+				_y.value += props.scrollDiff
+				scrollDiffTopJuli.value -= props.scrollDiff
+			}
+		}, 200)
+	}
+
+	const mmEnd = (evt : UniMouseEvent) => {
+		if (evt instanceof TouchEvent) return;
+		emits('end')
+		if (!isMoveing.value) return;
+		isMoveing.value = false;
+
+		hasMoved.value = false;
+		startTouchX.value = 0;
+		startTouchY.value = 0;
+
+		eventTransformer_end({ x: evt.clientX, y: evt.clientY } as POSITION_XY)
+	}
+	// #endif
+	
+	
+	const mLongStart = (evt : UniTouchEvent) => {
+		isApplongStartMove.value = true;
+		mStart(evt)
+	}
+	onMounted(() => {
+		oldList.value = props.list.slice(0)
+		// #ifndef APP-HARMONY
+		getXdrageDomRect();
+		// #endif
+		// #ifdef APP-HARMONY
+		tid2 = setTimeout(function () {
+			getXdrageDomRect();
+		}, 100);
+		// #endif
+	})
+
+	onBeforeUnmount(() => {
+		clearTimeout(tid2)
+	})
+
+	onUpdated(() => {
+		getXdrageDomRect()
+	})
+
+	provide('XDRAGE_HEIGHT', checkIsCssUnit(props.itemHeight, xConfig.unit))
+	provide('XDRAGE_COL', props.col)
+	provide('XDRAGE_MAX_LEN', props.list.length)
+
+	defineExpose({
+		addItem,
+		delItem,
+		updataResize,
+	})
+</script>
+<template>
+	<view
+		class="xDrag"
+		ref="xDrag"
+
+		<!-- #ifdef APP || MP -->
+		@longpress="mLongStart"
+		<!-- #endif -->
+
+		<!-- #ifdef H5 -->
+		@touchstart="mStart"
+		<!-- #endif -->
+
+		@touchmove.stop="mMove"
+		@touchend="mEnd"
+		@touchcancel="mEnd"
+
+		<!-- #ifdef WEB -->
+		@mousedown.parent="mmStart"
+		@mousemove.stop="mmMove"
+		@mouseup.parent="mmEnd"
+		@mouseleave="mmEnd"
+		<!-- #endif -->
+
+		:style="{height:_totalHeight+'px'}">
+		<!--
+		@slot 只可放置子组件x-drag-item
+		 -->
+		<slot></slot>
+	</view>
+</template>
+<style scoped>
+	.xDrag {
+		position: relative;
+	}
+</style>

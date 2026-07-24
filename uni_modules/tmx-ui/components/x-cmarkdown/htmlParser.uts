@@ -1,0 +1,1186 @@
+import {Align,MarkdownToken} from "@/uni_modules/uni-cmark"
+
+export type traverseCallFun = (node : HtmlNode) => void; 
+export type getTextContentFun = (node : HtmlNode | null) => string; 
+export class NodeType {
+	public static ELEMENT_NODE = 1
+	public static TEXT_NODE = 3
+};
+
+
+// HTML节点接口
+export class HtmlNode {
+	type : number;
+	tagName : string = '';
+	attributes : Map<string, string> = new Map();
+	children : HtmlNode[] = [];
+	textContent : string = '';
+
+	constructor(type : number) {
+		this.type = type;
+	}
+
+	// 添加子节点
+	appendChild(child : HtmlNode) : void {
+		this.children.push(child);
+	}
+
+	// 设置属性
+	setAttribute(name : string, value : string) : void {
+		this.attributes.set(name, value);
+	}
+
+	// 获取属性
+	getAttribute(name : string) : string | null {
+		return this.attributes.get(name);
+	}
+
+}
+
+// HTML解析器类
+export class HtmlParser {
+	private html : string = '';
+	private position : number = 0;
+
+	// 微信小程序 rich-text 支持的标签列表
+	private supportedTags : string[] = [
+		'a', 'abbr', 'address', 'article', 'aside', 'b', 'bdi', 'bdo', 'big',
+		'blockquote', 'br', 'caption', 'center', 'cite', 'code', 'col', 'colgroup',
+		'dd', 'del', 'div', 'dl', 'dt', 'em', 'fieldset', 'font', 'footer',
+		'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'header', 'hr', 'i', 'img',
+		'ins', 'label', 'legend', 'li', 'mark', 'nav', 'ol', 'p', 'pre',
+		'q', 'rt', 'ruby', 's', 'section', 'small', 'span', 'strong', 'sub',
+		'sup', 'table', 'tbody', 'td', 'tfoot', 'th', 'thead', 'tr', 'tt', 'u', 'ul'
+	];
+
+	// 自闭合标签列表
+	private selfClosingTags : string[] = ['br', 'hr', 'img'];
+
+	// 内联标签列表（用于判断上下文空白处理）
+	private inlineTags : string[] = [
+		'a', 'abbr', 'b', 'bdi', 'bdo', 'cite', 'code', 'del', 'em', 'i', 'mark',
+		'q', 's', 'small', 'span', 'strong', 'sub', 'sup', 'u', 'var'
+	];
+
+	// 块级标签列表（用于判断上下文空白处理）
+	private blockLikeTags : string[] = [
+		'root', 'html', 'body', 'article', 'section', 'nav', 'aside', 'header',
+		'footer', 'address', 'main', 'div', 'p', 'pre', 'blockquote', 'figure',
+		'figcaption', 'ul', 'ol', 'li', 'dl', 'dt', 'dd', 'table', 'thead', 'tbody',
+		'tfoot', 'tr', 'th', 'td', 'caption', 'colgroup', 'col', 'h1', 'h2', 'h3',
+		'h4', 'h5', 'h6', 'hr', 'form', 'fieldset', 'paragraph', 'list_item',
+		'table_row', 'table_cell', 'table_header_cell', 'code_block'
+	];
+
+	// 需要删除的标签列表（完全移除）
+	private removeTags : string[] = [
+		'audio', 'video', 'iframe', 'embed', 'object', 'canvas',
+		'svg', 'math', 'input', 'textarea', 'button', 'select',
+		'area', 'base', 'link', 'meta', 'param', 'source', 'track', 'wbr', 'script', 'style'
+	];
+
+	// 需要清理的属性列表（适用于所有标签）
+	private cleanAttrs : string[] = [
+		// 微信不支持的属性
+		'id',
+		// img 特有属性
+		'vsbhref', 'vurl', 'vheight', 'vwidth', 'orisrc',
+		// 事件属性（所有标签都要删除）
+		'onload', 'onerror', 'onclick', 'onchange', 'onsubmit',
+		'onmouseover', 'onmouseout', 'onfocus', 'onblur', 'onkeydown',
+		'onkeyup', 'onkeypress', 'ondblclick', 'onmousedown', 'onmouseup'
+	];
+
+	private _supportedTagsSet : Set<string> = new Set<string>();
+	private _selfClosingTagsSet : Set<string> = new Set<string>();
+	private _inlineTagsSet : Set<string> = new Set<string>();
+	private _blockLikeTagsSet : Set<string> = new Set<string>();
+	private _removeTagsSet : Set<string> = new Set<string>();
+	private _cleanAttrsSet : Set<string> = new Set<string>();
+	private _blockTokenTypesSet : Set<string> = new Set<string>();
+
+	constructor(html : string) {
+		this.supportedTags.forEach((t : string) : void => { this._supportedTagsSet.add(t); });
+		this.selfClosingTags.forEach((t : string) : void => { this._selfClosingTagsSet.add(t); });
+		this.inlineTags.forEach((t : string) : void => { this._inlineTagsSet.add(t); });
+		this.blockLikeTags.forEach((t : string) : void => { this._blockLikeTagsSet.add(t); });
+		this.removeTags.forEach((t : string) : void => { this._removeTagsSet.add(t); });
+		this.cleanAttrs.forEach((t : string) : void => { this._cleanAttrsSet.add(t); });
+		const blockTypes = ['paragraph', 'heading', 'list', 'block_quote', 'code_block', 'table', 'hr', 'thematic_break', 'html_block'];
+		blockTypes.forEach((t : string) : void => { this._blockTokenTypesSet.add(t); });
+		this.html = this.preprocessHtml(html.trim());
+		this.position = 0;
+	}
+
+	// 预处理 HTML：清理注释、非主体标签，保留 body 内容
+	private preprocessHtml(html : string) : string {
+		let result : string = html;
+
+		// 1. 删除所有 HTML 注释
+		result = result.replace(/<!--[\s\S]*?-->/g, '');
+
+		// 2. 删除 <script> 标签及其内容
+		result = result.replace(/<script[\s\S]*?<\/script>/gi, '');
+
+		// 3. 删除 <style> 标签及其内容
+		result = result.replace(/<style[\s\S]*?<\/style>/gi, '');
+
+		// 4. 删除 <head> 标签及其内容
+		result = result.replace(/<head[\s\S]*?<\/head>/gi, '');
+
+		// 5. 删除需要移除的标签及其内容
+		this.removeTags.forEach((tag : string) : void => {
+			// 删除配对标签及内容：<tag>...</tag>
+			const pairRegex = new RegExp(`<${tag}[^>]*>[\\s\\S]*?</${tag}>`, 'gi');
+			result = result.replace(pairRegex, '');
+			// 删除自闭合标签：<tag />
+			const selfRegex = new RegExp(`<${tag}[^>]*/>`, 'gi');
+			result = result.replace(selfRegex, '');
+		});
+
+		// 6. 提取 <body> 内容（如果有的话）
+		const bodyMatch = result.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+		if (bodyMatch != null && bodyMatch.length > 1 && bodyMatch[1] != null) {
+			result = bodyMatch[1]!;
+		}
+
+		// 7. 删除 <html>、</html>、<body>、</body> 等标签
+		result = result.replace(/<\/?(?:html|body)[^>]*>/gi, '');
+
+		// 8. 删除 <link>、<meta>、<title> 等自闭合或单标签
+		result = result.replace(/<(?:link|meta|title|base)[^>]*\/?>/gi, '');
+
+		// 9. 清理所有标签中的不支持属性
+		result = this.cleanTagAttributes(result);
+
+		// 10. 清理换行符、制表符、多余空格
+		result = result.replace(/[\t\n\r]+/g, ' ').replace(/\s+/g, ' ');
+
+		return result.trim();
+	}
+
+	private cleanTagAttributes(html : string) : string {
+		let result : string = html;
+		this.cleanAttrs.forEach((attr : string) : void => {
+			const attrRegex = new RegExp(`\\s+${attr}\\s*=\\s*(?:"[^"]*"|'[^']*'|[^\\s>]+)`, 'gi');
+			result = result.replace(attrRegex, '');
+		});
+		return result;
+	}
+
+	// 解析HTML，返回符合 cmarkdown 语法的 MarkdownToken 数组
+	parse() : MarkdownToken[] {
+		const nodes : HtmlNode[] = [];
+
+		while (this.position < this.html.length) {
+			const positionBefore = this.position;
+			const node = this.parseNode();
+			if (node != null) {
+				nodes.push(node);
+			}
+
+			// 防止死循环：如果位置没有前进，强制前进
+			if (this.position == positionBefore) {
+				console.log('警告：主解析循环位置未前进，跳过当前字符');
+				this.position++;
+			}
+		}
+
+		const result : MarkdownToken[] = [];
+		nodes.forEach((node : HtmlNode) : void => {
+			const fragments = this.convertNodeToTokens(node, 'root', null);
+			fragments.forEach((token : MarkdownToken) : void => {
+				result.push(token);
+			});
+		});
+
+		return this.normalizeTokens(result);
+	}
+
+	private convertNodeToTokens(node : HtmlNode | null, parentTag : string | null, inheritedStyle : string | null) : MarkdownToken[] {
+		if (node == null) {
+			return [];
+		}
+
+		if (node.type == NodeType.TEXT_NODE || node.tagName == 'text') {
+			return this.createTextTokens(node.textContent, parentTag, inheritedStyle);
+		}
+
+		const nodeStyle = this.getInlineStyle(node);
+		const mergedStyle = this.mergeStyles(inheritedStyle, nodeStyle);
+
+		const tag : string = node.tagName.toLowerCase();
+
+		switch (tag) {
+			case 'p':
+				return this.createParagraphTokens(node, mergedStyle);
+			case 'div':
+			case 'section':
+			case 'article':
+			case 'main':
+			case 'header':
+			case 'footer':
+			case 'aside':
+			case 'nav':
+				return this.createBlockContainerTokens(node, 'paragraph', mergedStyle);
+			case 'span':
+			case 'font':
+			case 'label':
+				return this.convertChildrenToTokens(node.children, tag, mergedStyle);
+			case 'br':
+				return [this.createBreakToken()];
+			case 'hr':
+				return [this.createHorizontalRuleToken()];
+			case 'h1':
+			case 'h2':
+			case 'h3':
+			case 'h4':
+			case 'h5':
+			case 'h6':
+				return this.createHeadingTokens(node, tag, mergedStyle);
+			case 'strong':
+			case 'b':
+				return this.createInlineContainerToken(node, 'strong', mergedStyle);
+			case 'em':
+			case 'i':
+				return this.createInlineContainerToken(node, 'emph', mergedStyle);
+			case 'del':
+			case 's':
+			case 'strike':
+				return this.createInlineContainerToken(node, 'strikethrough', mergedStyle);
+			case 'code':
+				if (parentTag == 'pre') {
+					return this.convertChildrenToTokens(node.children, 'code', mergedStyle);
+				}
+				return this.createInlineCodeTokens(node, mergedStyle);
+			case 'pre':
+				return this.createCodeBlockTokens(node, mergedStyle);
+			case 'a':
+				return this.createLinkTokens(node, mergedStyle);
+			case 'img':
+				return this.createImageTokens(node);
+			case 'ul':
+				return this.createListTokens(node, false, mergedStyle);
+			case 'ol':
+				return this.createListTokens(node, true, mergedStyle);
+			case 'li':
+				const listItem = this.createListItemToken(node, mergedStyle);
+				return listItem != null ? [listItem] : [];
+			case 'blockquote':
+				return this.createBlockQuoteTokens(node, mergedStyle);
+			case 'table':
+				return this.createTableTokens(node, mergedStyle);
+			case 'thead':
+			case 'tbody':
+			case 'tfoot':
+				return this.convertChildrenToTokens(node.children, tag, mergedStyle);
+			case 'tr':
+				const row = this.createTableRowToken(node, mergedStyle);
+				return row != null ? [row] : [];
+			case 'th':
+			case 'td':
+				const cellTokens = this.convertChildrenToTokens(node.children, tag, mergedStyle);
+				if (cellTokens.length == 0) {
+					const cellText = this.normalizeText(this.getNodeText(node), tag);
+					if (cellText.length == 0) {
+						return [];
+					}
+					const fallbackCell : MarkdownToken = {
+						type: 'table_cell',
+						text: cellText,
+						raw: cellText
+					};
+					if (mergedStyle != null && mergedStyle.trim().length > 0) {
+						fallbackCell.className = this.normalizeStyleValue(mergedStyle);
+					}
+					return [fallbackCell];
+				}
+				const cellToken : MarkdownToken = {
+					type: 'table_cell',
+					tokens: cellTokens
+				};
+				if (mergedStyle != null && mergedStyle.trim().length > 0) {
+					cellToken.className = this.normalizeStyleValue(mergedStyle);
+				}
+				return [cellToken];
+			case 'iframe':
+			case 'video':
+			case 'audio':
+				// 预处理阶段已移除，兜底返回空
+				return [];
+			default:
+				const defaultChildren = this.convertChildrenToTokens(node.children, tag, mergedStyle);
+				if (defaultChildren.length == 0) {
+					const rawHtml = this.normalizeText(this.getNodeText(node), tag);
+					if (rawHtml.length == 0) {
+						return [];
+					}
+					const htmlToken : MarkdownToken = {
+						type: this.isBlockContext(tag) ? 'html_block' : 'html_inline',
+						raw: rawHtml,
+						text: rawHtml
+					};
+					if (mergedStyle != null && mergedStyle.trim().length > 0) {
+						htmlToken.className = this.normalizeStyleValue(mergedStyle);
+					}
+					return [htmlToken];
+				}
+				if (this.isInlineTag(tag)) {
+					return defaultChildren;
+				}
+				if (this.containsBlockToken(defaultChildren)) {
+					return defaultChildren;
+				}
+				const containerToken : MarkdownToken = {
+					type: 'paragraph',
+					tokens: defaultChildren
+				};
+				if (mergedStyle != null && mergedStyle.trim().length > 0) {
+					containerToken.className = this.normalizeStyleValue(mergedStyle);
+				}
+				return [containerToken];
+		}
+	}
+
+	private getInlineStyle(node : HtmlNode | null) : string | null {
+		if (node == null) {
+			return null;
+		}
+		const styleAttr = node.getAttribute('style');
+		if (styleAttr == null) {
+			return null;
+		}
+		const normalized = this.normalizeStyleValue(styleAttr);
+		return normalized.length > 0 ? normalized : null;
+	}
+
+	private normalizeStyleValue(style : string) : string {
+		const parts = style.split(';');
+		const cleaned : string[] = [];
+		parts.forEach((part : string) : void => {
+			const trimmed = part.trim();
+			if (trimmed.length > 0) {
+				cleaned.push(trimmed);
+			}
+		});
+		return cleaned.join('; ');
+	}
+
+	private mergeStyles(parentStyle : string | null, currentStyle : string | null) : string | null {
+		const styles : string[] = [];
+		if (parentStyle != null && parentStyle.trim().length > 0) {
+			styles.push(this.normalizeStyleValue(parentStyle));
+		}
+		if (currentStyle != null && currentStyle.trim().length > 0) {
+			styles.push(this.normalizeStyleValue(currentStyle));
+		}
+		if (styles.length == 0) {
+			return null;
+		}
+		return styles.join('; ');
+	}
+
+	private createStyledTextToken(text : string, style : string | null) : MarkdownToken {
+		const token : MarkdownToken = {
+			type: 'text',
+			text: text,
+			raw: text
+		};
+		if (style != null && style.trim().length > 0) {
+			token.className = this.normalizeStyleValue(style);
+		}
+		return token;
+	}
+
+	private convertChildrenToTokens(children : HtmlNode[], parentTag : string | null, inheritedStyle : string | null) : MarkdownToken[] {
+		const tokens : MarkdownToken[] = [];
+		children.forEach((child : HtmlNode) : void => {
+			const fragments = this.convertNodeToTokens(child, parentTag, inheritedStyle);
+			fragments.forEach((fragment : MarkdownToken) : void => {
+				tokens.push(fragment);
+			});
+		});
+		return tokens;
+	}
+
+	private createTextTokens(textValue : string, parentTag : string | null, inlineStyle : string | null) : MarkdownToken[] {
+		if (textValue == null) {
+			return [];
+		}
+		const normalized : string = this.normalizeText(textValue, parentTag);
+		if (normalized.length == 0) {
+			return [];
+		}
+		return [this.createStyledTextToken(normalized, inlineStyle)];
+	}
+
+	private createParagraphTokens(node : HtmlNode, inheritedStyle : string | null) : MarkdownToken[] {
+		const childTokens = this.convertChildrenToTokens(node.children, 'paragraph', inheritedStyle);
+		if (childTokens.length == 0) {
+			const paragraphText = this.normalizeText(this.getNodeText(node), 'paragraph');
+			if (paragraphText.length == 0) {
+				return [];
+			}
+			const paragraphToken : MarkdownToken = {
+				type: 'paragraph',
+				raw: paragraphText,
+				text: paragraphText
+			};
+			if (inheritedStyle != null && inheritedStyle.trim().length > 0) {
+				paragraphToken.className = this.normalizeStyleValue(inheritedStyle);
+			}
+			return [paragraphToken];
+		}
+		const paragraphToken : MarkdownToken = {
+			type: 'paragraph',
+			tokens: childTokens
+		};
+		const paragraphText = this.normalizeText(this.getNodeText(node), 'paragraph');
+		if (paragraphText.length > 0) {
+			paragraphToken.text = paragraphText;
+			paragraphToken.raw = paragraphText;
+		}
+		if (inheritedStyle != null && inheritedStyle.trim().length > 0) {
+			paragraphToken.className = this.normalizeStyleValue(inheritedStyle);
+		}
+		return [paragraphToken];
+	}
+
+	private createBlockContainerTokens(node : HtmlNode, fallbackType : string, inheritedStyle : string | null) : MarkdownToken[] {
+		const childTokens = this.convertChildrenToTokens(node.children, node.tagName.toLowerCase(), inheritedStyle);
+		if (childTokens.length == 0) {
+			const blockText = this.normalizeText(this.getNodeText(node), node.tagName.toLowerCase());
+			if (blockText.length == 0) {
+				return [];
+			}
+			const blockToken : MarkdownToken = {
+				type: fallbackType,
+				raw: blockText,
+				text: blockText
+			};
+			if (inheritedStyle != null && inheritedStyle.trim().length > 0) {
+				blockToken.className = this.normalizeStyleValue(inheritedStyle);
+			}
+			return [blockToken];
+		}
+		if (this.containsBlockToken(childTokens)) {
+			return childTokens;
+		}
+		const containerToken : MarkdownToken = {
+			type: fallbackType,
+			tokens: childTokens
+		};
+		if (inheritedStyle != null && inheritedStyle.trim().length > 0) {
+			containerToken.className = this.normalizeStyleValue(inheritedStyle);
+		}
+		return [containerToken];
+	}
+
+	private createBreakToken() : MarkdownToken {
+		return {
+			type: 'br',
+			text: '\n',
+			raw: '\n'
+		};
+	}
+
+	private createHorizontalRuleToken() : MarkdownToken {
+		return {
+			type: 'hr',
+			raw: '---'
+		};
+	}
+
+	private createHeadingTokens(node : HtmlNode, tag : string, inheritedStyle : string | null) : MarkdownToken[] {
+		let depth = parseInt(tag.substring(1));
+		if (isNaN(depth) || depth <= 0) {
+			depth = 1;
+		}
+		const childTokens = this.convertChildrenToTokens(node.children, tag, inheritedStyle);
+		const headingText = this.normalizeText(this.getNodeText(node), tag);
+		const headingToken : MarkdownToken = {
+			type: 'heading',
+			depth: depth,
+			raw: headingText,
+			text: headingText
+		};
+		if (childTokens.length > 0) {
+			headingToken.tokens = childTokens;
+		}
+		return [headingToken];
+	}
+
+	private createInlineContainerToken(node : HtmlNode, tokenType : string, inheritedStyle : string | null) : MarkdownToken[] {
+		const childTokens = this.convertChildrenToTokens(node.children, tokenType, inheritedStyle);
+		const result : MarkdownToken = {
+			type: tokenType
+		};
+		if (inheritedStyle != null && inheritedStyle.trim().length > 0) {
+			result.className = this.normalizeStyleValue(inheritedStyle);
+		}
+		if (childTokens.length > 0) {
+			result.tokens = childTokens;
+		} else {
+			const inlineText = this.normalizeText(this.getNodeText(node), tokenType);
+			if (inlineText.length == 0) {
+				return [];
+			}
+			result.text = inlineText;
+			result.raw = inlineText;
+		}
+		return [result];
+	}
+
+	private createInlineCodeTokens(node : HtmlNode, inheritedStyle : string | null) : MarkdownToken[] {
+		const codeText = this.normalizeText(this.getNodeText(node), 'code');
+		if (codeText.length == 0) {
+			return [];
+		}
+		const token : MarkdownToken = {
+			type: 'code',
+			text: codeText,
+			raw: codeText
+		};
+		if (inheritedStyle != null && inheritedStyle.trim().length > 0) {
+			token.className = this.normalizeStyleValue(inheritedStyle);
+		}
+		return [token];
+	}
+
+	private createCodeBlockTokens(node : HtmlNode, inheritedStyle : string | null) : MarkdownToken[] {
+		let codeChild : HtmlNode | null = null;
+		for (let i = 0; i < node.children.length; i++) {
+			const child = node.children[i]!;
+			if (child.tagName.toLowerCase() == 'code') {
+				codeChild = child;
+				break;
+			}
+		}
+		let codeText = this.getNodeText(codeChild != null ? codeChild : node);
+		codeText = codeText.replace(/^\n+/, '').replace(/\s+$/, '');
+		const normalized = codeText.replace(/\r\n/g, '\n');
+		if (normalized.length == 0) {
+			return [];
+		}
+		const token : MarkdownToken = {
+			type: 'code_block',
+			text: normalized,
+			raw: normalized
+		};
+		if (inheritedStyle != null && inheritedStyle.trim().length > 0) {
+			token.className = this.normalizeStyleValue(inheritedStyle);
+		}
+		const lang = this.extractLanguageFromNode(codeChild != null ? codeChild : node);
+		if (lang.length > 0) {
+			token.lang = lang;
+		}
+		return [token];
+	}
+
+	private extractLanguageFromNode(node : HtmlNode | null) : string {
+		if (node == null) {
+			return '';
+		}
+		const classAttr = node.getAttribute('class');
+		if (classAttr != null) {
+			const match = classAttr.match(/language-([a-z0-9\-_]+)/i);
+			if (match != null && match.length > 1 && match[1] != null) {
+				return match[1]!;
+			}
+		}
+		const dataLang = node.getAttribute('data-lang');
+		if (dataLang != null && dataLang.trim().length > 0) {
+			return dataLang.trim();
+		}
+		const langAttr = node.getAttribute('lang');
+		if (langAttr != null && langAttr.trim().length > 0) {
+			return langAttr.trim();
+		}
+		return '';
+	}
+
+	private createLinkTokens(node : HtmlNode, inheritedStyle : string | null) : MarkdownToken[] {
+		const childTokens = this.convertChildrenToTokens(node.children, 'a', inheritedStyle);
+		const token : MarkdownToken = {
+			type: 'link'
+		};
+		if (inheritedStyle != null && inheritedStyle.trim().length > 0) {
+			token.className = this.normalizeStyleValue(inheritedStyle);
+		}
+		const href = node.getAttribute('href');
+		if (href != null && href.trim().length > 0) {
+			token.href = href.trim();
+		}
+		const title = node.getAttribute('title');
+		if (title != null && title.trim().length > 0) {
+			token.title = title.trim();
+		}
+		if (childTokens.length > 0) {
+			token.tokens = childTokens;
+		} else {
+			const linkText = this.normalizeText(this.getNodeText(node), 'a');
+			if (linkText.length > 0) {
+				token.text = linkText;
+				token.raw = linkText;
+			}
+		}
+		return [token];
+	}
+
+	private createImageTokens(node : HtmlNode) : MarkdownToken[] {
+		const src = node.getAttribute('src');
+		if (src == null || src.trim().length == 0) {
+			return [];
+		}
+		const token : MarkdownToken = {
+			type: 'image',
+			href: src.trim()
+		};
+		const alt = node.getAttribute('alt');
+		if (alt != null && alt.trim().length > 0) {
+			const altText = alt.trim();
+			token.text = altText;
+			token.raw = altText;
+		}
+		return [token];
+	}
+
+	private createBlockQuoteTokens(node : HtmlNode, inheritedStyle : string | null) : MarkdownToken[] {
+		const childTokens = this.convertChildrenToTokens(node.children, 'blockquote', inheritedStyle);
+		if (childTokens.length == 0) {
+			const quoteText = this.normalizeText(this.getNodeText(node), 'blockquote');
+			if (quoteText.length == 0) {
+				return [];
+			}
+			return [{
+				type: 'block_quote',
+				text: quoteText,
+				raw: quoteText
+			}];
+		}
+		const token : MarkdownToken = {
+			type: 'block_quote',
+			tokens: childTokens
+		};
+		if (inheritedStyle != null && inheritedStyle.trim().length > 0) {
+			token.className = this.normalizeStyleValue(inheritedStyle);
+		}
+		return [token];
+	}
+
+	private createListTokens(node : HtmlNode, ordered : boolean, inheritedStyle : string | null) : MarkdownToken[] {
+		const listStyle = inheritedStyle;
+		const items : MarkdownToken[] = [];
+		node.children.forEach((child : HtmlNode) : void => {
+			if (child.tagName.toLowerCase() == 'li') {
+				const listItem = this.createListItemToken(child, listStyle);
+				if (listItem != null) {
+					items.push(listItem);
+				}
+			}
+		});
+		if (items.length == 0) {
+			return [];
+		}
+		const listToken : MarkdownToken = {
+			type: 'list',
+			ordered: ordered ? 1 : 0,
+			loose: 0,
+			tokens: items
+		};
+		if (listStyle != null && listStyle.trim().length > 0) {
+			listToken.className = this.normalizeStyleValue(listStyle);
+		}
+		if (ordered) {
+			const startAttr = node.getAttribute('start');
+			if (startAttr != null && startAttr.trim().length > 0) {
+				listToken.start = startAttr.trim();
+			}
+		}
+		return [listToken];
+	}
+
+	private createListItemToken(node : HtmlNode, inheritedStyle : string | null) : MarkdownToken | null {
+		const nodeStyle = this.getInlineStyle(node);
+		const mergedStyle = this.mergeStyles(inheritedStyle, nodeStyle);
+		let childTokens = this.convertChildrenToTokens(node.children, 'li', mergedStyle);
+		if (childTokens.length == 0) {
+			const itemText = this.normalizeText(this.getNodeText(node), 'li');
+			if (itemText.length == 0) {
+				return null;
+			}
+			childTokens = [this.createStyledTextToken(itemText, mergedStyle)];
+		}
+		if (!this.containsBlockToken(childTokens)) {
+			const paragraphToken : MarkdownToken = {
+				type: 'paragraph',
+				tokens: childTokens
+			};
+			if (mergedStyle != null && mergedStyle.trim().length > 0) {
+				paragraphToken.className = this.normalizeStyleValue(mergedStyle);
+			}
+			childTokens = [paragraphToken];
+		}
+		const itemToken : MarkdownToken = {
+			type: 'list_item',
+			tokens: childTokens
+		};
+		if (mergedStyle != null && mergedStyle.trim().length > 0) {
+			itemToken.className = this.normalizeStyleValue(mergedStyle);
+		}
+		return itemToken;
+	}
+
+	private createTableTokens(node : HtmlNode, inheritedStyle : string | null) : MarkdownToken[] {
+		const nodeStyle = this.getInlineStyle(node);
+		const mergedStyle = this.mergeStyles(inheritedStyle, nodeStyle);
+		const rows : MarkdownToken[] = [];
+		const alignments : Align[] = [];
+		node.children.forEach((child : HtmlNode) : void => {
+			this.collectTableRows(child, rows, alignments, mergedStyle);
+		});
+		if (rows.length == 0) {
+			return [];
+		}
+		const tableToken : MarkdownToken = {
+			type: 'table',
+			tokens: rows
+		};
+		if (mergedStyle != null && mergedStyle.trim().length > 0) {
+			tableToken.className = this.normalizeStyleValue(mergedStyle);
+		}
+		if (rows.length > 0) {
+			const columnCount = (rows[0].tokens ?? []).length;
+			if (alignments.length < columnCount) {
+				for (let i = alignments.length; i < columnCount; i++) {
+					alignments.push('left');
+				}
+			}
+		}
+		if (alignments.length > 0) {
+			tableToken.align = alignments;
+		}
+		return [tableToken];
+	}
+
+	private collectTableRows(node : HtmlNode, rows : MarkdownToken[], alignments : Align[], inheritedStyle : string | null) : void {
+		const tag = node.tagName.toLowerCase();
+		const nodeStyle = this.getInlineStyle(node);
+		const mergedStyle = this.mergeStyles(inheritedStyle, nodeStyle);
+		if (tag == 'tr') {
+			const rowToken = this.createTableRowToken(node, mergedStyle);
+			if (rowToken != null) {
+				if (rows.length == 0) {
+					const rowAlign = this.extractAlignFromRow(node);
+					if (rowAlign.length > 0) {
+						alignments.splice(0, alignments.length);
+						rowAlign.forEach((align : Align) : void => {
+							alignments.push(align);
+						});
+					}
+				}
+				rows.push(rowToken);
+			}
+			return;
+		}
+		if (tag == 'thead' || tag == 'tbody' || tag == 'tfoot' || tag == 'table') {
+			node.children.forEach((child : HtmlNode) : void => {
+				this.collectTableRows(child, rows, alignments, mergedStyle);
+			});
+			return;
+		}
+		node.children.forEach((child : HtmlNode) : void => {
+			this.collectTableRows(child, rows, alignments, mergedStyle);
+		});
+	}
+
+	private createTableRowToken(node : HtmlNode, inheritedStyle : string | null) : MarkdownToken | null {
+		const cells : MarkdownToken[] = [];
+		node.children.forEach((child : HtmlNode) : void => {
+			const tag = child.tagName.toLowerCase();
+			if (tag == 'th' || tag == 'td') {
+				const childStyle = this.getInlineStyle(child);
+				const mergedCellStyle = this.mergeStyles(inheritedStyle, childStyle);
+				let cellTokens = this.convertChildrenToTokens(child.children, tag, mergedCellStyle);
+				if (cellTokens.length == 0) {
+					const cellText = this.normalizeText(this.getNodeText(child), tag);
+					if (cellText.length > 0) {
+						cellTokens = [this.createStyledTextToken(cellText, mergedCellStyle)];
+					}
+				}
+				const cellToken : MarkdownToken = {
+					type: tag == 'th' ? 'table_header_cell' : 'table_cell',
+					tokens: cellTokens
+				};
+				if (mergedCellStyle != null && mergedCellStyle.trim().length > 0) {
+					cellToken.className = this.normalizeStyleValue(mergedCellStyle);
+				}
+				cells.push(cellToken);
+			}
+		});
+		if (cells.length == 0) {
+			return null;
+		}
+		const rowToken : MarkdownToken = {
+			type: 'table_row',
+			tokens: cells
+		};
+		if (inheritedStyle != null && inheritedStyle.trim().length > 0) {
+			rowToken.className = this.normalizeStyleValue(inheritedStyle);
+		}
+		return rowToken;
+	}
+
+	private extractAlignFromRow(row : HtmlNode) : Align[] {
+		const aligns : Align[] = [];
+		row.children.forEach((child : HtmlNode) : void => {
+			const tag = child.tagName.toLowerCase();
+			if (tag == 'th' || tag == 'td') {
+				const align = this.extractAlignValue(child);
+				if (align != null) {
+					aligns.push(align);
+				} else {
+					aligns.push('left');
+				}
+			}
+		});
+		return aligns;
+	}
+
+	private extractAlignValue(node : HtmlNode) : Align | null {
+		const alignAttr = node.getAttribute('align');
+		const direct = this.normalizeAlignValue(alignAttr);
+		if (direct != null) {
+			return direct;
+		}
+		const styleAttr = node.getAttribute('style');
+		if (styleAttr != null) {
+			const match = styleAttr.match(/text-align\s*:\s*(left|center|right)/i);
+			if (match != null && match.length > 1 && match[1] != null) {
+				return this.normalizeAlignValue(match[1]!);
+			}
+		}
+		return null;
+	}
+
+	private normalizeAlignValue(value : string | null) : Align | null {
+		if (value == null) {
+			return null;
+		}
+		const align = value.trim().toLowerCase();
+		if (align.startsWith('center')) {
+			return 'center';
+		}
+		if (align.startsWith('right')) {
+			return 'right';
+		}
+		if (align.startsWith('left')) {
+			return 'left';
+		}
+		return null;
+	}
+
+	private containsBlockToken(tokens : MarkdownToken[]) : boolean {
+		return tokens.some((token : MarkdownToken) : boolean => this.isBlockToken(token.type ?? ''));
+	}
+
+	private isBlockToken(tokenType : string) : boolean {
+		return this._blockTokenTypesSet.has(tokenType);
+	}
+
+	private normalizeText(text : string, parentTag : string | null) : string {
+		if (text == null) {
+			return '';
+		}
+		let result = text.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ');
+		if (this.isBlockContext(parentTag)) {
+			result = result.trim();
+		}
+		return result;
+	}
+
+	private getNodeText(node : HtmlNode | null) : string {
+		if (node == null) {
+			return '';
+		}
+		if (node.type == NodeType.TEXT_NODE || node.tagName == 'text') {
+			return node.textContent;
+		}
+		const parts : string[] = [];
+		node.children.forEach((child : HtmlNode) : void => {
+			parts.push(this.getNodeText(child));
+		});
+		return parts.join('');
+	}
+
+	private isInlineTag(tag : string) : boolean {
+		return this._inlineTagsSet.has(tag);
+	}
+
+	private isBlockContext(tag : string | null) : boolean {
+		if (tag == null || tag.length == 0) {
+			return true;
+		}
+		return this._blockLikeTagsSet.has(tag);
+	}
+
+	private normalizeTokens(tokens : MarkdownToken[]) : MarkdownToken[] {
+		const normalized : MarkdownToken[] = [];
+		tokens.forEach((token : MarkdownToken) : void => {
+			if (token.tokens != null) {
+				token.tokens = this.normalizeTokens(token.tokens!);
+			}
+			const tokenType = token.type ?? '';
+			if (tokenType == 'text') {
+				if (token.text == null && token.raw != null) {
+					token.text = token.raw;
+				}
+				if (token.raw == null && token.text != null) {
+					token.raw = token.text;
+				}
+			}
+			if (normalized.length > 0) {
+				const last = normalized[normalized.length - 1]!;
+				const lastType = last.type ?? '';
+				if (tokenType == 'text' && lastType == 'text') {
+					const lastClass = last.className ?? '';
+					const currentClass = token.className ?? '';
+					if (lastClass != currentClass) {
+						normalized.push(token);
+						return;
+					}
+					const appendText = token.text ?? token.raw ?? '';
+					if (appendText.length > 0) {
+						if (last.text == null) {
+							last.text = '';
+						}
+						if (last.raw == null) {
+							last.raw = '';
+						}
+						last.text = last.text! + appendText;
+						last.raw = last.raw! + appendText;
+					}
+					return;
+				}
+			}
+			normalized.push(token);
+		});
+		return normalized;
+	}
+
+	// 解析单个节点
+	private parseNode() : HtmlNode | null {
+		if (this.position >= this.html.length) {
+			return null;
+		}
+
+		const remaining : string = this.html.substring(this.position);
+
+		// 用正则匹配闭合标签
+		const closeTagMatch = remaining.match(/^<\/([a-zA-Z0-9\-_]+)>/);
+		if (closeTagMatch != null && closeTagMatch.length > 0 && closeTagMatch[0] != null) {
+			// 顶层的闭合标签：消费掉但不创建节点
+			this.position += closeTagMatch[0]!.length!;
+			return null;
+		}
+
+		// 用正则匹配开始标签
+		const openTagMatch = remaining.match(/^<([a-zA-Z0-9\-_]+)([^>]*?)(\/?)>/);
+		if (openTagMatch != null && openTagMatch.length >= 4) {
+			return this.parseElementFromMatch(openTagMatch);
+		}
+
+		// 否则解析文本
+		return this.parseText();
+	}
+
+	// 从正则匹配结果解析元素节点
+	private parseElementFromMatch(match : RegExpMatchArray) : HtmlNode | null {
+		// 严格检查 match 数组的每个元素
+		if (match.length < 4 || match[0] == null || match[1] == null) {
+			return null;
+		}
+
+		const fullMatch : string = match[0]!; // 完整匹配 <tagName attrs />
+		const tagName : string = match[1]!; // 标签名
+		const attrsString : string = match[2] != null ? match[2]! : ''; // 属性字符串
+		const selfClosing : string = match[3] != null ? match[3]! : ''; // 是否自闭合 /
+
+		// 移动位置
+		this.position += fullMatch.length;
+
+		let originalTagName : string = tagName.toLowerCase();
+
+		// 检查是否是需要删除的标签，如果是则跳过
+		if (this._removeTagsSet.has(originalTagName)) {
+			return null;
+		}
+
+		// 检查是否是微信支持的标签，如果不是则转换为 p 标签
+		if (!this._supportedTagsSet.has(originalTagName)) {
+			originalTagName = 'p';
+		}
+
+		const node = new HtmlNode(NodeType.ELEMENT_NODE);
+		node.tagName = originalTagName;
+
+		// 解析属性字符串
+		const trimmedAttrs : string = attrsString.trim();
+		if (trimmedAttrs.length > 0) {
+			this.parseAttributesFromString(trimmedAttrs, node, originalTagName);
+		}
+
+		// 检查是否是自闭合标签
+		const isSelfClosingTag : boolean = this._selfClosingTagsSet.has(originalTagName);
+		if (selfClosing == '/' || isSelfClosingTag) {
+			return node;
+		}
+
+		// 解析子节点
+		while (this.position < this.html.length) {
+			const positionBefore : number = this.position;
+			const remaining : string = this.html.substring(this.position);
+
+			// 用正则检查闭合标签
+			const closeTagMatch = remaining.match(/^<\/([a-zA-Z0-9\-_]+)>/);
+			if (closeTagMatch != null && closeTagMatch.length > 1 && closeTagMatch[0] != null && closeTagMatch[1] != null) {
+				if (closeTagMatch[1]!.toLowerCase() == originalTagName) {
+					this.position += closeTagMatch[0]!.length;
+					break;
+				}
+			}
+
+			const childNode = this.parseNode();
+			if (childNode != null) {
+				node.appendChild(childNode);
+			}
+
+			// 防止死循环
+			if (this.position == positionBefore) {
+				console.log('警告：解析位置未前进，强制跳过字符');
+				this.position++;
+			}
+		}
+
+		return node;
+	}
+
+	// 解析文本节点（转换为 text 标签）
+	private parseText() : HtmlNode | null {
+		const remaining : string = this.html.substring(this.position);
+
+		// 匹配直到下一个 < 之前的所有文本
+		const textMatch = remaining.match(/^([^<]+)/);
+		if (textMatch == null || textMatch.length < 2 || textMatch[0] == null || textMatch[1] == null) {
+			return null;
+		}
+
+		this.position += textMatch[0]!.length;
+		let text : string = textMatch[1]!;
+
+		// 解码 HTML 实体
+		text = this.decodeHtmlEntities(text);
+
+		if (text.length == 0) {
+			return null;
+		}
+
+		// 创建文本节点
+		const node = new HtmlNode(NodeType.TEXT_NODE);
+		node.textContent = text;
+		return node;
+	}
+
+	// 从属性字符串解析属性
+	private parseAttributesFromString(attrsString : string, node : HtmlNode, tagName : string = '') : void {
+		// 用正则匹配所有属性：name="value" 或 name='value' 或 name=value 或 name
+		const attrRegex = /([a-zA-Z0-9\-_:]+)(?:=(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?/g;
+		let match = attrRegex.exec(attrsString);
+
+		while (match != null) {
+			// 严格检查 match 数组
+			if (match.length > 1 && match[1] != null) {
+				const attrName : string = match[1]!;
+				const lowerAttrName : string = attrName.toLowerCase();
+
+				// 检查是否是需要清理的属性（适用于所有标签）
+				if (this._cleanAttrsSet.has(lowerAttrName)) {
+					// 跳过这个属性
+					match = attrRegex.exec(attrsString);
+					continue;
+				}
+
+				// 获取属性值，优先级：双引号 > 单引号 > 无引号 > 空字符串
+				let attrValue : string = '';
+				if (match[2] != null) {
+					attrValue = match[2]!;
+				} else if (match[3] != null) {
+					attrValue = match[3]!;
+				} else if (match[4] != null) {
+					attrValue = match[4]!;
+				}
+
+				node.setAttribute(attrName, this.decodeHtmlEntities(attrValue));
+			}
+			match = attrRegex.exec(attrsString);
+		}
+	}
+
+	private decodeHtmlEntities(text : string) : string {
+		return text
+			.replace(/&nbsp;/g, ' ')
+			.replace(/&lt;/g, '<')
+			.replace(/&gt;/g, '>')
+			.replace(/&quot;/g, '"')
+			.replace(/&#39;/g, "'")
+			.replace(/&apos;/g, "'")
+			.replace(/&#x27;/gi, "'")
+			.replace(/&amp;/g, '&');
+	}
+
+
+}
+
+
+// 辅助函数：查找所有指定标签的元素
+export function findElementsByTagName(root : HtmlNode | null, tagName : string) : HtmlNode[] {
+	const results : HtmlNode[] = [];
+	if (root == null) {
+		return results;
+	}
+	let traverse:traverseCallFun|null = null;
+	traverse = (node : HtmlNode) : void => {
+		if (node.type == NodeType.ELEMENT_NODE && node.tagName == tagName.toLowerCase()) {
+			results.push(node);
+		}
+		node.children.forEach((child : HtmlNode) : void => {
+			traverse!(child);
+		});
+	};
+
+	traverse!(root);
+	return results;
+}
+
+// 辅助函数：获取元素的文本内容
+export function getTextContent(node1 : HtmlNode | null) : string {
+	let getfun:getTextContentFun|null = null;
+	getfun = (node : HtmlNode | null) : string => {
+		if (node == null) {
+			return '';
+		}
+		
+		if (node.type == NodeType.TEXT_NODE) {
+			return node.textContent;
+		}
+		
+		let text : string = '';
+		node.children.forEach((child : HtmlNode) : void => {
+			text += getfun!(child);
+		});
+		
+		return text;
+	}
+	return getfun!(node1)
+}
+

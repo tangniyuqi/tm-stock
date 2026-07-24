@@ -1,0 +1,551 @@
+<script lang="ts" setup>
+	import { ref, computed, watch, onMounted, onBeforeUnmount, getCurrentInstance } from "vue"
+	import { getUid } from "../../core/util/xCoreUtil.uts"
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { checkIsCssUnit } from "../../core/util/xCoreUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+
+	/**
+	 * @name 双向滑块 xSliderDouble
+	 * @description 此为双向滑块,单向滑块见:x-slider
+	 * @page /pages/index/slider
+	 * @category 表单组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({ name: "xSliderDouble" })
+
+	type xSliderDoublePropsType = {
+		/** 等同v-model当前值 */
+		modelValue : number[],
+		/** 最大值 */
+		max : number,
+		/** 最小值 */
+		min : number,
+		/** 是否禁用 */
+		disabled : boolean,
+		/** 步进值 */
+		step : number,
+		/** 步进刻度数量 */
+		stepCount : number,
+		/** 激活时的颜色，空值取全局值 */
+		color : string,
+		/** 默认的背景色 */
+		bgColor : string,
+		/** 滑条的大小 */
+		size : string,
+		/** 滑块的尺寸 */
+		btnSize : string,
+		/** 滑条的圆角，空值取全局进度条值 */
+		round : string,
+		/** 是否显示进度条上的label文本 */
+		showLabel : boolean,
+		/** 文本颜色 */
+		labelColor : string,
+		/** 文本文字大小 */
+		labelFontSize : string,
+	}
+
+	const props = withDefaults(defineProps<xSliderDoublePropsType>(), {
+		modelValue: () : number[] => [0, 0] as number[],
+		max: 100,
+		min: 0,
+		disabled: false,
+		step: 1,
+		stepCount: 0,
+		color: "",
+		bgColor: "info",
+		size: "3",
+		btnSize: "24",
+		round: "",
+		showLabel: false,
+		labelColor: "black",
+		labelFontSize: "12",
+	})
+
+	const emits = defineEmits([
+		/** 拖动变换时触发 */
+		'change',
+		'update:modelValue'
+	])
+
+	const instance = getCurrentInstance()
+
+	const percentage = ref<number[]>([0, 0])
+	const _val = ref<number[]>([0, 0])
+	const _moving_val = ref<number[]>([0, 0])
+	let boxwidth = 0
+	let boxheight = 0
+	const id = ("xSlider" + getUid()) as string
+	const btnId1 = ("xSlider-1-" + getUid()) as string
+	const btnId2 = ("xSlider-2-" + getUid()) as string
+	const bgId = ("xSlider-bg-" + getUid()) as string
+	let _x = [0, 0]
+	let _now_x = [0, 0]
+	const xSliderRef = ref<UniElement | null>(null)
+	const boxLeft = ref<number[]>([0, 0])
+	const isMoveing = ref<boolean>(false)
+	const isMoveIndex = ref<number>(0)
+
+	const _round = computed(() : string => {
+		if (props.round == "") return checkIsCssUnit(xConfig.progressRadius, xConfig.unit)
+		return checkIsCssUnit(props.round, xConfig.unit)
+	})
+	const _size = computed(() : string => checkIsCssUnit(props.size, xConfig.unit))
+	const _labelColor = computed(() : string => getDefaultColor(props.labelColor))
+	const _labelFontSize = computed(() : string => checkIsCssUnit(props.labelFontSize, xConfig.unit))
+	const _color = computed(() : string => {
+		if (props.color == "") return getDefaultColor(xConfig.color)
+		return getDefaultColor(props.color)
+	})
+	const _bgColor = computed(() : string => getDefaultColor(props.bgColor))
+	const _btnSize = computed(() : number => {
+		let p = parseInt(props.btnSize);
+		let covertp = checkIsCssUnit(p, xConfig.unit)
+		p = parseFloat(covertp)
+		return Math.floor(p)
+	})
+	function getFontSize(k : string) : string {
+		return checkIsCssUnit(k, xConfig.unit)
+	}
+
+	function proToValue(val : number) : number {
+		const minValue = Math.min(props.min, props.max);
+		const maxValue = Math.max(props.min, props.max);
+		if (minValue == maxValue) return minValue;
+		return Math.round((val / 100) * (maxValue - minValue) + minValue);
+	}
+
+	function valueToPro(val : number) : number {
+		let mn = Math.min(props.min, props.max);
+		let mx = Math.max(props.min, props.max);
+		let realval = Math.max(Math.min(val, mx), mn);
+		return (realval - mn) / (mx - mn) * 100;
+	}
+
+	function widthToPro(val : number) : number {
+		let maxWidth = boxwidth - _btnSize.value;
+		if (maxWidth == 0) return 0;
+		return (val / maxWidth) * 100;
+	}
+
+	function ProToWidthByval(pct : number) : number {
+		let maxWidth = boxwidth - _btnSize.value;
+		return Math.round(maxWidth * pct / 100);
+	}
+
+	function getNearestTick(mx : number, mn : number, stp : number, nowValue : number) : number {
+		if (nowValue < mn) return mn;
+		if (nowValue > mx) return mx;
+		const ticks = Math.round((nowValue - mn) / stp);
+		const nearestValue = mn + ticks * stp;
+		return Math.min(nearestValue, mx);
+	}
+
+	function isLeftOrRight(a : number, b : number, c : number, diffX : number) : number {
+		if (diffX > 0) return c;
+		if (diffX < 0) return a;
+		return b;
+	}
+
+	const _step = computed(() : number => {
+		let range = props.max - props.min;
+		if (range == 0) return 0;
+		let val = (props.step / range) * 100;
+		return ProToWidthByval(val);
+	})
+	const _bgLeft = computed(() : number => {
+		return Math.min(boxLeft.value[0], boxLeft.value[1]) + 5
+	})
+	const _bgWidth = computed(() : number => {
+		return Math.abs(boxLeft.value[0] - boxLeft.value[1]) + 5
+	})
+
+	function getNodes() {
+		uni.createSelectorQuery().in(instance!.proxy)
+			.select(".xSlider")
+			.boundingClientRect().exec((ret) => {
+				if (ret.length == 0) return;
+				let nodeinfo = ret[0] as NodeInfo;
+				if (nodeinfo == null) return;
+				boxwidth = nodeinfo.width!;
+				boxheight = nodeinfo.height!;
+				boxLeft.value = [ProToWidthByval(percentage.value[0]), ProToWidthByval(percentage.value[1])];
+			})
+	}
+	function sliderClick(evt : UniPointerEvent) {
+		if (props.disabled) return;
+		let xSliderEl = xSliderRef.value as UniElement
+		if (xSliderEl == null) return
+		xSliderEl!.getBoundingClientRectAsync()!.then((result : DOMRect | null) => {
+			if (result != null) {
+				const leftpos = (result as DOMRect).left
+				const maxwidth = (result as DOMRect).width - _btnSize.value
+				let diffX = evt.clientX - leftpos
+				diffX = Math.max(0, Math.min(diffX, maxwidth))
+				let index = 0
+				const pos1 = ProToWidthByval(percentage.value[0])
+				const pos2 = ProToWidthByval(percentage.value[1])
+				if (Math.abs(diffX - pos2) < Math.abs(diffX - pos1)) {
+					index = 1
+				}
+				let nowval = proToValue(widthToPro(diffX));
+				if (props.step > 0) {
+					nowval = getNearestTick(props.max, props.min, props.step, nowval);
+				}
+				let snappedPro = valueToPro(nowval)
+				let snappedLeft = ProToWidthByval(snappedPro)
+				let newPer = [percentage.value[0], percentage.value[1]]
+				let newVal = [_val.value[0], _val.value[1]]
+				let newMoving = [_moving_val.value[0], _moving_val.value[1]]
+				let newLeft = [boxLeft.value[0], boxLeft.value[1]]
+				newPer[index] = snappedPro
+				newVal[index] = nowval
+				newMoving[index] = nowval
+				newLeft[index] = snappedLeft
+				percentage.value = newPer
+				_val.value = newVal
+				_moving_val.value = newMoving
+				boxLeft.value = newLeft
+
+				emits('update:modelValue', _val.value)
+				emits('change', _val.value)
+			}
+		})
+	}
+
+	function mStart(evt : UniTouchEvent, index : number) {
+		if (props.disabled) return
+		evt.stopPropagation()
+		evt.preventDefault()
+		isMoveIndex.value = index
+		let leftpos = boxLeft.value[index]
+		if (index == 0) {
+			_x = [evt.changedTouches[0].clientX - leftpos, _x[1]]
+			_now_x = [evt.changedTouches[0].clientX, _now_x[1]]
+		} else {
+			_x = [_x[0], evt.changedTouches[0].clientX - leftpos]
+			_now_x = [_now_x[0], evt.changedTouches[0].clientX]
+		}
+		isMoveing.value = true
+	}
+
+	function mMove(evt : UniTouchEvent, index : number) {
+		evt.stopPropagation()
+		evt.preventDefault()
+		if (props.disabled) return
+		isMoveIndex.value = index
+
+		let x = evt.changedTouches[0].clientX - _x[index]
+		let diffX = evt.changedTouches[0].clientX - _now_x[index]
+		let maxX = boxwidth - _btnSize.value;
+		if (props.step > 0) {
+			let stepPx = _step.value;
+			let distanceToMove = Math.abs(diffX);
+			let qz = Math.round(x / stepPx) * stepPx;
+			if (distanceToMove > 1) {
+				x = isLeftOrRight(qz - stepPx, x, qz + stepPx, diffX);
+			}
+		}
+
+		x = Math.max(Math.min(maxX, x), 0)
+		let newLeft = [boxLeft.value[0], boxLeft.value[1]]
+		newLeft[index] = x
+		boxLeft.value = newLeft
+
+		if (index == 0) {
+			percentage.value = [widthToPro(x), percentage.value[1]];
+			let nowval = proToValue(percentage.value[0]);
+			if (props.step > 0) nowval = getNearestTick(props.max, props.min, props.step, nowval);
+			_moving_val.value = [nowval, _moving_val.value[1]];
+		} else {
+			percentage.value = [percentage.value[0], widthToPro(x)];
+			let nowval = proToValue(percentage.value[1]);
+			if (props.step > 0) nowval = getNearestTick(props.max, props.min, props.step, nowval);
+			_moving_val.value = [_moving_val.value[0], nowval];
+		}
+		emits('change', _moving_val.value)
+	}
+
+	function mEnd(evt : UniTouchEvent) {
+		isMoveing.value = false
+		isMoveIndex.value = -1
+		let val0 = proToValue(percentage.value[0])
+		let val1 = proToValue(percentage.value[1])
+		if (props.step > 0) {
+			val0 = getNearestTick(props.max, props.min, props.step, val0)
+			val1 = getNearestTick(props.max, props.min, props.step, val1)
+		}
+		_val.value = [val0, val1]
+		let snappedPro0 = valueToPro(val0)
+		let snappedPro1 = valueToPro(val1)
+		percentage.value = [snappedPro0, snappedPro1]
+		boxLeft.value = [ProToWidthByval(snappedPro0), ProToWidthByval(snappedPro1)]
+		emits('update:modelValue', _val.value)
+	}
+
+	// #ifdef WEB
+	function mmStart(evt : UniMouseEvent, index : number) {
+		if (props.disabled) return
+		isMoveIndex.value = index
+		;(window as any).sliderId = id;
+		let leftpos = boxLeft.value[index]
+		if (index == 0) {
+			_x = [evt.clientX - leftpos, _x[1]]
+			_now_x = [evt.clientX, _now_x[1]]
+		} else {
+			_x = [_x[0], evt.clientX - leftpos]
+			_now_x = [_now_x[0], evt.clientX]
+		}
+		isMoveing.value = true
+	}
+
+	function mmMove(evt : UniMouseEvent) {
+		evt.preventDefault();
+		evt.stopPropagation();
+		if ((window as any).sliderId != id) return;
+		if (props.disabled || !isMoveing.value) return
+		let index = isMoveIndex.value
+
+		let x = evt.clientX - _x[index]
+		let diffX = evt.clientX - _now_x[index]
+		let maxX = boxwidth - _btnSize.value;
+		if (props.step > 0) {
+			let stepPx = _step.value;
+			let distanceToMove = Math.abs(diffX);
+			let qz = Math.round(x / stepPx) * stepPx;
+			if (distanceToMove > 1) {
+				x = isLeftOrRight(qz - stepPx, x, qz + stepPx, diffX);
+			}
+		}
+
+		x = Math.max(Math.min(maxX, x), 0)
+		let newLeft = [boxLeft.value[0], boxLeft.value[1]]
+		newLeft[index] = x
+		boxLeft.value = newLeft
+
+		if (index == 0) {
+			percentage.value = [widthToPro(x), percentage.value[1]];
+			let nowval = proToValue(percentage.value[0]);
+			if (props.step > 0) nowval = getNearestTick(props.max, props.min, props.step, nowval);
+			_moving_val.value = [nowval, _moving_val.value[1]];
+		} else {
+			percentage.value = [percentage.value[0], widthToPro(x)];
+			let nowval = proToValue(percentage.value[1]);
+			if (props.step > 0) nowval = getNearestTick(props.max, props.min, props.step, nowval);
+			_moving_val.value = [_moving_val.value[0], nowval];
+		}
+		emits('change', _moving_val.value)
+	}
+
+	function mmEnd(evt : UniMouseEvent) {
+		if ((window as any).sliderId != id) return;
+		isMoveing.value = false
+		isMoveIndex.value = -1
+		let val0 = proToValue(percentage.value[0])
+		let val1 = proToValue(percentage.value[1])
+		if (props.step > 0) {
+			val0 = getNearestTick(props.max, props.min, props.step, val0)
+			val1 = getNearestTick(props.max, props.min, props.step, val1)
+		}
+		_val.value = [val0, val1]
+		let snappedPro0 = valueToPro(val0)
+		let snappedPro1 = valueToPro(val1)
+		percentage.value = [snappedPro0, snappedPro1]
+		boxLeft.value = [ProToWidthByval(snappedPro0), ProToWidthByval(snappedPro1)]
+		emits('update:modelValue', _val.value)
+	}
+	// #endif
+
+	watch(() : string => props.modelValue.join(''), () => {
+		if (props.modelValue.join('') == _val.value.join('')) return
+		_val.value = props.modelValue
+		_moving_val.value = props.modelValue
+		percentage.value = [valueToPro(_val.value[0]), valueToPro(_val.value[1])];
+		getNodes()
+	})
+
+	onMounted(() => {
+		_val.value = props.modelValue
+		_moving_val.value = props.modelValue;
+		percentage.value = [valueToPro(_val.value[0]), valueToPro(_val.value[1])];
+		getNodes();
+		// #ifdef WEB
+		window.addEventListener('mouseup', mmEnd);
+		window.addEventListener('mousemove', mmMove);
+		// #endif
+		uni.$on("onResize", getNodes)
+	})
+
+	onBeforeUnmount(() => {
+		// #ifdef WEB
+		window.removeEventListener('mouseup', mmEnd);
+		window.removeEventListener('mousemove', mmMove);
+		// #endif
+		uni.$off("onResize", getNodes)
+	})
+</script>
+<template>
+	<view class="xSliderBox">
+		<view :id="id" class="xSlider" ref="xSliderRef" :style="{height:_btnSize+'px',overflow:'visible'}">
+			<view @click="sliderClick" class="xSliderBgBox"
+				:style="{backgroundColor:_bgColor,height:_size,borderRadius:_round,flex:'1'}">
+				<view class="xSliderBg" ref="bgId" :id="bgId"
+					:style="{backgroundColor:_color,left:`${_bgLeft}px`,borderRadius:_round,width:`${_bgWidth}px`}">
+				</view>
+			</view>
+			<view class="xSliderBgKedu" :style="{paddingRight:_btnSize+'px'}">
+				<view></view>
+				<view class="xSliderBgKeduKeyDuitem"
+					:style="{transform:`translateX(${_btnSize/2}px)`,left:((boxwidth-_btnSize)/stepCount*(index+1))+'px'}"
+					v-for="(item,index) in stepCount" :key="index"></view>
+				<view></view>
+			</view>
+
+			<!-- #ifdef APP || MP -->
+			<view :id="btnId1" :ref="btnId1"
+				@touchstart.stop="mStart($event as UniTouchEvent,0)"
+				@touchmove.stop="mMove($event as UniTouchEvent,0)"
+				@touchend="mEnd($event as UniTouchEvent)"
+				:style="{left:boxLeft[0]+'px',height:_btnSize+'px',width:_btnSize+'px',backgroundColor:_color,zIndex:isMoveIndex==0?10:1}"
+				:class="[isMoveing&&isMoveIndex==0?'xSliderBtnHover':'']"
+				class="xSliderBtn"></view>
+
+			<view :id="btnId2" :ref="btnId2"
+				@touchstart.stop="mStart($event as UniTouchEvent,1)"
+				@touchmove.stop="mMove($event as UniTouchEvent,1)"
+				@touchend="mEnd($event as UniTouchEvent)"
+				:style="{left:boxLeft[1]+'px',height:_btnSize+'px',width:_btnSize+'px',backgroundColor:_color,zIndex:isMoveIndex==1?10:1}"
+				:class="[isMoveing&&isMoveIndex==1?'xSliderBtnHover':'']"
+				class="xSliderBtn xSliderBtn2"></view>
+			<!-- #endif -->
+
+			<!-- #ifdef WEB -->
+			<view :id="btnId1" :ref="btnId1"
+				@touchstart.stop="mStart($event as UniTouchEvent,0)"
+				@touchmove.stop="mMove($event as UniTouchEvent,0)"
+				@touchend="mEnd($event as UniTouchEvent)"
+				@mousedown="mmStart($event as UniMouseEvent,0)"
+				:style="{left:boxLeft[0]+'px',height:_btnSize+'px',width:_btnSize+'px',backgroundColor:_color,zIndex:isMoveIndex==0?10:1}"
+				:class="[isMoveing&&isMoveIndex==0?'xSliderBtnHover':'']"
+				class="xSliderBtn"></view>
+
+			<view :id="btnId2" :ref="btnId2"
+				@touchstart.stop="mStart($event as UniTouchEvent,1)"
+				@touchmove.stop="mMove($event as UniTouchEvent,1)"
+				@touchend="mEnd($event as UniTouchEvent)"
+				@mousedown="mmStart($event as UniMouseEvent,1)"
+				:style="{left:boxLeft[1]+'px',height:_btnSize+'px',width:_btnSize+'px',backgroundColor:_color,zIndex:isMoveIndex==1?10:1}"
+				:class="[isMoveing&&isMoveIndex==1?'xSliderBtnHover':'']"
+				class="xSliderBtn xSliderBtn2"></view>
+			<!-- #endif -->
+		</view>
+		<!--
+		 @slot 右插槽
+		 @prop {number[]} value - 当前的值
+		 @prop {number[]} percentage - 当前的百分比值
+		 -->
+		<slot name="right" :value="_val" :percentage="percentage">
+			<view v-if="showLabel" class="xSliderBoxRight" :style="{width:getFontSize('50')}">
+				<x-text :color="(isMoveing?_color:_labelColor)" :font-size="_labelFontSize"
+					:style="{textAlign:'right'}">{{_moving_val.join('-')}}</x-text>
+			</view>
+		</slot>
+	</view>
+</template>
+<style scoped>
+	.xSliderBgBox {
+		/* #ifdef MP-WEIXIN||WEB */
+		overflow: hidden;
+		box-sizing: border-box;
+		/* #endif */
+	}
+
+	.xSliderBox {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: space-between;
+	}
+
+	.xSliderBoxRight {}
+
+	.xSliderBoxLeft {
+		margin-right: 10px;
+	}
+
+	.xSlider {
+		flex: 1;
+		position: relative;
+		display: flex;
+		flex-direction: row;
+		justify-content: flex-start;
+		align-items: center;
+	}
+
+	.xSliderBtn {
+		position: absolute;
+		left: 0px;
+		top: 0px;
+		border: 4px solid #ffffff;
+		border-radius: 100px;
+		/* #ifndef APP */
+		box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+		cursor: grab;
+		box-sizing: border-box;
+		/* #endif */
+	}
+
+	.xSliderBtnHover {
+		border: 2px solid #ffffff;
+	}
+
+	/* #ifdef WEB */
+	.xSliderBtn:active {
+		cursor: grabbing;
+	}
+
+	/* #endif */
+
+	.xSliderBg {
+		height: 100%;
+		display: flex;
+		flex-direction: row;
+		justify-content: flex-end;
+		align-items: center;
+		pointer-events: none;
+		position: relative;
+	}
+
+	.xSliderBgKedu {
+		height: 100%;
+		display: flex;
+		flex-direction: row;
+		justify-content: flex-start;
+		align-items: center;
+		width: 100%;
+		position: absolute;
+		z-index: 1;
+		pointer-events: none;
+	}
+
+	.xSliderBgKeduKeyDuitem {
+		width: 5px;
+		height: 5px;
+		border-radius: 5px;
+		background-color: rgba(0, 0, 0, 0.1);
+		transform: translateX(5px);
+		position: absolute;
+	}
+
+	.xSliderBtn {
+		height: 100%;
+		padding: 0rpx 5px;
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+		align-items: center;
+	}
+</style>

@@ -1,0 +1,240 @@
+import { ICanvas } from '@/uni_modules/tmx-ui/core/canvas/ICanvas.uts';
+import { Shape } from '../../shape.uts';
+
+// 高斯模糊参数
+export type BlurOptionsOpts = {
+	// 模糊半径 (像素)
+	radius ?: number;
+	// 模糊强度 (0-1)
+	intensity ?: number;
+	// 是否启用
+	enabled ?: boolean;
+}
+export type BlurOptions = {
+	// 模糊半径 (像素)
+	radius : number;
+	// 模糊强度 (0-1)
+	intensity : number;
+	// 是否启用
+	enabled : boolean;
+}
+// 默认模糊选项
+export const defaultBlurOptions : BlurOptions = {
+	radius: 5,
+	intensity: 1.0,
+	enabled: true
+};
+
+/**
+ * 高斯模糊特效
+ */
+export class BlurFilter {
+	private canvas : ICanvas;
+	private options : BlurOptions;
+
+	constructor(canvas : ICanvas, options ?: BlurOptionsOpts) {
+		this.canvas = canvas;
+		this.options = {
+			radius: options?.radius ?? defaultBlurOptions.radius,
+			intensity: options?.intensity ?? defaultBlurOptions.intensity,
+			enabled: options?.enabled ?? defaultBlurOptions.enabled,
+		} as BlurOptions;
+	}
+
+	/**
+	 * 设置模糊参数
+	 */
+	setOptions(options : BlurOptionsOpts) : BlurFilter {
+		this.options = {
+			radius: options?.radius ?? this.options.radius,
+			intensity: options?.intensity ?? this.options.intensity,
+			enabled: options?.enabled ?? this.options.enabled,
+		} as BlurOptions;
+		return this;
+	}
+
+	/**
+	 * 生成高斯核
+	 */
+	private generateGaussianKernel(radius : number) : number[] {
+		const size = radius * 2 + 1;
+		const kernel : number[] = [];
+		const sigma = radius / 3;
+		let sum = 0;
+
+		// 先计算所有值并添加到数组中
+		for (let i = 0; i < size; i++) {
+			const x = i - radius;
+			const value = Math.exp(-(x * x) / (2 * sigma * sigma));
+			kernel.push(value);
+			sum += value;
+		}
+
+		// 归一化
+		for (let i = 0; i < kernel.length; i++) {
+			kernel[i] /= sum;
+		}
+
+		return kernel;
+	}
+
+	/**
+	 * 应用高斯模糊
+	 */
+	private applyGaussianBlur(imageData : ImageData, radius : number) : ImageData {
+		const { width, height, data } = imageData;
+
+		// 防护性检查：确保数据有效
+		if (width <= 0 || height <= 0 || data.length == 0) {
+			console.warn('BlurFilter: Invalid imageData - width, height, or data is empty');
+			return imageData;
+		}
+		
+		// 检查数据长度是否匹配预期
+		if (data.length != width * height * 4) {
+			console.warn('BlurFilter: ImageData size mismatch - expected:', width * height * 4, 'actual:', data.length);
+			return imageData;
+		}
+		
+		const kernel = this.generateGaussianKernel(radius);
+		const newData = new Uint8ClampedArray(data);
+		
+		// 水平模糊
+		for (let y = 0; y < height; y++) {
+			for (let x = 0; x < width; x++) {
+				let r = 0
+				let g = 0
+				let b = 0
+				let a = 0;
+				for (let k = 0; k < kernel.length; k++) {
+					const offset = x + k - radius;
+					if (offset >= 0 && offset < width) {
+						const idx = (y * width + offset) * 4;
+						r += data[idx] * kernel[k];
+						g += data[idx + 1] * kernel[k];
+						b += data[idx + 2] * kernel[k];
+						a += data[idx + 3] * kernel[k];
+					}
+				}
+
+				const idx = (y * width + x) * 4;
+				newData[idx] = Math.round(r);
+				newData[idx + 1] = Math.round(g);
+				newData[idx + 2] = Math.round(b);
+				newData[idx + 3] = Math.round(a);
+			}
+		}
+
+		// 垂直模糊
+		const tempData = new Uint8ClampedArray(newData);
+		for (let y = 0; y < height; y++) {
+			for (let x = 0; x < width; x++) {
+				let r = 0, g = 0, b = 0, a = 0;
+
+				for (let k = 0; k < kernel.length; k++) {
+					const offset = y + k - radius;
+					if (offset >= 0 && offset < height) {
+						const idx = (offset * width + x) * 4;
+						r += tempData[idx] * kernel[k];
+						g += tempData[idx + 1] * kernel[k];
+						b += tempData[idx + 2] * kernel[k];
+						a += tempData[idx + 3] * kernel[k];
+					}
+				}
+
+				const idx = (y * width + x) * 4;
+				newData[idx] = Math.round(r);
+				newData[idx + 1] = Math.round(g);
+				newData[idx + 2] = Math.round(b);
+				newData[idx + 3] = Math.round(a);
+			}
+		}
+		
+		// 直接修改原始 ImageData 的 data 属性，而不是创建新的 ImageData
+		for (let i = 0; i < newData.length; i++) {
+			imageData.data[i] = newData[i];
+		}
+		
+		return imageData;
+	}
+
+	/**
+	 * 应用模糊效果到指定区域
+	 */
+	applyToArea(x : number, y : number, width : number, height : number) : void {
+
+		if (!this.options.enabled || this.options.radius <= 0 || this.options.intensity <= 0) return;
+		
+		// 验证区域大小
+		if (width <= 0 || height <= 0) {
+			console.warn('BlurFilter: Invalid area size - width or height is <= 0');
+			return;
+		}
+
+		const ctx = this.canvas.ctx;
+		if (ctx == null) return;
+
+		// 保存当前状态
+		ctx.save();
+
+		// 设置裁剪区域
+		ctx.beginPath();
+		ctx.rect(x, y, width, height);
+		ctx.clip();
+
+		// 获取当前图像数据
+		const imageData = ctx.getImageData(x, y, width, height);
+		
+		// 验证获取到的图像数据
+		if (imageData.data.length == 0) {
+			console.warn('BlurFilter: Failed to get valid imageData from canvas');
+			ctx.restore();
+			return;
+		}
+		
+		// 保存原始数据副本（用于强度混合）
+		const originalData = new Uint8ClampedArray(imageData.data);
+		
+		// 应用高斯模糊
+		const blurredData = this.applyGaussianBlur(imageData, this.options.radius!);
+
+		// 如果强度小于1，混合原图和模糊图
+		if (this.options.intensity < 1.0) {
+			const blurred = blurredData.data;
+
+			for (let i = 0; i < originalData.length; i += 4) {
+				blurred[i] = originalData[i] + (blurred[i] - originalData[i]) * this.options.intensity!;
+				blurred[i + 1] = originalData[i + 1] + (blurred[i + 1] - originalData[i + 1]) * this.options.intensity!;
+				blurred[i + 2] = originalData[i + 2] + (blurred[i + 2] - originalData[i + 2]) * this.options.intensity!;
+				blurred[i + 3] = originalData[i + 3] + (blurred[i + 3] - originalData[i + 3]) * this.options.intensity!;
+			}
+		}
+
+		// 将修改后的数据绘制回画布
+		ctx.putImageData(blurredData, x, y);
+
+		// 恢复状态
+		ctx.restore();
+	}
+
+	/**
+	 * 应用模糊效果到Shape
+	 */
+	applyToShape(shape : Shape) : void {
+		this.applyToArea(shape.x, shape.y, shape.width, shape.height);
+	}
+
+	/**
+	 * 应用模糊效果到整个画布
+	 */
+	applyToCanvas() : void {
+		this.applyToArea(0, 0, this.canvas.width, this.canvas.height);
+	}
+
+	/**
+	 * 获取当前选项
+	 */
+	getOptions() : BlurOptions {
+		return { ...this.options };
+	}
+}

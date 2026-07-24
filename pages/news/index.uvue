@@ -1,0 +1,105 @@
+<template>
+<view class="page">
+	<x-sheet :round="[0, 0, 16, 16]" :padding="[12, 24]" margin="0">
+		<x-search
+			v-model="searchValue"
+			placeholder="快讯搜索"
+			@confirm="handleSearch"
+		></x-search>
+  </x-sheet>
+
+  <x-sheet round="6" :padding="[12, 0, 12, 0]" :margin="[12, 24, 12, 12]">
+		<x-list padding="0">
+			<view 
+				v-for="(item, index) in newsList" 
+				:key="index"
+				class="news-item-wrapper px-4 py-12"
+				@click="goDetail(item)"
+			>
+				<view class="flex flex-row justify-between align-start flex-1 mr-12">
+          <view class="flex-1 mr-12">
+            <x-text color="#999" font-size="14" class="text-grey">{{ item.datetime }}</x-text>
+            <x-text color="#333" font-size="14" class="text-black text-overflow-2">{{ item.title }}</x-text>
+          </view>
+				</view>
+			</view>
+		</x-list>
+	</x-sheet>
+</view>
+</template>
+
+<script setup lang="ts">
+import { ref } from 'vue';
+import { xConfig } from '@/uni_modules/tmx-ui/config/xConfig.uts';
+
+// 标签页数据
+const tabList = ref([
+  { id: '1', title: '题材热点' },
+  { id: '2', title: '题材动态' },
+  { id: '3', title: '题材轮动' }
+]);
+
+const activeTab = ref('1');
+
+const newsList = ref([
+  {
+    title: '半导体设备国产化率创历史新高！关键零部件领域取得重大技术突破',
+    datetime: '2026-07-20',
+    isHot: true,
+    cover: 'https://picsum.photos/200/140?random=1'
+  },
+  {
+    title: '重磅！多部委联合发文推动新材料产业高质量发展，这些板块将迎来黄金期',
+    datetime: '2026-07-19',
+  },
+  {
+    title: '如何评价当前人工智能在硬件整机领域的自主可控趋势？专家这样说...',
+    datetime: '2026-07-18',
+  }
+]);
+
+const searchValue = ref('');
+
+const goDetail = (item: any) => {
+  console.log('跳转到新闻详情:', item.title);
+};
+
+const handleSearch = (value: string) => {
+  console.log('搜索:', value);
+  // 这里可以添加搜索逻辑，比如过滤 newsList
+};
+
+const handleTabChange = (item: any, index: number) => {
+  console.log('切换到标签:', item.title, '索引:', index);
+  // 这里可以根据选中的标签切换显示不同的内容
+  switch(item.id) {
+    case '1':
+      // 显示题材热点内容
+      break;
+    case '2':
+      // 显示题材动态内容
+      break;
+    case '3':
+      // 显示题材轮动内容
+      break;
+  }
+};
+</script>
+
+<style scoped>
+.page {
+  padding: 0 0 0 0;
+}
+
+.news-item-wrapper {
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.text-overflow-2 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  line-height: 1.4;
+}
+</style>

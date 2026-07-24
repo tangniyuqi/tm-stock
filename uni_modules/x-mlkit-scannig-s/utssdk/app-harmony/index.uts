@@ -1,0 +1,11 @@
+import {CALL_RESULT_FUN} from "../interface.uts"
+import { x_openCamera,x_closeCamera } from "x_mlkit_scannig_s";
+export function openCameraApi(callback : CALL_RESULT_FUN, onlyCameras : boolean) {
+	x_openCamera(UTSHarmony.getCurrentWindow(),UTSHarmony.getCurrentWindow()!.getUIContext(),{
+		resultFun:callback,
+		onlyCameras
+	})
+}
+export function closeCamera() {
+	x_closeCamera(UTSHarmony.getCurrentWindow()!.getUIContext())
+}

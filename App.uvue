@@ -1,0 +1,48 @@
+
+<script lang="uts">
+	export default {
+		onLaunch: function () {
+			// 配置app及web字体，必须
+			// #ifdef APP||WEB
+			uni.loadFontFace({
+				global: true,
+				family: 'remixicon',
+				source: "url('/static/tmui4xLibs/static/remixicon.ttf')",
+				success() {
+					uni.setStorageSync("loadedFontBytmx", "true")
+					console.log('global loadFontFace uni.ttf success===')
+				},
+				fail(error) {
+					uni.setStorageSync("loadedFontBytmx", "")
+					console.warn('global loadFontFace uni.ttf fail--', error.errMsg)
+				},
+			})
+			// #endif
+		},
+		onShow: function () { },
+		onHide: function () { },
+		onLastPageBackPress: function () { },
+		onExit: function () { },
+	}
+</script>
+
+<style>
+    /* (可选)引用样式文件,下面两个二选一即可，默认使用px单位，如果你有自己的原子css库插件，
+	你可以不引用本css库，可以删除不影响组件 */
+	/* rpx单位 */
+	/* @import url(./uni_modules/tmx-ui/scss/uvue.min.css); */
+	/* px单位84kb */
+	@import url(./uni_modules/tmx-ui/scss/uvuePx.min.css);
+	
+	/* 微信小程序必引入，否则无图标 */
+	/* 字体图标，仅小程序端引用，而且字体图标控制在104kb */
+	/* #ifdef MP-WEIXIN */
+	@import url(./uni_modules/tmx-ui/scss/remixicon.min.css);
+	/* #endif */
+</style>
+
+<style lang="scss">
+/* page {
+  background-color: #FFFFFF;
+} */
+</style>

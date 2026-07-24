@@ -1,0 +1,96 @@
+﻿<script lang="ts" setup>
+	import { ref, computed, onMounted, onBeforeUnmount, onActivated } from "vue"
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	import { checkIsCssUnit } from "../../core/util/xCoreUtil.uts"
+
+	/**
+	 * @name 骨架屏 xSkeleton
+	 * @page /pages/index/skeleton
+	 * @category 展示组件
+	 * @description 样式灵活多变。
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({ name: "xSkeleton" })
+
+	type xSkeletonPropsType = {
+		/** 高，单位允许%，auto,'数字',rpx,px */
+		height : string,
+		/** 宽，单位允许%，auto,'数字',rpx,px */
+		width : string,
+		/** 背景颜色 */
+		color : string,
+		/** 暗黑背景颜色 */
+		darkColor : string,
+		/** 圆角 */
+		round : string,
+		/** 动画间隔 */
+		duration : string,
+	}
+
+	const props = withDefaults(defineProps<xSkeletonPropsType>(), {
+		height: '12',
+		width: 'auto',
+		color: '#e4e4e4',
+		darkColor: '#323232',
+		round: '3',
+		duration: '900ms',
+	})
+
+	const myopacity = ref<number>(1)
+	let tid = 0
+
+	const _width = computed(() : string => checkIsCssUnit(props.width, xConfig.unit))
+	const _height = computed(() : string => checkIsCssUnit(props.height, xConfig.unit))
+	const _round = computed(() : string => checkIsCssUnit(props.round, xConfig.unit))
+	const _color = computed(() : string => {
+		if (xConfig.dark == 'dark') {
+			return getDefaultColor(props.darkColor)
+		}
+		return getDefaultColor(props.color)
+	})
+
+	function animationEnd() {
+		myopacity.value = myopacity.value == 1 ? 0 : 1
+	}
+
+	onMounted(() => {
+		tid = setTimeout(function () {
+			myopacity.value = 0
+		}, 300);
+	})
+
+	onBeforeUnmount(() => {
+		clearTimeout(tid)
+	})
+
+	onActivated(() => {
+		// #ifdef WEB
+		clearTimeout(tid)
+		myopacity.value = 0
+		tid = setTimeout(function () {
+			myopacity.value = 0
+		}, 300);
+		// #endif
+	})
+</script>
+<template>
+	<view ref="xSkeleton" class="xSkeleton" @transitionend="animationEnd" :style="{
+		backgroundColor:_color,
+		width:_width,
+		height:_height,
+		borderRadius:_round,
+		opacity:myopacity,
+		transitionDuration:duration
+	}"></view>
+</template>
+<style scoped>
+	.xSkeleton {
+		transition-timing-function: linear;
+		transition-property: opacity;
+
+	}
+</style>

@@ -1,0 +1,119 @@
+export type xCamreaUOpts = {
+	autoOpenCamera : boolean,
+	/**
+	 * 是否打开闪光灯,对于orientation为back有效.
+	 */
+	flash : boolean,
+	/**
+	 * 摄像头朝向,默认是后置
+	 * back,front
+	 */
+	orientation : string,
+	/**
+	 * 相机的像素宽
+	 */
+	cameraWidth : number,
+	/**
+	 * 相机的像素高
+	 */
+	cameraHeight : number,
+	/**
+	 * 容器的宽和高
+	 */
+	width : number,
+	/**
+	 * 容器的宽和高
+	 */
+	height : number
+}
+
+export class xCamreaU {
+	$element : any;
+	targetView : WechatMiniprogram.CameraContext = wx.createCameraContext();
+	config : xCamreaUOpts;
+	opening = false;
+	timeId = 232
+	private startRecoderVideoFunc = (path : string) => { }
+	constructor(element : any, opts : xCamreaUOpts) {
+		this.config = opts;
+		this.$element = element;
+	}
+
+	getIsOpeningCameraing() : boolean {
+		return this.opening
+	}
+	setCameraDir(dir : string) {
+	}
+	setFlash(flash : boolean) {
+	}
+	start(call : (path : string) => void) {
+		let t = this;
+		this.takeModelType = 'video'
+		this.opening = true;
+		this.startRecoderVideoFunc = call;
+		clearTimeout(this.timeId)
+		this.targetView.startRecord({
+			quality: 'high',
+			timeout: 5 * 60,
+			timeoutCallback(ok) {
+				call(ok.tempVideoPath || "")
+			},
+			success: (res) => {
+				t.timeId = setTimeout(function () {
+					t.stop()
+				}, (4 * 60 + 57) * 1000);
+			},
+			fail(er) {
+				console.error(er)
+			}
+		})
+
+	}
+	/** 关闭相机 */
+	close() {
+		this.stop()
+	}
+	openCamrea() {
+		this.opening = true;
+	}
+	takePhoto(call : (path : string) => void) {
+		this.targetView.takePhoto({
+			quality: 'high',
+			success: (res) => {
+				call(res.tempImagePath)
+			},
+			fail(er) {
+				console.error(er)
+			}
+		})
+	}
+
+	pause() {
+		this.stop()
+	}
+
+	stop() {
+		let t = this;
+		this.opening = false;
+		clearTimeout(this.timeId)
+		this.targetView.stopRecord({
+			compressed: true,
+			timeout: 5 * 60,
+			success(ok) {
+				t.startRecoderVideoFunc(ok.tempVideoPath || "")
+			},
+			fail(er) {
+				console.error(er)
+			}
+		})
+
+	}
+
+}
+
+// 检查权限
+export function checkPermissions() : Promise<boolean> {
+	return new Promise(async (res, rej) => {
+		res(true)
+	})
+}

@@ -1,0 +1,509 @@
+<script lang="ts" setup>
+	import { ref, computed, watch, onMounted, nextTick, getCurrentInstance } from "vue"
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { checkIsCssUnit, getUnit } from "../../core/util/xCoreUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	import { SLIDER_TREE_ITEM_INFO } from "../../interface.uts"
+	import { SLIDER_TREE_ITEM } from "../x-slider-tree/interface.uts"
+
+	/**
+	 * @name 侧边菜单 xSliderMenu
+	 * @description 左边菜单选择，右边内容区域
+	 * @page /pages/index/slider-menu
+	 * @category 导航组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({ name: "xSliderMenu" })
+
+	type xSliderMenuPropsType = {
+		/** 宽 */
+		width : string,
+		/** 高是必填，不可为auto。 */
+		height : string,
+		/** 是否显示滚动条 */
+		showScrollbar : boolean,
+		/** 侧边选中的文字颜色，空值取全局主题 */
+		activeTextColor : string,
+		/** 侧边未选中时的文字颜色 */
+		textColor : string,
+		/** 侧边菜单文字大小 */
+		fontSize : string,
+		/** 选项项目未选中的文字颜色 */
+		itemTextColor : string,
+		/** 选项项目选中的文字颜色，空值取全局主题 */
+		itemActiveColor : string,
+		/** 左侧边栏背景颜色 */
+		sliderBgColor : string,
+		/**
+		 * 左侧边栏暗黑背景颜色
+		 * 如果不提供，自动读取全局的backgroundColorContentDark背景色
+		 */
+		darkSliderBgColor : string,
+		/** 右内容区域背景颜色 */
+		sliderContentBgColor : string,
+		/**
+		 * 右内容区域暗黑背景颜色
+		 * 如果不提供读取sheet窗口的暗黑背景
+		 */
+		darkSliderContentBgColor : string,
+		/** 侧边栏宽 */
+		sliderWidth : string,
+		list : SLIDER_TREE_ITEM_INFO[],
+		/** 当前选中项的id数组 */
+		modelValue : string,
+		/**
+		 * 是否允许侧边菜单收起和打开(会在菜单顶部出现一个收缩按钮)
+		 * 这里需要你的菜单项中提供icon图标,不然收起后左侧就取项目的第一个字符.
+		 */
+		showToggleMenu : boolean,
+		/**
+		 * 菜单位置,left或者right
+		 * 默认在左侧,不可以动态更改.
+		 */
+		menuPosition : string,
+		/**
+		 * 左侧菜单项目的高,默认44,不能为百分比,auto这种
+		 * 只能是如:'44','44px','88rpx'
+		 */
+		itemHeight : string,
+		/**
+		 * 左侧菜单项目被选中时的style样式对象,可以覆盖默认的样式-
+		 * 改成自己的设计稿样式.
+		 */
+		itemSelectedStyle : UTSJSONObject,
+		/**
+		 * 右侧布局模式,=scroll时,右侧为动态循环的scroll-view,item插槽
+		 * 上方的插槽数据启用,你需要自己在循环内布局内容.如果为default默认就是之前的
+		 * 模式右侧就是一个空view,内容需要自己写滚动.
+		 * default,scroll
+		 */
+		layoutMode : string,
+	}
+
+	defineSlots<{
+		default(props : { height : string,menuid : string }) : any,
+		item(props : { item : SLIDER_TREE_ITEM}) : any,
+		menu(props : { item : SLIDER_TREE_ITEM}) : any,
+		toggle(props : { opened : boolean}) : any,
+	}>()
+
+	const emits = defineEmits<{
+		/**
+		 * 手动切换时触发
+		 * @param {string} id - 当前选中的菜单id
+		 * @param {number} index - 当前选中的菜单索引
+		 */
+		(e : 'change', id : string, index : number) : void,
+		(e : 'update:modelValue', value : string) : void,
+	}>()
+
+	const props = withDefaults(defineProps<xSliderMenuPropsType>(), {
+		width: "auto",
+		height: "100%",
+		showScrollbar: false,
+		activeTextColor: "",
+		textColor: "#888888",
+		fontSize: "16",
+		itemTextColor: "#333333",
+		itemActiveColor: "",
+		sliderBgColor: "#f5f5f5",
+		darkSliderBgColor: "",
+		sliderContentBgColor: "white",
+		darkSliderContentBgColor: "",
+		sliderWidth: "100",
+		list: () : SLIDER_TREE_ITEM_INFO[] => [] as SLIDER_TREE_ITEM_INFO[],
+		modelValue: "",
+		showToggleMenu: false,
+		menuPosition: "left",
+		itemHeight: "44",
+		itemSelectedStyle: () : UTSJSONObject => ({} as UTSJSONObject),
+		layoutMode: "default",
+	})
+
+	const proxy = getCurrentInstance()?.proxy
+
+	const activeIndex = ref<number>(-1)
+	const selectedsIds = ref<string>("")
+	const rightTouching = ref<boolean>(false)
+	const leftMenuTop = ref<number>(0)
+	const isAndriod = ref<boolean>(false)
+	const opened = ref<boolean>(true)
+
+	// #ifdef APP-ANDROID
+	isAndriod.value = true;
+	// #endif
+
+	const _itemSelectedStyle = computed(() : Map<string, any> => {
+		let stylemap = new Map<string, any>()
+		let itemstyle = props.itemSelectedStyle as UTSJSONObject
+		for (let key in itemstyle) {
+			stylemap.set(key, itemstyle.getAny(key)!)
+		}
+		return stylemap
+	})
+	const _itemHeight = computed(() : string => {
+		return checkIsCssUnit(props.itemHeight, xConfig.unit);
+	})
+	const _itemHeightReal = computed(() : number => {
+		let height = parseFloat(_itemHeight.value)
+		if (_itemHeight.value.lastIndexOf('rpx') > -1) {
+			height = uni.rpx2px(height)
+		}
+		return height;
+	})
+	const _sliderWidth = computed(() : string => {
+		return checkIsCssUnit(props.sliderWidth, xConfig.unit);
+	})
+	const _width = computed(() : string => {
+		return checkIsCssUnit(props.width, xConfig.unit);
+	})
+	const _height = computed(() : string => {
+		return checkIsCssUnit(props.height, xConfig.unit);
+	})
+	const _fontSize = computed(() : string => {
+		let fontSize = checkIsCssUnit(props.fontSize, xConfig.unit);
+		if (xConfig.fontScale == 1) return fontSize;
+		let sizeNumber = parseInt(fontSize)
+		if (isNaN(sizeNumber)) {
+			sizeNumber = 14
+		}
+		return (sizeNumber * xConfig.fontScale).toString() + getUnit(fontSize)
+	})
+	const _activeTextColor = computed(() : string => {
+		return props.activeTextColor != "" ? getDefaultColor(props.activeTextColor) : getDefaultColor(xConfig.color);
+	})
+	const _textColor = computed(() : string => {
+		return getDefaultColor(props.textColor);
+	})
+	const _itemTextColor = computed(() : string => {
+		return getDefaultColor(props.itemTextColor);
+	})
+	const _itemActiveColor = computed(() : string => {
+		return props.itemActiveColor != "" ? getDefaultColor(props.itemActiveColor) : getDefaultColor(xConfig.color);
+	})
+	const _sliderBgColor = computed(() : string => {
+		if (xConfig.dark == 'dark') {
+			if (props.darkSliderBgColor != '') {
+				return getDefaultColor(props.darkSliderBgColor)
+			} else {
+				return getDefaultColor(xConfig.backgroundColorContentDark)
+			}
+		}
+		return getDefaultColor(props.sliderBgColor);
+	})
+	const _sliderContentBgColor = computed(() : string => {
+		if (xConfig.dark == 'dark') {
+			if (props.darkSliderContentBgColor != '') {
+				return getDefaultColor(props.darkSliderContentBgColor)
+			} else {
+				return getDefaultColor(xConfig.backgroundColorContentDark)
+			}
+		}
+		return getDefaultColor(props.sliderContentBgColor);
+	})
+	const _list = computed(() : SLIDER_TREE_ITEM[] => {
+		let list = props.list as SLIDER_TREE_ITEM_INFO[];
+		let ps = [] as SLIDER_TREE_ITEM[]
+		function addOptionalFieldsToTree(tree : SLIDER_TREE_ITEM_INFO[]) : void {
+			for (let i = 0; i < tree.length; i++) {
+				const node = tree[i];
+				node.disabled = node.disabled == null ? false : node.disabled! as boolean;
+				node.selected = node.selected == null ? [] : node.selected! as string[];
+				ps.push({
+					id: node.id,
+					title: node.title,
+					disabled: node.disabled!,
+					selected: [],
+					children: [] as SLIDER_TREE_ITEM[],
+					icon: node?.icon ?? ""
+				} as SLIDER_TREE_ITEM)
+			}
+		}
+		addOptionalFieldsToTree(list)
+		return ps
+	})
+
+	const sliderItemClick = (item : SLIDER_TREE_ITEM, index : number) => {
+		if (item.disabled) return;
+		rightTouching.value = false;
+		const ids = item.id
+		if (activeIndex.value == index) {
+			leftMenuTop.value = index * _itemHeightReal.value
+			activeIndex.value = -1
+			nextTick(() => {
+				activeIndex.value = index
+			})
+		} else {
+			activeIndex.value = index
+		}
+		selectedsIds.value = ids;
+		emits('update:modelValue', ids)
+		emits('change', ids, index)
+	}
+	const menuTouchStart = () => {
+		rightTouching.value = false;
+	}
+	// #ifdef WEB
+	const menuTouchStartBymouse = () => {
+		rightTouching.value = false;
+	}
+	const contentTouchStartBymouse = () => {
+		rightTouching.value = true;
+	}
+	// #endif
+	const contentTouchStart = (_ : UniTouchEvent) => {
+		rightTouching.value = true;
+	}
+	const menuClick = () => {
+		opened.value = !opened.value
+	}
+	const scroll = (evt : UniScrollEvent) => {
+		let scrollTop = evt.detail.scrollTop;
+		if (!rightTouching.value) return;
+		uni.createSelectorQuery()
+			.in(proxy)
+			.selectAll('.xSliderRightSliderBoxWrapScrollItem')
+			.boundingClientRect()
+			.exec((result) => {
+				if (result.length == 0) return;
+				let nodes = result[0] as NodeInfo[]
+				if (nodes.length == 0) return;
+				let allheight = 0
+				for (let i = 0; i < nodes.length; i++) {
+					let node = nodes[i]
+					if (node.height != null) {
+						allheight += node.height!
+						if (allheight >= scrollTop) {
+							let id = node.id!;
+							let ars = id.split('_')
+							let index = parseInt(ars[ars.length - 1])
+							let itemid = _list.value[index].id
+							if (itemid == selectedsIds.value) return;
+							leftMenuTop.value = leftMenuTop.value + 1
+							nextTick(() => {
+								leftMenuTop.value = index * _itemHeightReal.value
+							})
+							selectedsIds.value = itemid;
+							emits('update:modelValue', itemid)
+							emits('change', itemid, index)
+							break;
+						}
+					}
+				}
+			})
+	}
+
+	watch(() : string => props.modelValue, (newValue : string) => {
+		if (selectedsIds.value == newValue) return;
+		selectedsIds.value = newValue;
+		activeIndex.value = _list.value.findIndex((el : SLIDER_TREE_ITEM) : boolean => el.id == newValue)
+	})
+	watch(() : SLIDER_TREE_ITEM_INFO[] => props.list, () => {
+		nextTick(() => {
+			activeIndex.value = _list.value.findIndex((el : SLIDER_TREE_ITEM) : boolean => el.id == selectedsIds.value)
+		})
+	})
+
+	onMounted(() => {
+		selectedsIds.value = props.modelValue;
+		nextTick(() => {
+			activeIndex.value = _list.value.findIndex((el : SLIDER_TREE_ITEM) : boolean => el.id == selectedsIds.value)
+		})
+	})
+</script>
+<template>
+	<view class="xSliderTree" :style="{width:_width,height:_height}">
+		<view
+		v-if="menuPosition=='right'"
+		class="xSliderRightSliderBoxWrap" 
+		:style="{backgroundColor:_sliderContentBgColor,flex:1,height:'100%'}">
+			<view v-if="layoutMode=='default'" style="height: 100%;position: relative;">
+				<!--
+				 @slot 默认右边插槽内容
+				 @prop {string} height - 组件的高度
+				 @prop {string} menuid - 当前选中的菜单id
+				 -->
+				<slot  :height="_height" :menuid="selectedsIds">
+				</slot>
+			</view>
+			
+			<scroll-view 
+			
+			v-if="layoutMode=='scroll'"
+			@touchstart="contentTouchStart" 
+			<!-- #ifdef WEB -->
+			@mousewheel="contentTouchStartBymouse"
+			@mousedown="contentTouchStartBymouse"
+			<!-- #endif-->
+			@scroll="scroll"
+			:show-scrollbar="showScrollbar"
+			class="xSliderRightSliderBoxWrapScroll" 
+			direction="vertical"
+			:scroll-into-view="`_item_${activeIndex}`"
+			>
+				<view v-for="(item,index) in _list" :key="index" :id="'_item_'+index" class="xSliderRightSliderBoxWrapScrollItem">
+					<!--
+					 @slot 左边动态菜单插槽项目
+					 @prop {Object} item - 菜单项目数据,可以通过id取得需要循环的右侧内容SLIDER_TREE_ITEM
+					 -->
+					<slot name="item" :item="item">
+						
+					</slot>
+				</view>
+			</scroll-view>
+		</view>
+		<list-view 
+		class="xSliderMenuList"
+		@touchstart="menuTouchStart"
+		<!-- #ifdef WEB -->
+		@mousewheel="menuTouchStartBymouse"
+		@mousedown="menuTouchStartBymouse"
+		<!-- #endif-->
+		:scroll-top="leftMenuTop"
+		v-if="_list.length>0" 
+		direction="vertical"
+		:show-scrollbar="showScrollbar"
+		:style="{width:opened?_sliderWidth:'44px',height:_height,backgroundColor:_sliderBgColor}">
+			<list-item v-if="showToggleMenu" style="height: 44px;">
+				<view @click="menuClick" class="xSliderOpenMenu">
+					<!--
+					 @slot 开启收缩菜单时,显示的顶部菜单指示项目插槽,可过这里可以自定义你自己的关闭和展开的菜单指示样式.
+					 @prop {Boolean} opened - 当前菜单收缩或者展开状态
+					 -->
+					<slot name="toggle" :opened="opened">
+						<x-icon
+						:color="opened? _activeTextColor : _textColor"
+						:name="!opened?'indent-increase':'indent-decrease'" :font-size="_fontSize"></x-icon>
+						<text v-if="opened"  :style="{fontSize:_fontSize,marginLeft:'8px',lineHeight:isAndriod?'1.1':'1',color:opened? _activeTextColor : _textColor}">MENU</text>
+						
+					</slot>
+				</view>
+			</list-item>
+		
+			<list-item @click="sliderItemClick(item,index)"  :style="{height:_itemHeight}" v-for="(item,index) in _list" :key="index">
+				<!--
+				 @slot 左边动态菜单插槽项目
+				 @prop {Object} item - 项目数据SLIDER_TREE_ITEM
+				 -->
+				<slot name="menu" :item="item">
+					
+					<view
+						class="selectedsIds" 
+						:class="[item.icon==''||!opened?'selectedsIdsNoIcon':'']"
+						:style="
+						[
+							{
+							backgroundColor:selectedsIds == item.id?_sliderContentBgColor:_sliderBgColor,
+							opacity:item.disabled?'0.5':1,
+							},
+							selectedsIds == item.id ? _itemSelectedStyle :{}
+						]
+					 ">
+						<view v-if="item.icon!=''" >
+							<x-icon 
+							:color="selectedsIds == item.id? _activeTextColor : _textColor"
+							:name="item.icon" :font-size="_fontSize"></x-icon>
+						</view>
+						<text v-if="opened||(item.icon=='')" class="xSliderTreeItemLeftText"
+							:style="{fontSize:_fontSize,marginLeft:opened?'8px':'0px',lineHeight:isAndriod?'1.1':'1',color:selectedsIds == item.id? _activeTextColor : _textColor}">
+								{{opened?item.title:(item.title.substring(0,1))}}
+							</text>
+					</view>
+				</slot>
+			</list-item>
+		</list-view>
+		<view 
+		v-if="menuPosition=='left'"
+		class="xSliderRightSliderBoxWrap" 
+		:style="{backgroundColor:_sliderContentBgColor,flex:1,height:'100%'}">
+			<view v-if="layoutMode=='default'" style="height: 100%;position: relative;">
+				<!--
+				 @slot 默认右边插槽内容
+				 @prop {string} height - 组件的高度
+				 @prop {string} menuid - 当前选中的菜单id
+				 -->
+				<slot  :height="_height" :menuid="selectedsIds">
+				</slot>
+			</view>
+			
+			<scroll-view 
+			
+			v-if="layoutMode=='scroll'"
+			@touchstart="contentTouchStart" 
+			<!-- #ifdef WEB -->
+			@mousewheel="contentTouchStartBymouse"
+			@mousedown="contentTouchStartBymouse"
+			<!-- #endif-->
+			@scroll="scroll"
+			:show-scrollbar="showScrollbar"
+			class="xSliderRightSliderBoxWrapScroll" 
+			direction="vertical"
+			:scroll-into-view="`_item_${activeIndex}`"
+			>
+				<view v-for="(item,index) in _list" :key="index" :id="'_item_'+index" class="xSliderRightSliderBoxWrapScrollItem">
+					<!--
+					 @slot 左边动态菜单插槽项目
+					 @prop {Object} item - 菜单项目数据,可以通过id取得需要循环的右侧内容SLIDER_TREE_ITEM
+					 -->
+					<slot name="item" :item="item">
+						
+					</slot>
+				</view>
+			</scroll-view>
+		</view>
+	</view>
+</template>
+<style scoped>
+	.xSliderOpenMenu{
+		height: 100%;
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+		align-items: center;
+	}
+	.xSliderRightSliderBoxWrapScroll{
+		height: 100%;
+		width:100%;
+	}
+	.xSliderTree {
+		display: flex;
+		flex-direction: row;
+		align-items: flex-start;
+		justify-content: space-between;
+
+	}
+	.xSliderMenuList{
+/* 		transition-property: width;
+		transition-timing-function: ease-in;
+		transition-duration: 0.2s; */
+	}
+
+	.xSliderTreeItemLeft {
+		width: 100%;
+		/* padding:0 24rpx; */
+		height: 44px;
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+		align-items: center;
+		overflow: hidden;
+	}
+
+	.xSliderTreeItemLeftText {
+		text-align: center;
+	}
+	.selectedsIds{
+		display: flex;
+		flex-direction: row;
+		flex-wrap: wrap;
+		height: 100%;
+		align-items: center;
+		padding: 0 10px;
+	}
+	.selectedsIdsNoIcon{
+		justify-content: center;
+	}
+</style>

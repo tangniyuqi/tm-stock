@@ -1,0 +1,43 @@
+import { HighlightConfig } from "../heightlight.uts"
+
+export function getSqlConfig(): HighlightConfig {
+	const config = new HighlightConfig()
+	
+	// SQL 关键字
+	config.keywords = [
+		'SELECT', 'FROM', 'WHERE', 'INSERT', 'UPDATE', 'DELETE', 'CREATE',
+		'ALTER', 'DROP', 'TABLE', 'DATABASE', 'INDEX', 'VIEW', 'PROCEDURE',
+		'FUNCTION', 'TRIGGER', 'JOIN', 'INNER', 'LEFT', 'RIGHT', 'FULL',
+		'OUTER', 'CROSS', 'ON', 'USING', 'AS', 'AND', 'OR', 'NOT', 'IN',
+		'BETWEEN', 'LIKE', 'IS', 'NULL', 'EXISTS', 'CASE', 'WHEN', 'THEN',
+		'ELSE', 'END', 'GROUP', 'BY', 'HAVING', 'ORDER', 'ASC', 'DESC',
+		'LIMIT', 'OFFSET', 'UNION', 'ALL', 'DISTINCT', 'INTO', 'VALUES',
+		'SET', 'DEFAULT', 'PRIMARY', 'FOREIGN', 'KEY', 'REFERENCES',
+		'CONSTRAINT', 'UNIQUE', 'CHECK', 'AUTO_INCREMENT', 'CASCADE',
+		'BEGIN', 'COMMIT', 'ROLLBACK', 'TRANSACTION', 'GRANT', 'REVOKE',
+		'WITH', 'RECURSIVE', 'PARTITION', 'OVER', 'ROW_NUMBER', 'RANK',
+		'select', 'from', 'where', 'insert', 'update', 'delete', 'create',
+		'alter', 'drop', 'table', 'join', 'left', 'right', 'inner', 'outer'
+	]
+	
+	// SQL 数据类型和函数
+	config.builtins = [
+		'INT', 'INTEGER', 'SMALLINT', 'BIGINT', 'DECIMAL', 'NUMERIC',
+		'FLOAT', 'REAL', 'DOUBLE', 'CHAR', 'VARCHAR', 'TEXT', 'BLOB',
+		'DATE', 'TIME', 'DATETIME', 'TIMESTAMP', 'YEAR', 'BOOLEAN', 'BOOL',
+		'COUNT', 'SUM', 'AVG', 'MIN', 'MAX', 'ROUND', 'ABS', 'CEILING',
+		'FLOOR', 'LENGTH', 'UPPER', 'LOWER', 'TRIM', 'CONCAT', 'SUBSTRING',
+		'REPLACE', 'COALESCE', 'NULLIF', 'CAST', 'CONVERT', 'NOW', 'CURDATE',
+		'CURTIME', 'DATE_FORMAT', 'YEAR', 'MONTH', 'DAY', 'HOUR', 'MINUTE',
+		'TRUE', 'FALSE', 'true', 'false', 'null'
+	]
+	
+	// SQL 操作符
+	config.operators = [
+		'=', '!=', '<>', '<', '>', '<=', '>=', '+', '-', '*', '/', '%',
+		'||', '&&', '!', 'AND', 'OR', 'NOT', 'LIKE', 'IN', 'BETWEEN', 'IS'
+	]
+	
+	return config
+}
+

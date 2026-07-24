@@ -1,0 +1,65 @@
+{
+  "pages": [
+    {
+      "path": "pages/index/index",
+      "style": {
+        "navigationBarTitleText": "题材宝典",
+        "navigationBarTextStyle": "white",
+        "navigationBarBackgroundColor": "#DDA927"
+      }
+    },
+    {
+      "path": "pages/segment/index",
+      "style": {
+        "navigationBarTitleText": "题材"
+      }
+    },
+    {
+      "path": "pages/news/index",
+      "style": {
+        "navigationBarTitleText": "724聚合快讯"
+      }
+    },
+    {
+      "path": "pages/member/index",
+      "style": {
+        "navigationBarTitleText": "我的"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTitleText": "题材宝典",
+    "navigationBarTextStyle": "black",
+    "navigationBarBackgroundColor": "#FFFFFF",
+    "backgroundColor": "#FFFFFF",
+    "backgroundColorTop": "#F5F5F5",
+    "backgroundColorBottom": "#FFFFFF"
+  },
+  "tabBar": {
+    "color": "#999999",
+    "selectedColor": "#DDA927",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "题材",
+        "iconPath": "static/tabbar/home.png",
+        "selectedIconPath": "static/tabbar/home-orange.png"
+      },
+      {
+        "pagePath": "pages/news/index",
+        "text": "快讯",
+        "iconPath": "static/tabbar/discover.png",
+        "selectedIconPath": "static/tabbar/discover-orange.png"
+      },
+      {
+        "pagePath": "pages/member/index",
+        "text": "我的",
+        "iconPath": "static/tabbar/member.png",
+        "selectedIconPath": "static/tabbar/member-orange.png"
+      }
+    ]
+  },
+  "uniIdRouter": {}
+}

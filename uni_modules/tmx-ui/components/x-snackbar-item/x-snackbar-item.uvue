@@ -1,0 +1,196 @@
+﻿﻿<script lang="ts" setup>
+	import { ref, computed, onMounted, onBeforeUnmount, nextTick } from "vue"
+	import { checkIsCssUnit, getUid } from "../../core/util/xCoreUtil.uts"
+	import { getDefaultColor, colorAddDeepen } from "../../core/util/xCoreColorUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	import { SNACKBAR_INFO, SNACKBAR_ITEM } from '../../interface.uts';
+
+	/**
+	 * @name 消息条子节点 xSnackbarItem
+	 * @description xSnackbar内部子组件，不可引用。
+	 * @page /pages/index/snackbar
+	 * @category 反馈组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({name:"xSnackbarItem"})
+
+	type xSnackbarItemPropsType = {
+		/**
+		 * 消息数据
+		 * 注意，id一定要提供且是数字，可以随意，只要相对上一次变更下，就会触发
+		 * 显示新的消息条。这种显示的方式就是避免你们引用ref方式来调用方法，相对更简单。
+		 */
+		content: SNACKBAR_ITEM,
+		/**
+		 * 索引
+		 */
+		keyIndex: number,
+		/**
+		 * 多少毫秒后销毁
+		 */
+		duration: number
+	}
+
+	// const props = withDefaults(defineProps<xSnackbarItemPropsType>(), {
+	// 	content: ():SNACKBAR_ITEM=>({
+	// 			background: "black",
+	// 			color: "white",
+	// 			fontSize: "14px",
+	// 			content: "",
+	// 			id: -1,
+	// 			icon: ""
+	// 		} as SNACKBAR_ITEM),
+	// 	keyIndex: -1,
+	// 	duration: 2500
+	// })
+	
+	const props = defineProps({
+		/**
+		 * 多少毫秒后销毁
+		 */
+		duration:{
+			type:Number,
+			default:2500
+		},
+		
+		/**
+		 * 索引
+		 */
+		keyIndex:{
+			type:Number,
+			default:-1
+		},
+
+		/**
+		 * 消息数据
+		 * 注意，id一定要提供且是数字，可以随意，只要相对上一次变更下，就会触发
+		 * 显示新的消息条。这种显示的方式就是避免你们引用ref方式来调用方法，相对更简单。
+		 */
+		content:{
+			type:Object as PropType<SNACKBAR_ITEM>,
+			default: ():SNACKBAR_ITEM=>({
+				background: "black",
+				color: "white",
+				fontSize: "14px",
+				content: "",
+				id: -1,
+				icon: ""
+			} as SNACKBAR_ITEM)
+		}
+	})
+
+	const emits = defineEmits<{
+		/**
+		 * 关闭事件
+		 */
+		close: []
+	}>()
+
+	// 响应式数据
+	const tid = ref(0)
+	const itemid = ref("xSnackbarItem-" + getUid())
+	const isOver = ref(false)
+	const isOpen = ref(true)
+	const xSnackbarItemRef = ref<UniElement | null>(null)
+
+	// 计算属性
+	const _animationFun = computed((): string => {
+		return `cubic-bezier(.18,.89,.32,1.06)`
+	})
+
+	// 方法
+	function close(): void {
+		try {
+			if (xSnackbarItemRef.value!=null) {
+				xSnackbarItemRef.value.style.setProperty("transform", "scale(0.64) translateY(0%)")
+				xSnackbarItemRef.value.style.setProperty("opacity", "0")
+			}
+		} catch (e) {
+			//TODO handle the exception
+		}
+		
+		tid.value = setTimeout(() => {
+			isOpen.value = false
+			isOver.value = true;
+			emits("close")
+		}, 300);
+	}
+
+	function onEnd(): void {
+		// if (isOpen.value) {
+		// 	isOpen.value = false
+		// } else {
+		// 	isOver.value = true;
+		// 	emits("close")
+		// }
+	}
+
+	// 生命周期
+	onMounted(() => {
+		nextTick(() => {
+			if (xSnackbarItemRef.value!=null) {
+				xSnackbarItemRef.value.style.setProperty("transition-duration", "350ms")
+				nextTick(() => {
+					// #ifdef WEB
+					setTimeout(() => {
+						if (xSnackbarItemRef.value!=null) {
+							xSnackbarItemRef.value.style.setProperty("transform", "scale(1) translateY(0%)")
+							xSnackbarItemRef.value.style.setProperty("opacity", "1")
+						}
+					}, 20);
+					// #endif
+					// #ifndef WEB
+					if (xSnackbarItemRef.value!=null) {
+						xSnackbarItemRef.value.style.setProperty("transform", "scale(1) translateY(0%)")
+						xSnackbarItemRef.value.style.setProperty("opacity", "1")
+					}
+					// #endif
+				})
+			}
+		})
+		clearTimeout(tid.value)
+		tid.value = setTimeout(() => {
+			close();
+		}, props.duration);
+	})
+
+	onBeforeUnmount(() => {
+		clearTimeout(tid.value)
+	})
+</script>
+<template>
+	<view @transitionend="onEnd" ref="xSnackbarItemRef" :id="itemid" class="xSnackbarItem"
+		:style="{backgroundColor:content.background,'transition-timing-function':_animationFun}">
+		<x-icon v-if="content.icon!=''" :name="content.icon" :font-size="content.fontSize" :color="content.color"
+			style="margin-right: 6px;"></x-icon>
+		<x-text class="xSnackbarItemText" :font-size="content.fontSize"
+			:color="content.color">{{content.content}}</x-text>
+	</view>
+</template>
+<style>
+	.xSnackbarItem {
+		pointer-events: auto;
+		padding: 5px 12px;
+		border-radius: 6px;
+		background-color: black;
+		margin-bottom: 12px;
+		transition-property: transform, opacity;
+		transition-duration: 350ms;
+		/* transition-timing-function:cubic-bezier(.18,.89,.32,1.06); */
+		opacity: 0;
+		transform: scale(0.64) translateY(100%);
+		flex-direction: row;
+		display: flex;
+		justify-content: flex-start;
+		align-items: center;
+
+	}
+
+	.xSnackbarItemText {
+		font-size: 14px;
+		color: white;
+	}
+</style>

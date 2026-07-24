@@ -1,0 +1,508 @@
+/**
+ * 动画过渡函数
+ * @version 1.1.0
+ * @author tmzdy
+ * @host https://xui.tmui.design
+ * @description 异常简便，没有繁杂的配置选项，只有快速的开发部署。
+ *
+ * 1.1.0 修复项：
+ *   - MP 端 customRequestAnimationFrame 现保存真实 timer id，cancel 可生效；回调触发后自动从 map 删除，
+ *     避免长时间运行时 callbacks Map 无限增长的内存泄漏。
+ *   - 帧循环中 autoRemove 使用"延迟移除"，避免循环内 splice 导致多动画同帧结束时漏处理。
+ *   - 全局 complete 判断由永不成立的 `item.progress != 2` 修正为 `item.status != 2`，complete 回调生效。
+ *   - 无动画且未注册 enter 帧回调时自动挂起 rAF，避免空转；addAnimate/play/setEnter 在需要时唤醒。
+ *   - _tick 抽为箭头类字段，不再每帧重建 actions 内部函数和 arrow 闭包。
+ *   - easing bezier 对相同字符串/数组 key 缓存复用。
+ *   - _getEasing 未命中时真实 fallback 到 linear bezier，而非 identity。
+ *   - FPS 计算使用 _prevFrameTime，避免第一帧除零与赋值顺序错误。
+ */
+import bezier from "./bezier.uts"
+import { xTweenStatus, xTweenCallbackFunType, xTweenAnimate, xTweenEventCallFunType, xTweenEventCall } from "../../interface.uts"
+import { getUid } from "./xCoreUtil.uts";
+
+type FrameRequestCallback = (time : number) => void;
+
+export class xTween {
+	private frameId : null | number = null;
+	//当前全局动画是否在执行中，只要有一个动画在执行就会是true
+	isRuning : boolean = false;
+	//所有动画是否结束
+	isStoping : boolean = true;
+	//刷新率，不会立即得出结题，需要有至少执行16ms才可能计算出帖率
+	frmae = 0
+	// 舞台是否在执行中
+	isRendering = false;
+
+	private _callListFun : xTweenEventCallFunType[] = []
+
+	private enters : (listAni : xTweenEventCallFunType[], tims : number) => void = (listAni : xTweenEventCallFunType[], tims : number) => { }
+	/** 是否注册过 enter 帧回调；未注册时 _tick 内跳过调用并在无动画时允许挂起 rAF */
+	private _hasEnter : boolean = false
+	private complete : () => void = () => { }
+
+	private lastTime = 0
+	private nextHandle = 0
+	// 存储"自增 handle → 真实 setTimeout id"的映射（仅 MP 端使用）
+	private callbacks : Map<number, number> = new Map();
+
+	/** 上一帧时间戳，用于 FPS 计算（替代原 _frema_starttimes 被覆盖写导致的除零） */
+	private _prevFrameTime : number = 0
+
+	/** easing 函数缓存：同名 easing / 同组 cubic-bezier 参数复用同一函数 */
+	private _easingFnCache : Map<string, xTweenCallbackFunType> = new Map()
+
+	private easingList = new Map<string, number[]>([
+		["linear", [0.250, 0.250, 0.750, 0.750]],
+		["ease", [0.250, 0.100, 0.250, 1.000]],
+		["easeIn", [0.420, 0.000, 1.000, 1.000]],
+		["easeOut", [0.000, 0.000, 0.580, 1.000]],
+		["easeInOut", [0.420, 0.000, 0.580, 1.000]],
+		["easeInQuad", [0.550, 0.085, 0.680, 0.530]],
+		["easeOutQuad", [0.250, 0.460, 0.450, 0.940]],
+		["easeInOutQuad", [0.455, 0.030, 0.515, 0.955]],
+		["easeInCubic", [0.550, 0.055, 0.675, 0.190]],
+		["easeOutCubic", [0.215, 0.610, 0.355, 1.000]],
+		["easeInOutCubic", [0.645, 0.045, 0.355, 1.000]],
+		["easeInQuart", [0.895, 0.030, 0.685, 0.220]],
+		["easeOutQuart", [0.165, 0.840, 0.440, 1.000]],
+		["easeInOutQuart", [0.770, 0.000, 0.175, 1.000]],
+		["easeInQuint", [0.755, 0.050, 0.855, 0.060]],
+		["easeOutQuint", [0.230, 1.000, 0.320, 1.000]],
+		["easeInOutQuint", [0.860, 0.000, 0.070, 1.000]],
+		["easeInSine", [0.470, 0.000, 0.745, 0.715]],
+		["easeOutSine", [0.390, 0.575, 0.565, 1.000]],
+		["easeInOutSine", [0.445, 0.050, 0.550, 0.950]],
+		["easeInExpo", [0.950, 0.050, 0.795, 0.035]],
+		["easeOutExpo", [0.190, 1.000, 0.220, 1.000]],
+		["easeInOutExpo", [1.000, 0.000, 0.000, 1.000]],
+		["easeInCirc", [0.600, 0.040, 0.980, 0.335]],
+		["easeOutCirc", [0.075, 0.820, 0.165, 1.000]],
+		["easeInOutBack", [0.680, -0.550, 0.265, 1.550]],
+		["tmxEase", [0.42, 0.38, 0.15, 0.93]]
+	]);
+
+	constructor() {
+
+	}
+
+	/**
+	 * MP 端 rAF polyfill。保存真实 timer id，回调触发后自动从 map 删除避免泄漏。
+	 */
+	private customRequestAnimationFrame(callback : FrameRequestCallback) : number {
+		const currTime : number = Date.now();
+		const timeToCall : number = Math.max(0, 16 - (currTime - this.lastTime));
+		const handle : number = this.nextHandle++;
+
+		const tid = setTimeout(() => {
+			// 自动清理 map，避免每帧累积
+			this.callbacks.delete(handle)
+			callback(currTime + timeToCall);
+		}, timeToCall);
+
+		this.callbacks.set(handle, tid as number);
+		this.lastTime = currTime + timeToCall;
+		return handle;
+	}
+
+	private customCancelAnimationFrame(handle : number) {
+		const tid = this.callbacks.get(handle)
+		if (tid != null) {
+			clearTimeout(tid!)
+			this.callbacks.delete(handle)
+		}
+	}
+
+	/**
+	 * 启动渲染,并非执行动画,执行动画需要使用play
+	 * 但如果不启动渲染,play中的动画都无法执行.
+	 */
+	startRender() : xTween {
+		this.isRendering = true;
+		if (this.frameId == null) {
+			this._scheduleFrame()
+		}
+		return this;
+	}
+	/**
+	 * 销毁渲染.
+	 */
+	destroy() {
+		if (this.frameId != null) {
+			// #ifdef APP ||WEB
+			cancelAnimationFrame(this.frameId!)
+			// #endif
+			// #ifdef MP
+			this.customCancelAnimationFrame(this.frameId!)
+			// #endif
+		}
+		this.frameId = null;
+		this.isRendering = false;
+		// destroy 须清空队列，否则再次 addAnimate 会叠加条目（无限循环动画不会 autoRemove）
+		this._callListFun = [] as xTweenEventCallFunType[]
+		this._easingFnCache.clear()
+		this._prevFrameTime = 0
+		this._setGlobaleStatus(2)
+
+	}
+	getFrame() : number {
+		return this.frmae
+	}
+	/**
+	 * 所有事件动画执行完毕
+	 */
+	setComplete(call : () => void) : xTween {
+		this.complete = call
+		return this;
+	}
+
+	/**
+	 * 设置帖动画,舞台渲染执行帖函数
+	 * 它不是animate动画,没有进度,只会不停的执行.直接舞台渲染被注销.
+	 */
+	setEnter(call : (listAni : xTweenEventCallFunType[], tims : number) => void) : xTween {
+		this.enters = call
+		this._hasEnter = true
+		// 若 rAF 已挂起，唤醒之（因为即使无动画，enter 帧回调也需要每帧调用）
+		if (this.isRendering && this.frameId == null) this._scheduleFrame()
+		return this;
+	}
+	/**
+	 * 添加一个动画,可以重复加达到多个动画联合执行的效果
+	 * 并且 每一个动画都是独立存在,这样可以细微的控制每个动画
+	 * 来达到联合处理的效果.
+	 */
+	addAnimate(opts : xTweenAnimate) : string {
+		let uid = getUid();
+		let call : xTweenEventCall = (item : xTweenEventCallFunType) => { };
+
+		this._callListFun.push({
+			id: uid,
+			ease: this._getEasing(opts?.ease ?? 'linear'),
+			duration: opts.duration,
+			status: 1,
+			progress: 0,
+			oldProgeress: 0,
+			startTime: 0,
+			autoRemove: opts?.autoRemove != null ? (opts!.autoRemove as boolean) : true,
+			complete: opts?.complete != null ? (opts!.complete!) : call,
+			enter: opts?.enter != null ? (opts!.enter!) : call,
+			start: opts?.start != null ? (opts!.start!) : call,
+			pause: opts?.pause != null ? (opts!.pause!) : call,
+			loop: opts?.loop != null ? (opts!.loop!) : 1,
+			tyty: opts?.tyty != null ? (opts!.tyty!) : false,
+			step: opts?.step != null ? (opts!.step!) : 1,
+			_finishLoop: 0,
+			reverse: false
+		} as xTweenEventCallFunType)
+		// 若 rAF 已挂起，唤醒
+		if (this.isRendering && this.frameId == null) this._scheduleFrame()
+		return uid;
+	}
+	/**
+	 * 删除一个事件.
+	 * @param {string} uid 如果为null表示删除所有.
+	 */
+	removeAnimate(uid : string | null = null) : xTween {
+		if (uid == null) {
+			this._callListFun = [] as xTweenEventCallFunType[]
+		} else {
+			let index = this._getCallIndex(uid as string);
+			if (index > -1) {
+				this._callListFun.splice(index, 1)
+			}
+		}
+		return this;
+	}
+	/**
+	 * 播放动画。
+	 * @param {string|null} uid 动画id,如果不填写或者为null表示播放所有动画
+	 */
+	play(uid : string | null = null) {
+		if (uid != null && uid != '') {
+			let index = this._getCallIndex(uid! as string)
+			if (index > -1) {
+				let item = this._callListFun[index]
+				if (item.status == 1) {
+					this._by_run_set_status(item, 1)
+					this._by_run_item_callFun(item)
+
+				}
+				// 马上要执行运行
+				this._by_run_set_status(item, 4)
+			}
+		} else {
+			for (let i = 0; i < this._callListFun.length; i++) {
+				let item = this._callListFun[i]
+				if (item.status == 1) {
+					this._by_run_set_status(item, 1)
+					this._by_run_item_callFun(item)
+				}
+
+				this._by_run_set_status(item, 4)
+
+			}
+		}
+		this._setGlobaleStatus(1)
+		// 若 rAF 已挂起，唤醒
+		if (this.isRendering && this.frameId == null) this._scheduleFrame()
+	}
+	getAnimationListLen() : number {
+		return this._callListFun.length;
+	}
+	/**
+	 * 暂停动画。
+	 * @param {string|null} uid 动画id,如果不填写或者为null表示暂停所有动画
+	 */
+	pause(uid : string | null = null) : xTween {
+		if (uid != null && uid != '') {
+			let index = this._getCallIndex(uid! as string)
+			if (index > -1) {
+				let item = this._callListFun[index]
+
+				this._by_run_set_status(item, this._isLoopPauseing(item) ? 6 : 3)
+				this._by_run_item_callFun(item)
+			}
+		} else {
+			for (let i = 0; i < this._callListFun.length; i++) {
+				let item = this._callListFun[i]
+				this._by_run_set_status(item, this._isLoopPauseing(item) ? 6 : 3)
+				this._by_run_item_callFun(item)
+			}
+			this._setGlobaleStatus(2)
+		}
+		return this;
+	}
+	/**
+	 * 结束动画。
+	 * @param {string|null} uid 动画id,如果不填写或者为null表示结束所有动画
+	 */
+	stop(uid : string | null = null) : xTween {
+
+		if (uid != null && uid != '') {
+			let index = this._getCallIndex(uid! as string)
+			if (index > -1) {
+				let item = this._callListFun[index]
+				this._by_run_set_status(item, 2)
+				this._by_run_item_callFun(item)
+			}
+		} else {
+			for (let i = 0; i < this._callListFun.length; i++) {
+				let item = this._callListFun[i]
+				this._by_run_set_status(item, 2)
+				this._by_run_item_callFun(item)
+			}
+			this._callListFun = this._callListFun.filter((el : xTweenEventCallFunType) : boolean => !el.autoRemove)
+			this.enters(this._callListFun, 0)
+		}
+		return this;
+	}
+
+	/**
+	 * easing 解析 + 缓存。
+	 * 未命中字符串时真实 fallback 到 linear bezier（原实现返回 identity）。
+	 * 相同字符串 / 相同 4 元组直接复用缓存函数，避免 addAnimate 重复创建 bezier 实例。
+	 */
+	private _getEasing(args : any) : xTweenCallbackFunType | null {
+		if (typeof args == 'string') {
+			const key = args as string
+			const cached = this._easingFnCache.get(key)
+			if (cached != null) return cached!
+			const animateNumber = this.easingList.get(key)
+			if (animateNumber != null) {
+				const ease = animateNumber! as number[]
+				// bezier 在参数越界时会返回 null，此时退回 linear 而非缓存 null
+				const fn = bezier(ease[0], ease[1], ease[2], ease[3])
+				if (fn != null) {
+					this._easingFnCache.set(key, fn!)
+					return fn!
+				}
+				return this._getEasing('linear')
+			}
+			// 未命中 → fallback linear bezier
+			return this._getEasing('linear')
+		} else if (Array.isArray(args)) {
+			const argsar = args as number[]
+			if (argsar.length == 4) {
+				const ck = `__c_${argsar[0]}_${argsar[1]}_${argsar[2]}_${argsar[3]}`
+				const cached = this._easingFnCache.get(ck)
+				if (cached != null) return cached!
+				const fn = bezier(argsar[0], argsar[1], argsar[2], argsar[3])
+				if (fn != null) {
+					this._easingFnCache.set(ck, fn!)
+					return fn!
+				}
+				return this._getEasing('linear')
+			}
+		}
+		return this._getEasing('linear')
+	}
+	private _getCallIndex(uid : string) : number {
+		let index = -1;
+		for (let i = 0; i < this._callListFun.length; i++) {
+			let item = this._callListFun[i]
+			if (item.id == uid) {
+				index = i;
+				break;
+			}
+		}
+		return index;
+	}
+
+	private _isLoopPauseing(item : xTweenEventCallFunType) : boolean {
+		if (item.loop == -1) return true;
+		if (item._finishLoop < item.loop) return true;
+		return false;
+	}
+	private _by_run_set_status(item : xTweenEventCallFunType, status : xTweenStatus) {
+
+		if (status == 1) {
+			item.progress = 0
+			item.startTime = 0
+			item._finishLoop = 0
+		} else if (status == 2) {
+			item.progress = 1;
+			item.oldProgeress = 0;
+			item.startTime = 0
+			item._finishLoop = item.loop
+		} else if (status == 3) {
+			item.startTime = 0
+			item.oldProgeress = item.progress
+		} else if (status == 5) {
+			item.progress = 0
+			item.oldProgeress = 0
+			item.startTime = 0
+		} else if (status == 6) {
+			item.oldProgeress = item.progress
+			item.startTime = 0
+		}
+		item.status = status;
+	}
+
+	/**
+	 * 按当前 item.status 触发对应的生命周期回调。
+	 * 注意：status==2 的 autoRemove 不再在此处 splice（改为 _tick 里延迟统一移除），
+	 * 避免遍历时修改列表导致"跳项"bug。
+	 */
+	private _by_run_item_callFun(item : xTweenEventCallFunType) {
+		if (item.status == 1) {
+			item.start(item)
+		}
+		if (item.status == 2) {
+			item.enter(item)
+			item.complete(item)
+		}
+		if (item.status == 3) {
+			item.pause(item)
+		}
+		if (item.status == 4 || item.status == 5) {
+			item.enter(item)
+		}
+	}
+
+	/**
+	 * 1:执行中
+	 * 2:未在执行动画。
+	 */
+	private _setGlobaleStatus(type : number) {
+		if (type == 1) {
+			this.isRuning = true;
+			this.isStoping = false
+		} else if (type == 2) {
+			this.isRuning = false;
+			this.isStoping = true
+		}
+	}
+
+	/**
+	 * 是否应该继续调度下一帧：仅在有"正在运行"的动画（status 4/5）或注册了 enter 回调时调度。
+	 * 只 addAnimate 未 play 的 item（status=1）、已 pause 的 item（status=3/6）、已结束未移除
+	 * 的 item（status=2）都不驱动帧循环，从而在这些状态下挂起 rAF 节省 CPU/电量。
+	 * 唤醒点：play / setEnter / addAnimate（addAnimate 保留唤醒以兼容"先 addAnimate 再 play"顺序）。
+	 */
+	private _shouldTick() : boolean {
+		if (this._hasEnter) return true
+		for (let i = 0; i < this._callListFun.length; i++) {
+			const s = this._callListFun[i].status
+			if (s == 4 || s == 5) return true
+		}
+		return false
+	}
+
+	/** 调度下一帧（唯一 rAF 入口） */
+	private _scheduleFrame() {
+		if (!this.isRendering) { this.frameId = null; return }
+		if (!this._shouldTick()) { this.frameId = null; return }
+		// #ifdef APP||WEB
+		this.frameId = requestAnimationFrame(this._tick)
+		// #endif
+		// #ifdef MP
+		this.frameId = this.customRequestAnimationFrame(this._tick)
+		// #endif
+	}
+
+	/**
+	 * 帧回调：抽为 arrow 字段，避免每帧重建内部 actions 函数 + 箭头闭包。
+	 */
+	private _tick : FrameRequestCallback = (times : number) => {
+		if (!this.isRendering) { this.frameId = null; return }
+
+		// enter 帧回调（仅注册过才调，避免空函数调用）
+		if (this._hasEnter) this.enters(this._callListFun, times)
+
+		// FPS：先用上一帧时间算出 delta，再保存本帧时间；避免原先"先写后读"导致除零
+		if (this._prevFrameTime > 0) {
+			const delta = times - this._prevFrameTime
+			if (delta > 0) this.frmae = Math.ceil(1000 / delta)
+		}
+		this._prevFrameTime = times
+
+		// 延迟移除：循环内只收集 autoRemove 的 id，循环结束后统一 filter，
+		// 这样不会因 splice 让下一次访问跳过元素。
+		const toRemoveIds = [] as string[]
+		let isAllCompelted = true
+		const list = this._callListFun
+		for (let i = 0; i < list.length; i++) {
+			const item = list[i]
+			if (item.status == 4 || item.status == 5) {
+				if (item.startTime == 0) item.startTime = times
+				if (this.frmae > 0) {
+					const progress = Math.min((times - item.startTime) / item.duration + item.oldProgeress, 1)
+					const eas = item.ease!
+					item.progress = eas(progress)
+
+					if (progress == 1) {
+						item._finishLoop += 1
+						if (item.loop > 0) {
+							if (item.loop == item._finishLoop) {
+								this._by_run_set_status(item, 2)
+								this._by_run_item_callFun(item)
+								if (item.autoRemove) toRemoveIds.push(item.id)
+							} else {
+								this._by_run_set_status(item, 5)
+							}
+						} else if (item.loop == -1) {
+							this._by_run_set_status(item, 5)
+						}
+						if (item.tyty) item.reverse = !item.reverse
+					}
+					this._by_run_item_callFun(item)
+				}
+			}
+			// 原实现判断 `item.progress != 2` 永真（progress 范围 0~1），complete 永不触发；
+			// 此处修正为 status 判断：只要有未结束的动画，全局就没到 all-completed
+			if (item.status != 2) isAllCompelted = false
+		}
+
+		if (toRemoveIds.length > 0) {
+			this._callListFun = this._callListFun.filter((el : xTweenEventCallFunType) : boolean => !toRemoveIds.includes(el.id))
+		}
+
+		if (isAllCompelted && this.isRuning) {
+			this.complete()
+			this._setGlobaleStatus(2)
+		}
+
+		this._scheduleFrame()
+	}
+
+}

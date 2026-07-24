@@ -1,0 +1,144 @@
+import { ICanvas } from '@/uni_modules/tmx-ui/core/canvas/ICanvas.uts';
+import { Shape } from '@/uni_modules/tmx-ui/core/canvas/lib/shape.uts';
+import { ILinePolygon } from '@/uni_modules/tmx-ui/core/canvas/lib/linePolygon.uts';
+import { IRect } from '@/uni_modules/tmx-ui/core/canvas/lib/rect.uts';
+import { IText } from '@/uni_modules/tmx-ui/core/canvas/lib/text.uts';
+import { getDatumNumber, getDatumString, measureTextW } from '../scale.uts';
+import { PlotRect } from '../map.uts';
+import { getChartColor } from '../palette.uts';
+import { ChartDatum, ChartSeriesOptions, ChartSeriesContext } from '../types.uts';
+
+export const renderFunnelSeries = (
+	canvas : ICanvas,
+	series : ChartSeriesOptions,
+	data : ChartDatum[],
+	rect : PlotRect,
+	ctx : ChartSeriesContext
+) : Shape[] => {
+	const shapes = [] as Shape[]
+	const xf = series.xField ?? ''
+	const yf = series.yField ?? ''
+	if (xf == '' || yf == '') return shapes
+	if (data.length == 0) return shapes
+
+	const cx = (rect.left + rect.right) / 2
+	const plotW = rect.right - rect.left
+	const plotH = rect.bottom - rect.top
+	const gap = 0
+	const labelFontSize = series.label?.fontSize ?? 11
+	const labelColor = series.label?.color ?? '#6b7280'
+	const showLabel = series.label?.show ?? true
+	const labelFormatter = series.label?.formatter ?? ''
+
+	let maxVal = 0
+	for (let i = 0; i < data.length; i++) {
+		const v = getDatumNumber(data[i], yf, 0)
+		if (v > maxVal) maxVal = v
+	}
+	if (maxVal <= 0) maxVal = 1
+
+	const n = data.length
+	const totalGap = gap * Math.max(0, n - 1)
+	const layerH = Math.max(8, (plotH - totalGap) / n)
+	const maxW = Math.min(450, showLabel ? plotW * 0.82 : plotW * 0.92)
+
+	const firstVal = getDatumNumber(data[0], yf, 0)
+	const lastVal = getDatumNumber(data[n - 1], yf, 0)
+	const isPyramid = firstVal <= lastVal
+
+	let _ci : number = 0
+	for (let i = 0; i < n; i++) {
+		_ci = i
+		const idx = _ci
+		const label = getDatumString(data[i], xf, `${i}`)
+		const value = getDatumNumber(data[i], yf, 0)
+		const nextValue = i < n - 1 ? getDatumNumber(data[i + 1], yf, 0) : 0
+		const color = getChartColor(i)
+		const isActive = ctx.activeType == 'funnel' && ctx.activeIndex == idx
+		const topY = rect.top + i * (layerH + gap)
+		const botY = topY + layerH
+
+		if (isActive) {
+			shapes.push(new IRect({
+				x: rect.left, y: topY,
+				width: rect.right - rect.left, height: botY - topY,
+				fill: ctx.activeStyle.backdrop
+			}, canvas))
+		}
+
+		let topW = (value / maxVal) * maxW
+		let botW = 0 as number
+		if (i < n - 1) {
+			botW = (nextValue / maxVal) * maxW
+		} else if (isPyramid) {
+			botW = (value * 1.15 / maxVal) * maxW
+		} else {
+			botW = (value * 0.5 / maxVal) * maxW
+		}
+
+		if (isPyramid && i == 0) {
+			topW = 0
+		}
+
+		const pts = [
+			cx - topW / 2, topY,
+			cx + topW / 2, topY,
+			cx + botW / 2, botY,
+			cx - botW / 2, botY,
+			cx - topW / 2, topY
+		] as number[]
+
+		shapes.push(new ILinePolygon({
+			points: pts,
+			fill: color,
+			closed: true,
+			tension: 0
+		}, canvas))
+
+		if (showLabel) {
+			const pct = Math.round(value / maxVal * 100)
+			const pctText = `${pct}%`
+			const midW = (topW + botW) / 2
+			const pctW = measureTextW(pctText, labelFontSize, canvas.ctx) / 2
+			shapes.push(new IText({
+				x: cx - pctW,
+				y: topY + layerH / 2 - labelFontSize / 2,
+				text: pctText,
+				fill: '#ffffff',
+				fontSize: labelFontSize
+			}, canvas))
+
+			let rightLabel = label
+			if (labelFormatter != '') {
+				rightLabel = labelFormatter.replace('{name}', label).replace('{value}', `${value}`).replace('{percent}', `${pct}%`)
+			}
+			shapes.push(new IText({
+				x: cx + midW / 2 + 6,
+				y: topY + layerH / 2 - labelFontSize / 2,
+				text: rightLabel,
+				fill: labelColor,
+				fontSize: labelFontSize
+			}, canvas))
+		}
+
+		const hitPts = [
+			cx - topW / 2, topY,
+			cx + topW / 2, topY,
+			cx + botW / 2, botY,
+			cx - botW / 2, botY,
+			cx - topW / 2, topY
+		] as number[]
+		const hit = new ILinePolygon({
+			points: hitPts,
+			fill: 'rgba(0,0,0,0)', opacity: 0,
+			closed: true, tension: 0
+		}, canvas)
+		hit.addEventListener('click', () => {
+			const pct = (value / maxVal * 100).toFixed(1)
+			ctx.onClickPoint('funnel', idx, cx, topY + layerH / 2, label, `${yf}: ${value} (${pct}%)`, color)
+		})
+		shapes.push(hit)
+	}
+
+	return shapes
+}

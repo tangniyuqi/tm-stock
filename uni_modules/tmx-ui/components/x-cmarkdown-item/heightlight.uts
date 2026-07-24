@@ -1,0 +1,260 @@
+import {getLanguageConfig} from "./heightLight/index.uts"
+export type HeightLightCodeText = {
+	text:string,
+	style:string,
+}
+
+export class HighlightConfig {
+	// 关键字
+	keywords : string[] = [
+		'var', 'let', 'const', 'function', 'return', 'if', 'else', 'for', 'while',
+		'do', 'switch', 'case', 'break', 'continue', 'default', 'try', 'catch',
+		'finally', 'throw', 'new', 'delete', 'typeof', 'instanceof', 'void',
+		'this', 'super', 'class', 'extends', 'static', 'async', 'await', 'yield',
+		'import', 'export', 'from', 'as', 'in', 'of', 'with'
+	]
+
+	// 内置对象和值
+	builtins : string[] = [
+		'undefined', 'null', 'true', 'false', 'NaN', 'Infinity',
+		'Array', 'Object', 'String', 'Number', 'Boolean', 'Function',
+		'Date', 'Math', 'JSON', 'Promise', 'Map', 'Set', 'Symbol',
+		'console', 'window', 'document'
+	]
+
+	// 操作符
+	operators : string[] = [
+		'+', '-', '*', '/', '%', '=', '==', '===', '!=', '!==',
+		'<', '>', '<=', '>=', '&&', '||', '!', '&', '|', '^',
+		'~', '<<', '>>', '>>>', '++', '--', '?', ':'
+	]
+
+	constructor() { }
+}
+function escape(html : string) : string {
+	if (html.length == 0) {
+		return html
+	}
+	
+	let result : string = html
+	result = result.replace(/&/g, '&amp;')
+	result = result.replace(/</g, '&lt;')
+	result = result.replace(/>/g, '&gt;')
+	result = result.replace(/"/g, '&quot;')
+	result = result.replace(/'/g, '&#39;')
+	
+	return result
+}
+/**
+ * 语法高亮处理函数
+ * @param code 需要高亮的代码
+ * @param config 高亮配置
+ * @param styles 样式配置对象
+ * @returns HeightLightCodeText[] 返回内容和样式分离的数组
+ */
+export function highlightCode(code : string, language : string | null, styles : UTSJSONObject) : HeightLightCodeText[] {
+	const result : HeightLightCodeText[] = []
+	
+	if (code.length == 0) {
+		return result
+	}
+	
+	let config = new HighlightConfig()
+	const customConfig = getLanguageConfig(language==null?'':language!)
+	if(customConfig!=null){
+		config = customConfig
+	}
+
+	// 获取样式字符串
+	const getStyle = (type : string) : string => {
+		const styleValue : any | null = styles[type]
+		if (styleValue != null) {
+			const style : string = styleValue as string
+			return style
+		}
+		return ''
+	}
+	
+	// 添加文本到结果数组
+	const addText = (text : string, styleType : string) => {
+		if (text.length > 0) {
+			result.push({
+				text: text,
+				style: getStyle(styleType)
+			})
+		}
+	}
+
+	let i : number = 0
+	const len : number = code.length
+
+	while (i < len) {
+		let matched : boolean = false
+		const remainingCode : string = code.substring(i)
+
+		// 1. 匹配字符串 (单引号、双引号、模板字符串)
+		if (!matched) {
+			const stringMatch = remainingCode.match(/^(`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/)
+			if (stringMatch != null && stringMatch.length > 0 && stringMatch[0] != null) {
+				const str : string = stringMatch[0] ?? ""
+				addText(str, 'string')
+				i += str.length
+				matched = true
+				continue
+			}
+		}
+
+		// 2. 匹配注释 (使用正则表达式，支持多种注释风格)
+		if (!matched) {
+			// HTML 注释 <!-- --> 或 <一!>...<!一>
+			const htmlCommentMatch = remainingCode.match(/^<!--[\s\S]*?-->/)
+			if (htmlCommentMatch != null && htmlCommentMatch.length > 0 && htmlCommentMatch[0] != null) {
+				const comment : string = htmlCommentMatch[0] ?? ""
+				addText(comment, 'comment')
+				i += comment.length
+				matched = true
+				continue
+			}
+
+			// JavaScript/C++ 多行注释 /* */
+			const multiCommentMatch = remainingCode.match(/^\/\*[\s\S]*?\*\//)
+			if (multiCommentMatch != null && multiCommentMatch.length > 0 && multiCommentMatch[0] != null) {
+				const comment : string = multiCommentMatch[0] ?? ""
+				addText(comment, 'comment')
+				i += comment.length
+				matched = true
+				continue
+			}
+
+			// JavaScript/C++ 单行注释 //
+			const lineCommentMatch = remainingCode.match(/^\/\/[^\n]*/)
+			if (lineCommentMatch != null && lineCommentMatch.length > 0 && lineCommentMatch[0] != null) {
+				const comment : string = lineCommentMatch[0] ?? ""
+				addText(comment, 'comment')
+				i += comment.length
+				matched = true
+				continue
+			}
+
+			// Python/Shell/Ruby 单行注释 #
+			const hashCommentMatch = remainingCode.match(/^#[^\n]*/)
+			if (hashCommentMatch != null && hashCommentMatch.length > 0 && hashCommentMatch[0] != null) {
+				const comment : string = hashCommentMatch[0] ?? ""
+				addText(comment, 'comment')
+				i += comment.length
+				matched = true
+				continue
+			}
+		}
+
+		// 3. 匹配数字 (使用正则)
+		if (!matched) {
+			const numberMatch = remainingCode.match(/^(?:0[xX][0-9a-fA-F]+|0[bB][01]+|0[oO][0-7]+|\d+\.?\d*(?:[eE][+\-]?\d+)?)/)
+			if (numberMatch != null && numberMatch.length > 0 && numberMatch[0] != null) {
+				const num : string = numberMatch[0] ?? ""
+				addText(num, 'number')
+				i += num.length
+				matched = true
+				continue
+			}
+		}
+
+		// 4. 匹配标识符（可能是关键字、内置对象、函数名或变量名）
+		if (!matched) {
+			const identMatch = remainingCode.match(/^[a-zA-Z_$][a-zA-Z0-9_$]*/)
+			if (identMatch != null && identMatch.length > 0 && identMatch[0] != null) {
+				const ident : string = identMatch[0] ?? ""
+
+				// 判断是否是关键字
+				let isKeyword : boolean = false
+				for (let j = 0; j < config.keywords.length; j++) {
+					if (ident == config.keywords[j]) {
+						isKeyword = true
+						break
+					}
+				}
+
+				if (isKeyword) {
+					addText(ident, 'keyword')
+					i += ident.length
+					matched = true
+					continue
+				}
+
+				// 判断是否是内置对象
+				let isBuiltin : boolean = false
+				for (let j = 0; j < config.builtins.length; j++) {
+					if (ident == config.builtins[j]) {
+						isBuiltin = true
+						break
+					}
+				}
+
+				if (isBuiltin) {
+					addText(ident, 'builtin')
+					i += ident.length
+					matched = true
+					continue
+				}
+
+				// 检查是否是函数调用（后面跟着左括号）
+				const afterIdent : string = code.substring(i + ident.length)
+				const funcMatch = afterIdent.match(/^\s*\(/)
+
+				if (funcMatch != null) {
+					addText(ident, 'function')
+				} else {
+					// 普通变量名
+					addText(ident, 'variable')
+				}
+
+				i += ident.length
+				matched = true
+				continue
+			}
+		}
+
+		// 5. 匹配操作符 (按长度排序，优先匹配长的)
+		if (!matched) {
+			// 构建操作符正则（需要转义特殊字符）
+			let longestOp : string = ''
+			let longestLen : number = 0
+
+			for (let j = 0; j < config.operators.length; j++) {
+				const op : string = config.operators[j]
+				if (remainingCode.indexOf(op) == 0 && op.length > longestLen) {
+					longestOp = op
+					longestLen = op.length
+				}
+			}
+
+			if (longestLen > 0) {
+				addText(longestOp, 'operator')
+				i += longestLen
+				matched = true
+				continue
+			}
+		}
+
+		// 6. 匹配标点符号 (使用正则)
+		if (!matched) {
+			const punctMatch = remainingCode.match(/^[(){}\[\];,.]/)
+			if (punctMatch != null && punctMatch.length > 0 && punctMatch[0] != null) {
+				const punct : string = punctMatch[0] ?? ""
+				addText(punct, 'punctuation')
+				i += punct.length
+				matched = true
+				continue
+			}
+		}
+
+		// 7. 其他字符（空格、换行等）
+		if (!matched) {
+			const char : string = code.charAt(i)
+			addText(char, 'default')
+			i++
+		}
+	}
+
+	return result
+}

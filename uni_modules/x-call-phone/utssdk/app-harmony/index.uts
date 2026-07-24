@@ -1,0 +1,7 @@
+import { call } from '@kit.TelephonyKit';
+import { BusinessError } from '@kit.BasicServicesKit';
+export function makePhone(tel : string) {
+	call.makeCall(tel, (err : BusinessError) => {
+		console.error(err.message)
+	})
+}

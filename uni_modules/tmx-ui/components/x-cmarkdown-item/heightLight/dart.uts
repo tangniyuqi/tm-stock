@@ -1,0 +1,42 @@
+import { HighlightConfig } from "../heightlight.uts"
+
+export function getDartConfig(): HighlightConfig {
+	const config = new HighlightConfig()
+	
+	// Dart 关键字
+	config.keywords = [
+		'abstract', 'as', 'assert', 'async', 'await', 'break', 'case', 'catch',
+		'class', 'const', 'continue', 'covariant', 'default', 'deferred', 'do',
+		'dynamic', 'else', 'enum', 'export', 'extends', 'extension', 'external',
+		'factory', 'false', 'final', 'finally', 'for', 'Function', 'get', 'hide',
+		'if', 'implements', 'import', 'in', 'interface', 'is', 'late', 'library',
+		'mixin', 'new', 'null', 'of', 'on', 'operator', 'part', 'required',
+		'rethrow', 'return', 'set', 'show', 'static', 'super', 'switch', 'sync',
+		'this', 'throw', 'true', 'try', 'typedef', 'var', 'void', 'while',
+		'with', 'yield'
+	]
+	
+	// Dart 内置类型和类
+	config.builtins = [
+		'int', 'double', 'num', 'bool', 'String', 'Object', 'dynamic', 'Never',
+		'List', 'Map', 'Set', 'Iterable', 'Iterator', 'Future', 'Stream',
+		'Duration', 'DateTime', 'Uri', 'RegExp', 'StringBuffer', 'Symbol',
+		'Type', 'Function', 'Null', 'Comparable', 'Pattern',
+		'print', 'identical', 'identityHashCode',
+		'int.parse', 'double.parse', 'num.parse',
+		'Future.delayed', 'Future.value', 'Stream.fromIterable',
+		'Widget', 'StatelessWidget', 'StatefulWidget', 'State', 'BuildContext'
+	]
+	
+	// Dart 操作符
+	config.operators = [
+		'+', '-', '*', '/', '~/', '%', '++', '--',
+		'==', '!=', '>', '<', '>=', '<=',
+		'=', '-=', '+=', '*=', '/=', '~/=', '%=',
+		'||', '&&', '!', '|', '^', '&', '~', '<<', '>>', '>>>',
+		'??', '??=', '?.', '..', '...', '...?', '=>', '?', ':'
+	]
+	
+	return config
+}
+

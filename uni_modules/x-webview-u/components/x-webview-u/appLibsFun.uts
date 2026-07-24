@@ -1,0 +1,1753 @@
+// #ifdef APP
+// @ts-ignore
+import { uniAppEvaJsTypeCallBackFun, xWebviewU } from '@/uni_modules/x-webview-u';
+// #endif
+// #ifdef WEB
+// @ts-ignore
+type uniAppEvaJsTypeCallBackFun = any
+type xWebviewU = any
+// #endif
+import { DownLoadTaskHasMap } from './donwLoadTaskIns.uts';
+const donwloadIns = DownLoadTaskHasMap.getInstance()
+//路由
+const _switchTab = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	let arg = (params ?? {}) as UTSJSONObject
+	let url:string|null = (arg['url'] as string|null)??''
+	if (url == null) { callback?.(null); return }
+	uni.switchTab({
+		url: url!,
+		success() {
+			callback?.({
+				callbackId: callbackId!,
+				success: true,
+				errorMessage: null,
+				data: null
+			} as UTSJSONObject)
+		},
+		fail(result) {
+			callback?.({
+				callbackId: callbackId!,
+				success: false,
+				errorMessage: result,
+				data: null
+			} as UTSJSONObject)
+		}
+	})
+}
+
+const _reLaunch = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	let arg = (params ?? {}) as UTSJSONObject
+	let url:string|null = (arg['url'] as string|null)??''
+	if (url == null) { callback?.(null); return }
+	uni.reLaunch({
+		url: url!,
+		success() {
+			callback?.({
+				callbackId: callbackId!,
+				success: true,
+				errorMessage: null,
+				data: null
+			} as UTSJSONObject)
+		},
+		fail(result) {
+			callback?.({
+				callbackId: callbackId!,
+				success: false,
+				errorMessage: result,
+				data: null
+			} as UTSJSONObject)
+		}
+	})
+}
+
+const _navigateTo = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	let arg = (params ?? {}) as UTSJSONObject
+	let url:string|null = (arg['url'] as string|null)??''
+	if (url == null) { callback?.(null); return }
+	uni.navigateTo({
+		url: url!,
+		success() {
+			callback?.({
+				callbackId: callbackId!,
+				success: true,
+				errorMessage: null,
+				data: null
+			} as UTSJSONObject)
+		},
+		fail(result) {
+			callback?.({
+				callbackId: callbackId!,
+				success: false,
+				errorMessage: result,
+				data: null
+			} as UTSJSONObject)
+		}
+	})
+}
+
+const _navigateBack = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	let arg = (params ?? {}) as UTSJSONObject
+	let delta:number|null = (arg['delta'] as number|null)??1
+	uni.navigateBack({
+		delta: delta??1,
+		success() {
+			callback?.({
+				callbackId: callbackId!,
+				success: true,
+				errorMessage: null,
+				data: null
+			} as UTSJSONObject)
+		},
+		fail(result) {
+			callback?.({
+				callbackId: callbackId!,
+				success: false,
+				errorMessage: result,
+				data: null
+			} as UTSJSONObject)
+		}
+	})
+
+}
+const _redirectTo = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	let arg = (params ?? {}) as UTSJSONObject
+	let url:string|null = (arg['url'] as string|null)??''
+	if (url == null) { callback?.(null); return }
+	uni.redirectTo({
+		url: url!,
+		success() {
+			callback?.({
+				callbackId: callbackId!,
+				success: true,
+				errorMessage: null,
+				data: null
+			} as UTSJSONObject)
+		},
+		fail(result) {
+			callback?.({
+				callbackId: callbackId!,
+				success: false,
+				errorMessage: result,
+				data: null
+			} as UTSJSONObject)
+		}
+	})
+}
+
+// 反馈
+const _showModal = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	let arg = (params ?? {}) as UTSJSONObject
+	arg = arg == null ? ({}) : arg
+	let optsRel = (arg == null ? ({}) : arg)
+	const opts = JSON.parse<ShowModalOptions>(JSON.stringify(optsRel)!)!
+	opts.success = (result : UniShowModalResult) => {
+		callback?.({
+			callbackId: callbackId!,
+			success: true,
+			errorMessage: null,
+			data: result
+		} as UTSJSONObject)
+	}
+	opts.fail = (result : UniShowModalFail) => {
+		callback?.({
+			callbackId: callbackId!,
+			success: false,
+			errorMessage: null,
+			data: result
+		} as UTSJSONObject)
+	}
+	uni.showModal(opts)
+}
+
+const _showToast = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null||callback==null) return
+	let arg:UTSJSONObject = (params ?? {}) as UTSJSONObject
+	
+	let title:string = (arg['title'] as string|null)??'标题'
+	let icon:string = (arg['icon'] as string|null)??'none'
+	let duration:number|null = (arg['duration'] as number|null)??1500
+	let mask:boolean|null = (arg['mask'] as boolean|null)??true
+	uni.showToast({
+		title,
+		icon:icon as Icon,
+		duration,
+		mask,
+		success() {
+			callback({
+				callbackId: callbackId!,
+				success: true,
+				errorMessage: null,
+				data: null
+			} as UTSJSONObject)
+	
+		},
+		fail(result) {
+			callback({
+				callbackId: callbackId!,
+				success: false,
+				errorMessage: result,
+				data: null
+			} as UTSJSONObject)
+		}
+	})
+}
+
+const _showLoading = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	let arg = (params ?? {}) as UTSJSONObject
+	let title:string = (arg['title'] as string|null)??'标题'
+	let mask:boolean|null = (arg['mask'] as boolean|null)??true
+	uni.showLoading({
+		title,
+		mask,
+		success() {
+			callback?.({
+				callbackId: callbackId!,
+				success: true,
+				errorMessage: null,
+				data: null
+			} as UTSJSONObject)
+		},
+		fail(result) {
+			callback?.({
+				callbackId: callbackId!,
+				success: false,
+				errorMessage: result,
+				data: null
+			} as UTSJSONObject)
+		}
+	})
+}
+const _hideLoading = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	uni.hideLoading()
+	callback?.({
+		callbackId: callbackId!,
+		success: true,
+		errorMessage: null,
+		data: null
+	} as UTSJSONObject)
+}
+
+//设备
+const _exit = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	// #ifdef WEB
+	window.close()
+	// #endif
+	// #ifndef WEB
+	uni.exit({
+		success() {
+			callback?.({
+				callbackId: callbackId!,
+				success: true,
+				errorMessage: null,
+				data: null
+			} as UTSJSONObject)
+		},
+		fail(result) {
+			callback?.({
+				callbackId: callbackId!,
+				success: false,
+				errorMessage: result,
+				data: null
+			} as UTSJSONObject)
+		}
+	})
+	// #endif
+
+}
+const _getAppBaseInfo = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	let arg = (params ?? {}) as UTSJSONObject
+	let filter:string[] = (arg['filter'] as string[]|null)??[]
+	const result = uni.getAppBaseInfo({
+		filter
+	})
+	callback?.({
+		callbackId: callbackId!,
+		success: true,
+		errorMessage: null,
+		data: result
+	} as UTSJSONObject)
+}
+const _getSystemInfo = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	uni.getSystemInfo({
+		success(data) {
+			callback?.({
+				callbackId: callbackId!,
+				success: true,
+				errorMessage: null,
+				data: data
+			} as UTSJSONObject)
+		},
+		fail(result) {
+			callback?.({
+				callbackId: callbackId!,
+				success: false,
+				errorMessage: result,
+				data: null
+			} as UTSJSONObject)
+		}
+	})
+
+}
+const _getDeviceInfo = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	const result = uni.getDeviceInfo()
+	callback?.({
+		callbackId: callbackId!,
+		success: true,
+		errorMessage: null,
+		data: result
+	} as UTSJSONObject)
+}
+
+const _getSystemInfoSync = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	const result = uni.getSystemInfoSync()
+	callback?.({
+		callbackId: callbackId!,
+		success: true,
+		errorMessage: null,
+		data: result
+	} as UTSJSONObject)
+}
+const _getWindowInfo = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	const result = uni.getWindowInfo()
+	callback?.({
+		callbackId: callbackId!,
+		success: true,
+		errorMessage: null,
+		data: result
+	} as UTSJSONObject)
+}
+const _getAppAuthorizeSetting = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	const result = uni.getAppAuthorizeSetting()
+	callback?.({
+		callbackId: callbackId!,
+		success: true,
+		errorMessage: null,
+		data: result
+	} as UTSJSONObject)
+}
+const _getSystemSetting = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	const result = uni.getSystemSetting()
+	callback?.({
+		callbackId: callbackId!,
+		success: true,
+		errorMessage: null,
+		data: result
+	} as UTSJSONObject)
+}
+const _openAppAuthorizeSetting = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	uni.openAppAuthorizeSetting({
+		success(data) {
+			callback?.({
+				callbackId: callbackId!,
+				success: true,
+				errorMessage: null,
+				data: data
+			} as UTSJSONObject)
+		},
+		fail(result) {
+			callback?.({
+				callbackId: callbackId!,
+				success: false,
+				errorMessage: result,
+				data: null
+			} as UTSJSONObject)
+		}
+	})
+}
+const _getClipboardData = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	uni.getClipboardData({
+		success(data) {
+			callback?.({
+				callbackId: callbackId!,
+				success: true,
+				errorMessage: null,
+				data: data
+			} as UTSJSONObject)
+		},
+		fail(result) {
+			callback?.({
+				callbackId: callbackId!,
+				success: false,
+				errorMessage: result,
+				data: null
+			} as UTSJSONObject)
+		}
+	})
+
+}
+const _setClipboardData = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	let arg = (params ?? {}) as UTSJSONObject
+	let data:string = (arg['data'] as string|null)??""
+	uni.setClipboardData({
+		data: data,
+		success(data) {
+			callback?.({
+				callbackId: callbackId!,
+				success: true,
+				errorMessage: null,
+				data: data
+			} as UTSJSONObject)
+		},
+		fail(result) {
+			callback?.({
+				callbackId: callbackId!,
+				success: false,
+				errorMessage: result,
+				data: null
+			} as UTSJSONObject)
+		}
+	})
+
+}
+const _installApk = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	let arg = (params ?? {}) as UTSJSONObject
+	let filePath:string = (arg['filePath'] as string|null)??""
+	if (filePath == null || filePath == '') {
+		callback?.({
+			callbackId: callbackId!,
+			success: false,
+			errorMessage: "filePath参数必填",
+			data: null
+		} as UTSJSONObject)
+	}
+	try {
+		uni.installApk({
+			filePath: filePath,
+			success(data) {
+				callback?.({
+					callbackId: callbackId!,
+					success: true,
+					errorMessage: null,
+					data: data
+				} as UTSJSONObject)
+			},
+			fail(result) {
+				callback?.({
+					callbackId: callbackId!,
+					success: false,
+					errorMessage: result,
+					data: null
+				} as UTSJSONObject)
+			}
+		})
+	} catch (error) {
+		callback?.({
+			callbackId: callbackId!,
+			success: false,
+			errorMessage: "当前运行的基座未包含api uni.installApk，请重新打包自定义基座再运行。‌",
+			data: null
+		} as UTSJSONObject)
+		console.error('当前运行的基座未包含api uni.installApk，请重新打包自定义基座再运行。')
+	}
+
+}
+const _makePhoneCall = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	let arg = (params ?? {}) as UTSJSONObject
+	let phoneNumber:string = (arg['phoneNumber'] as string|null)??""
+	if (phoneNumber == null || phoneNumber == '') {
+		callback?.({
+			callbackId: callbackId!,
+			success: false,
+			errorMessage: "phoneNumber参数必填",
+			data: null
+		} as UTSJSONObject)
+	}
+
+	try {
+		uni.makePhoneCall({
+			phoneNumber: phoneNumber,
+			success(data) {
+				callback?.({
+					callbackId: callbackId!,
+					success: true,
+					errorMessage: null,
+					data: data
+				} as UTSJSONObject)
+			},
+			fail(result) {
+				callback?.({
+					callbackId: callbackId!,
+					success: false,
+					errorMessage: result,
+					data: null
+				} as UTSJSONObject)
+			}
+		})
+	} catch (error) {
+		callback?.({
+			callbackId: callbackId!,
+			success: false,
+			errorMessage: "当前运行的基座未包含api uni.makePhoneCall，请重新打包自定义基座再运行。‌",
+			data: null
+		} as UTSJSONObject)
+		console.error('当前运行的基座未包含api uni.makePhoneCall，请重新打包自定义基座再运行。')
+	}
+
+}
+
+const _scanCode = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	let arg = (params ?? {}) as UTSJSONObject
+	let onlyFromCamera:boolean = (arg['onlyFromCamera'] as boolean|null)??false
+	let scanType:ScanCodeSupportedTypes[] = (arg['scanType'] as ScanCodeSupportedTypes[]|null)??([] as ScanCodeSupportedTypes[])
+	try {
+		uni.scanCode({
+			onlyFromCamera: onlyFromCamera,
+			scanType: scanType,
+			success(data) {
+				callback?.({
+					callbackId: callbackId!,
+					success: true,
+					errorMessage: null,
+					data: data
+				} as UTSJSONObject)
+			},
+			fail(result) {
+				callback?.({
+					callbackId: callbackId!,
+					success: false,
+					errorMessage: result,
+					data: null
+				} as UTSJSONObject)
+			}
+		})
+	} catch (error) {
+		callback?.({
+			callbackId: callbackId!,
+			success: false,
+			errorMessage: "当前运行的基座未包含api uni.scanCode，请重新打包自定义基座再运行。‌",
+			data: null
+		} as UTSJSONObject)
+		console.error('当前运行的基座未包含api uni.scanCode，请重新打包自定义基座再运行。')
+	}
+
+}
+const _hideKeyboard = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	try {
+		uni.hideKeyboard({
+			success(data) {
+				callback?.({
+					callbackId: callbackId!,
+					success: true,
+					errorMessage: null,
+					data: data
+				} as UTSJSONObject)
+			},
+			fail(result) {
+				callback?.({
+					callbackId: callbackId!,
+					success: false,
+					errorMessage: result,
+					data: null
+				} as UTSJSONObject)
+			}
+		})
+	} catch (error) {
+		callback?.({
+			callbackId: callbackId!,
+			success: false,
+			errorMessage: "当前运行的基座未包含api uni.hideKeyboard，请重新打包自定义基座再运行。‌",
+			data: null
+		} as UTSJSONObject)
+		console.error('当前运行的基座未包含api uni.hideKeyboard，请重新打包自定义基座再运行。')
+	}
+
+}
+const _onKeyboardHeightChange = (callbackId ?: string, params ?: UTSJSONObject, xWebview ?: xWebviewU | null, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	try {
+		const onKeyboardHeightChangeId = uni.onKeyboardHeightChange((result) => {
+			const backData = {
+				callbackId: callbackId!,
+				success: true,
+				errorMessage: null,
+				data: result,
+				type: 'onUpdate'
+			} as UTSJSONObject
+			xWebview!.evaJs(`__handleTmuiResponse('${JSON.stringify(backData)}')`)
+		})
+		callback?.({
+			callbackId: callbackId!,
+			success: true,
+			errorMessage: null,
+			type: 'active',
+			data: { id: onKeyboardHeightChangeId, callbackId: callbackId }
+		} as UTSJSONObject)
+	} catch (error) {
+		callback?.({
+			callbackId: callbackId!,
+			success: false,
+			errorMessage: "当前运行的基座未包含api uni.onKeyboardHeightChange，请重新打包自定义基座再运行。‌",
+			data: null
+		} as UTSJSONObject)
+		console.error('当前运行的基座未包含api uni.onKeyboardHeightChange，请重新打包自定义基座再运行。')
+	}
+
+}
+const _offKeyboardHeightChange = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	try {
+		let arg = (params ?? {}) as UTSJSONObject
+		const onKeyboardHeightChangeId:number|null = (arg['id'] as number|null)??null
+		uni.offKeyboardHeightChange(onKeyboardHeightChangeId)
+		callback?.({
+			callbackId: callbackId!,
+			success: true,
+			errorMessage: null,
+			data: null
+		} as UTSJSONObject)
+	} catch (error) {
+		callback?.({
+			callbackId: callbackId!,
+			success: false,
+			errorMessage: "当前运行的基座未包含api uni.offKeyboardHeightChange，请重新打包自定义基座再运行。‌",
+			data: null
+		} as UTSJSONObject)
+		console.error('当前运行的基座未包含api uni.offKeyboardHeightChange，请重新打包自定义基座再运行。')
+	}
+
+}
+const _setPageStyle = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	// https://doc.dcloud.net.cn/uni-app-x/api/unipage.html#setpagestyle
+	let pages = getCurrentPages()
+	let page = pages[pages.length - 1]
+	page.setPageStyle(params ?? ({} as UTSJSONObject))
+	callback?.({
+		callbackId: callbackId!,
+		success: true,
+		errorMessage: null,
+		data: null
+	} as UTSJSONObject)
+}
+const _getPageStyle = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	// https://doc.dcloud.net.cn/uni-app-x/api/unipage.html#setpagestyle
+	let pages = getCurrentPages()
+	let page = pages[pages.length - 1]
+
+	callback?.({
+		callbackId: callbackId!,
+		success: true,
+		errorMessage: null,
+		data: page.getPageStyle()
+	} as UTSJSONObject)
+}
+const _getPage = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	// https://doc.dcloud.net.cn/uni-app-x/api/unipage.html#setpagestyle
+	let pages = getCurrentPages()
+	let page = pages[pages.length - 1]
+
+	callback?.({
+		callbackId: callbackId!,
+		success: true,
+		errorMessage: null,
+		data: {
+			route: page.route,
+			options: page.options,
+			pageBody: {
+				left: page.pageBody.left,
+				right: page.pageBody.right,
+				top: page.pageBody.top,
+				bottom: page.pageBody.bottom,
+				width: page.pageBody.width,
+				height: page.pageBody.height,
+			},
+			safeAreaInsets: page.safeAreaInsets,
+			width: page.width,
+			height: page.height,
+			statusBarHeight: page.statusBarHeight,
+		} as UTSJSONObject
+	} as UTSJSONObject)
+}
+
+
+//媒体
+const _chooseImage = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	let arg = (params ?? {}) as UTSJSONObject
+	arg = arg == null ? ({}) : arg
+	let optsRel = (arg == null ? ({}) : arg)
+	const opts = JSON.parse<ChooseImageOptions>(JSON.stringify(optsRel)!)!
+	opts.success = function (result : ChooseImageSuccess) {
+		callback?.({
+			callbackId: callbackId!,
+			success: true,
+			errorMessage: null,
+			data: result
+		} as UTSJSONObject)
+	}
+	opts.fail = function (result : ChooseImageFail) {
+		callback?.({
+			callbackId: callbackId!,
+			success: false,
+			errorMessage: result,
+			data: null
+		} as UTSJSONObject)
+	}
+	uni.chooseImage(opts)
+}
+const _previewImage = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	let arg = (params ?? {}) as UTSJSONObject
+	arg = arg == null ? ({}) : arg
+	let optsRel = (arg == null ? ({}) : arg)
+	const opts = JSON.parse<PreviewImageOptions>(JSON.stringify(optsRel)!)!
+	opts.success = function (result : PreviewImageSuccess) {
+		callback?.({
+			callbackId: callbackId!,
+			success: true,
+			errorMessage: null,
+			data: result
+		} as UTSJSONObject)
+	}
+	opts.fail = function (result : PreviewImageFail) {
+		callback?.({
+			callbackId: callbackId!,
+			success: false,
+			errorMessage: result,
+			data: null
+		} as UTSJSONObject)
+	}
+	uni.previewImage(opts)
+}
+const _saveImageToPhotosAlbum = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	let arg = (params ?? {}) as UTSJSONObject
+	arg = arg == null ? ({}) : arg
+	let optsRel = (arg == null ? ({}) : arg)
+	const opts = JSON.parse<SaveImageToPhotosAlbumOptions>(JSON.stringify(optsRel)!)!
+	opts.success = function (result : SaveImageToPhotosAlbumSuccess) {
+		callback?.({
+			callbackId: callbackId!,
+			success: true,
+			errorMessage: null,
+			data: result
+		} as UTSJSONObject)
+	}
+	opts.fail = function (result : SaveImageToPhotosAlbumFail) {
+		callback?.({
+			callbackId: callbackId!,
+			success: false,
+			errorMessage: result,
+			data: null
+		} as UTSJSONObject)
+	}
+	uni.saveImageToPhotosAlbum(opts)
+}
+const _getImageInfo = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	let arg = (params ?? {}) as UTSJSONObject
+	arg = arg == null ? ({}) : arg
+	let optsRel = (arg == null ? ({}) : arg)
+	const opts = JSON.parse<GetImageInfoOptions>(JSON.stringify(optsRel)!)!
+	opts.success = function (result : GetImageInfoSuccess) {
+		callback?.({
+			callbackId: callbackId!,
+			success: true,
+			errorMessage: null,
+			data: result
+		} as UTSJSONObject)
+	}
+	opts.fail = function (result : GetImageInfoFail) {
+		callback?.({
+			callbackId: callbackId!,
+			success: false,
+			errorMessage: result,
+			data: null
+		} as UTSJSONObject)
+	}
+	uni.getImageInfo(opts)
+}
+const _compressImage = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	let arg = (params ?? {}) as UTSJSONObject
+	arg = arg == null ? ({}) : arg
+	let optsRel = (arg == null ? ({}) : arg)
+	const opts = JSON.parse<CompressImageOptions>(JSON.stringify(optsRel)!)!
+	opts.success = function (result : CompressImageSuccess) {
+		callback?.({
+			callbackId: callbackId!,
+			success: true,
+			errorMessage: null,
+			data: result
+		} as UTSJSONObject)
+	}
+	opts.fail = function (result : CompressImageFail) {
+		callback?.({
+			callbackId: callbackId!,
+			success: false,
+			errorMessage: result,
+			data: null
+		} as UTSJSONObject)
+	}
+	uni.compressImage(opts)
+}
+const _chooseVideo = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	let arg = (params ?? {}) as UTSJSONObject
+	arg = arg == null ? ({}) : arg
+	let optsRel = (arg == null ? ({}) : arg)
+	const opts = JSON.parse<ChooseVideoOptions>(JSON.stringify(optsRel)!)!
+	opts.success = function (result : ChooseVideoSuccess) {
+		callback?.({
+			callbackId: callbackId!,
+			success: true,
+			errorMessage: null,
+			data: result
+		} as UTSJSONObject)
+	}
+	opts.fail = function (result : ChooseVideoFail) {
+		callback?.({
+			callbackId: callbackId!,
+			success: false,
+			errorMessage: result,
+			data: null
+		} as UTSJSONObject)
+	}
+	uni.chooseVideo(opts)
+}
+const _saveVideoToPhotosAlbum = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	let arg = (params ?? {}) as UTSJSONObject
+	arg = arg == null ? ({}) : arg
+	let optsRel = (arg == null ? ({}) : arg)
+	const opts = JSON.parse<SaveVideoToPhotosAlbumOptions>(JSON.stringify(optsRel)!)!
+	opts.success = function (result : SaveVideoToPhotosAlbumSuccess) {
+		callback?.({
+			callbackId: callbackId!,
+			success: true,
+			errorMessage: null,
+			data: result
+		} as UTSJSONObject)
+	}
+	opts.fail = function (result : SaveVideoToPhotosAlbumFail) {
+
+		callback?.({
+			callbackId: callbackId!,
+			success: false,
+			errorMessage: result,
+			data: null
+		} as UTSJSONObject)
+	}
+	uni.saveVideoToPhotosAlbum(opts)
+}
+const _getVideoInfo = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	let arg = (params ?? {}) as UTSJSONObject
+	arg = arg == null ? ({}) : arg
+	let optsRel = (arg == null ? ({}) : arg)
+	const opts = JSON.parse<GetVideoInfoOptions>(JSON.stringify(optsRel)!)!
+	opts.success = function (result : GetVideoInfoSuccess) {
+		callback?.({
+			callbackId: callbackId!,
+			success: true,
+			errorMessage: null,
+			data: result
+		} as UTSJSONObject)
+	}
+	opts.fail = function (result : GetVideoInfoFail) {
+		callback?.({
+			callbackId: callbackId!,
+			success: false,
+			errorMessage: result,
+			data: null
+		} as UTSJSONObject)
+	}
+	uni.getVideoInfo(opts)
+}
+const _compressVideo = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	let arg = (params ?? {}) as UTSJSONObject
+	arg = arg == null ? ({}) : arg
+	let optsRel = (arg == null ? ({}) : arg)
+	const opts = JSON.parse<CompressVideoOptions>(JSON.stringify(optsRel)!)!
+	opts.success = function (result : CompressVideoSuccess) {
+		callback?.({
+			callbackId: callbackId!,
+			success: true,
+			errorMessage: null,
+			data: result
+		} as UTSJSONObject)
+	}
+	opts.fail = function (result : CompressVideoFail) {
+		callback?.({
+			callbackId: callbackId!,
+			success: false,
+			errorMessage: result,
+			data: null
+		} as UTSJSONObject)
+	}
+	uni.compressVideo(opts)
+}
+const _chooseMedia = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	let arg = (params ?? {}) as UTSJSONObject
+	arg = arg == null ? ({}) : arg
+	let optsRel = (arg == null ? ({}) : arg)
+	const opts = JSON.parse<ChooseMediaOptions>(JSON.stringify(optsRel)!)!
+	opts.success = function (result : ChooseMediaSuccess) {
+		callback?.({
+			callbackId: callbackId!,
+			success: true,
+			errorMessage: null,
+			data: result
+		} as UTSJSONObject)
+	}
+	opts.fail = function (result : ChooseMediaFail) {
+		callback?.({
+			callbackId: callbackId!,
+			success: false,
+			errorMessage: result,
+			data: null
+		} as UTSJSONObject)
+	}
+	uni.chooseMedia(opts)
+}
+const _chooseFile = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	let arg = (params ?? {}) as UTSJSONObject
+	arg = arg == null ? ({}) : arg
+	let optsRel = (arg == null ? ({}) : arg)
+	const opts = JSON.parse<ChooseFileOptions>(JSON.stringify(optsRel)!)!
+	opts.success = function (result : ChooseFileSuccess) {
+		callback?.({
+			callbackId: callbackId!,
+			success: true,
+			errorMessage: null,
+			data: result
+		} as UTSJSONObject)
+	}
+	opts.fail = function (result : ChooseFileFail) {
+		callback?.({
+			callbackId: callbackId!,
+			success: false,
+			errorMessage: result,
+			data: null
+		} as UTSJSONObject)
+	}
+	uni.chooseFile(opts)
+}
+const _openDocument = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	let arg = (params ?? {}) as UTSJSONObject
+	arg = arg == null ? ({}) : arg
+	let optsRel = (arg == null ? ({}) : arg)
+	const opts = JSON.parse<OpenDocumentOptions>(JSON.stringify(optsRel)!)!
+	opts.success = function (result : OpenDocumentSuccess) {
+		callback?.({
+			callbackId: callbackId!,
+			success: true,
+			errorMessage: null,
+			data: result
+		} as UTSJSONObject)
+	}
+	opts.fail = function (result : OpenDocumentFail) {
+		callback?.({
+			callbackId: callbackId!,
+			success: false,
+			errorMessage: result,
+			data: null
+		} as UTSJSONObject)
+	}
+	uni.openDocument(opts)
+}
+
+// 存储
+const _setStorage = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	let arg = (params ?? {}) as UTSJSONObject
+	const key:string = (arg['key'] as string|null)??''
+	const data:string = (arg['data'] as string|null)??''
+	uni.setStorage({
+		key,
+		data,
+		success() {
+			callback?.({
+				callbackId: callbackId!,
+				success: true,
+				errorMessage: null,
+				data: null
+			} as UTSJSONObject)
+		},
+		fail(result) {
+			callback?.({
+				callbackId: callbackId!,
+				success: false,
+				errorMessage: result,
+				data: null
+			} as UTSJSONObject)
+		}
+	})
+}
+const _setStorageSync = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	let arg = (params ?? {}) as UTSJSONObject
+	const key:string = (arg['key'] as string|null)??''
+	const data:string = (arg['value'] as string|null)??''
+	uni.setStorageSync(key, data)
+	callback?.({
+		callbackId: callbackId!,
+		success: true,
+		errorMessage: null,
+		data: null
+	} as UTSJSONObject)
+}
+const _getStorage = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	let arg = (params ?? {}) as UTSJSONObject
+	const key:string = (arg['key'] as string|null)??''
+	uni.getStorage({
+		key,
+		success(result) {
+			callback?.({
+				callbackId: callbackId!,
+				success: true,
+				errorMessage: null,
+				data: result
+			} as UTSJSONObject)
+		},
+		fail(result) {
+			callback?.({
+				callbackId: callbackId!,
+				success: false,
+				errorMessage: result,
+				data: null
+			} as UTSJSONObject)
+		}
+	})
+}
+const _getStorageSync = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	let arg = (params ?? {}) as UTSJSONObject
+	const key:string = (arg['key'] as string|null)??''
+	const result = uni.getStorageSync(key)
+	callback?.({
+		callbackId: callbackId!,
+		success: true,
+		errorMessage: null,
+		data: result
+	} as UTSJSONObject)
+}
+
+const _removeStorage = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	let arg = (params ?? {}) as UTSJSONObject
+	const key:string = (arg['key'] as string|null)??''
+	uni.removeStorage({
+		key,
+		success() {
+			callback?.({
+				callbackId: callbackId!,
+				success: true,
+				errorMessage: null,
+				data: null
+			} as UTSJSONObject)
+		},
+		fail(result) {
+			callback?.({
+				callbackId: callbackId!,
+				success: false,
+				errorMessage: result,
+				data: null
+			} as UTSJSONObject)
+		}
+	})
+}
+const _removeStorageSync = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	let arg = (params ?? {}) as UTSJSONObject
+	const key:string = (arg['key'] as string|null)??''
+	uni.removeStorageSync(key)
+	callback?.({
+		callbackId: callbackId!,
+		success: true,
+		errorMessage: null,
+		data: null
+	} as UTSJSONObject)
+}
+
+//网络
+const _getNetworkType = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	uni.getNetworkType({
+		success(data) {
+			callback?.({
+				callbackId: callbackId!,
+				success: true,
+				errorMessage: null,
+				data: data
+			} as UTSJSONObject)
+		},
+		fail(result) {
+			callback?.({
+				callbackId: callbackId!,
+				success: false,
+				errorMessage: result,
+				data: null
+			} as UTSJSONObject)
+		}
+	})
+
+}
+
+const _downloadFile = (callbackId ?: string, params ?: UTSJSONObject, xWebview ?: xWebviewU | null, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) {
+		callback?.(null);
+		return;
+	}
+	let arg = (params ?? {}) as UTSJSONObject
+	const url:string = (arg['url'] as string|null)??''
+	if (url == null || url == '') {
+		callback?.({
+			callbackId: callbackId!,
+			success: false,
+			errorMessage: "url参数必填",
+			data: null
+		} as UTSJSONObject)
+		return;
+	}
+
+	donwloadIns.create(callbackId, params, (result) => {
+		const backData = {
+			callbackId: callbackId!,
+			success: true,
+			errorMessage: null,
+			data: result
+		} as UTSJSONObject
+		callback?.(backData)
+
+	}, (error) => {
+		const backData = {
+			callbackId: callbackId!,
+			success: false,
+			errorMessage: "下载错误" + error.errCode,
+			data: null
+		} as UTSJSONObject
+
+		callback?.(backData)
+	}, (result) => {
+		const backData = {
+			callbackId: callbackId!,
+			type: 'onUpdate',
+			success: true,
+			data: result,
+			errorMessage: null,
+		} as UTSJSONObject
+		xWebview!.evaJs(`__handleTmuiResponse('${JSON.stringify(backData)}')`)
+	})
+
+
+
+}
+
+const _uploadFile = (callbackId ?: string, params ?: UTSJSONObject, xWebview ?: xWebviewU | null, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	let arg = (params ?? {}) as UTSJSONObject
+	const url:string = (arg['url'] as string|null)??''
+	const filePath:string|null = (arg['filePath'] as string|null)??null
+	const name:string|null = (arg['name'] as string|null)??null
+	const header:UTSJSONObject|null = (arg['header'] as UTSJSONObject|null)??null
+	const formData:UTSJSONObject|null = (arg['formData'] as UTSJSONObject|null)??null
+	const timeout:number = (arg['timeout'] as number|null)??120000
+	const filesTemp:UTSJSONObject[] = (arg['filesTemp'] as UTSJSONObject[]|null)??[]
+	const file:string = (arg['file'] as string|null)??'file'
+	const uri:string = (arg['uri'] as string|null)??''
+	let files = filesTemp.map((el : UTSJSONObject) : UploadFileOptionFiles => {
+		let a = {
+			name: file,
+			uri: uri
+		} as UploadFileOptionFiles
+		return a;
+	})
+	files = files.filter((el : UploadFileOptionFiles) : boolean => el.uri != '')
+
+	if (filePath == null || url == '' || filePath == '') {
+		callback?.({
+			callbackId: callbackId!,
+			success: false,
+			errorMessage: "url或者filePath参数必填",
+			data: null
+		} as UTSJSONObject)
+		return;
+	}
+	const task = uni.uploadFile({
+		url,
+		filePath,
+		name,
+		header,
+		formData,
+		timeout,
+		files,
+		success(opts) {
+			try {
+				let result = typeof opts.data == 'string' && opts.data != '' ? JSON.parseObject(opts.data) : opts.data
+				const backData = {
+					callbackId: callbackId!,
+					success: true,
+					errorMessage: null,
+					data: { statusCode: opts.statusCode, data: result } as UTSJSONObject
+				} as UTSJSONObject
+				callback?.(backData)
+			} catch (error) {
+				const backData = {
+					callbackId: callbackId!,
+					success: true,
+					errorMessage: null,
+					data: { statusCode: opts.statusCode, data: opts.data } as UTSJSONObject
+				} as UTSJSONObject
+				callback?.(backData)
+			}
+		},
+		fail(error) {
+			const backData = {
+				callbackId: callbackId!,
+				success: false,
+				errorMessage: "上传错误：" + error.errCode,
+				data: null
+			} as UTSJSONObject
+			callback?.(backData)
+		}
+	})
+	task.onProgressUpdate(result => {
+		const backData = {
+			callbackId: callbackId!,
+			success: true,
+			errorMessage: null,
+			data: result,
+			type: 'onUpdate'
+		} as UTSJSONObject
+		xWebview!.evaJs(`__handleTmuiResponse('${JSON.stringify(backData)}')`)
+	})
+}
+
+//位置
+const _getLocation = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	let arg = (params ?? {}) as UTSJSONObject
+	arg = arg == null ? ({}) : arg
+	let optsRel = (arg == null ? ({}) : arg)
+	const opts = JSON.parse<GetLocationOptions>(JSON.stringify(optsRel)!)!
+	opts.success = function (result : GetLocationSuccess) {
+		callback?.({
+			callbackId: callbackId!,
+			success: true,
+			errorMessage: null,
+			data: result
+		} as UTSJSONObject)
+	}
+	opts.fail = function (result : GetLocationFail) {
+		callback?.({
+			callbackId: callbackId!,
+			success: false,
+			errorMessage: result,
+			data: null
+		} as UTSJSONObject)
+	}
+	uni.getLocation(opts)
+}
+const _onLocationChange = (callbackId ?: string, params ?: UTSJSONObject, xWebview ?: xWebviewU | null, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	const activeId = uni.onLocationChange((result) => {
+		const backData = {
+			callbackId: callbackId!,
+			success: true,
+			errorMessage: null,
+			data: result,
+			type: 'onUpdate'
+		} as UTSJSONObject
+		xWebview!.evaJs(`__handleTmuiResponse('${JSON.stringify(backData)}')`)
+	})
+	callback?.({
+		callbackId: callbackId!,
+		success: true,
+		errorMessage: null,
+		type: 'active',
+		data: { id: activeId, callbackId: callbackId }
+	} as UTSJSONObject)
+}
+
+const _offLocationChange = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	let arg = (params ?? {}) as UTSJSONObject
+	const id:number|null = (arg['id'] as number|null)??null
+	try {
+		if (typeof id == 'number') {
+			uni.offLocationChange(id)
+		}
+		callback?.({
+			callbackId: callbackId!,
+			success: true,
+			errorMessage: null,
+			data: null
+		} as UTSJSONObject)
+	} catch (error) {
+		callback?.({
+			callbackId: callbackId!,
+			success: false,
+			errorMessage: "当前运行的基座未包含api uni.offLocationChange，请重新打包自定义基座再运行。‌",
+			data: null
+		} as UTSJSONObject)
+		console.error('当前运行的基座未包含api uni.offLocationChange，请重新打包自定义基座再运行。')
+	}
+
+}
+
+const _onLocationChangeError = (callbackId ?: string, params ?: UTSJSONObject, xWebview ?: xWebviewU | null, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	const activeId = uni.onLocationChangeError((result) => {
+		const backData = {
+			callbackId: callbackId!,
+			success: true,
+			errorMessage: null,
+			data: result,
+			type: 'onUpdate'
+		} as UTSJSONObject
+		xWebview!.evaJs(`__handleTmuiResponse('${JSON.stringify(backData)}')`)
+	})
+	callback?.({
+		callbackId: callbackId!,
+		success: true,
+		errorMessage: null,
+		type: 'active',
+		data: { id: activeId, callbackId: callbackId }
+	} as UTSJSONObject)
+}
+
+const _offLocationChangeError = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	let arg = (params ?? {}) as UTSJSONObject
+	const id:number|null = (arg['id'] as number|null)??null
+	try {
+		if (typeof id == 'number') {
+			uni.offLocationChangeError(id)
+		}
+		callback?.({
+			callbackId: callbackId!,
+			success: true,
+			errorMessage: null,
+			data: null
+		} as UTSJSONObject)
+	} catch (error) {
+		callback?.({
+			callbackId: callbackId!,
+			success: false,
+			errorMessage: "当前运行的基座未包含api uni.offLocationChangeError，请重新打包自定义基座再运行。‌",
+			data: null
+		} as UTSJSONObject)
+		console.error('当前运行的基座未包含api uni.offLocationChangeError，请重新打包自定义基座再运行。')
+	}
+
+}
+const _startLocationUpdate = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	let arg = (params ?? {}) as UTSJSONObject
+	arg = arg == null ? ({}) : arg
+	let optsRel = (arg == null ? ({}) : arg)
+	const opts = JSON.parse<StartLocationUpdateOptions>(JSON.stringify(optsRel)!)!
+	opts.success = function (result : StartLocationUpdateSuccess) {
+		callback?.({
+			callbackId: callbackId!,
+			success: true,
+			errorMessage: null,
+			data: result
+		} as UTSJSONObject)
+	}
+	opts.fail = function (result : IGetLocationFail) {
+		callback?.({
+			callbackId: callbackId!,
+			success: false,
+			errorMessage: result,
+			data: null
+		} as UTSJSONObject)
+	}
+	uni.startLocationUpdate(opts)
+}
+
+const _stopLocationUpdate = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	const opts = {} as StopLocationUpdateOptions
+	opts.success = function (result : StopLocationUpdateSuccess) {
+		callback?.({
+			callbackId: callbackId!,
+			success: true,
+			errorMessage: null,
+			data: result
+		} as UTSJSONObject)
+	}
+	opts.fail = function (result : IGetLocationFail) {
+		callback?.({
+			callbackId: callbackId!,
+			success: false,
+			errorMessage: result,
+			data: null
+		} as UTSJSONObject)
+	}
+	uni.stopLocationUpdate(opts)
+}
+const _startLocationUpdateBackground = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	let arg = (params ?? {}) as UTSJSONObject
+	arg = arg == null ? ({}) : arg
+	let optsRel = (arg == null ? ({}) : arg)
+	const opts = JSON.parse<StartLocationUpdateBackgroundOptions>(JSON.stringify(optsRel)!)!
+	opts.success = function (result : StartLocationUpdateSuccess) {
+		callback?.({
+			callbackId: callbackId!,
+			success: true,
+			errorMessage: null,
+			data: result
+		} as UTSJSONObject)
+	}
+	opts.fail = function (result : IGetLocationFail) {
+		callback?.({
+			callbackId: callbackId!,
+			success: false,
+			errorMessage: result,
+			data: null
+		} as UTSJSONObject)
+	}
+	uni.startLocationUpdateBackground(opts)
+}
+
+//支付
+const _requestPayment = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	let arg = (params ?? {}) as UTSJSONObject
+	arg = arg == null ? ({}) : arg
+	let optsRel = (arg == null ? ({}) : arg)
+	const opts = JSON.parse<RequestPaymentOptions>(JSON.stringify(optsRel)!)!
+	opts.success = function (result : RequestPaymentSuccess) {
+		callback?.({
+			callbackId: callbackId!,
+			success: true,
+			errorMessage: null,
+			data: result
+		} as UTSJSONObject)
+	}
+	opts.fail = function (result : RequestPaymentFail) {
+		callback?.({
+			callbackId: callbackId!,
+			success: false,
+			errorMessage: result,
+			data: null
+		} as UTSJSONObject)
+	}
+	uni.requestPayment(opts)
+}
+
+//分享
+const _shareWithSystem = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	let arg = (params ?? {}) as UTSJSONObject
+	arg = arg == null ? ({}) : arg
+	let optsRel = (arg == null ? ({}) : arg)
+	const opts = JSON.parse<ShareWithSystemOptions>(JSON.stringify(optsRel)!)!
+	opts.success = function (result : ShareWithSystemSuccess) {
+		callback?.({
+			callbackId: callbackId!,
+			success: true,
+			errorMessage: null,
+			data: result
+		} as UTSJSONObject)
+	}
+	opts.fail = function (result : ShareWithSystemFail) {
+		callback?.({
+			callbackId: callbackId!,
+			success: false,
+			errorMessage: result,
+			data: null
+		} as UTSJSONObject)
+	}
+	uni.shareWithSystem(opts)
+}
+
+//事件总线。
+const _emit = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	let arg = (params ?? {}) as UTSJSONObject
+	const eventName:string = (arg['eventName'] as string|null)??''
+	const args:UTSJSONObject = (arg['data'] as UTSJSONObject|null)??{}
+	
+	if (eventName == '' || eventName == null) {callback?.(null) return;}
+	uni.$emit(eventName, args)
+	callback?.({
+		callbackId: callbackId!,
+		success: true,
+		errorMessage: null,
+		data: null
+	} as UTSJSONObject)
+}
+const _on = (callbackId ?: string, params ?: UTSJSONObject, xWebview ?: xWebviewU | null, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) {
+		 callback?.(null) 
+		 return;
+	}
+	let arg = (params ?? {}) as UTSJSONObject
+	const eventName:string = (arg['eventName'] as string|null)??''
+	if (eventName == '' || eventName == null) {
+		callback?.(null) 
+		return;
+	}
+	const activeId = uni.$on(eventName, (args ?: UTSJSONObject) => {
+		const backData = {
+			callbackId: callbackId!,
+			success: true,
+			errorMessage: null,
+			data: args ?? null,
+			type: 'onUpdate'
+		} as UTSJSONObject
+		xWebview!.evaJs(`__handleTmuiResponse('${JSON.stringify(backData)}')`)
+	})
+	callback?.({
+		callbackId: callbackId!,
+		success: true,
+		errorMessage: null,
+		type: 'active',
+		data: { id: activeId, callbackId: callbackId, eventName }
+	} as UTSJSONObject)
+}
+const _off = (callbackId ?: string, params ?: UTSJSONObject, callback ?: uniAppEvaJsTypeCallBackFun) : void => {
+	if (callbackId == null) { callback?.(null); return }
+	let arg = (params ?? {}) as UTSJSONObject
+	const eventName:string = (arg['eventName'] as string|null)??''
+	const id:number|null = (arg['id'] as number|null)??null
+	if (eventName == '' || eventName == null || typeof id != 'number') {
+		callback?.(null);
+		return;
+	}
+	uni.$off(eventName, id)
+	callback?.({
+		callbackId: callbackId!,
+		success: true,
+		errorMessage: null,
+		data: null
+	} as UTSJSONObject)
+}
+
+export function callMehodAppFun(methodName : string, callbackId ?: string, params ?: UTSJSONObject, xWebview ?: xWebviewU | null, callback ?: uniAppEvaJsTypeCallBackFun) {
+
+	// 根据方法名分发处理 
+	switch (methodName) {
+		case "$off":
+			_off(callbackId, params, callback)
+			break
+		case "$on":
+			_on(callbackId, params, xWebview, callback)
+			break
+		case "$emit":
+			_emit(callbackId, params, callback)
+			break
+		case "getClipboardData":
+			_getClipboardData(callbackId, params, callback)
+			break
+		case "setClipboardData":
+			_setClipboardData(callbackId, params, callback)
+			break
+		case "shareWithSystem":
+			_shareWithSystem(callbackId, params, callback)
+			break
+		case "requestPayment":
+			_requestPayment(callbackId, params, callback)
+			break
+		case "startLocationUpdateBackground":
+			_startLocationUpdateBackground(callbackId, params, callback)
+			break
+		case "startLocationUpdate":
+			_startLocationUpdate(callbackId, params, callback)
+			break
+		case "stopLocationUpdate":
+			_stopLocationUpdate(callbackId, params, callback)
+			break
+		case "offLocationChangeError":
+			_offLocationChangeError(callbackId, params, callback)
+			break
+		case "onLocationChangeError":
+			_onLocationChangeError(callbackId, params, xWebview, callback)
+			break
+		case "offLocationChange":
+			_offLocationChange(callbackId, params, callback)
+			break
+		case "onLocationChange":
+			_onLocationChange(callbackId, params, xWebview, callback)
+			break
+		case "getLocation":
+			_getLocation(callbackId, params, callback)
+			break
+		case "saveImageToPhotosAlbum":
+			_saveImageToPhotosAlbum(callbackId, params, callback)
+			break
+		case "getImageInfo":
+			_getImageInfo(callbackId, params, callback)
+			break
+		case "compressImage":
+			_compressImage(callbackId, params, callback)
+			break
+		case "chooseVideo":
+			_chooseVideo(callbackId, params, callback)
+			break
+		case "saveVideoToPhotosAlbum":
+			_saveVideoToPhotosAlbum(callbackId, params, callback)
+			break
+		case "getVideoInfo":
+			_getVideoInfo(callbackId, params, callback)
+			break
+		case "compressVideo":
+			_compressVideo(callbackId, params, callback)
+			break
+		case "chooseMedia":
+			_chooseMedia(callbackId, params, callback)
+			break
+		case "chooseFile":
+			_chooseFile(callbackId, params, callback)
+			break
+		case "openDocument":
+			_openDocument(callbackId, params, callback)
+			break
+		case "hideKeyboard":
+			_hideKeyboard(callbackId, params, callback)
+			break
+		case "onKeyboardHeightChange":
+			_onKeyboardHeightChange(callbackId, params, xWebview, callback)
+			break
+		case "offKeyboardHeightChange":
+			_offKeyboardHeightChange(callbackId, params, callback)
+			break
+		case "scanCode":
+			_scanCode(callbackId, params, callback)
+			break
+		case "makePhoneCall":
+			_makePhoneCall(callbackId, params, callback)
+			break
+		case "installApk":
+			_installApk(callbackId, params, callback)
+			break
+		case "uploadFile":
+			_uploadFile(callbackId, params, xWebview, callback)
+			break
+		case "downloadFile":
+			_downloadFile(callbackId, params, xWebview, callback)
+			break
+		case "getNetworkType":
+			_getNetworkType(callbackId, params, callback)
+			break
+		case "openAppAuthorizeSetting":
+			_openAppAuthorizeSetting(callbackId, params, callback)
+			break
+		case "getSystemSetting":
+			_getSystemSetting(callbackId, params, callback)
+			break
+		case "getAppAuthorizeSetting":
+			_getAppAuthorizeSetting(callbackId, params, callback)
+			break
+		case "getWindowInfo":
+			_getWindowInfo(callbackId, params, callback)
+			break
+		case "getSystemInfo":
+			_getSystemInfo(callbackId, params, callback)
+			break
+		case "getDeviceInfo":
+			_getDeviceInfo(callbackId, params, callback)
+			break
+		case "getSystemInfoSync":
+			_getSystemInfoSync(callbackId, params, callback)
+			break
+		case "getAppBaseInfo":
+			_getAppBaseInfo(callbackId, params, callback)
+			break
+		case "setStorage":
+			_setStorage(callbackId, params, callback)
+			break
+		case "setStorageSync":
+			_setStorageSync(callbackId, params, callback)
+			break
+		case "getStorage":
+			_getStorage(callbackId, params, callback)
+			break
+		case "getStorageSync":
+			_getStorageSync(callbackId, params, callback)
+			break
+		case "removeStorage":
+			_removeStorage(callbackId, params, callback)
+			break
+		case "removeStorageSync":
+			_removeStorageSync(callbackId, params, callback)
+			break
+
+		case "previewImage":
+			_previewImage(callbackId, params, callback)
+			break
+		case "chooseImage":
+			_chooseImage(callbackId, params, callback)
+			break
+
+		// 页面和路由
+		case "getPage":
+			_getPage(callbackId, params, callback)
+			break
+		case "getPageStyle":
+			_getPageStyle(callbackId, params, callback)
+			break
+		case "setPageStyle":
+			_setPageStyle(callbackId, params, callback)
+			break
+
+		case "exit":
+			_exit(callbackId, params, callback)
+			break
+		case "showModal":
+			_showModal(callbackId, params, callback)
+			break
+		case "hideLoading":
+			_hideLoading(callbackId, params, callback)
+			break
+		case "showLoading":
+			_showLoading(callbackId, params, callback)
+			break
+		case "showToast":
+			_showToast(callbackId, params, callback)
+			break
+		case "switchTab":
+			_switchTab(callbackId, params, callback)
+			break
+		case "reLaunch":
+			_reLaunch(callbackId, params, callback)
+			break
+		case "navigateTo":
+			_navigateTo(callbackId, params, callback)
+			break
+		case "navigateBack":
+			_navigateBack(callbackId, params, callback)
+			break
+		case "redirectTo":
+			_redirectTo(callbackId, params, callback)
+			break
+
+		default:
+			callback?.(null); return
+	}
+
+}

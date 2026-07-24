@@ -1,0 +1,1061 @@
+<template>
+
+	<template v-for="(token, index) in markdown" :key="index" class="md-item">
+		<!-- 标题 -->
+		<view v-if="(token?.type??'') == 'heading'" class="heading">
+			<x-cmarkdown-item v-if="(token?.tokens?.length??0) > 0"
+			:codeTheme="props.codeTheme"
+			:codeThemeMode="props.codeThemeMode"
+			:previewImage="props.previewImage"
+			:showCodeToolbar="props.showCodeToolbar"
+			:showTableRipple="props.showTableRipple"
+			:linkAndCopyColor="props.linkAndCopyColor"
+			:fontSize="props.fontSize"
+			@link="linkClick"
+			@image="imgClick"
+				:_class="props._class+' '+('heading-' + (token?.depth??0))"
+				:value="(token!.tokens!)"></x-cmarkdown-item>
+			<text :selectable="true" :decode="true" :user-select="true" v-else :class="props._class.replace(/paragraph/g,'')"
+			:style="[{'font-size':props.fontSize}]"
+			>{{ token?.text ?? (token?.raw??'') }}</text>
+		</view>
+
+		<!-- 段落 -->
+		<view v-else-if="(token?.type??'') == 'paragraph'" class="paragraph">
+			<x-cmarkdown-item v-if="(token?.tokens?.length??0) > 0" 
+			:codeTheme="props.codeTheme"
+			:codeThemeMode="props.codeThemeMode"
+			:previewImage="props.previewImage"
+			:showCodeToolbar="props.showCodeToolbar"
+			:showTableRipple="props.showTableRipple"
+			:linkAndCopyColor="props.linkAndCopyColor"
+			:fontSize="props.fontSize"
+			@link="linkClick"
+			@image="imgClick"
+			:_class="props._class+' '+ 'paragraph'"
+			:type="(token?.type??'')" :value="token!.tokens!"></x-cmarkdown-item>
+			<text :decode="true" :selectable="true" :user-select="true" class="md-text" :class="{'md-text-dark':isDark}" v-else
+			:style="[{'font-size':props.fontSize}]"
+			>{{ token?.text ?? (token?.raw??'') }}</text>
+		</view>
+
+
+		<!-- 纯文本  -->
+		<text :decode="true" :selectable="true" :user-select="true" v-else-if="(token?.type??'') == 'text'" class="md-text"
+			:class="[props._class.replace(/paragraph/g,''),{'md-text-dark':isDark}]"
+			:style="[
+				props._class.indexOf('heading-')==-1?{'font-size':props.fontSize}:{},
+				(token?.className??''),
+				props._class.indexOf('md-link')>-1?{color:primaryColor}:{}
+			]"
+			@click="ontextClick(props._class.indexOf('md-link')>-1,(token?.text ?? (token?.raw??'')))"
+			>{{ token?.text ?? (token?.raw??'') }}</text>
+			
+		<!-- 粗斜体 -->
+		<template v-else-if="(token?.type??'') == 'bold_italic'">
+			<x-cmarkdown-item v-if="(token?.tokens?.length??0) > 0" 
+			:codeTheme="props.codeTheme"
+			:codeThemeMode="props.codeThemeMode"
+			:previewImage="props.previewImage"
+			:showCodeToolbar="props.showCodeToolbar"
+			:showTableRipple="props.showTableRipple"
+			:linkAndCopyColor="props.linkAndCopyColor"
+			:fontSize="props.fontSize"
+			@link="linkClick"
+			@image="imgClick"
+			:_class="props._class+' '+ 'bold_italic'"
+				:value="token!.tokens!"></x-cmarkdown-item>
+			<text :decode="true" :selectable="true" :user-select="true" v-else class="md-text bold_italic" :style="[{'font-size':props.fontSize}]" :class="{'md-text-dark':isDark}">{{ token?.text ?? (token?.raw??'') }}</text>
+		</template>
+		
+		
+
+		<!-- 粗体 -->
+		<template v-else-if="(token?.type??'') == 'strong'">
+			<x-cmarkdown-item v-if="(token?.tokens?.length??0) > 0" 
+			:codeTheme="props.codeTheme"
+			:codeThemeMode="props.codeThemeMode"
+			:previewImage="props.previewImage"
+			:showCodeToolbar="props.showCodeToolbar"
+			:showTableRipple="props.showTableRipple"
+			:linkAndCopyColor="props.linkAndCopyColor"
+			:fontSize="props.fontSize"
+			@link="linkClick"
+			@image="imgClick"
+			:_class="props._class+' '+ 'strong'"
+				:type="(token?.type??'')" :value="token!.tokens!"></x-cmarkdown-item>
+			<text :decode="true" :selectable="true" :user-select="true" v-else class="md-text strong" :style="[{'font-size':props.fontSize}]" :class="{'md-text-dark':isDark}">{{ token?.text ?? (token?.raw??'') }}</text>
+		</template>
+
+		<!-- 斜体 -->
+		<template v-else-if="(token?.type??'') == 'emph'">
+			<x-cmarkdown-item v-if="(token?.tokens?.length??0) > 0" 
+			:codeTheme="props.codeTheme"
+			:codeThemeMode="props.codeThemeMode"
+			:previewImage="props.previewImage"
+			:showCodeToolbar="props.showCodeToolbar"
+			:showTableRipple="props.showTableRipple"
+			:linkAndCopyColor="props.linkAndCopyColor"
+			:fontSize="props.fontSize"
+			@link="linkClick"
+			@image="imgClick"
+			:_class="props._class+' '+ 'emph'"
+				:type="(token?.type??'')" :value="token!.tokens!"></x-cmarkdown-item>
+			<text :decode="true" :selectable="true" :user-select="true" v-else class="md-text emph" :style="[{'font-size':props.fontSize}]" :class="{'md-text-dark':isDark}">{{ token?.text ?? (token?.raw??'') }}</text>
+		</template>
+
+		<!-- 删除线 -->
+		<template v-else-if="(token?.type??'') == 'strikethrough'">
+			<x-cmarkdown-item v-if="(token?.tokens?.length??0) > 0" 
+			:codeTheme="props.codeTheme"
+			:codeThemeMode="props.codeThemeMode"
+			:previewImage="props.previewImage"
+			:showCodeToolbar="props.showCodeToolbar"
+			:showTableRipple="props.showTableRipple"
+			:linkAndCopyColor="props.linkAndCopyColor"
+			:fontSize="props.fontSize"
+			@link="linkClick"
+			@image="imgClick"
+			:_class="props._class+' '+ 'del'"
+				:value="token!.tokens!"></x-cmarkdown-item>
+			<text :decode="true" :selectable="true" :user-select="true" v-else class="md-text del" :style="[{'font-size':props.fontSize}]" :class="{'md-text-dark':isDark}">{{ token?.text ?? (token?.raw??'') }}</text>
+		</template>
+
+
+		<!-- 代码块 -->
+		<view v-else-if="(token?.type??'') == 'code_block'" class="code-block" :class="[{'code-block-dark':isDark}]">
+			<view v-if="(token?.lang??'') != ''&& showCodeToolbar" class="code-lang-box">
+				<text :decode="true" :selectable="true" :user-select="true" class="code-lang" :class="[{'code-lang-dark':isDark}]">{{ token?.lang??'' }}</text>
+				<text :decode="true" :selectable="true" :user-select="true" @click="copyCode((token?.text ?? (token?.raw??'') ))" 
+				class="code-lang-copy" :class="[{'code-lang-copy-dark':isDark}]"
+				:style="{backgroundColor:primaryColor}"
+				>复制</text>
+			</view>
+			<text :selectable="true" :user-select="true" class="code-lang-code" :class="[{'code-lang-code-dark':isDark}]">
+				<text :decode="true" :selectable="true" :user-select="true" class="code-lang-code" :class="[{'code-lang-code-dark':isDark}]" :style="[codeItem.style]" v-for="(codeItem,codeIndex) in heightLightCode((token?.text ?? (token?.raw??'')),(token?.lang??''))" :key="codeIndex">
+					{{codeItem.text}}
+				</text>
+			</text>
+			<!-- <text class="code-content">{{ token?.text ?? (token?.raw??'') }}</text> -->
+			<!-- <rich-text :nodes="heightLightCode((token?.text ?? (token?.raw??'') ))"></rich-text> -->
+		</view>
+		<!-- 行内代码 -->
+	
+		<text :decode="true" v-else-if="(token?.type??'') == 'code'" :selectable="true"  :user-select="true"
+		:style="[{'font-size':props.fontSize}]"
+		:class="[props._class.replace(/paragraph/g,'') +' code-inline',{'code-inline-dark':isDark}]">{{ token?.text ?? (token?.raw??'') }}</text>
+
+		<!-- 链接 -->
+		<template v-else-if="(token?.type??'') == 'link'"   >
+			<x-cmarkdown-item v-if="(token?.tokens?.length??0) > 0" 
+			:codeTheme="props.codeTheme"
+			:codeThemeMode="props.codeThemeMode"
+			:previewImage="props.previewImage"
+			:showCodeToolbar="props.showCodeToolbar"
+			:showTableRipple="props.showTableRipple"
+			:linkAndCopyColor="props.linkAndCopyColor"
+			:fontSize="props.fontSize"
+			:href="(token?.href ?? (token?.href??''))"
+			@link="linkClick"
+			@image="imgClick"
+			:_class="props._class+' '+ 'md-link' + ` ${isDark?'md-link-dark':''}`" 
+			:value="token!.tokens!"></x-cmarkdown-item>
+			<text :decode="true" v-else class="md-link" 
+			@click="linkClick(token?.href ?? (token?.href??''))"
+			:class="[{'md-link-dark':isDark}]" 
+			:style="{color:primaryColor,'font-size':props.fontSize}"
+			:selectable="true" :user-select="true">{{ token?.text ?? (token?.raw??'') }}</text>
+		</template>
+
+		<!-- 图片 -->
+		<image @click="openImg(token?.href??'')" v-else-if="(token?.type??'') == 'image'" :src="token?.href??''" mode="widthFix" class="md-image"
+			:alt="token?.text??''"></image>
+
+		<!-- 引用 -->
+		<view v-else-if="(token?.type??'') == 'block_quote'" class="md-blockquote" :class="[{'md-blockquote-dark':isDark}]">
+			<x-cmarkdown-item v-if="(token?.tokens?.length??0) > 0" 
+			:codeTheme="props.codeTheme"
+			:codeThemeMode="props.codeThemeMode"
+			:previewImage="props.previewImage"
+			:showCodeToolbar="props.showCodeToolbar"
+			:showTableRipple="props.showTableRipple"
+			:linkAndCopyColor="props.linkAndCopyColor"
+			:fontSize="props.fontSize"
+			@link="linkClick"
+			@image="imgClick"
+			:_class="'blockquoteText'+(isDark?' blockquoteText-dark':'')" :value="token!.tokens!"></x-cmarkdown-item>
+		</view>
+		<view v-else-if="(token?.type??'') == 'softbreak'" class="softbreak"></view>
+
+		<!-- 列表 -->
+		<template v-else-if="(token?.type??'') == 'list'"
+			:class="(token?.ordered??0) == 1 ? 'md-list-ordered' : 'md-list-unordered'">
+			<view v-for="(item, itemIndex) in (token?.tokens??[])" :key="itemIndex" class="md-list-item">
+				<!-- 任务列表 -->
+				<text :decode="true" v-if="(item?.type??'') == 'tasklist'" class="md-task-checkbox" 
+				:style="[{'font-size':props.fontSize}]"
+				:class="[{'md-task-checkbox-dark':isDark}]">{{ (item?.checked??0) == 1 ? '✓' : '○' }}
+				</text>
+				<!-- 有序列表序号 -->
+				<text :decode="true" v-else-if="(token?.ordered??0) == 1" 
+				:style="[{'font-size':props.fontSize}]"
+				class="md-list-marker" :class="[{'md-list-marker-dark':isDark}]">{{ itemIndex + 1 }}. </text>
+				<!-- 无序列表符号 -->
+				<text :decode="true" v-else class="md-list-marker" :style="[{'font-size':props.fontSize}]" :class="[{'md-list-marker-dark':isDark}]">• </text>
+				<!-- 列表项内容 -->
+				<view class="md-list-item-content">
+					<x-cmarkdown-item v-if="(item?.tokens?.length??0) > 0" 
+					:codeTheme="props.codeTheme"
+					:codeThemeMode="props.codeThemeMode"
+					:previewImage="props.previewImage"
+					:showCodeToolbar="props.showCodeToolbar"
+					:showTableRipple="props.showTableRipple"
+					:linkAndCopyColor="props.linkAndCopyColor"
+					:fontSize="props.fontSize"
+					@link="linkClick"
+					@image="imgClick"
+					:value="item!.tokens!"></x-cmarkdown-item>
+					<text :decode="true" :selectable="true" :user-select="true" v-else :style="[{'font-size':props.fontSize}]">{{ item?.text ?? (item?.raw??'') }}</text>
+				</view>
+			</view>
+		</template>
+
+		<!-- 水平分割线 -->
+		<view v-else-if="(token?.type??'') == 'hr' || (token?.type??'') == 'thematic_break'" 
+		:class="[{'md-hr-dark':isDark}]"
+		class="md-hr"></view>
+
+		<!-- 换行 -->
+		<view :decode="true" v-else-if="(token?.type??'') == 'br'" class="md-br"></view>
+
+		<!-- 空格 -->
+		<text :decode="true" v-else-if="(token?.type??'') == 'space'"> </text>
+
+		<!-- HTML -->
+		<!-- <rich-text v-else-if="(token?.type??'') == 'html_inline'" :nodes="token?.html ?? (token?.raw??'')" ></rich-text> -->
+		<!-- <rich-text v-else-if="(token?.type??'') == 'html_block'" :nodes="token?.text ?? (token?.raw??'')" ></rich-text> -->
+		<template v-else-if="(token?.type??'') == 'html_inline'||(token?.type??'') == 'html_block'">
+			<x-cmarkdown-item 
+			:codeTheme="props.codeTheme"
+			:codeThemeMode="props.codeThemeMode"
+			:previewImage="props.previewImage"
+			:showCodeToolbar="props.showCodeToolbar"
+			:showTableRipple="props.showTableRipple"
+			:linkAndCopyColor="props.linkAndCopyColor"
+			:fontSize="props.fontSize"
+			@link="linkClick"
+			@image="imgClick"
+			:value="htmlP(token?.text ?? token?.html ?? (token?.raw??''))"></x-cmarkdown-item>
+		</template>
+		<!-- 表格 -->
+		<view v-else-if="(token?.type??'') == 'table'" class="md-table" :class="[{'md-table-dark':isDark}]">
+			<!-- 表头 -->
+			<view v-if="(token?.tokens?.length??0) > 0" class="md-table-header" :class="[{'md-table-header-dark':isDark}]">
+				<view v-for="(headerCell, hIndex) in (token!.tokens![0]?.tokens??[])" :key="hIndex"
+					class="md-table-cell" :class="[
+						{
+							'md-table-cell-end':hIndex == (token!.tokens![0]?.tokens??[]).length-1,
+							'md-table-cell-dark':isDark
+						},
+						`md-table-cell-${(token?.align??[])?.[hIndex]??'center'}`
+					]">
+					<x-cmarkdown-item v-if="(headerCell?.tokens?.length??0) > 0"
+					:codeTheme="props.codeTheme"
+					:codeThemeMode="props.codeThemeMode"
+					:previewImage="props.previewImage"
+					:showCodeToolbar="props.showCodeToolbar"
+					:showTableRipple="props.showTableRipple"
+					:linkAndCopyColor="props.linkAndCopyColor"
+					:fontSize="props.fontSize"
+					@link="linkClick"
+					@image="imgClick"
+					:value="(headerCell!.tokens!)"></x-cmarkdown-item>
+					<text :decode="true" :selectable="true" :user-select="true" v-else :style="[{'font-size':props.fontSize}]">{{ headerCell?.text ?? (headerCell?.raw??'') }}</text>
+				</view>
+			</view>
+			
+			<!-- 表格行 -->
+			<view v-for="(row, rowIndex) in (token?.tokens??[]).slice(1)" :key="rowIndex" 
+			class="md-table-row"
+			 :class="{
+				 'md-table-row-ripple':(rowIndex+1)%2==0&&showTableRipple,
+				 'md-table-row-dark':isDark,
+				 'md-table-row-ripple-dark':isDark&&((rowIndex+1)%2==0)&&showTableRipple
+			 }"
+			>
+				<view v-for="(cell, cellIndex) in (row?.tokens??[])" :key="cellIndex" 
+				class="md-table-cell"
+				:class="[
+					{
+						'md-table-cell-end':cellIndex == (token!.tokens![0]?.tokens??[]).length-1,
+						'md-table-cell-dark':isDark
+					},
+					`md-table-cell-${(token?.align??[])?.[cellIndex]??'center'}`
+				]"
+				>
+					<x-cmarkdown-item v-if="(cell?.tokens?.length??0) > 0" 
+					:codeTheme="props.codeTheme"
+					:codeThemeMode="props.codeThemeMode"
+					:previewImage="props.previewImage"
+					:showCodeToolbar="props.showCodeToolbar"
+					:showTableRipple="props.showTableRipple"
+					:linkAndCopyColor="props.linkAndCopyColor"
+					:fontSize="props.fontSize"
+					@link="linkClick"
+					@image="imgClick"
+					:value="cell!.tokens!"></x-cmarkdown-item>
+					<text :decode="true" :selectable="true" :user-select="true" v-else :style="[{'font-size':props.fontSize}]">{{ cell?.text ?? (cell?.raw??'') }}</text>
+				</view>
+			</view>
+		</view>
+
+		<!-- 默认处理 -->
+		<template v-else >
+			<x-cmarkdown-item v-if="(token?.tokens?.length??0) > 0" 
+			:codeTheme="props.codeTheme"
+			:codeThemeMode="props.codeThemeMode"
+			:previewImage="props.previewImage"
+			:showCodeToolbar="props.showCodeToolbar"
+			:showTableRipple="props.showTableRipple"
+			:linkAndCopyColor="props.linkAndCopyColor"
+			:fontSize="props.fontSize"
+			@link="linkClick"
+			@image="imgClick"
+			:value="token!.tokens!"></x-cmarkdown-item>
+			
+			<text :decode="true" class="md-text" :class="{'md-text-dark':isDark}"
+			:style="[{'font-size':props.fontSize}]"
+			 :selectable="true" :user-select="true" v-else-if="((token?.text??'') != '' || (token?.raw??'') != '')">{{ token?.text ?? (token?.raw??'') }}</text>
+			<!-- <rich-text v-else-if="(token?.text??'') != '' || (token?.raw??'') != ''"
+				:nodes="(token?.text??'')"></rich-text> -->
+
+		</template>
+	</template>
+
+</template>
+
+<script setup lang="ts">
+	import { xConfig } from "../../config/xConfig.uts"
+	import { MarkdownToken } from "@/uni_modules/uni-cmark"
+	import {highlightCode,HeightLightCodeText} from "./heightlight.uts"
+	import {HtmlParser} from "./../x-cmarkdown/htmlParser.uts"
+	import { colors, getDefaultColor, getDefaultColorObj, getTextColorObj, getThinColorObj, getOutlineColorObj } from "../../core/util/xCoreColorUtil.uts"
+	/**
+	 * @name markdown子组件 xCmarkdownItem
+	 * @description x-cmarkdown的子组件，不可外部使用。[此组件依赖uni-cmark插件可在代码仓库下载]
+	 * @page /pages/zhanshi/cmarkdown
+	 * @category 展示组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| x | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.19 |
+	 */
+	defineOptions({ name: "xCmarkdownItem" })
+	type codeThemeType = {
+		light : UTSJSONObject,
+		dark : UTSJSONObject
+	}
+	type xCmarkdownItemType = {
+		value : MarkdownToken[],
+		_class : string,
+		type : string,
+		href : string,
+		/**代码块的主题，目前提供github，vscode ，jetbrains，dracula，solarized*/
+		codeTheme : "github" | "vscode" | "jetbrains" | "dracula" | "monokai" | "solarized",
+		/** 代码块主题，以什么样式主题输出，auto:自动跟随全局主题，light:使用亮系配色，dark:使用暗系配色 */
+		codeThemeMode : "auto" | "light" | "dark",
+		/** 预览图片 */
+		previewImage:boolean,
+		/** 是否显示代码复制工具栏 */
+		showCodeToolbar:boolean,
+		/** 显示表格波纹背景 */
+		showTableRipple:boolean,
+		/** 链接及复制的主色，空取全值 */
+		linkAndCopyColor:string,
+		/** 默认的字号,它是文本字号，不包含其它特殊的文本字号，如果有标签内的样式字号此处会失效 */
+		fontSize:string
+	}
+
+	const props = withDefaults(defineProps<xCmarkdownItemType>(), {
+		value: () : MarkdownToken[] => [] as MarkdownToken[],
+		_class: '',
+		type: '',
+		href:'',
+		codeTheme: 'jetbrains',
+		codeThemeMode: 'auto',
+		previewImage:true,
+		showCodeToolbar:true,
+		showTableRipple:true,
+		linkAndCopyColor:'',
+		fontSize:"15px"
+	})
+	const emit = defineEmits([
+		/**
+		 * 连接被点击
+		 * @param {string}  val 点击后的链接
+		 */
+		'link',
+		/**
+		 * 图片被点击
+		 * @param {string}  val 点击后的链接
+		 */
+		'image'
+	])
+	const isDark = computed(():boolean => xConfig.dark == 'dark')
+	const showCodeToolbar = computed(():boolean => props.showCodeToolbar)
+	const showTableRipple = computed(():boolean => props.showTableRipple)
+	const primaryColor = computed(():string => {
+		let color = props.linkAndCopyColor;
+		if(color==''){
+			color = xConfig.color;
+		}
+		let  colorObj = getDefaultColorObj(color,color,isDark.value)['default']! as UTSJSONObject;
+		
+		color = colorObj.getString('background')!;
+		return color;
+	})
+	const codeTheme : Map<string, codeThemeType> = new Map<string, codeThemeType>([
+		['github', {
+			light: {
+				keyword: "color: #d73a49; font-weight: 600;",
+				builtin: "color: #005cc5;",
+				string: "color: #032f62;",
+				comment: "color: #6a737d; font-style: italic;",
+				number: "color: #005cc5;",
+				operator: "color: #d73a49;",
+				function: "color: #6f42c1; font-weight: 600;",
+				variable: "color: #24292e;",
+				punctuation: "color: #24292e;",
+				codeBgColor: "#f6f8fa"
+			},
+			dark: {
+				keyword: "color: #ff7b72; font-weight: 600;",
+				builtin: "color: #79c0ff;",
+				string: "color: #a5d6ff;",
+				comment: "color: #8b949e; font-style: italic;",
+				number: "color: #79c0ff;",
+				operator: "color: #ff7b72;",
+				function: "color: #d2a8ff; font-weight: 600;",
+				variable: "color: #f0f6fc;",
+				punctuation: "color: #f0f6fc;",
+				codeBgColor: "#0d1117"
+			}
+		}],
+		['vscode', {
+			light: {
+				keyword: "color: #0000ff; font-weight: bold;",
+				builtin: "color: #267f99;",
+				string: "color: #a31515;",
+				comment: "color: #008000; font-style: italic;",
+				number: "color: #098658;",
+				operator: "color: #000000;",
+				function: "color: #795e26; font-weight: bold;",
+				variable: "color: #001080;",
+				punctuation: "color: #000000;",
+				codeBgColor: "#f5f5f5"
+			},
+			dark: {
+				keyword: "color: #569cd6; font-weight: bold;",
+				builtin: "color: #4ec9b0;",
+				string: "color: #ce9178;",
+				comment: "color: #6a9955; font-style: italic;",
+				number: "color: #b5cea8;",
+				operator: "color: #d4d4d4;",
+				function: "color: #dcdcaa; font-weight: bold;",
+				variable: "color: #9cdcfe;",
+				punctuation: "color: #d4d4d4;",
+				codeBgColor: "#1e1e1e"
+			}
+		}],
+		['jetbrains', {
+			light: {
+				keyword: "color: #0033b3; font-weight: bold;",
+				builtin: "color: #0033b3;",
+				string: "color: #067d17;",
+				comment: "color: #808080; font-style: italic;",
+				number: "color: #1750eb;",
+				operator: "color: #000000;",
+				function: "color: #00627a; font-weight: bold;",
+				variable: "color: #000000;",
+				punctuation: "color: #000000;",
+				codeBgColor: "#f5f5f5"
+			},
+			dark: {
+				keyword: "color: #cc7832; font-weight: bold;",
+				builtin: "color: #cc7832;",
+				string: "color: #6a8759;",
+				comment: "color: #808080; font-style: italic;",
+				number: "color: #6897bb;",
+				operator: "color: #a9b7c6;",
+				function: "color: #ffc66d; font-weight: bold;",
+				variable: "color: #a9b7c6;",
+				punctuation: "color: #a9b7c6;",
+				codeBgColor: "#2b2b2b"
+			}
+		}],
+		['dracula', {
+			light: {
+				keyword: "color: #a626a4; font-weight: bold;",
+				builtin: "color: #0184bc;",
+				string: "color: #50a14f;",
+				comment: "color: #a0a1a7; font-style: italic;",
+				number: "color: #986801;",
+				operator: "color: #a626a4;",
+				function: "color: #c18401; font-weight: bold;",
+				variable: "color: #383a42;",
+				punctuation: "color: #383a42;",
+				codeBgColor: "#fafafa"
+			},
+			dark: {
+				keyword: "color: #ff79c6; font-weight: bold;",
+				builtin: "color: #8be9fd;",
+				string: "color: #f1fa8c;",
+				comment: "color: #6272a4; font-style: italic;",
+				number: "color: #bd93f9;",
+				operator: "color: #ff79c6;",
+				function: "color: #50fa7b; font-weight: bold;",
+				variable: "color: #f8f8f2;",
+				punctuation: "color: #f8f8f2;",
+				codeBgColor: "#282a36"
+			}
+		}],
+		['monokai', {
+			light: {
+				keyword: "color: #a626a4; font-weight: bold;",
+				builtin: "color: #0184bc;",
+				string: "color: #50a14f;",
+				comment: "color: #a0a1a7; font-style: italic;",
+				number: "color: #986801;",
+				operator: "color: #a626a4;",
+				function: "color: #c18401; font-weight: bold;",
+				variable: "color: #383a42;",
+				punctuation: "color: #383a42;",
+				codeBgColor: "#fafafa"
+			},
+			dark: {
+				keyword: "color: #f92672; font-weight: bold;",
+				builtin: "color: #66d9ef;",
+				string: "color: #e6db74;",
+				comment: "color: #75715e; font-style: italic;",
+				number: "color: #ae81ff;",
+				operator: "color: #f92672;",
+				function: "color: #a6e22e; font-weight: bold;",
+				variable: "color: #f8f8f2;",
+				punctuation: "color: #f8f8f2;",
+				codeBgColor: "#272822"
+			}
+		}],
+		['solarized', {
+			light: {
+				keyword: "color: #859900; font-weight: bold;",
+				builtin: "color: #268bd2;",
+				string: "color: #2aa198;",
+				comment: "color: #93a1a1; font-style: italic;",
+				number: "color: #d33682;",
+				operator: "color: #859900;",
+				function: "color: #b58900; font-weight: bold;",
+				variable: "color: #586e75;",
+				punctuation: "color: #586e75;",
+				codeBgColor: "#fdf6e3"
+			},
+			dark: {
+				keyword: "color: #859900; font-weight: bold;",
+				builtin: "color: #268bd2;",
+				string: "color: #2aa198;",
+				comment: "color: #657b83; font-style: italic;",
+				number: "color: #d33682;",
+				operator: "color: #859900;",
+				function: "color: #b58900; font-weight: bold;",
+				variable: "color: #93a1a1;",
+				punctuation: "color: #93a1a1;",
+				codeBgColor: "#002b36"
+			}
+		}]
+	])
+	
+	const htmlP = (html:string):MarkdownToken[] =>{
+		const val = new HtmlParser(html).parse();
+		return val
+	}
+	const heightLightCode = (code:string,name:string):HeightLightCodeText[] =>{
+		const codethemeMpde = codeTheme.get(props.codeTheme)! as codeThemeType;
+		let codeHighlightStyle:UTSJSONObject = codethemeMpde.light
+		if (props.codeThemeMode == 'dark') {
+			codeHighlightStyle = codethemeMpde.dark
+		}else if(props.codeThemeMode == 'auto'){
+			if(xConfig.dark == 'dark'){
+				codeHighlightStyle = codethemeMpde.dark
+			}
+		}
+		return highlightCode(code,name,codeHighlightStyle)
+	}
+	const copyCode = (code:string)=>{
+		uni.setClipboardData({
+			data:code,
+			success(){
+				uni.showToast({
+					title:'复制成功'
+				})
+			}
+		})
+	}
+	const openImg = (src:string) => {
+		emit('image',src)
+		if(props.previewImage){
+			uni.previewImage({
+				urls:[src],
+				current:src
+			})
+		}
+		
+	}
+	const ontextClick = (isLink:boolean,src:string) => {
+		if(isLink){
+			emit('link',props.href)
+		}
+	}
+	const tempaletaVal = ref<MarkdownToken[]>([])
+	const markdown = computed<MarkdownToken[]>(()=>props.value)
+	
+	const linkClick = (url:string) =>{
+		emit('link',url)
+	}
+	const imgClick = (url:string) =>{
+		emit('image',url)
+	}
+	
+	
+</script>
+
+<style lang="scss">
+	$textColor:#000000;
+	$codeLineBgColor:#f2f2f7;
+	$codeLangBgcolor:#dadae2;
+	$codeLangColor:#8e8e93;
+	$codeLangCopyBgColor:#0088FF;
+	$codeLangCopyColor:#FFF;
+	$codeLinkColor:#0088FF;
+	$mdBlockquoteLeftBorderColor:#8e8e93;
+	$mdBlockquoteLeftColor:#8e8e93;
+	$mdTaskCheckbox:#8e8e93;
+	$mdHrColor:#2c2c2e;
+	$tableHeaderBgColor:#E5E5EA;
+	$tableBorderColor:#E5E5EA;
+	$tableRowreppleBgColor:#f2f2f7;
+	
+	$textColorDark:#FFFFFF;
+	$codeLineBgColorDark:#2c2c2e;
+	$codeLangBgcolorDark:#3a3a3c;
+	$codeLangColorDark:#f2f2f7;
+	$codeLangCopyBgColorDark:#0091FF;
+	$codeLangCopyColorDark:#FFF;
+	$codeLinkColorDark:#0091FF;
+	$mdBlockquoteLeftBorderColorDark:#aeaeb2;
+	$mdBlockquoteLeftColorDark:#8e8e93;
+	$mdTaskCheckboxDark:#8e8e93;
+	$mdHrColorDark:#2c2c2e;
+	$tableHeaderBgColorDark:#3a3a3c;
+	$tableBorderColorDark:#2c2c2e;
+	$tableRowreppleBgColorDark:#2c2c2e;
+	
+	/* 段落样式 */
+	.paragraph {
+
+		// #ifdef APP
+		display: flex;
+		flex-direction: row;
+		flex-wrap: wrap;
+		align-items: center;
+		// #endif
+		// #ifndef APP
+		display: block;
+		// #endif
+	}
+	
+	.md-list-item-content .paragraph{
+		    display: flex;
+		    flex-direction: column;
+		    justify-content: flex-start;
+		    align-items: flex-start;
+	}
+	/* 文本样式 */
+	.md-text {
+		font-size: 14px;
+		line-height: 2;
+		// #ifndef APP-HARMONY
+		white-space: break-spaces;
+		/* #endif */
+		color:$textColor;
+		/* #ifdef MP || WEB */
+		word-break: break-all;
+		/* #endif */
+	}
+
+	.md-text.paragraph {
+		display: flex;
+		margin: 0;
+		display: flex;
+		flex-direction: column;
+	}
+	.bold_italic{
+		font-style: italic;
+	}
+
+	/* 标题样式 */
+	.heading {
+		margin: 10px 0;
+		// #ifdef APP
+		display: flex;
+		flex-direction: row;
+		// #endif
+		// #ifndef APP
+		display: block;
+		// #endif
+	}
+	.heading-1,.heading-2,.heading-3,.heading-4,.heading-5,.heading-6{
+		font-weight: bold;
+		line-height: 1.5;
+	}
+	.heading-1 {
+		font-size: 24px;
+	}
+
+	.heading-2 {
+		font-size: 20px;
+		
+	}
+
+	.heading-3 {
+		font-size: 18px;
+	}
+
+	.heading-4 {
+		font-size: 16px;
+	}
+
+	.heading-5 {
+		font-size: 14px;
+	}
+
+	.heading-6 {
+		font-size: 12px;
+	}
+
+
+
+
+
+	/* 粗体 */
+	.strong {
+		font-weight: bold;
+	}
+
+	/* 斜体 */
+	.emph {
+		font-style: italic;
+	}
+
+	/* 删除线 */
+	.del {
+		/* #ifndef APP */
+		text-decoration: line-through;
+		/* #endif */
+	}
+
+	/* 行内代码 */
+	.code-inline {
+		background-color: $codeLineBgColor;
+		padding: 2px 4px;
+		border-radius: 3px;
+		font-family: monospace;
+		font-size: 13px;
+		/* #ifdef MP || WEB */
+		word-break: break-all;
+		/* #endif */
+	}
+
+	/* 代码块 */
+	.code-block {
+		background-color: $codeLineBgColor;
+		padding: 10px;
+		border-radius: 5px;
+		margin: 10px 0;
+		
+	}
+	.code-lang-box{
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 5px;
+	}
+
+	.code-lang {
+		/* margin-bottom: 5px; */
+		padding: 4px 6px;
+		background-color: $codeLangBgcolor;
+		border-radius: 3px;
+		font-size: 11px;
+		color: $codeLangColor;
+	}
+	.code-lang-code{
+		// #ifndef APP-HARMONY
+		white-space: break-spaces;
+		/* #endif */
+		font-size:14px;
+		line-height: 1.7;
+	}
+	.code-lang-copy{
+		/* margin-bottom: 5px; */
+		padding: 4px 8px;
+		background-color: $codeLangCopyBgColor;
+		border-radius: 3px;
+		font-size: 12px;
+		color: $codeLangCopyColor;
+		/* #ifdef WEB */
+		cursor: pointer;
+		&:hover{
+			opacity: 0.8;
+		}
+		&:active{
+			opacity: 0.5;
+		}
+		/* #endif */
+	}
+
+
+	.code-content {
+		font-family: monospace;
+		font-size: 12px;
+		line-height: 1.6;
+		white-space: pre-wrap;
+	}
+
+	/* 链接 */
+	.md-link {
+		color: $codeLinkColor;
+		/* #ifndef APP */
+		text-decoration: underline;
+		/* #endif */
+		
+		/* #ifdef WEB */
+		cursor: pointer;
+		&:hover{
+			opacity: 0.8;
+		}
+		&:active{
+			opacity: 0.5;
+		}
+		/* #endif */
+		
+	}
+
+	/* 图片 */
+	.md-image {
+		width: 100%;
+		margin: 10px 0;
+		/* min-width: 150px; */
+		border-radius: 5px;
+	}
+
+	/* 引用 */
+	.md-blockquote {
+		border-left: 4px solid $mdBlockquoteLeftBorderColor;
+		padding-left: 10px;
+		margin: 10px 0;
+	}
+	.blockquoteText{
+		color: $mdBlockquoteLeftColor;
+	}
+
+	/* 列表 */
+	.md-list-ordered,
+	.md-list-unordered {
+		margin: 4px 0;
+		padding-left: 16px;
+	}
+
+	.md-list-item {
+		display: flex;
+		flex-direction: row;
+		margin: 2.5px 0;
+		align-items: flex-start;
+	}
+
+	.md-list-marker {
+		font-size: 14px;
+		margin-right: 5px;
+		flex-shrink: 0;
+		line-height: 1.8;
+	}
+
+	.md-task-checkbox {
+		font-size: 12px;
+		margin-right: 5px;
+		flex-shrink: 0;
+		border: 0.5px solid $mdTaskCheckbox;
+		border-radius: 3px;
+		width: 20px;
+		/* height: 16px; */
+		text-align: center;
+		line-height: 1.5;
+		margin-top: 3px;
+	}
+
+	.md-list-item-content {
+		flex: 1;
+		/* line-height: 1.8; */
+	}
+
+	/* 水平分割线 */
+	.md-hr {
+		height: 0.5px;
+		background-color: $mdHrColor;
+		margin: 15px 0;
+	}
+
+	/* 换行 */
+	.md-br {
+		/* #ifndef APP */
+		display: block;
+		/* #endif */
+		/* #ifdef APP */
+		display: flex;
+		flex-direction: column;
+		width: 100%;
+		/* #endif */
+	}
+
+	/* 表格 */
+	.md-table {
+		margin: 10px 0;
+		border: 0.5px solid $tableBorderColor;
+		border-radius: 5px;
+		overflow: hidden;
+	}
+
+	.md-table-header {
+		display: flex;
+		flex-direction: row;
+		background-color: $tableHeaderBgColor;
+	}
+	.md-table-row {
+		display: flex;
+		flex-direction: row;
+		border-top: 0.5px solid $tableBorderColor;
+	}
+	.md-table-row-ripple{
+		background-color: $tableRowreppleBgColor;
+	}
+
+	.md-table-cell {
+		flex: 1;
+		padding: 8px;
+		border-right: 0.5px solid $tableBorderColor;
+		display: flex;
+		flex-direction: column;
+		flex-wrap: wrap;
+		justify-content: center;
+	}
+
+	.md-table-cell-end {
+		border-right: none;
+	}
+	.md-table-cell-left{
+		align-items: flex-start;
+		
+	}
+	.md-table-cell-center{
+		align-items: center;
+	}
+	.md-table-cell-right{
+		align-items: flex-end;
+	}
+	
+	.softbreak{
+		width: 100%;
+	}
+
+	/* HTML 和默认 */
+	.md-html,
+	.md-default {
+		margin: 5px 0;
+	}
+	
+	
+	
+	
+	
+	/* 文本样式 */
+	.md-text.md-text-dark {
+		color:$textColorDark;
+	}
+	
+	/* 行内代码 */
+	.code-inline.code-inline-dark {
+		background-color: $codeLineBgColorDark;
+		color:$textColorDark;
+	}
+	
+	/* 代码块 */
+	.code-block.code-block-dark {
+		background-color: $codeLineBgColorDark;
+	}
+	.code-lang.code-lang-dark {
+		background-color: $codeLangBgcolorDark;
+		color: $codeLangColorDark;
+	}
+	.code-lang-copy.code-lang-copy-dark{
+		background-color: $codeLangCopyBgColorDark;
+		color: $codeLangCopyColorDark;
+	}
+	/* 链接 */
+	.md-link.md-link-dark {
+		color: $codeLinkColorDark;
+	}
+	
+	/* 引用 */
+	.md-blockquote.md-blockquote-dark {
+		border-left: 4px solid $mdBlockquoteLeftBorderColorDark;
+	}
+	.blockquoteText.blockquoteText-dark{
+		color: $mdBlockquoteLeftColorDark;
+	}
+	
+	.md-task-checkbox.md-task-checkbox-dark {
+		border: 0.5px solid $mdTaskCheckboxDark;
+		color:$textColorDark;
+	}
+	
+	/* 水平分割线 */
+	.md-hr.md-hr-dark {
+		background-color: $mdHrColorDark;
+	}
+	/* 表格 */
+	.md-table.md-table-dark {
+		border: 0.5px solid $tableBorderColorDark;
+	}
+	
+	.md-table-header.md-table-header-dark {
+		background-color: #28282b;
+	}
+	.md-table-row.md-table-row-dark {
+		border-top: 0.5px solid $tableBorderColorDark;
+	}
+	.md-table-row-ripple.md-table-row-ripple-dark  {
+		background-color: #1f1f21;
+	}
+	
+	.md-table-cell.md-table-cell-dark {
+		border-right: 0.5px solid $tableBorderColorDark;
+	}
+	.md-table-cell.md-table-cell-dark {
+		border-right: 0.5px solid $tableBorderColorDark;
+	}
+	.code-lang-code.code-lang-code-dark{
+		color:$textColorDark;
+	}
+	.md-list-marker.md-list-marker-dark{
+		color:$textColorDark;
+	}
+</style>

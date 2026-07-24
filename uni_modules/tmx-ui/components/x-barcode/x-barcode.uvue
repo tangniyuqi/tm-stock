@@ -1,0 +1,305 @@
+<script lang="ts" setup>
+	import { type PropType } from "vue"
+	import { getUid } from "../../core/util/xCoreUtil.uts"
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { checkIsCssUnit } from "../../core/util/xCoreUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	import { code128b } from "./utsbarcode/code128.uts"
+	import { ean13 } from "./utsbarcode/ean13.uts"
+	import { ean8 } from "./utsbarcode/ean8.uts"
+	import { upca } from "./utsbarcode/upca.uts"
+	import { code39 } from "./utsbarcode/code39.uts"
+	import { itf25 } from "./utsbarcode/itf25.uts"
+	import { codabar } from "./utsbarcode/codabar.uts"
+
+	/**
+	 * @name 条码 xBarcode
+	 * @page /pages/index/barcode
+	 * @category 其它组件
+	 * @description 一维码：ean13、ean8、upca、code128、code39、itf25（交叉二五）、codabar；其中 codebar 与 code128 共用 Code128 子集 B 绘制。
+	 * ean13/ean8/upca 请按 GS1 位数与校验规则提供内容；codabar 须以 A/B/C/D 起止（如 A12345A）。
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({ name: "xBarcode" })
+	const props = defineProps({
+		/**
+		 * 窗口宽
+		 */
+		width: {
+			type: String,
+			default: 'auto'
+		},
+		/**
+		 * 宽器高，这将影响条码的高度
+		 */
+		height: {
+			type: String,
+			default: '140px'
+		},
+		/**
+		 * 上下间隙，单位是px
+		 */
+		pading: {
+			type: Number,
+			default: 20
+		},
+		/**
+		 * 条码颜色
+		 */
+		color: {
+			type: String,
+			default: "black"
+		},
+		/**
+		 * codebar / code128：Code 128 子集 B（原 codebar 命名保留兼容）
+		 * ean13 / ean8 / upca：商品码；itf25：纯数字，奇数位前自动补 0
+		 * code39：大写与数字等；codabar：须含合法起止符 A–D
+		 */
+		encode: {
+			type: String as PropType<
+				"codebar" | "ean13" | "code128" | "ean8" | "upca" | "code39" | "itf25" | "codabar"
+			>,
+			default: "ean13"
+		},
+		/**
+		 * 条码内容
+		 */
+		text: {
+			type: String,
+			default: ""
+		}
+	})
+	const xBarcodeRef = ref<UniCanvasElement|null>(null)
+	const id = 'xBarcode-'+getUid()
+	const boxWidth = ref<number>(0)
+	const boxHeight = ref<number>(0)
+	const _width = computed(():string => checkIsCssUnit(props.width, xConfig.unit))
+	const _height = computed(():string => checkIsCssUnit(props.height, xConfig.unit))
+	const _color = computed(():string => getDefaultColor(props.color))
+	const _text = computed(():string => props.text)
+	const proxy = getCurrentInstance()?.proxy
+	const instans = getCurrentInstance()
+	let canvansCache:CanvasContext|null = null;
+	
+	const getCanvasContext = ():Promise<CanvasContext|null> =>{
+		return new Promise((res)=>{
+			if(canvansCache!=null){
+				res(canvansCache)
+				return;
+			}
+			uni.createCanvasContextAsync({
+				  id: id,
+				  // #ifdef WEB
+				  component: proxy,
+				  // #endif
+				  // #ifdef MP
+				  component: instans,
+				  // #endif
+				  
+				  success(result:CanvasContext){
+					canvansCache = result
+					res(canvansCache)
+				  },
+				  fail(){
+					res(null)
+				  }
+			  })
+		})
+	}
+	
+	const clear = async () => {
+		let ctxnode = await getCanvasContext()
+		if(ctxnode==null) return
+		const canvasContext = ctxnode.getContext('2d')!;
+		const canvas = canvasContext.canvas;
+		let ctx = canvasContext
+		// 处理高清屏逻辑
+		const dpr = uni.getDeviceInfo().devicePixelRatio ?? 1;
+		canvas.width = canvas.offsetWidth * dpr;
+		canvas.height = canvas.offsetHeight * dpr;
+		ctx.scale(dpr, dpr);
+		let ratio = 1;
+		try{
+			// #ifndef WEB
+			ctx?.reset()
+			// #endif
+		}catch(e){
+			//TODO handle the exception
+		}
+		ctx.fillStyle = 'rgba(0,0,0,0)'
+		ctx.fillRect(0, 0, boxWidth.value, boxHeight.value)
+		ctx.fill()
+	}
+	const dreawer = async () => {
+		await clear()
+		let ctxnode = await getCanvasContext()
+		if(ctxnode==null) return
+		const canvasContext = ctxnode.getContext('2d')!;
+		const canvas = canvasContext.canvas;
+		let ctx = canvasContext
+		
+		// 处理高清屏逻辑
+		const dpr = uni.getDeviceInfo().devicePixelRatio ?? 1;
+		canvas.width = canvas.offsetWidth * dpr;
+		canvas.height = canvas.offsetHeight * dpr;
+		ctx.scale(dpr, dpr);
+		let ratio = 1;
+		let code = ""
+		let eanCode = [] as string[]
+		let linearLabel = _text.value
+		let upca13 = ""
+		let ean8Str = _text.value
+		if (props.encode == "ean13") {
+			eanCode = new ean13(_text.value).encode()
+			code = eanCode.join("")
+		} else if (props.encode == "ean8") {
+			const m = new ean8(_text.value)
+			eanCode = m.encode()
+			code = eanCode.join("")
+			ean8Str = m.data
+		} else if (props.encode == "upca") {
+			const m = new upca(_text.value)
+			eanCode = m.encode()
+			code = eanCode.join("")
+			upca13 = m.data13
+		} else if (props.encode == "codebar" || props.encode == "code128") {
+			code = new code128b(_text.value).encode()
+		} else if (props.encode == "code39") {
+			code = new code39(_text.value).encode()
+		} else if (props.encode == "itf25") {
+			const m = new itf25(_text.value)
+			code = m.encode()
+			linearLabel = m.data
+		} else if (props.encode == "codabar") {
+			code = new codabar(_text.value).encode()
+		}
+		if (code.length == 0) {
+			ctx.fill()
+			return
+		}
+		let strCode = code.split("");
+		let linewidth = 2;
+		let totalWidth = strCode.length * (linewidth);
+		let barheight = boxHeight.value - props.pading * 2;
+		let start_x = (boxWidth.value - totalWidth) / 2
+		let start_y = props.pading
+		ctx!.beginPath()
+		ctx!.fillStyle = _color.value
+	
+		if (props.encode == "codebar" || props.encode == "code128" || props.encode == "code39" || props.encode == "itf25" || props.encode == "codabar") {
+			ctx.font = `${16 * ratio}px   Arial`;
+			let texts = linearLabel.split("")
+			let textwidth = ctx.measureText(linearLabel).width;
+			let space = texts.length > 1 ? (totalWidth - textwidth) / (texts.length - 1) : 0
+			let sx = (boxWidth.value - totalWidth) / 2;
+			for (let a0 = 0; a0 < texts.length; a0++) {
+				let sxx = (ctx.measureText(texts[a0]).width + space) * a0 + sx
+				ctx!.fillText(texts[a0], sxx * ratio, (start_y + barheight) * ratio)
+			}
+	
+			for (let i = 0; i < strCode.length; i++) {
+				if (strCode[i] == "1") {
+					ctx!.fillRect((i * linewidth + start_x + linewidth) * ratio, start_y * ratio, linewidth * ratio, (barheight - 24) * ratio)
+				}
+			}
+		} else if (props.encode == "ean13" || props.encode == "upca") {
+			let numLabel = props.encode == "upca" && upca13.length == 13 ? upca13 : _text.value
+			let k = 0;
+			ctx.font = `${13 * ratio}px   Arial`;
+			ctx!.fillText(numLabel.substring(0, 1), (start_x - 10) * ratio, (start_y + barheight) * ratio)
+			for (let j = 0; j < eanCode.length; j++) {
+				let item = eanCode[j];
+				let itemcodeas = item.split("")
+				let offsetHeigt = (j == 0 || j == 2 || j == 4) ? 0 : 12
+				if (j == 0) {
+					let ncsr = numLabel.substring(1, 7).split("")
+					for (let a0 = 0; a0 < ncsr.length; a0++) {
+						ctx!.fillText(ncsr[a0], (start_x + 10 + (a0 * 13) + linewidth) * ratio, (start_y + barheight) * ratio)
+					}
+				}
+				if (j == 3) {
+					let ncsr = numLabel.substring(7).split("")
+					for (let a0 = 0; a0 < ncsr.length; a0++) {
+						ctx!.fillText(ncsr[a0], ((boxWidth.value / 2) + 10 + (a0 * 13) + linewidth) * ratio, (start_y + barheight) * ratio)
+					}
+				}
+	
+				for (let i = 0; i < itemcodeas.length; i++) {
+					if (itemcodeas[i] == "1") {
+						ctx!.fillRect(
+							(k * linewidth + start_x + linewidth) * ratio,
+							start_y * ratio,
+							linewidth * ratio,
+							(barheight - offsetHeigt) * ratio)
+					}
+					++k;
+				}
+			}
+		} else if (props.encode == "ean8") {
+			let k = 0;
+			ctx.font = `${13 * ratio}px   Arial`;
+			for (let j = 0; j < eanCode.length; j++) {
+				let item = eanCode[j];
+				let itemcodeas = item.split("")
+				let offsetHeigt = (j == 0 || j == 2 || j == 4) ? 0 : 12
+				if (j == 1) {
+					let ncsr = ean8Str.substring(0, 4).split("")
+					for (let a0 = 0; a0 < ncsr.length; a0++) {
+						ctx!.fillText(ncsr[a0], (start_x + 10 + (a0 * 13) + linewidth) * ratio, (start_y + barheight) * ratio)
+					}
+				}
+				if (j == 3) {
+					let ncsr = ean8Str.substring(4, 8).split("")
+					for (let a0 = 0; a0 < ncsr.length; a0++) {
+						ctx!.fillText(ncsr[a0], ((boxWidth.value / 2) + 10 + (a0 * 13) + linewidth) * ratio, (start_y + barheight) * ratio)
+					}
+				}
+				for (let i = 0; i < itemcodeas.length; i++) {
+					if (itemcodeas[i] == "1") {
+						ctx!.fillRect(
+							(k * linewidth + start_x + linewidth) * ratio,
+							start_y * ratio,
+							linewidth * ratio,
+							(barheight - offsetHeigt) * ratio)
+					}
+					++k;
+				}
+			}
+		}
+
+		ctx.fill()
+	}
+	const getNodeInfo = () => {
+		uni.createSelectorQuery().in(proxy)
+			.select(".xBarcode")
+			.boundingClientRect().exec((ret) => {
+				let nodeinfo = ret[0] as NodeInfo
+				boxWidth.value = nodeinfo.width!
+				boxHeight.value = nodeinfo.height!
+				
+				setTimeout(function() {
+					dreawer()
+				}, 50);
+			})
+	}
+	
+	
+	watch(():string=>props.text,(newValue:string)=>{
+		if (newValue == "") return;
+		getNodeInfo();
+	})
+	onMounted(()=>{
+		if (props.text == "") return;
+		setTimeout(function() {
+			getNodeInfo();
+		}, 120);
+	})
+</script>
+<template>
+	<canvas class="xBarcode" ref="xBarcodeRef" :id="id" :canvas-id="id" :style="{width:_width,height:_height}"></canvas>
+</template>
+<style scoped>
+</style>

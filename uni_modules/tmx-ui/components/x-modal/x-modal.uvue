@@ -1,0 +1,791 @@
+<script setup lang="ts">
+	import { checkIsCssUnit, getUid } from "../../core/util/xCoreUtil.uts"
+	import { getDefaultColor, colorAddDeepen } from "../../core/util/xCoreColorUtil.uts"
+	import { xConfig, xProvitae } from "../../config/xConfig.uts"
+	import { xAnimate } from "../../core/util/xAnimate.uts"
+	import { XANIMATE_OPIONS } from "../../interface.uts"
+	import { ref, computed, watch, onMounted, onBeforeUnmount, getCurrentInstance, nextTick } from 'vue'
+
+	type callbackType = () => Promise<boolean>;
+
+	/**
+	 * @name 对话框 xModal
+	 * @description 可全局统一更改风格。
+	 * @page /pages/index/modal
+	 * @category 反馈组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+
+	defineOptions({ name: 'xModal' })
+	const i18n = xConfig.i18n
+	// Emits
+	const emit = defineEmits<{
+		/**
+		 * 点击遮罩事件
+		 */
+		click : []
+		/**
+		 * 关闭是触发
+		 */
+		close : []
+		/**
+		 * 打开时触发
+		 */
+		open : []
+		/**
+		 * 打开前执行
+		 */
+		beforeOpen : []
+		/**
+		 * 关闭前执行
+		 */
+		beforeClose : []
+		/**
+		 * 等同v-model:show
+		 */
+		'update:show' : [value: boolean]
+		/**
+		 * 取消时触发
+		 */
+		cancel : []
+		/**
+		 * 确认时触发
+		 */
+		confirm : []
+	}>()
+
+	// Props
+	type xModalPropsType = {
+		/**
+		 * 自定义遮罩样式
+		 */
+		customStyle : string;
+		/**
+		 * 标题
+		 */
+		title : string;
+		/**
+		 * 显示底部操作栏
+		 */
+		showFooter : boolean;
+		/**
+		 * 是否显示底部关闭按钮
+		 */
+		showTitle : boolean;
+		/**
+		 * 是否显示底部关闭按钮
+		 */
+		showClose : boolean;
+		/**
+		 * 显示取消按钮
+		 */
+		showCancel : boolean;
+		/**
+		 * 遮罩是否允许点击被关闭
+		 */
+		overlayClick : boolean;
+		/**
+		 * 显示可v-model:show双向绑定
+		 */
+		show : boolean;
+		/**
+		 * 动画时间
+		 */
+		duration : number;
+		/**
+		 * 打开dom的延迟量，如果你打开 弹窗在ios正常。
+		 * 请不要修改此值。如果遇到打不开，或者 打开 后没动画，关闭不了等可能是sdk bug导致 
+		 * 此时需要加大值来避免。具体加多少以你弹窗内的节点复杂度有关，需要你自行压力测试。
+		 * 此值仅在ios下生效。
+		 */
+		watiDuration : number;
+		/**
+		 * 取消按钮的文本
+		 */
+		cancelText : string;
+		/**
+		 * 确认按钮的文本
+		 */
+		confirmText : string;
+		/**
+		 * 打开方向为上和下时的圆角
+		 * 空值时，取全局配置的圆角。
+		 */
+		round : string;
+		/**
+		 * 宽，百分比，Px,rpx，auto都支持
+		 */
+		width : string;
+		/**
+		 * 宽，百分比，Px,rpx，auto都支持
+		 */
+		height : string;
+		/**
+		 * 可以是百分比,px,rpx单位数字。如果你不带单位，默认转换为rpx单位。
+		 */
+		maxHeight : string;
+		/**
+		 * 是否禁用内部的scroll标签
+		 * 禁用后内容不会滚动，如果设定了指定高，内容超出指定高，会被裁切
+		 * 但如果没有指定高，内容自动的话，高是自动的。
+		 * 有这个属性是因为截止4.03scroll-view里面放input不会上推键盘，及内部的view touchMove会失效。
+		 */
+		disabledScroll : boolean;
+		
+		/**
+		 * 容器背景色
+		 */
+		bgColor : string;
+		/**
+		 * 暗黑时的容器背景色，不填写的话取sheetDarkColor
+		 */
+		darkBgColor : string;
+		/**
+		 * 层级
+		 */
+		zIndex : string;
+		/**
+		 * 内容区域的间隙
+		 */
+		contentPadding : string;
+		/**
+		 * 底部按钮操作的主题色，空取全局
+		 */
+		btnColor : string;
+		/**
+		 * 关闭前异步执行的函数，如果返回false阻止关闭，返回true允许关闭
+		 * 必须返回的是Promise异步函数，且类型返回值必须是Promise<boolean>，不然会报错。
+		 */
+		beforeClose : callbackType;
+		/**
+		 * 关闭图标的颜色
+		 */
+		closeColor : string;
+		/**
+		 * 关闭图标的暗黑颜色
+		 */
+		closeDarkColor : string;
+		/** 是否禁用弹出（它是禁用插槽内的弹出不是禁用你手动打开) */
+		disabled : boolean;
+	}
+
+	const props = withDefaults(defineProps<xModalPropsType>(), {
+		disabled:false,
+		customStyle: "",
+		title: "",
+		showFooter: true,
+		showTitle: true,
+		showClose: false,
+		showCancel: true,
+		overlayClick: true,
+		show: false,
+		duration: 300,
+		watiDuration: 120,
+		cancelText: "",
+		confirmText: "",
+		round: "",
+		width: "84%",
+		height: "240px",
+		maxHeight: "80%",
+		disabledScroll: false,
+		bgColor: "white",
+		darkBgColor: "",
+		zIndex: "1105",
+		contentPadding: "16",
+		btnColor: "",
+		beforeClose: () : Promise<boolean> => {return Promise.resolve(true)},
+		closeColor: "#e6e6e6",
+		closeDarkColor: "#545454"
+	})
+
+	// Reactive data
+	const _width = ref<number>(0)
+	const _height = ref<number>(0)
+	const showOverflay = ref<boolean>(false)
+	const elementRef = ref<UniElement | null>(null)
+	const xDrawerWrapContentRef = ref<UniElement | null>(null)
+	const xModalWrapBoxRef = ref<UniElement | null>(null)
+	// 是否动画中
+	const actioning = ref<boolean>(false)
+	const status = ref<string>("")
+	const id = ref<string>("xModal" + getUid())
+	const wrapId = ref<string>("xModal" + getUid())
+	const first = ref<boolean>(true)
+	const tid = ref<number>(0)
+	const tid2 = ref<number>(34)
+	const windtop = ref<number>(0)
+	const xani = ref<xAnimate | null>(null)
+	const isOpenedDefault = ref<boolean>(false)
+	const isLoading = ref<boolean>(false)
+	// #ifdef H5
+	const teleportElH5 = ref("uni-page")
+	const teleportTarget = ref<string | null>(null)
+	const getTeleportTarget = () => {
+	    try {
+			if(status.value == ''||status.value=='close') return 'uni-app'
+	        // 优先尝试 uni-page
+	        if (document.querySelector('uni-page')) {
+	            return 'uni-page'
+	        }
+	        // 优先尝试 uni-app
+	        if (document.querySelector('uni-app')) {
+	            return 'uni-app'
+	        }
+	        // 备用方案：尝试 app
+	        if (document.querySelector('#app')) {
+	            return '#app'
+	        }
+	        // 最后备用：body
+	        return 'body'
+	    } catch (error) {
+	        console.warn('Failed to get teleport target:', error)
+	        return 'body'
+	    }
+	}
+	
+	// 检查teleport目标是否可用
+	const isTeleportTargetValid = (target: string) => {
+	    try {
+	        return !!document.querySelector(target)
+	    } catch {
+	        return false
+	    }
+	}
+	// #endif
+
+	const instance = getCurrentInstance()?.proxy;
+
+	
+	const _customStyle = computed<string>(() => {
+		return props.customStyle
+	})
+
+	const _show = computed<boolean>(() => {
+		return props.show
+	})
+
+	
+
+	const _showClose = computed<boolean>(() => {
+		return props.showClose
+	})
+
+	const _duration = computed<number>(() => {
+		return props.duration
+	})
+
+	const _showTitle = computed<boolean>(() => {
+		return props.showTitle
+	})
+
+	const _round = computed<string>(() => {
+		if (props.round == "") {
+			return checkIsCssUnit(xConfig.modalRadius, xConfig.unit)
+		}
+		return checkIsCssUnit(props.round, xConfig.unit)
+	})
+
+	const _c_width = computed<string>(() => {
+		return checkIsCssUnit(props.width, xConfig.unit)
+	})
+
+	const _c_height = computed<string>(() => {
+		return checkIsCssUnit(props.height, xConfig.unit)
+	})
+	
+	const _disabledScroll = computed<boolean>(() => {
+		return props.disabledScroll || _c_height.value == 'auto'
+	})
+
+	const _showFooter = computed<boolean>(() => {
+		return props.showFooter
+	})
+
+	const _maxHeight = computed<string>(() => {
+		return checkIsCssUnit(props.maxHeight, xConfig.unit)
+	})
+
+	const _contentPadding = computed<string>(() => {
+		let cps = props.contentPadding.split(' ')
+		if (cps.length > 1) return props.contentPadding
+		return `0px ${checkIsCssUnit(props.contentPadding, xConfig.unit)}`
+	})
+
+	const _showCancel = computed<boolean>(() => {
+		return props.showCancel
+	})
+
+	const _title = computed<string>(() => {
+		if (props.title == '') {
+			return i18n.t("tmui4x.modal.title")
+		}
+		return props.title
+	})
+
+	const _cancelText = computed<string>(() => {
+		if (props.cancelText == '') {
+			return i18n.t("tmui4x.cancel")
+		}
+		return props.cancelText
+	})
+
+	const _confirmText = computed<string>(() => {
+		if (props.confirmText == '') {
+			return i18n.t("tmui4x.confirm")
+		}
+		return props.confirmText
+	})
+
+	const _animationFun = computed<string>(() => {
+		return xConfig.animationFun
+	})
+
+	const __height = computed<string>(() => {
+		let h = '100%'
+		// #ifdef WEB
+		h = `calc(100% - ${windtop.value}px)`
+		// #endif
+		return h
+	})
+
+	const _bgColor = computed<string>(() => {
+		if (xConfig.dark == 'dark') {
+			if (props.darkBgColor != '') return getDefaultColor(props.darkBgColor)
+			return getDefaultColor(xConfig.sheetDarkColor)
+		}
+		return getDefaultColor(props.bgColor)
+	})
+
+	const _btnColor = computed<string>(() => {
+		if (props.btnColor == '') return getDefaultColor(xConfig.color)
+		return getDefaultColor(props.btnColor)
+	})
+
+	const _closeIcon = computed<string>(() => {
+		return xConfig.closeIcon
+	})
+	
+	
+	
+	const onEnd = () => {
+		try {
+			if (actioning.value) return
+			actioning.value = true
+			tid2.value = setTimeout(function () {
+				if (status.value == 'close') {
+					showOverflay.value = false
+					/**
+					 * 关闭时执行
+					 */
+					emit('close')
+					/**
+					 * 等同v-model:show
+					 */
+					emit('update:show', false)
+					// #ifdef WEB
+					teleportTarget.value = getTeleportTarget()
+					// #endif
+				} else {
+					/**
+					 * 打开执行的事件
+					 */
+					emit('open')
+				}
+				nextTick(() => {
+					actioning.value = false
+				})
+			}, _duration.value + 5)
+		} catch (e) {
+			console.error('动画结束执行出现意外。', e)
+			showOverflay.value = false
+		}
+	}
+	
+	const setStyleAni = () => {
+		if (status.value == 'open') {
+			let watiDuration = 60
+			// #ifdef APP-IOS
+			watiDuration = props.watiDuration
+			// #endif
+			showOverflay.value = true
+			clearTimeout(tid.value)
+			tid.value = setTimeout(function () {
+				if (elementRef.value == null || xDrawerWrapContentRef.value == null) return
+				elementRef.value!.style.setProperty("transition-duration", _duration.value.toString() + 'ms')
+				xDrawerWrapContentRef.value!.style.setProperty("transition-duration", _duration.value.toString() + 'ms')
+	
+				elementRef.value!.style.setProperty('opacity', '1')
+				xDrawerWrapContentRef.value!.style.setProperty('transform', `scale(1)`)
+				xDrawerWrapContentRef.value!.style.setProperty('opacity', '1')
+				// elementRef.value.requestFullscreen({navigationUI:'show'})
+				onEnd()
+			}, watiDuration)
+		} else if (status.value == 'close') {
+			elementRef.value!.style.setProperty("transition-duration", _duration.value.toString() + 'ms')
+			xDrawerWrapContentRef.value!.style.setProperty("transition-duration", _duration.value.toString() + 'ms')
+	
+			elementRef.value!.style.setProperty('opacity', '0')
+			xDrawerWrapContentRef.value!.style.setProperty('transform', `scale(0.64)`)
+			xDrawerWrapContentRef.value!.style.setProperty('opacity', '0')
+			// const pages = getCurrentPages()
+			// const page = pages[pages.length - 1]
+			// page.exitFullscreen({})
+			onEnd()
+		}
+	}
+	
+
+	const overflayMoveTouch = (evt : TouchEvent) => {
+		evt.preventDefault()
+	}
+	
+	const closeAlert = () => {
+		if (actioning.value) return
+		if (status.value == 'close') return
+	
+		status.value = 'close'
+	
+		/**
+		 * 关闭前执行
+		 */
+		emit('beforeClose')
+		setStyleAni()
+	}
+	
+	const cancelEvt = () => {
+		/**
+		 * 取消时触发
+		 */
+		emit('cancel')
+		closeAlert()
+	}
+
+	const confirmEvt = async () : Promise<any> => {
+		isLoading.value = true
+		let isCanClose = await props.beforeClose()
+		isLoading.value = false
+		if (!isCanClose) {
+			return Promise.resolve(true)
+		}
+
+		/**
+		 * 确认时触发
+		 */
+		emit('confirm')
+		closeAlert()
+		return Promise.resolve(false)
+	}
+
+	const onClickOverflowy = (evt : UniPointerEvent) => {
+		evt.stopPropagation()
+		/**
+		 * 点击遮罩事件
+		 */
+		emit("click")
+		if (isLoading.value) return
+		if (!props.overlayClick) {
+			let el = xModalWrapBoxRef.value as UniElement | null
+			if (xani.value != null) {
+				xani.value!.stop()
+				xani.value = null
+			}
+			if (el != null) {
+				xani.value = new xAnimate(el!, { duration: 100, isDescPlay: true } as XANIMATE_OPIONS)
+				xani.value!.attr('scale', '1', '0.95', false)
+					.attr('scale', '0.95', '1.05', false)
+					.attr('scale', '1.05', '1', false)
+					.play()
+			}
+			return
+		}
+		closeAlert()
+	}
+
+	
+
+	const showAlert = () => {
+		if (actioning.value) return
+		if (status.value == 'open') return
+		
+		showOverflay.value = true
+		status.value = 'open'
+		
+		// #ifdef WEB
+		teleportTarget.value = getTeleportTarget()
+		// #endif
+		
+		/**
+		 * 打开前执行
+		 */
+		emit('beforeOpen')
+		setStyleAni()
+	}
+
+	const openDrawer = () => {
+		if(props.disabled) return;
+		showAlert()
+	}
+
+	const maskerMove = (evt : UniTouchEvent) => {
+		// #ifdef WEB
+		evt.stopPropagation()
+		evt.preventDefault()
+		// #endif
+	}
+
+
+	onMounted(() => {
+		// #ifdef H5
+		nextTick(() => {
+			teleportTarget.value = getTeleportTarget()
+		})
+		// #endif
+		function oninitready() {
+			let sys = uni.getWindowInfo()
+			_width.value = sys.windowWidth
+			_height.value = sys.windowHeight
+			windtop.value = sys.windowTop
+			if (_show.value) {
+				showAlert()
+			}
+		}
+		
+		oninitready()
+	})
+	
+	// 监听页面变化，重新获取teleport目标
+	onUpdated(() => {
+	    // #ifdef H5
+	    if (teleportTarget.value && !isTeleportTargetValid(teleportTarget.value)) {
+	        teleportTarget.value = getTeleportTarget()
+	    }
+	    // #endif
+	})
+
+	onBeforeUnmount(() => {
+		if (xani.value != null) {
+			xani.value!.stop()
+			xani.value = null
+		}
+		clearTimeout(tid.value)
+		clearTimeout(tid2.value)
+	})
+	
+	watch(():boolean => props.show, (newVal : boolean) => {
+		if (newVal) {
+			showAlert()
+		} else {
+			closeAlert()
+		}
+	})
+
+	
+	defineExpose({
+		/** 打开 **/
+		open:()=>showAlert(),
+		/** 关闭 **/
+		close:()=>closeAlert()
+	})
+</script>
+<template>
+	<view>
+		<view @click="openDrawer">
+			<!--
+			@slot 标签触发显示遮罩，免于使用变量控制
+			-->
+			<slot name="trigger"></slot>
+		</view>
+		<!-- #ifdef H5 -->
+		<teleport :to="teleportTarget || teleportElH5" :disabled="!teleportTarget">
+		<!-- #endif -->
+		<!-- #ifdef MP-WEIXIN -->
+		<root-portal>
+		<!-- #endif -->
+				<view @click="onClickOverflowy" @touchmove="maskerMove" 
+				ref="elementRef" :id="id"
+					class="xDrawerWrap xDrawerWrap_center" v-if="showOverflay"
+					:style="[{top:windtop+'px',zIndex:zIndex,width:'100%',height:__height,'transition-timing-function':_animationFun},_customStyle]">
+					<!-- ios下面的：maxHeight:_maxHeight!=''?_maxHeight:'100%', 动态切换失效 -->
+					<view @click.stop="" ref="xDrawerWrapContentRef" class="xDrawerWrapContent xDrawerWrapContent_center"
+						:id="wrapId" :style="{
+						width:_c_width,
+						height:_c_height,
+						maxWidth:'750px',
+						borderRadius:_round,
+						maxHeight:_maxHeight!=''?_maxHeight:'100%',
+						backgroundColor:_bgColor,
+						'transition-timing-function':'cubic-bezier(0.07, 0.82, 0.17, 1.20)'
+						}"
+					>
+						<view ref="xModalWrapBoxRef" class="xModalWrapBox" :style="{borderRadius:_round}">
+							<view class="xDrawerXclose">
+								<x-icon v-if="_showClose" @click="closeAlert" :color="closeColor"
+									:dark-color="closeDarkColor" font-size="21" :name="_closeIcon"></x-icon>
+							</view>
+							<view>
+								<view v-if="_showTitle" class="xDrawerTitleBox">
+									<!-- 
+									 @slot 标题插槽
+									 -->
+									<slot name="title">
+										<x-text font-size="17" class="xDrawertitleBoxTitle">{{_title}}</x-text>
+									</slot>
+								</view>
+							</view>
+
+							<!-- #ifdef MP-WEIXIN -->
+							<view v-if="!_disabledScroll" style="flex:1;position: relative;">
+								<scroll-view style="height: 100%;position: absolute;width:100%" :scroll-y="true"
+									:rebound="false">
+									<view :style="{padding:_contentPadding}">
+										<!--
+										@slot 默认插槽
+										-->
+										<slot name="default"></slot>
+									</view>
+								</scroll-view>
+							</view>
+							<!-- #endif -->
+
+							<!-- #ifdef APP||WEB -->
+							<scroll-view v-if="!_disabledScroll" style="flex:1" :scroll-y="true" :rebound="false">
+								<view :style="{padding:_contentPadding}">
+									<!--
+									默认插槽
+									-->
+									<slot name="default"></slot>
+								</view>
+							</scroll-view>
+							<!-- #endif -->
+
+							<view v-if="_disabledScroll" :style="{flex:'1',padding:_contentPadding}">
+								<!--
+								默认插槽
+								-->
+								<slot name="default"></slot>
+							</view>
+							<view v-if="showFooter" class="xDrawerFooter" :style="{backgroundColor:_bgColor}">
+								<!--
+								@slot 底部操作栏
+								-->
+								<slot name="footer">
+									<x-button :disabled="isLoading" :color="_btnColor" @click="cancelEvt"
+										v-if="_showCancel" skin="thin" width="0px" :block="true"
+										style="margin-right: 16px;flex:1">{{_cancelText}}</x-button>
+									<x-button :loading="isLoading" :color="_btnColor" @click="confirmEvt" width="0px"
+										:block="true" style="flex:1">{{_confirmText}}</x-button>
+								</slot>
+							</view>
+						</view>
+					</view>
+				</view>
+		<!-- #ifdef MP-WEIXIN -->
+		</root-portal>
+		<!-- #endif -->
+		<!-- #ifdef H5 -->
+		</teleport>
+		<!-- #endif -->
+	</view>
+</template>
+<style>
+	.xModalWrapBox {
+		display: flex;
+		flex-direction: column;
+		/* background-color: white; */
+		height: 100%;
+		width: 100%;
+		position: relative;
+	}
+
+	.xDrawerFooter {
+		width: 100%;
+		/* background-color: white; */
+		padding: 20px 16px 16px 16px;
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: center;
+		display: flex;
+		/* #ifdef MP-WEIXIN */
+		box-sizing: border-box;
+		/* #endif */
+	}
+
+	.xDrawerXclose {
+		position: absolute;
+		right: 12px;
+		top: 6px;
+		z-index: 100;
+	}
+
+	.xDrawertitleBoxTitle {
+		font-size: 16px;
+	}
+
+	.xDrawerTitleBox {
+		height: 60px;
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.xDrawertitleBox {
+		max-width: 350px;
+		overflow: hidden;
+		lines: 1;
+		text-overflow: ellipsis;
+		font-size: 14px;
+	}
+
+	.xDrawerWrap_center {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		align-items: center;
+	}
+
+
+	.xDrawerWrapContent {
+		/* #ifndef APP-HARMONY */
+		transition-duration: 350ms;
+		/* #endif */
+		/* #ifdef APP-HARMONY */
+		transition-duration: 0ms;
+		/* #endif */
+		transition-property: transform, opacity;
+		display: flex;
+		flex-direction: column;
+		/* #ifndef APP */
+		overflow: hidden;
+		/* #endif */
+
+	}
+
+	.xDrawerWrapContent_center {
+		transform: scale(0.64);
+		opacity: 0;
+	}
+
+	.xDrawerWrap {
+		background: rgba(0, 0, 0, 0.4);
+		opacity: 0;
+		position: fixed;
+		/* z-index: 1100; */
+		left: 0;
+		top: 0px;
+		/* #ifndef APP-HARMONY */
+		transition-duration: 350ms;
+		/* #endif */
+		/* #ifdef APP-HARMONY */
+		transition-duration: 0ms;
+		/* #endif */
+		transition-property: opacity;
+		/* #ifndef APP */
+		backdrop-filter: blur(5px);
+		/* #endif */
+
+	}
+</style>

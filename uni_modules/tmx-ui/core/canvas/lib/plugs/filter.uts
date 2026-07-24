@@ -1,0 +1,301 @@
+import { ICanvas } from '@/uni_modules/tmx-ui/core/canvas/ICanvas.uts';
+import { Shape } from '../shape.uts';
+import { GrayscaleFilter, GrayscaleOptionsOpts,GrayscaleOptions } from './filter/grayscale.uts';
+import { BlurFilter, BlurOptionsOpts,BlurOptions } from './filter/blur.uts';
+import { HueFilter, HueOptionsOpts,HueOptions } from './filter/hue.uts';
+import { OpacityFilter, OpacityOptionsOpts,OpacityOptions } from './filter/opacity.uts';
+
+// 滤镜管理器选项
+export type FilterManagerOptions = {
+    // 灰度选项
+    grayscale?: GrayscaleOptionsOpts;
+    // 模糊选项
+    blur?: BlurOptionsOpts;
+    // 色调选项
+    hue?: HueOptionsOpts;
+    // 透明度选项
+    opacity?: OpacityOptionsOpts;
+}
+export type FilterManagerOptionsReal = {
+    // 灰度选项
+    grayscale: GrayscaleOptions;
+    // 模糊选项
+    blur: BlurOptions;
+    // 色调选项
+    hue: HueOptions;
+    // 透明度选项
+    opacity: OpacityOptions;
+}
+// 应用区域类型
+export type FilterArea = {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+}
+
+/**
+ * 滤镜插件管理器
+ */
+export class FilterPlugin {
+    private canvas: ICanvas;
+    private grayscaleFilter: GrayscaleFilter;
+    private blurFilter: BlurFilter;
+    private hueFilter: HueFilter;
+    private opacityFilter: OpacityFilter;
+    private isActive: boolean = false;
+
+    constructor(canvas: ICanvas, options?: FilterManagerOptions) {
+        this.canvas = canvas;
+        
+        // 初始化各个滤镜
+        this.grayscaleFilter = new GrayscaleFilter(canvas, options?.grayscale);
+        this.blurFilter = new BlurFilter(canvas, options?.blur);
+        this.hueFilter = new HueFilter(canvas, options?.hue);
+        this.opacityFilter = new OpacityFilter(canvas, options?.opacity);
+    }
+
+    /**
+     * 设置滤镜管理器选项
+     */
+    setOptions(options: FilterManagerOptions): FilterPlugin {
+        if (options.grayscale!=null) {
+            this.grayscaleFilter.setOptions(options.grayscale);
+        }
+        if (options.blur!=null) {
+            this.blurFilter.setOptions(options.blur);
+        }
+        if (options.hue!=null) {
+            this.hueFilter.setOptions(options.hue);
+        }
+        if (options.opacity!=null) {
+            this.opacityFilter.setOptions(options.opacity);
+        }
+        return this;
+    }
+
+    /**
+     * 应用所有滤镜到指定区域
+     */
+    applyToArea(x: number, y: number, width: number, height: number): FilterPlugin {
+        // 按顺序应用各种滤镜
+        this.grayscaleFilter.applyToArea(x, y, width*this.canvas.dpr, height*this.canvas.dpr);
+        this.blurFilter.applyToArea(x, y, width*this.canvas.dpr, height*this.canvas.dpr);
+        this.hueFilter.applyToArea(x, y, width*this.canvas.dpr, height*this.canvas.dpr);
+        this.opacityFilter.applyToArea(x, y, width*this.canvas.dpr, height*this.canvas.dpr);
+        
+        // 标记画布需要更新
+        this.canvas.update();
+        return this;
+    }
+
+    /**
+     * 应用所有滤镜到Shape
+     */
+    applyToShape(shape: Shape): FilterPlugin {
+        return this.applyToArea(shape.x, shape.y, shape.width, shape.height);
+    }
+
+    /**
+     * 应用所有滤镜到整个画布
+     */
+    applyToCanvas(): FilterPlugin {
+        return this.applyToArea(0, 0, this.canvas.width, this.canvas.height);
+    }
+
+
+    /**
+     * 单独应用灰度滤镜
+     */
+    applyGrayscale(x?: number, y?: number, width?: number, height?: number): FilterPlugin {
+        const areaX = x ?? 0;
+        const areaY = y ?? 0;
+        const areaWidth = width ?? this.canvas.width;
+        const areaHeight = height ?? this.canvas.height;
+        
+        this.grayscaleFilter.applyToArea(areaX, areaY, areaWidth*this.canvas.dpr, areaHeight*this.canvas.dpr);
+        this.canvas.update();
+        return this;
+    }
+
+    /**
+     * 单独应用模糊滤镜
+     */
+    applyBlur(x: number=0, y: number=0, width: number=0, height: number=0): FilterPlugin {
+        const areaX = x ?? 0;
+        const areaY = y ?? 0;
+        const areaWidth = width ?? this.canvas.width;
+        const areaHeight = height ?? this.canvas.height;
+        
+        this.blurFilter.applyToArea(areaX, areaY, areaWidth, areaHeight*this.canvas.dpr);
+        this.canvas.update();
+        return this;
+    }
+
+    /**
+     * 单独应用色调滤镜
+     */
+    applyHue(x?: number, y?: number, width?: number, height?: number): FilterPlugin {
+        const areaX = x ?? 0;
+        const areaY = y ?? 0;
+        const areaWidth = width ?? this.canvas.width;
+        const areaHeight = height ?? this.canvas.height;
+        
+        this.hueFilter.applyToArea(areaX, areaY, areaWidth*this.canvas.dpr, areaHeight*this.canvas.dpr);
+        this.canvas.update();
+        return this;
+    }
+
+    /**
+     * 单独应用透明度滤镜
+     */
+    applyOpacity(x?: number, y?: number, width?: number, height?: number): FilterPlugin {
+        const areaX = x ?? 0;
+        const areaY = y ?? 0;
+        const areaWidth = width ?? this.canvas.width;
+        const areaHeight = height ?? this.canvas.height;
+        
+        this.opacityFilter.applyToArea(areaX, areaY, areaWidth, areaHeight);
+        this.canvas.update();
+        return this;
+    }
+
+    /**
+     * 获取灰度滤镜实例
+     */
+    getGrayscaleFilter(): GrayscaleFilter {
+        return this.grayscaleFilter;
+    }
+
+    /**
+     * 获取模糊滤镜实例
+     */
+    getBlurFilter(): BlurFilter {
+        return this.blurFilter;
+    }
+
+    /**
+     * 获取色调滤镜实例
+     */
+    getHueFilter(): HueFilter {
+        return this.hueFilter;
+    }
+
+    /**
+     * 获取透明度滤镜实例
+     */
+    getOpacityFilter(): OpacityFilter {
+        return this.opacityFilter;
+    }
+
+
+    /**
+     * 获取所有滤镜选项
+     */
+    getAllOptions(): FilterManagerOptionsReal {
+        return {
+            grayscale: this.grayscaleFilter.getOptions(),
+            blur: this.blurFilter.getOptions(),
+            hue: this.hueFilter.getOptions(),
+            opacity: this.opacityFilter.getOptions()
+        } as FilterManagerOptionsReal;
+    }
+
+    /**
+     * 重置所有滤镜
+     */
+    reset(): FilterPlugin {
+        this.grayscaleFilter.setOptions({ enabled: false });
+        this.blurFilter.setOptions({ enabled: false });
+        this.hueFilter.setOptions({ enabled: false });
+        this.opacityFilter.setOptions({ enabled: false });
+        return this;
+    }
+}
+
+// 滤镜管理器 - 管理多个滤镜实例
+export class FilterManager {
+    private plugins: Map<string, FilterPlugin> = new Map();
+    private canvas: ICanvas;
+
+    constructor(canvas: ICanvas) {
+        this.canvas = canvas;
+    }
+
+    /**
+     * 创建滤镜插件
+     */
+    createFilter(shapeId: string, options?: FilterManagerOptions): FilterPlugin {
+        const plugin = new FilterPlugin(this.canvas, options);
+        this.plugins.set(shapeId, plugin);
+        return plugin;
+    }
+
+    /**
+     * 移除滤镜插件
+     */
+    removeFilter(shapeId: string): void {
+        const plugin = this.plugins.get(shapeId);
+        if (plugin != null) {
+            plugin.reset();
+            this.plugins.delete(shapeId);
+        }
+    }
+
+    /**
+     * 获取滤镜插件
+     */
+    getFilter(shapeId: string): FilterPlugin | null {
+        return this.plugins.get(shapeId);
+    }
+
+    /**
+     * 应用滤镜到指定Shape
+     */
+    applyToShape(shapeId: string): void {
+        const plugin = this.plugins.get(shapeId);
+        if (plugin != null) {
+            // 需要从canvas获取shape对象
+            // plugin.applyToShape(shape);
+        }
+    }
+
+
+    /**
+     * 清除所有滤镜
+     */
+    clearAll(): void {
+        this.plugins.forEach((plugin: FilterPlugin) => {
+            plugin.reset();
+        });
+        this.plugins.clear();
+    }
+
+    /**
+     * 获取所有滤镜插件
+     */
+    getAllFilters(): FilterPlugin[] {
+        const filters: FilterPlugin[] = [];
+        this.plugins.forEach((plugin: FilterPlugin) => {
+            filters.push(plugin);
+        });
+        return filters;
+    }
+}
+
+// 便捷函数：创建滤镜插件
+export function createFilterPlugin(canvas: ICanvas, options?: FilterManagerOptions): FilterPlugin {
+    return new FilterPlugin(canvas, options);
+}
+
+// 便捷函数：创建滤镜管理器
+export function createFilterManager(canvas: ICanvas): FilterManager {
+    return new FilterManager(canvas);
+}
+
+// 便捷函数：为Shape添加滤镜
+export function addFilterToShape(shape: Shape, canvas: ICanvas, options?: FilterManagerOptions): FilterPlugin {
+    const plugin = new FilterPlugin(canvas, options);
+    plugin.applyToShape(shape);
+    return plugin;
+}

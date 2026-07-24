@@ -1,0 +1,860 @@
+<script setup lang="ts">
+	import { ref, onMounted, onBeforeUnmount } from 'vue'
+	import { getUid } from '../../core/util/xCoreUtil.uts';
+
+	type CHECKPOINT_XY = { x : number | null, y : number | null }
+	type DRect = {
+		left:number,
+		right:number,
+		top:number,
+		bottom:number,
+		width:number,
+		height:number,
+	}
+
+	/**
+	 * @name 手势库 xFinger
+	 * @description 多方向的手势库,包括旋转，捏合，轻扫，双击等手势
+	 * @page /pages/index/finger
+	 * @category 其它组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({name:"xFinger"})
+	type Props = {
+		/**
+		 * 滑动多长距离，识别并触发滑动的方向
+		 */
+		swiperDiff: number
+		/**
+		 * 定义双击的时间间隔触发时机
+		 */
+		dbClickDiff: number
+		/**
+		 * 定义单击click的时间间隔触发时机
+		 */
+		clickDiff: number
+		/**
+		 * 定义长按的时间间隔触发时机
+		 */
+		longDiff: number
+		/**
+		 * 是否禁用
+		 */
+		disabled: boolean
+		/**
+		 * 移动事件的节流间隔（毫秒），0表示不节流
+		 */
+		throttleDelay: number
+		/**
+		 * 是否启用防抖，防止快速连续触发
+		 */
+		debounce: boolean
+		/**
+		 * 最小移动距离，小于此距离不触发移动事件
+		 */
+		minMoveDistance: number
+		/**
+		 * 连续性坐标初始位置x
+		 */
+		accOffsetX:number,
+		/**
+		 * 连续性坐标初始位置y
+		 */
+		accOffsetY:number,
+		/**
+		 * 是否启用无障碍访问支持
+		 */
+		accessibility: boolean
+		/**
+		 * 无障碍标签
+		 */
+		ariaLabel: string
+	}
+	defineSlots<{
+		/**
+		 * 默认插槽default
+		 */
+		default(props:{
+			/**
+			 * 当前x坐标
+			 */
+			x:number,
+			/**
+			 * 当前y坐标
+			 */
+			y:number,
+			/**
+			 * 累积x坐标（连续定位）
+			 */
+			accX:number,
+			/**
+			 * 累积y坐标（连续定位）
+			 */
+			accY:number,
+			/**
+			 * 当前事件类型click,start,end,dbclick,longPress,swiper,pinch,rotate
+			 */
+			type:string
+		}):any
+	}>()
+	const props = withDefaults(defineProps<Props>(), {
+		swiperDiff: 50,
+		dbClickDiff: 300,
+		clickDiff: 50,
+		longDiff: 800,
+		disabled: false,
+		throttleDelay: 16, // 约60fps
+		debounce: false,
+		minMoveDistance: 1,
+		accessibility: true,
+		accOffsetX:0,
+		accOffsetY:0,
+		ariaLabel: '手势识别区域'
+	})
+	
+	// Emits
+	const emit = defineEmits<{
+		/**
+		 * 触摸开始
+		 * @param evt - {x,y,type,width,height}
+		 */
+		start: [evt: {x: number, y: number, type: string, width: number, height: number}]
+		/**
+		 * 触摸移动时触发
+		 * @param evt - {x,y,type,width,height}
+		 */
+		move: [evt: {x: number, y: number, type: string, width: number, height: number}]
+		/**
+		 * 触摸结束
+		 * @param evt - {x,y,type,width,height}
+		 */
+		end: [evt: {x: number, y: number, type: string, width: number, height: number}]
+		/**
+		 * 触摸中断
+		 * @param evt - {x,y,type,width,height}
+		 */
+		cancel: [evt: {x: number, y: number, type: string, width: number, height: number}]
+		/**
+		 * doubleClick
+		 * @param evt - {x,y,type,width,height}
+		 */
+		doubleClick: [evt: {x: number, y: number, type: string, width: number, height: number}]
+		/**
+		 * 长按事件
+		 * @param evt - {x,y,type,width,height}
+		 */
+		longPress: [evt: {x: number, y: number, type: string, width: number, height: number}]
+		/**
+		 * 滑动时触发
+		 * @param evt - {x,y,type,width,height,direction:方向UP|DOWN|LEFT|RIGHT}
+		 */
+		swiper: [evt: {x: number, y: number, diffX: number, diffY: number, direction: string, type: string, width: number, height: number}]
+		/**
+		 * 单击
+		 * @param evt - {x,y,type,width,height}
+		 */
+		click: [evt: {x: number, y: number, type: string, width: number, height: number}]
+		/**
+		 * 缩放事件
+		 * @description len为两点间的距离，scale为当前的缩放比例（最小为0.1）
+		 * @param evt - {x,y,x1,y1,len,scale,type,width,height}
+		 */
+		pinch: [evt: {x: number, y: number, x1: number, y2: number, type: string, width: number, height: number, len: number, scale: number}]
+		/**
+		 * 旋转事件
+		 * @description len为两点间的距离，angle为当前当前旋转的角度
+		 * @param evt - {x,y,x1,y1,len,angle,type,width,height}
+		 */
+		rotate: [evt: {x: number, y: number, x1: number, y2: number, type: string, width: number, height: number, len: number, angle: number}]
+	}>()
+	
+	// Reactive data
+	const isMouseDown = ref(false)
+	const wheelScale = ref(1)
+	const wheelDelta = ref(0.1) // 滚轮缩放系数
+	const dubleTime = ref(0)
+	const tid = ref(56)
+	const _x = ref(0)
+	const _y = ref(0)
+	const _start_x = ref(0)
+	const _start_y = ref(0)
+	const eventName = ref('')
+	const mX = ref(0)
+	const mY = ref(0)
+	const swipeDirection = ref("")
+	// 累积定位坐标，保持连续性
+	const accumulatedX = ref(props.accOffsetX)
+	const accumulatedY = ref(props.accOffsetY)
+	// 本次手势开始时的累积坐标
+	const startAccumulatedX = ref(0)
+	const startAccumulatedY = ref(0)
+	const xFingerRef = ref<UniElement | null>(null)
+	const left = ref(0)
+	const top = ref(0)
+	const id = ref("xFinGer" + getUid())
+	const zoomFactor = ref(0.55) // 缩放速率
+	const zoomFactorAb = ref(0.03) // 旋转速率
+	const pinchStartLen = ref(0)
+	const scale = ref(0)
+	const angle = ref(0)
+	const pinth_x = ref(0)
+	const pinth_y = ref(0)
+	const preV = ref<CHECKPOINT_XY>({ x: null, y: null })
+	const parentRect = ref<DRect>({
+		left:0,
+		right:0,
+		top:0,
+		bottom:0,
+		width:0,
+		height:0,
+	})
+
+
+
+
+	const isGestureValid = (deltaX: number, deltaY: number): boolean => {
+		const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
+		return distance >= props.minMoveDistance
+	}
+
+	const refreshRectSync = () => {
+		let el = xFingerRef.value as UniElement | null
+		if (el == null) return
+		// #ifndef MP-WEIXIN
+		let res = el!.getBoundingClientRect()
+		parentRect.value = {
+			left: res.left, right: res.right,
+			top: res.top, bottom: res.bottom,
+			width: res.width, height: res.height,
+		} as DRect
+		// #endif
+		// #ifdef MP-WEIXIN
+		el!.getBoundingClientRectAsync()?.then((res : DOMRect) => {
+			parentRect.value = {
+				left: res.left, right: res.right,
+				top: res.top, bottom: res.bottom,
+				width: res.width, height: res.height,
+			} as DRect
+		}).catch(() => {})
+		// #endif
+	}
+
+	// #ifdef WEB
+	// 处理鼠标滚轮事件，模拟缩放功能
+	const handleWheel = (evt: WheelEvent) => {
+		if (props.disabled) return
+		const delta = evt.deltaY > 0 ? -wheelDelta.value : wheelDelta.value;
+		wheelScale.value = Math.max(0.1, wheelScale.value + delta);
+		emit("pinch", {
+			x: evt.clientX,
+			y: evt.clientY,
+			type: 'pinch',
+			width: parentRect.value.width,
+			height: parentRect.value.height,
+			len: 0,
+			scale: wheelScale.value
+		});
+	}
+
+	// 鼠标事件处理函数
+	const mouseStart = (evt: MouseEvent) => {
+		if (props.disabled) return
+		refreshRectSync()
+		isMouseDown.value = true;
+		let rectBox = parentRect.value;
+		_x.value = evt.clientX - rectBox.left;
+		_y.value = evt.clientY - rectBox.top;
+		
+		// 重置移动距离，开始新的手势
+		mX.value = 0
+		mY.value = 0
+		
+		// 记录本次手势开始时的累积坐标
+		startAccumulatedX.value = accumulatedX.value
+		startAccumulatedY.value = accumulatedY.value
+		
+		_start_x.value = evt.clientX - rectBox.left;
+		_start_y.value = evt.clientY - rectBox.top;
+		swipeDirection.value = "";
+		
+		emit("start", { 
+			x: _start_x.value, 
+			y: _start_y.value, 
+			type: 'start', 
+			width: rectBox.width, 
+			height: rectBox.height 
+		});
+		eventName.value = 'start';
+
+		// 处理双击
+		let difftime = new Date().getTime() - dubleTime.value;
+		if (difftime > 0 && difftime <= props.dbClickDiff) {
+			emit("doubleClick", { 
+				x: _start_x.value, 
+				y: _start_y.value, 
+				type: 'doubleClick', 
+				width: rectBox.width, 
+				height: rectBox.height 
+			});
+			eventName.value = 'doubleClick';
+		}
+		dubleTime.value = new Date().getTime();
+
+		// 处理长按
+		clearTimeout(tid.value);
+		tid.value = setTimeout(() => {
+			if (isMouseDown.value) {
+				emit("longPress", { 
+					x: _start_x.value, 
+					y: _start_y.value, 
+					type: 'longPress', 
+					width: rectBox.width, 
+					height: rectBox.height 
+				});
+				eventName.value = 'longPress';
+			}
+		}, props.longDiff);
+	}
+
+	const mouseMove = (evt: MouseEvent) => {
+		if (props.disabled || !isMouseDown.value) return
+		let rectBox = parentRect.value;
+		let x = evt.clientX - rectBox.left;
+		let y = evt.clientY - rectBox.top;
+
+		let deltaX = Math.abs(x);
+		let deltaY = Math.abs(y);
+		
+		mX.value = Math.max(0, Math.min(rectBox.width, x))  - _start_x.value
+		mY.value = Math.max(0, Math.min(rectBox.height, y))  - _start_y.value
+		
+		// 在移动过程中实时更新累积坐标（用于插槽输出）
+		accumulatedX.value = startAccumulatedX.value + mX.value
+		accumulatedY.value = startAccumulatedY.value + mY.value
+
+
+		if (deltaX > deltaY && deltaX > props.swiperDiff) {
+			swipeDirection.value = (_x.value > x) ? "left" : "right";
+		} else if (deltaY > deltaX && deltaY > props.swiperDiff) {
+			swipeDirection.value = (_y.value < y) ? "down" : "up";
+		}
+
+		if (swipeDirection.value != "") {
+			emit("swiper", { 
+				x: mX.value, 
+				y: mY.value, 
+				diffX: deltaX, 
+				diffY: deltaY, 
+				direction: swipeDirection.value, 
+				type: 'swiper', 
+				width: rectBox.width, 
+				height: rectBox.height 
+			});
+			eventName.value = 'swiper';
+		}
+
+		emit("move", { 
+			x: mX.value, 
+			y: mY.value, 
+			type: 'move', 
+			width: rectBox.width, 
+			height: rectBox.height 
+		});
+		eventName.value = 'move';
+		clearTimeout(tid.value);
+	}
+
+	const mouseEnd = (evt: MouseEvent) => {
+		if (props.disabled) return
+		
+		let rectBox = parentRect.value;
+		let x = evt.clientX - rectBox.left;
+		let y = evt.clientY - rectBox.top;
+
+		let deltaX = Math.abs(x);
+		let deltaY = Math.abs(y);
+		
+		mX.value = Math.max(0, Math.min(rectBox.width, x))  - _start_x.value
+		mY.value = Math.max(0, Math.min(rectBox.height, y))  - _start_y.value
+		
+		// 更新累积坐标（手势结束时累加本次移动的偏移量）
+		accumulatedX.value = startAccumulatedX.value + mX.value
+		accumulatedY.value = startAccumulatedY.value + mY.value
+		
+		emit("end", { 
+			x: mX.value, 
+			y: mY.value, 
+			type: 'end', 
+			width: rectBox.width, 
+			height: rectBox.height 
+		});
+		
+		eventName.value = 'end';
+		if (new Date().getTime() - dubleTime.value > props.clickDiff) {
+			emit("click", { 
+				x: mX.value, 
+				y: mY.value, 
+				type: 'click', 
+				width: rectBox.width, 
+				height: rectBox.height 
+			});
+			eventName.value = 'click';
+		}
+
+		isMouseDown.value = false;
+		
+		// 重置所有状态，为下次触摸做准备
+		swipeDirection.value = ""
+		scale.value = 0
+		angle.value = 0
+	}
+
+	const mouseCancel = (evt: MouseEvent) => {
+		if (props.disabled) return
+		eventName.value = 'cancel';
+		isMouseDown.value = false;
+		swipeDirection.value = ""
+		scale.value = 0
+		angle.value = 0
+	}
+			
+	// #endif
+	const getLen = (v : CHECKPOINT_XY) : number => {
+		if (v.x == null || v.y == null) return 0
+		return Math.hypot(v.x!, v.y!)
+	}
+	
+	const dot = (v1 : CHECKPOINT_XY, v2 : CHECKPOINT_XY) : number => {
+		if (v1.x == null || v1.y == null || v2.x == null || v2.y == null) return 0
+		return v1.x! * v2.x! + v1.y! * v2.y!;
+	}
+	
+	const getRectBox = (call:(rect:DRect)=>void) => {
+		try {
+			if (xFingerRef.value == null) {
+				console.warn('x-finger: Element not found')
+				return
+			}
+			
+			let rectBox = {
+				left:0,
+				right:0,
+				top:0,
+				bottom:0,
+				width:0,
+				height:0,
+			} as DRect
+			
+			xFingerRef.value?.getBoundingClientRectAsync()?.then((res:DOMRect)=>{
+				rectBox = {
+					left:res.left,
+					right:res.right,
+					top:res.top,
+					bottom:res.bottom,
+					width:res.width,
+					height:res.height,
+				} as DRect
+				call(rectBox)
+			}).catch(err => {
+				console.error('x-finger: getBoundingClientRectAsync error', err)
+			})
+		} catch (error) {
+			console.error('x-finger: getRectBox error', error)
+		}
+	}
+	
+	const getAngle = (v1 : CHECKPOINT_XY, v2 : CHECKPOINT_XY) : number => {
+		let mr = getLen(v1) * getLen(v2);
+		if (mr == 0) return 0;
+		let r = dot(v1, v2) / mr;
+		if (r > 1) r = 1;
+		let jd = Math.acos(r);
+		jd = jd * (180 / Math.PI);
+		return (jd + 360) % 360;;
+	}
+
+	const cross = (v1 : CHECKPOINT_XY, v2 : CHECKPOINT_XY) : number => {
+		if (v1.x == null || v1.y == null || v2.x == null || v2.y == null) return 0
+		return v1.x! * v2.y! - v2.x! * v1.y!;
+	}
+
+	const getRotateAngle = (v1 : CHECKPOINT_XY, v2 : CHECKPOINT_XY) : number => {
+		let angle = getAngle(v1, v2);
+		if (cross(v1, v2) > 0) {
+			angle *= -1;
+		}
+		return angle * 180 / Math.PI;
+	}
+	const mStart = (evt : UniTouchEvent) => {
+		if (props.disabled) return
+		refreshRectSync()
+		let event = evt.changedTouches[0]
+		
+		clearTimeout(tid.value)
+		
+		let rectBox = parentRect.value
+		_x.value = event.clientX - rectBox.left;
+		_y.value = event.clientY - rectBox.top;
+		
+		// 重置移动距离，开始新的手势
+		mX.value = 0
+		mY.value = 0
+		
+		// 记录本次手势开始时的累积坐标
+		startAccumulatedX.value = accumulatedX.value
+		startAccumulatedY.value = accumulatedY.value
+		
+		_start_x.value = event.clientX - rectBox.left
+		_start_y.value = event.clientY - rectBox.top
+		
+		swipeDirection.value = ""
+		/**
+		 * 触摸开始
+		 * @param evt {object} {x,y,type,width,height}
+		 */
+		emit("start", { x: _start_x.value, y: _start_y.value, type: 'start', width: rectBox.width, height: rectBox.height })
+		eventName.value = 'start'
+		let difftime = new Date().getTime() - dubleTime.value;
+		if (difftime > 0 && difftime <= props.dbClickDiff) {
+			/**
+			 * 双击事件
+			 * @param evt {object} {x,y,type,width,height}
+			 */
+			emit("doubleClick", { x: _start_x.value, y: _start_y.value, type: 'doubleClick', width: rectBox.width, height: rectBox.height })
+			eventName.value = 'doubleClick'
+		}
+		dubleTime.value = new Date().getTime();
+		
+		if (evt.changedTouches.length >= 2) {
+			pinth_x.value = evt.touches[0].pageX;
+			pinth_y.value = evt.touches[0].pageY;
+		
+			let otx = evt.touches[1].pageX;
+			let oty = evt.touches[1].pageY;
+			let preVs = { x: otx - pinth_x.value, y: oty - pinth_y.value } as CHECKPOINT_XY;
+			preV.value = preVs
+			pinchStartLen.value = getLen(preVs);
+		
+		}
+		
+		tid.value = setTimeout(function () {
+			/**
+			 * 长按事件
+			 * @param evt {object} {x,y,type,width,height}
+			 */
+			emit("longPress", { x: _start_x.value, y: _start_y.value, type: 'longPress', width: rectBox.width, height: rectBox.height })
+			eventName.value = 'longPress'
+		}, props.longDiff);
+	}
+
+	// 键盘事件处理（无障碍访问）
+	// #ifdef WEB
+	const handleKeyDown = (evt: KeyboardEvent) => {
+		if (!props.accessibility || props.disabled) return
+		
+		const rectBox = parentRect.value
+		const centerX = rectBox.width / 2
+		const centerY = rectBox.height / 2
+		
+		switch (evt.key) {
+			case 'Enter':
+			case ' ':
+				evt.preventDefault()
+				emit("click", { 
+					x: centerX, 
+					y: centerY, 
+					type: 'click', 
+					width: rectBox.width, 
+					height: rectBox.height 
+				})
+				break
+			case 'ArrowUp':
+				evt.preventDefault()
+				emit("swiper", { 
+					x: centerX, 
+					y: centerY, 
+					diffX: 0, 
+					diffY: props.swiperDiff, 
+					direction: 'up', 
+					type: 'swiper', 
+					width: rectBox.width, 
+					height: rectBox.height 
+				})
+				break
+			case 'ArrowDown':
+				evt.preventDefault()
+				emit("swiper", { 
+					x: centerX, 
+					y: centerY, 
+					diffX: 0, 
+					diffY: props.swiperDiff, 
+					direction: 'down', 
+					type: 'swiper', 
+					width: rectBox.width, 
+					height: rectBox.height 
+				})
+				break
+			case 'ArrowLeft':
+				evt.preventDefault()
+				emit("swiper", { 
+					x: centerX, 
+					y: centerY, 
+					diffX: props.swiperDiff, 
+					diffY: 0, 
+					direction: 'left', 
+					type: 'swiper', 
+					width: rectBox.width, 
+					height: rectBox.height 
+				})
+				break
+			case 'ArrowRight':
+				evt.preventDefault()
+				emit("swiper", { 
+					x: centerX, 
+					y: centerY, 
+					diffX: props.swiperDiff, 
+					diffY: 0, 
+					direction: 'right', 
+					type: 'swiper', 
+					width: rectBox.width, 
+					height: rectBox.height 
+				})
+				break
+		}
+	}
+	// #endif
+	const mMove = (evt : UniTouchEvent) => {
+		if (props.disabled) return
+		let event = evt.changedTouches[0]
+		let rectBox = parentRect.value
+		let x = event.clientX - rectBox.left;
+		let y = event.clientY - rectBox.top;
+
+		let deltaX = Math.abs(x - _x.value);
+		let deltaY = Math.abs(y - _y.value);
+		
+		// 检查最小移动距离
+		if (!isGestureValid(deltaX, deltaY)) {
+			return
+		}
+		
+		mX.value = Math.max(0, Math.min(rectBox.width, x))  - _start_x.value
+		mY.value = Math.max(0, Math.min(rectBox.height, y))  - _start_y.value
+		
+		// 在移动过程中实时更新累积坐标（用于插槽输出）
+		accumulatedX.value = startAccumulatedX.value + mX.value
+		accumulatedY.value = startAccumulatedY.value + mY.value
+
+		if (deltaX > deltaY && deltaX > props.swiperDiff) {
+			swipeDirection.value = (_x.value > x) ? "left" : "right";
+		} else if (deltaY > deltaX && deltaY > props.swiperDiff) {
+			swipeDirection.value = (_y.value < y) ? "down" : "up";
+		}
+		if (swipeDirection.value != "") {
+			/**
+			 * 滑动时触发
+			 * @param evt {object} {x,y,type,width,height,direction:方向UP|DOWN|LEFT|RIGHT}
+			 */
+			emit("swiper", { x: mX.value, y: mY.value, diffX: deltaX, diffY: deltaY, direction: swipeDirection.value, type: 'swiper', width: rectBox.width, height: rectBox.height })
+			eventName.value = 'swiper'
+		}
+		// _x.value = x;
+		// _y.value = y;
+		/**
+		 * 触摸移动时触发
+		 * @param evt {object} {x,y,type,width,height}
+		 */
+		emit("move", { x: mX.value, y: mY.value, type: 'move', width: rectBox.width, height: rectBox.height })
+		eventName.value = 'move'
+		clearTimeout(tid.value)
+
+		if (evt.changedTouches.length >= 2) {
+			let currentX = evt.touches[0].pageX;
+			let currentY = evt.touches[0].pageY;
+
+			let otx = evt.touches[1].pageX;
+			let oty = evt.touches[1].pageY;
+			let v = { x: otx - currentX, y: oty - currentY } as CHECKPOINT_XY;
+
+			if (preV.value.x !== null) {
+				let nowLenPitch = getLen(v);
+				if (pinchStartLen.value > 0) {
+					let temsc = (nowLenPitch / pinchStartLen.value);
+					// 计算缩放比例
+					const deltaScale = (temsc - 1) * zoomFactor.value + scale.value;
+					// 最小值为0.1
+					scale.value = Math.max(deltaScale, 0.1)
+
+
+					/**
+					 * 缩放事件
+					 * @param evt {object} {x,y,x1,y1,len,scale,type,width,height}
+					 * @description len为两点间的距离，scale为当前的缩放比例（最小为0.1）
+					 */
+					emit("pinch", {
+						x: currentX, y: currentY,
+						x1: otx, y2: oty,
+						type: 'pinch',
+						width: rectBox.width, height: rectBox.height,
+						len: nowLenPitch,
+						scale: scale.value
+					})
+
+				}
+				let testjd = getRotateAngle(v, preV.value);
+				angle.value = Math.floor((testjd - 1) * zoomFactorAb.value) + angle.value;
+				pinchStartLen.value = nowLenPitch;
+
+				/**
+				 * 旋转事件
+				 * @param evt {object} {x,y,x1,y1,len,angle,type,width,height}
+				 * @description len为两点间的距离，angle为当前当前旋转的角度
+				 */
+				emit("rotate", {
+					x: currentX, y: currentY,
+					x1: otx, y2: oty,
+					type: 'rotate',
+					width: rectBox.width, height: rectBox.height,
+					len: nowLenPitch,
+					angle: angle.value
+				})
+
+			}
+
+			preV.value = v;
+		}
+	}
+	const mEnd = (evt : UniTouchEvent) => {
+		clearTimeout(tid.value)
+		refreshRectSync()
+		if (props.disabled) return
+		let event = evt.changedTouches[0]
+		
+		let rectBox = parentRect.value
+		let x = event.clientX - rectBox.left;
+		let y = event.clientY - rectBox.top;
+		mX.value = Math.max(0, Math.min(rectBox.width, x))  - _start_x.value
+		mY.value = Math.max(0, Math.min(rectBox.height, y))  - _start_y.value
+
+		accumulatedX.value = startAccumulatedX.value + mX.value
+		accumulatedY.value = startAccumulatedY.value + mY.value
+
+		/**
+		 * 触摸结束
+		 * @param evt {object} {x,y,type,width,height}
+		 */
+		emit("end", { x: mX.value, y: mY.value, type: 'end', width: rectBox.width, height: rectBox.height })
+		eventName.value = 'end'
+		if (new Date().getTime() - dubleTime.value > props.clickDiff) {
+			/**
+			 * 单击
+			 * @param evt {object} {x,y,type,width,height}
+			 */
+			emit("click", { x: mX.value, y: mY.value, type: 'click', width: rectBox.width, height: rectBox.height })
+			eventName.value = 'click'
+		}
+
+		// 重置所有状态，为下次触摸做准备
+		preV.value = { x: 0, y: 0 } as CHECKPOINT_XY;
+		pinchStartLen.value = 0
+		swipeDirection.value = ""
+		scale.value = 0
+		angle.value = 0
+	}
+	const mCancel = (evt : UniTouchEvent) => {
+		clearTimeout(tid.value)
+		refreshRectSync()
+		if (props.disabled) return
+		let event = evt.changedTouches[0]
+		
+		let rectBox = parentRect.value
+		let x = event.clientX - rectBox.left;
+		let y = event.clientY - rectBox.top;
+		mX.value = Math.max(0, Math.min(rectBox.width, x))  - _start_x.value
+		mY.value = Math.max(0, Math.min(rectBox.height, y))  - _start_y.value
+		
+		// 更新累积坐标（手势取消时也要累加本次移动的偏移量）
+		accumulatedX.value = startAccumulatedX.value + mX.value
+		accumulatedY.value = startAccumulatedY.value + mY.value
+
+		/**
+		 * 触摸结束
+		 * @param evt {object} {x,y,type,width,height}
+		 */
+		emit("cancel", { x: mX.value, y: mY.value, type: 'end', width: rectBox.width, height: rectBox.height })
+		eventName.value = 'cancel'
+		
+		// 重置所有状态，为下次触摸做准备
+		preV.value = { x: 0, y: 0 } as CHECKPOINT_XY;
+		pinchStartLen.value = 0
+		swipeDirection.value = ""
+		scale.value = 0
+		angle.value = 0
+	}
+	
+	// Methods
+	const initFunc = () => {
+	
+		getRectBox((rect:DRect)=>{
+			parentRect.value = rect;
+			top.value = rect.top;
+			left.value = rect.left;
+		})
+	}
+	
+	// Lifecycle
+	onMounted(() => {
+		// #ifdef APP-HARMONY
+		setTimeout(function() {
+			initFunc()
+		}, 120);
+		// #endif
+		
+		// #ifndef APP-HARMONY
+		initFunc()
+		// #endif
+	})
+	
+	onBeforeUnmount(() => {
+		clearTimeout(tid.value)
+	})
+	
+</script>
+<template>
+
+	<view :id="id" ref="xFingerRef" class="finger" 
+		@touchstart="mStart" @touchmove="mMove" @touchend="mEnd" 
+		@touchcancel="mCancel"
+		:aria-label="props.ariaLabel"
+		:role="props.accessibility ? 'button' : null"
+		:tabindex="props.accessibility ? 0 : null"
+		
+		<!-- #ifdef WEB -->
+		
+		@mousedown="mouseStart" 
+		@mousemove="mouseMove"
+		@mouseup="mouseEnd" 
+		@mouseleave="mouseCancel"
+		@wheel="handleWheel"
+		@keydown="handleKeyDown"
+		
+		<!-- #endif -->
+		
+		>
+		<!-- 
+		 @slot 默认插槽
+		 @prop {number} x - 触摸的位置x
+		 @prop {number} y - 触摸的位置y
+		 @prop {number} accX - 累积x坐标（连续定位）
+		 @prop {number} accY - 累积y坐标（连续定位）
+		 @prop {string} type - 事件类型click,start,end,dbclick,longPress,swiper,pinch,rotate
+		 -->
+		<slot :x="mX" :y="mY" :accX="accumulatedX" :accY="accumulatedY" :type="eventName"></slot>
+	</view>
+</template>
+<style lang="scss">
+
+</style>

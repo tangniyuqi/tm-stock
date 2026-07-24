@@ -1,0 +1,328 @@
+/**
+ * 副图指标渲染（MACD / KDJ / RSI / VOL）
+ *
+ * 副图位于 K 线主图下方，与主图共享 x 轴 band（xField / domain），拥有独立 y 轴。
+ * 轻量实现：
+ *   - 不画 y 轴刻度数字（避免与主图 y 轴争抢空间）
+ *   - 只画上/下边框 + 左上角指标标签 + 必要参考线（如 RSI 的 30/70、KDJ 的 50）
+ *   - x 位置严格跟随主图 band，因此指标值数组必须已按视口切片
+ */
+import { ICanvas } from '@/uni_modules/tmx-ui/core/canvas/ICanvas.uts';
+import { Shape } from '@/uni_modules/tmx-ui/core/canvas/lib/shape.uts';
+import { ILine } from '@/uni_modules/tmx-ui/core/canvas/lib/line.uts';
+import { IRect } from '@/uni_modules/tmx-ui/core/canvas/lib/rect.uts';
+import { IText } from '@/uni_modules/tmx-ui/core/canvas/lib/text.uts';
+import { ILinePolygon } from '@/uni_modules/tmx-ui/core/canvas/lib/linePolygon.uts';
+import { getDatumString, getDatumNumber, buildBandDomain, createLinearScale, mapLinear, mapBandCenter, getBandWidth } from '../scale.uts';
+import { PlotRect, XYPoint } from '../map.uts';
+import { ChartDatum, IndicatorPanelOptions } from '../types.uts';
+import { calcMACD, calcKDJ, calcRSI, calcMA, MACDResult, KDJResult } from '../indicators.uts';
+
+/** 副图计算结果（在 x-chart 里按全量数据算出、按视口切片） */
+export type PanelComputedSet = {
+	/** 折线数据（每条线一组值） */
+	lines : number[][],
+	/** 柱数据（主要给 MACD 和 VOL 用；没有则空） */
+	bars : number[],
+	/** 柱颜色决策（'up' | 'down' | ''），长度同 bars；空表示不是柱副图 */
+	barSigns : string[],
+	/** y 轴固定范围（如 RSI 固定 0-100）；为空则由 min/max 动态计算 */
+	fixedYMin : number,
+	fixedYMax : number,
+	useFixedY : boolean,
+	/** 左上角标签，如 'MACD(12,26,9)' */
+	label : string
+}
+
+/** 对全量 data 计算副图指标 */
+export const computePanelValues = (data : ChartDatum[], panel : IndicatorPanelOptions) : PanelComputedSet => {
+	const kind = panel.kind
+	if (kind == 'macd') {
+		const s = panel.short ?? 12
+		const l = panel.long ?? 26
+		const sig = panel.signal ?? 9
+		const field = panel.field ?? 'end'
+		const r = calcMACD(data, field, s, l, sig)
+		const signs = [] as string[]
+		for (let i = 0; i < r.hist.length; i++) {
+			const v = r.hist[i]
+			if (isNaN(v)) { signs.push(''); continue }
+			signs.push(v >= 0 ? 'up' : 'down')
+		}
+		return {
+			lines: [r.dif, r.dea] as number[][],
+			bars: r.hist,
+			barSigns: signs,
+			fixedYMin: 0, fixedYMax: 0, useFixedY: false,
+			label: `MACD(${s},${l},${sig})`
+		} as PanelComputedSet
+	}
+	if (kind == 'kdj') {
+		const n = panel.n ?? 9
+		const m1 = panel.m1 ?? 3
+		const m2 = panel.m2 ?? 3
+		const r = calcKDJ(data, n, m1, m2)
+		return {
+			lines: [r.k, r.d, r.j] as number[][],
+			bars: [] as number[],
+			barSigns: [] as string[],
+			fixedYMin: 0, fixedYMax: 100, useFixedY: true,
+			label: `KDJ(${n},${m1},${m2})`
+		} as PanelComputedSet
+	}
+	if (kind == 'rsi') {
+		const ps = panel.periods ?? [6, 12, 24]
+		const field = panel.field ?? 'end'
+		const lines = [] as number[][]
+		for (let i = 0; i < ps.length; i++) {
+			lines.push(calcRSI(data, field, ps[i]))
+		}
+		const lbl = `RSI(${ps.join(',')})`
+		return {
+			lines: lines,
+			bars: [] as number[],
+			barSigns: [] as string[],
+			fixedYMin: 0, fixedYMax: 100, useFixedY: true,
+			label: lbl
+		} as PanelComputedSet
+	}
+	if (kind == 'vol') {
+		const field = panel.field ?? 'vol'
+		const vols = [] as number[]
+		const signs = [] as string[]
+		for (let i = 0; i < data.length; i++) {
+			const v = getDatumNumber(data[i], field, 0)
+			vols.push(v)
+			const st = getDatumNumber(data[i], 'start', 0)
+			const en = getDatumNumber(data[i], 'end', 0)
+			signs.push(en >= st ? 'up' : 'down')
+		}
+		const ps = panel.periods ?? [5, 10]
+		const lines = [] as number[][]
+		for (let i = 0; i < ps.length; i++) {
+			lines.push(calcMA(data, field, ps[i]))
+		}
+		return {
+			lines: lines,
+			bars: vols,
+			barSigns: signs,
+			fixedYMin: 0, fixedYMax: 0, useFixedY: false,
+			label: `VOL(${ps.join(',')})`
+		} as PanelComputedSet
+	}
+	return {
+		lines: [] as number[][], bars: [] as number[], barSigns: [] as string[],
+		fixedYMin: 0, fixedYMax: 1, useFixedY: true, label: ''
+	} as PanelComputedSet
+}
+
+/** 按视口索引切片 PanelComputedSet */
+export const slicePanelValues = (full : PanelComputedSet, startIdx : number, endIdx : number) : PanelComputedSet => {
+	const slicedLines = [] as number[][]
+	for (let li = 0; li < full.lines.length; li++) {
+		const src = full.lines[li]
+		const seg = [] as number[]
+		for (let j = startIdx; j <= endIdx && j < src.length; j++) seg.push(src[j])
+		slicedLines.push(seg)
+	}
+	const slicedBars = [] as number[]
+	const slicedSigns = [] as string[]
+	for (let j = startIdx; j <= endIdx && j < full.bars.length; j++) slicedBars.push(full.bars[j])
+	for (let j = startIdx; j <= endIdx && j < full.barSigns.length; j++) slicedSigns.push(full.barSigns[j])
+	return {
+		lines: slicedLines,
+		bars: slicedBars,
+		barSigns: slicedSigns,
+		fixedYMin: full.fixedYMin,
+		fixedYMax: full.fixedYMax,
+		useFixedY: full.useFixedY,
+		label: full.label
+	} as PanelComputedSet
+}
+
+/** 从值集合推算动态 y 范围 */
+const _dynamicYRange = (set : PanelComputedSet) : number[] => {
+	let mn : number = Number.POSITIVE_INFINITY
+	let mx : number = Number.NEGATIVE_INFINITY
+	for (let li = 0; li < set.lines.length; li++) {
+		const arr = set.lines[li]
+		for (let i = 0; i < arr.length; i++) {
+			const v = arr[i]
+			if (isNaN(v) || !isFinite(v)) continue
+			if (v < mn) mn = v
+			if (v > mx) mx = v
+		}
+	}
+	for (let i = 0; i < set.bars.length; i++) {
+		const v = set.bars[i]
+		if (isNaN(v) || !isFinite(v)) continue
+		if (v < mn) mn = v
+		if (v > mx) mx = v
+	}
+	if (!isFinite(mn)) { mn = 0; mx = 1 }
+	if (mn == mx) { mn -= 1; mx += 1 }
+	// 留 10% 边距
+	const pad = (mx - mn) * 0.1
+	return [mn - pad, mx + pad] as number[]
+}
+
+const UP_COLOR = '#F4333C'
+const DOWN_COLOR = '#1CA93D'
+const DEFAULT_LINE_COLORS = ['#EAB308', '#8B5CF6', '#EC4899'] as string[]
+const BORDER_COLOR = 'rgba(160,160,160,0.35)'
+const REFERENCE_COLOR = 'rgba(160,160,160,0.25)'
+const LABEL_COLOR = '#6b7280'
+
+/**
+ * 渲染一个副图。
+ * @param data     当前视口切片后的 data（与主图 drawData 等长，供 x 轴 band 对齐使用）
+ * @param rect     副图专属矩形
+ * @param xField   主图相同的 xField（band 对齐）
+ * @param sliced   已按视口切片的指标值集合（长度与 data 相同）
+ */
+export const renderPanelSeries = (
+	canvas : ICanvas,
+	panel : IndicatorPanelOptions,
+	data : ChartDatum[],
+	rect : PlotRect,
+	xField : string,
+	sliced : PanelComputedSet
+) : Shape[] => {
+	const shapes = [] as Shape[]
+	if (data.length == 0 || rect.bottom <= rect.top) return shapes
+
+	// 1. 边框 + 背景分隔线
+	shapes.push(new ILine({
+		pointStart: { x: rect.left, y: rect.top },
+		pointEnd: { x: rect.right, y: rect.top },
+		stroke: BORDER_COLOR, strokeWidth: 1
+	}, canvas))
+	shapes.push(new ILine({
+		pointStart: { x: rect.left, y: rect.bottom },
+		pointEnd: { x: rect.right, y: rect.bottom },
+		stroke: BORDER_COLOR, strokeWidth: 1
+	}, canvas))
+
+	// 2. y 范围
+	let yMin : number = 0
+	let yMax : number = 1
+	if (sliced.useFixedY) {
+		yMin = sliced.fixedYMin
+		yMax = sliced.fixedYMax
+	} else {
+		const rng = _dynamicYRange(sliced)
+		yMin = rng[0]
+		yMax = rng[1]
+	}
+	const yScale = createLinearScale(yMin, yMax, rect.bottom, rect.top)
+
+	// 3. 参考线
+	const kind = panel.kind
+	if (kind == 'macd') {
+		// 0 基准线
+		if (0 >= yMin && 0 <= yMax) {
+			const y0 = mapLinear(0, yScale)
+			shapes.push(new ILine({
+				pointStart: { x: rect.left, y: y0 },
+				pointEnd: { x: rect.right, y: y0 },
+				stroke: REFERENCE_COLOR, strokeWidth: 1
+			}, canvas))
+		}
+	} else if (kind == 'kdj') {
+		// 20 / 50 / 80 参考线
+		const refs = [20, 50, 80] as number[]
+		for (let r = 0; r < refs.length; r++) {
+			const y = mapLinear(refs[r], yScale)
+			shapes.push(new ILine({
+				pointStart: { x: rect.left, y: y },
+				pointEnd: { x: rect.right, y: y },
+				stroke: REFERENCE_COLOR, strokeWidth: 1
+			}, canvas))
+		}
+	} else if (kind == 'rsi') {
+		// 30 / 50 / 70 参考线
+		const refs = [30, 50, 70] as number[]
+		for (let r = 0; r < refs.length; r++) {
+			const y = mapLinear(refs[r], yScale)
+			shapes.push(new ILine({
+				pointStart: { x: rect.left, y: y },
+				pointEnd: { x: rect.right, y: y },
+				stroke: REFERENCE_COLOR, strokeWidth: 1
+			}, canvas))
+		}
+	}
+
+	// 4. x band 与主图对齐
+	const domain = buildBandDomain(data, xField)
+	const band = getBandWidth(domain, rect.left, rect.right)
+
+	// 5. 柱（MACD / VOL）
+	const barColors = panel.colors ?? [] as string[]
+	const upColor = barColors.length >= 3 ? barColors[2] : UP_COLOR
+	const downColor = barColors.length >= 4 ? barColors[3] : DOWN_COLOR
+	if (sliced.bars.length > 0) {
+		const baseY = mapLinear(kind == 'vol' ? yMin : 0, yScale)
+		const barW = Math.max(1, band * 0.6)
+		for (let i = 0; i < sliced.bars.length; i++) {
+			const v = sliced.bars[i]
+			if (isNaN(v)) continue
+			const label = getDatumString(data[i], xField, `${i}`)
+			const cx = mapBandCenter(label, domain, rect.left, rect.right)
+			const y = mapLinear(v, yScale)
+			const top = Math.min(y, baseY)
+			const h = Math.max(1, Math.abs(y - baseY))
+			const sign = i < sliced.barSigns.length ? sliced.barSigns[i] : ''
+			const fill = sign == 'down' ? downColor : upColor
+			shapes.push(new IRect({
+				x: cx - barW / 2, y: top,
+				width: barW, height: h,
+				fill: fill
+			}, canvas))
+		}
+	}
+
+	// 6. 折线
+	const lineColors = panel.colors ?? [] as string[]
+	const lw = Math.max(0.5, panel.lineWidth ?? 1)
+	// vol 的 MA 线从第 3 个颜色开始，其它指标从第 1 个开始
+	const lineColorOffset = kind == 'vol' ? 2 : 0
+	for (let li = 0; li < sliced.lines.length; li++) {
+		const vals = sliced.lines[li]
+		const pts = [] as XYPoint[]
+		for (let i = 0; i < data.length; i++) {
+			const v = i < vals.length ? vals[i] : NaN
+			if (isNaN(v) || !isFinite(v)) continue
+			const label = getDatumString(data[i], xField, `${i}`)
+			const px = mapBandCenter(label, domain, rect.left, rect.right)
+			const py = mapLinear(v, yScale)
+			pts.push({ x: px, y: py } as XYPoint)
+		}
+		if (pts.length < 2) continue
+		const flat = [] as number[]
+		for (let i = 0; i < pts.length; i++) { flat.push(pts[i].x); flat.push(pts[i].y) }
+		const colorIdx = li + lineColorOffset
+		const color = lineColors.length > colorIdx ? lineColors[colorIdx] : DEFAULT_LINE_COLORS[colorIdx % DEFAULT_LINE_COLORS.length]
+		shapes.push(new ILinePolygon({
+			points: flat,
+			stroke: color,
+			strokeWidth: lw,
+			fill: '',
+			lineCap: 'round',
+			lineJoin: 'round',
+			closed: false
+		}, canvas))
+	}
+
+	// 7. 左上角指标标签
+	if (sliced.label != '') {
+		shapes.push(new IText({
+			x: rect.left + 4,
+			y: rect.top + 2,
+			text: sliced.label,
+			fill: LABEL_COLOR,
+			fontSize: 10
+		}, canvas))
+	}
+
+	return shapes
+}

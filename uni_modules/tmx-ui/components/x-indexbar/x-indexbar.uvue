@@ -1,0 +1,542 @@
+<script lang="ts" setup>
+	import { type PropType, computed, ref, watch, onMounted, onBeforeUnmount, getCurrentInstance } from "vue"
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { checkIsCssUnit, rpx2px, getUnit } from "../../core/util/xCoreUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	type indexbarTYPE = {
+		index : number,
+		title : string
+	}
+
+	/**
+	 * 
+	 * @name 索引 xIndexbar
+	 * @description 特别提醒：本组件在1.0.9重构不向下兼容，并且删除了子组件：x-indexbar-item，不再需要子组件。请使用对应的动态插槽来渲染
+	 * 数据，demo是526条数据的测试依赖右边索引滑动跟手流畅。
+	 * 虚拟列表有个缺点会在滚动时分页读取数据并复用布局，因此如果你想做带图片的索引，
+	 * 建议进入应用后启用后台缓存已有的头像或者图片数据类似微信那样缓存图片，这样虚拟加载的时候闪烁感就少了
+	 * 重要：插槽内不要使用任何自定组件布局，也不要增加任何额外的节点，能少就少。
+	 * @page /pages/index/indexbar
+	 * @category 导航组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({name:"xIndexbar"})
+	const props = defineProps({
+		/**
+		 * 宽
+		 */
+		width: {
+			type: String,
+			default: "auto"
+		},
+		/**
+		 * 高，%,rpx,px单位均可。
+		 */
+		height: {
+			type: String,
+			default: "100%"
+		},
+		/**
+		 * 侧边指示激活时的文字颜色
+		 * 空值是取全局主题值
+		 */
+		dotActiveColor: {
+			type: String,
+			default: ""
+		},
+		/**
+		 * 侧边指示未激活时的文字颜色
+		 */
+		dotColor: {
+			type: String,
+			default: "#c0c0c0"
+		},
+		/**
+		 * 侧边指示的背景颜色
+		 */
+		dotBgColor: {
+			type: String,
+			default: "white"
+		},
+		list: {
+			type: Array as PropType<UTSJSONObject[]>,
+			default: () : UTSJSONObject[] => [] as UTSJSONObject[]
+		},
+		/**
+		 * 项目的高
+		 * 只能是数字，或者带rpx,px单位
+		 */
+		cellHeight: {
+			type: String,
+			default: '50'
+		},
+		/**
+		 * 项目的标题高
+		 * 只能是数字，或者带rpx,px单位
+		 */
+		titleHeight: {
+			type: String,
+			default: '32'
+		},
+		customSliderBar:{
+			type:Array as PropType<Array<string>>,
+			default:():string[] => [] as string[]
+		}
+	})
+	const proxy = getCurrentInstance()?.proxy
+
+	const listIndexBar = ref<indexbarTYPE[]>([] as indexbarTYPE[])
+	const boxHeight = ref<number>(0)
+	const nowIndex = ref<number>(0)
+	const currentIndexBYbar = ref<number>(0)
+	const scrollTop = ref<number>(0)
+	const realScrollY = ref<number>(0)
+	const headerDomRectHeight = ref<number>(0)
+	const isMoveing = ref<boolean>(false)
+	const olsShowView = ref<UTSJSONObject[]>([] as UTSJSONObject[])
+	const isShowOldViewData = ref<boolean>(false)
+	const dotParentOffsetTop = ref<number>(-1)
+	const showDot = ref<boolean>(false)
+
+	let _y = 0
+	let tid = 0
+	let tid2 = 0
+	let windowTop = 0
+	const sliderDotSize = 16
+	// #ifdef MP-WEIXIN
+	let mpBgBounds = null as any|null
+	let sliderBgBounds = null as any|null
+	// #endif
+
+	const _customBarLen = computed(():number => props.customSliderBar.length)
+	const _height = computed(() : string => checkIsCssUnit(props.height, xConfig.unit))
+	const _width = computed(() : string => checkIsCssUnit(props.width, xConfig.unit))
+	const _cellHeight = computed(() : number => {
+		let height = checkIsCssUnit(props.cellHeight, xConfig.unit)
+		let unit = getUnit(height)
+		let realheight = parseInt(height)
+		if (unit == 'rpx') {
+			realheight = rpx2px(realheight)
+		}
+		return realheight;
+	})
+	const _titleHeight = computed(() : number => {
+		let height = checkIsCssUnit(props.titleHeight, xConfig.unit)
+		let unit = getUnit(height)
+		let realheight = parseInt(height)
+		if (unit == 'rpx') {
+			realheight = rpx2px(realheight)
+		}
+		return realheight;
+	})
+	const _totalHeight = computed(() : number => props.list.length * _cellHeight.value)
+	const _viewConunt = computed(() : number => {
+		if (boxHeight.value == 0 || props.list.length == 0) return 0;
+		let itemcount = boxHeight.value / _cellHeight.value;
+		return Math.ceil(itemcount + 1)
+	})
+	const _dotActiveColor = computed(() : string => {
+		if (props.dotActiveColor == "") return getDefaultColor(xConfig.color);
+		return getDefaultColor(props.dotActiveColor)
+	})
+	const _dotColor = computed(() : string => getDefaultColor(props.dotColor))
+	const _dotBgColor = computed(() : string => {
+		if (xConfig.dark == 'dark') return xConfig.inputDarkColor
+		return getDefaultColor(props.dotBgColor)
+	})
+	const _viewList = computed(() : UTSJSONObject[] => {
+		if (isShowOldViewData.value) return olsShowView.value
+		let start = nowIndex.value - _viewConunt.value;
+		let end = nowIndex.value + _viewConunt.value;
+		start = Math.max(0, start)
+		let oldIndexList = props.list.slice(start, end);
+		let list = oldIndexList.map((el : UTSJSONObject, index : number) : UTSJSONObject => {
+			el.set("oldIndex", index + start)
+			return el;
+		})
+		olsShowView.value = list
+		return list
+	})
+	const _listTotal = computed(() : UTSJSONObject[] => {
+		let customlist = props.customSliderBar.map((el:string,index:number):UTSJSONObject => {
+			return {
+				"id": index,
+				"name": el,
+				"logo": "",
+				"index": el
+			} as UTSJSONObject
+		})
+		return [...customlist,...props.list];
+	})
+
+	function hideDot() {
+		clearTimeout(tid2)
+		tid2 = setTimeout(function () {
+			showDot.value = false
+		}, 700);
+	}
+	function transxyByDotTop(top : number) {
+		let ele = proxy!.$refs['xIndexBarRightSliderBg'] as UniElement;
+		let boundsTop = 0
+		// #ifdef APP || WEB
+		boundsTop = ele.getBoundingClientRect()!.top
+		// #endif
+		// #ifdef MP-WEIXIN
+		boundsTop = mpBgBounds!.top
+		// #endif
+		let diff = top - boundsTop!
+		diff = Math.max(0, Math.min(diff, listIndexBar.value.length * sliderDotSize))
+		let barIndex = Math.floor(diff / sliderDotSize)
+		barIndex = Math.max(0, Math.min(barIndex, listIndexBar.value.length - 1))
+		let parentele = proxy!.$refs['xIndexBarRightSlider'] as UniElement;
+		let boundsTop2 = 0
+		// #ifdef APP || WEB
+		boundsTop2 = parentele.getBoundingClientRect()!.top
+		// #endif
+		// #ifdef MP-WEIXIN
+		boundsTop2 = sliderBgBounds!.top
+		// #endif
+		let topdiff = barIndex * sliderDotSize + boundsTop - boundsTop2 - (50 - sliderDotSize) / 2;
+		// #ifdef APP-ANDROID
+		topdiff = -25 + (boundsTop - boundsTop2) + barIndex * sliderDotSize + sliderDotSize / 2
+		// #endif
+		let dotele = proxy!.$refs['xIndexBarDot'] as UniElement;
+		if (topdiff == dotParentOffsetTop.value) return;
+		dotParentOffsetTop.value = topdiff
+		dotele.style.setProperty('transform', `translateY(${topdiff}px) rotate(-45deg)`)
+		showDot.value = true
+		hideDot();
+	}
+	function sliderOnclik(evt : UniPointerEvent, item : indexbarTYPE, index : number) {
+		nowIndex.value = listIndexBar.value[index].index;
+		if(index <= props.customSliderBar.length - 1){
+			scrollTop.value = 0
+		}else{
+			scrollTop.value = _cellHeight.value * nowIndex.value + headerDomRectHeight.value
+		}
+		currentIndexBYbar.value = index;
+		transxyByDotTop(evt.clientY)
+	}
+	function getHeaderDom(){
+		const ele = proxy!.$refs['headerRef'] as UniElement | null;
+		if(ele == null) return
+		ele.getBoundingClientRectAsync()
+		?.then((rect:DOMRect)=>{
+			headerDomRectHeight.value = rect.height
+		})
+		.catch(()=>{})
+	}
+	function setInitData() {
+		let lst = Date.now()
+		if (props.list.length == 0) return
+		let listbar = [] as indexbarTYPE[]
+		let listbarTitle = [] as string[];
+		for (let i = 0; i < props.list.length; i++) {
+			let current = props.list[i]
+			let keya = current.getString("index")!;
+			if (!listbarTitle.includes(keya!)) {
+				listbarTitle.push(keya)
+				listbar.push({ index: i+_customBarLen.value, title: keya } as indexbarTYPE)
+			}
+		}
+		let customlist = props.customSliderBar.map((el:string,index:number):indexbarTYPE => {
+			return {
+				index,
+				title:el
+			} as indexbarTYPE
+		})
+		listIndexBar.value = [...customlist,...listbar];
+		console.warn("索引数据处理时间(毫秒)：", Date.now() - lst, "如果此值过大，表示sdk有问题,正常在10ms内，安卓dev会在60ms内")
+	}
+	function getNodeInfo() {
+		uni.createSelectorQuery().in(proxy!)
+			.select(".xIndexBarBox")
+			.boundingClientRect().exec((ret) => {
+				let nodeinfo = ret[0] as NodeInfo
+				boxHeight.value = nodeinfo.height!;
+			})
+		getHeaderDom();
+	}
+	// #ifdef MP-WEIXIN
+	function mpweixinGetBoundec(){
+		setTimeout(async function() {
+			let ele = proxy!.$refs['xIndexBarRightSliderBg'] as UniElement;
+			mpBgBounds = await ele.getBoundingClientRectAsync()
+			let parentele = proxy!.$refs['xIndexBarRightSlider'] as UniElement;
+			sliderBgBounds = await parentele.getBoundingClientRectAsync()
+		}, 100);
+	}
+	// #endif
+	function transxyend(top : number) {
+		let index = Math.ceil((top) / _cellHeight.value)
+		index = Math.max(0, index)
+		index = Math.min(props.list.length - 1, index)
+		if (index == nowIndex.value) return;
+		nowIndex.value = index;
+		let title = props.list[index].getString("index")!
+		if (title == listIndexBar.value[currentIndexBYbar.value].title) return;
+		let barindexItem = listIndexBar.value.findIndex((el : indexbarTYPE) : boolean => el.title == title)
+		if (barindexItem == currentIndexBYbar.value) return;
+		if (barindexItem > -1) {
+			currentIndexBYbar.value = barindexItem;
+		}
+	}
+	function onScrollEvent(evt : UniScrollEvent) {
+		if (isMoveing.value) return;
+		realScrollY.value = evt.detail.scrollTop ;
+		transxyend(evt.detail.scrollTop - _titleHeight.value  - headerDomRectHeight.value)
+		getHeaderDom()
+	}
+	function ONscrollend(evt : UniScrollEvent) {
+		// #ifdef APP-IOS||APP-ANDROID
+		scrollTop.value = evt.detail.scrollTop;
+		// #endif
+	}
+	function itemMove(evt : UniTouchEvent) {
+		evt.stopPropagation();
+		evt.preventDefault();
+		let y = evt.changedTouches[0].clientY
+		let ele = proxy!.$refs['xIndexBarRightSliderBg'] as UniElement;
+		let boundsTop = 0
+		// #ifdef APP || WEB
+		boundsTop = ele.getBoundingClientRect()!.top
+		// #endif
+		// #ifdef MP-WEIXIN
+		boundsTop = mpBgBounds!.top
+		// #endif
+		let diff = y - boundsTop;
+		diff = Math.max(0, Math.min(diff, listIndexBar.value.length * sliderDotSize))
+		let barIndex = Math.floor(diff / sliderDotSize)
+		barIndex = Math.max(0, Math.min(barIndex, listIndexBar.value.length - 1))
+		if (barIndex != currentIndexBYbar.value) {
+			currentIndexBYbar.value = barIndex;
+		}
+		let index = listIndexBar.value[barIndex].index;
+		if (index == nowIndex.value) return
+		nowIndex.value = index;
+		clearTimeout(tid)
+		isShowOldViewData.value = true
+		transxyByDotTop(y)
+		tid = setTimeout(function () {
+			if(index <= _customBarLen.value - 1){
+				scrollTop.value = 0
+			}else{
+				scrollTop.value = index * _cellHeight.value + headerDomRectHeight.value
+			}
+			isShowOldViewData.value = false;
+			realScrollY.value = scrollTop.value ;
+		}, 10);
+	}
+	function itemStart(evt : UniTouchEvent) {
+		isMoveing.value = true
+		_y = evt.changedTouches[0].clientY;
+	}
+	function itemEnd() {
+		isMoveing.value = false
+		dotParentOffsetTop.value = -1
+	}
+
+	watch(():UTSJSONObject[] => props.list, () => {
+		scrollTop.value = 0
+		nowIndex.value = 0
+		listIndexBar.value = [] as indexbarTYPE[]
+		olsShowView.value = [] as UTSJSONObject[]
+		currentIndexBYbar.value = 0
+		olsShowView.value = _viewList.value
+		setInitData();
+	})
+	onMounted(() => {
+		windowTop = uni.getWindowInfo().windowTop
+		getNodeInfo();
+		olsShowView.value = _viewList.value
+		setInitData();
+		// #ifdef MP-WEIXIN
+		mpweixinGetBoundec()
+		// #endif
+	})
+	onBeforeUnmount(() => {
+		clearTimeout(tid)
+		clearTimeout(tid2)
+	})
+</script>
+<template>
+
+	<view class="xIndexBar" :style="{height:_height,width:_width}">
+		<view :style="{height:_titleHeight+'px',top:realScrollY>=headerDomRectHeight?'0px':(headerDomRectHeight-realScrollY)+'px'}">
+			
+			<!-- 
+			 @slot 悬浮的菜单头
+			 @props {title} 当前选中的菜单头
+			 @props {index} 当前选中的菜单头索引
+			 -->
+			<slot name="header" :title="listIndexBar.length>0?listIndexBar[currentIndexBYbar].title:''"
+				:index="listIndexBar.length>0?listIndexBar[currentIndexBYbar].index:0">
+				<view style="display: flex;flex-direction: row;align-items: center;height: 100%;">
+					<x-text v-if="listIndexBar.length>0">{{listIndexBar[currentIndexBYbar<= (_customBarLen-1)?_customBarLen:currentIndexBYbar].title}}</x-text>
+				</view>
+			</slot>
+		</view>
+		<view  class="xIndexBarBox" >
+			<scroll-view @scrollend="ONscrollend" :show-scrollbar="false" @scroll="onScrollEvent" :scroll-top="scrollTop"
+				:bounces="false" :enable-back-to-top="true" class="xIndexBar" :style="{height:boxHeight+'px'}">
+				
+				<view ref="headerRef">
+					<view style="flex:1">
+						<!-- 
+						 @slot 顶部布局，可以自由布局
+						 -->
+						<slot name="top"></slot>
+					</view>
+					<view :style="{height:_titleHeight+'px'}"></view>
+				</view>
+				<view :style="{height:_totalHeight+'px',position:'relative'}" v-if="_viewList.length>0">
+			
+					<template v-for="(item,index) in _viewList" :key="index">
+						<view class="xIndexBarBoxItem" :style="{
+							height:_cellHeight+'px',
+							transform:`translateY(${(_cellHeight*(item.getNumber('oldIndex')!))}px)`
+						}">
+							<!--
+							@slot 动态插槽
+							@prop {UTSJSONObject} current - 当前的项目信息，可通过此布局当前数据
+							@prop {number} currentIndex - 右边导航当前的索引
+							@prop {number} index - 当前索引
+							 -->
+							<slot :index="(item.getNumber('oldIndex')!)" :currentIndex="nowIndex" :current="item"></slot>
+						</view>
+					</template>
+				</view>
+			
+			</scroll-view>
+			
+			<view class="xIndexBarRightSlider" ref="xIndexBarRightSlider">
+				<view @touchmove="itemMove" @touchstart="itemStart" @touchend="itemEnd" ref="xIndexBarRightSliderBg"
+					class="xIndexBarRightSliderBg" :style="{background:_dotBgColor}">
+					<view @click.stop="sliderOnclik($event as UniPointerEvent,item,index)"
+						v-for="(item,index) in listIndexBar" :key="index" class="xIndexBarRightSliderItem"
+						:class="[currentIndexBYbar==index?'xIndexBarRightSliderItemHover':'']" :hover-start-time="50"
+						:hover-stay-time="100" hover-class="xIndexBarRightSliderItemHover" :style="{
+						backgroundColor:currentIndexBYbar==index?_dotActiveColor:_dotBgColor,
+					}">
+						<text :style="{color:currentIndexBYbar==index?'white':_dotColor}" class="xIndexBarRightSliderItemText">{{item.title}}</text>
+					</view>
+				</view>
+			</view>
+			<view android-layer-type="software" ref="xIndexBarDot" class="xIndexBarDot"
+				:style="{opacity:!showDot?'0':'1',backgroundColor:_dotActiveColor}">
+				<text v-if="(list.length>0)" class="xIndexBarDotText">{{_listTotal[nowIndex]['index']}}</text>
+			</view>
+			
+		</view>
+	</view>
+
+</template>
+<style scoped>
+	.xIndexBar{
+		display: flex;
+		flex-direction: column;
+	}
+	.xIndexBarBox {
+		position: relative;
+		flex: 1;
+		width:100%;
+	}
+
+	.xIndexBarBoxItem {
+		position: absolute;
+		width: 100%;
+		top: 0px;
+	}
+
+	.xIndexBarDot {
+		pointer-events: none;
+		position: absolute;
+		width: 50px;
+		height: 50px;
+		border-radius: 50px 50px 6px 50px;
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+		align-items: center;
+		/* transform: rotate(-45deg); */
+		/* transition-duration: 100ms;
+		transition-property: opacity;
+		transition-timing-function: linear; */
+		right: 47px;
+		top: 0;
+		/* #ifdef WEB */
+		box-sizing: border-box;
+		/* #endif */
+	}
+
+	.xIndexBarDotText {
+		transform: rotate(45deg);
+		font-size: 18px;
+		color: white;
+		font-weight: bold;
+	}
+
+	.xIndexBarRightSliderItemHover {
+		/* background-color: rgba(0, 0, 0, 0.05); */
+		/* background-color:red; */
+		border-radius: 30px;
+	}
+
+	.xIndexBarHeaderTitleBox {
+		pointer-events: none;
+	}
+
+	.xIndexBarHeaderTitle {
+		height: 32px;
+		padding-left: 16px;
+		display: flex;
+		justify-content: flex-start;
+		align-items: center;
+		flex-direction: row;
+		/* #ifdef H5 */
+		position: fixed;
+		z-index: 5;
+		font-size: bold;
+		/* #endif */
+	}
+
+	.xIndexBarRightSlider {
+		width: 32px;
+		height: 100%;
+		position: absolute;
+		z-index: 8;
+		right: 5px;
+		top:0px;
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		align-items: center;
+	}
+
+	.xIndexBarRightSliderItem {
+		width: 16px;
+		height: 16px;
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+		align-items: center;
+		border-radius: 21px;
+	}
+
+
+
+	.xIndexBarRightSliderItemText {
+		font-size: 10px;
+		line-height: 11px;
+		/* font-weight: bold; */
+	}
+
+	.xIndexBarRightSliderBg {
+		border-radius: 21px;
+		/* box-shadow: 0 0px 10px rgba(0, 0, 0, 0.06); */
+		position: relative;
+	}
+</style>

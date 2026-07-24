@@ -1,0 +1,536 @@
+<script lang="ts" setup>
+	import { getCurrentInstance, ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from "vue"
+	import { getUid } from '../../core/util/xCoreUtil.uts'
+	import { xConfig,xProvitae } from "../../config/xConfig.uts"
+
+	
+	/**
+	 * @name 遮罩 xOverlay
+	 * @description 旋转制作弹层类页面。
+	 * @page /pages/index/overlay
+	 * @category 反馈组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({name:"xOverlay"})
+	
+	const proxy = getCurrentInstance()?.proxy??null;
+	defineSlots<{
+		 trigger(props: { show: boolean }): any
+	}>()
+	
+	const emits = defineEmits([
+		/**
+		 * 点击遮罩事件
+		 */
+		'click',
+		/**
+		 * 关闭是触发
+		 */
+		'close',
+		/**
+		 * 打开时触发
+		 */
+		'open',
+		/**
+		 * 打开前执行
+		 */
+		'beforeOpen',
+		/**
+		 * 关闭前执行
+		 */
+		'beforeClose',
+		/**
+		 * 等同v-model:show
+		 */
+		'update:show',
+	])
+
+	export type xOverlayPropsType = {
+		/**
+		 * 自定义遮罩样式
+		 */
+		customStyle: string,
+		/**
+		 * 内容层样式
+		 */
+		customContentStyle: string,
+		/**
+		 * 是否显示底部关闭按钮
+		 */
+		showClose: boolean,
+		/**
+		 * 遮罩是否允许点击被关闭
+		 */
+		overlayClick: boolean,
+		/**
+		 * 禁用弹跳动画,overlayClick设置为false时,点底部会有弹跳.
+		 */
+		disabledAni: boolean,
+		/**
+		 * 显示可v-model:show双向绑定
+		 */
+		show: boolean,
+		/**
+		 * 动画时间
+		 */
+		duration: number,
+		/**
+		 * 打开dom的延迟量，如果你打开 弹窗在ios正常。
+		 * 请不要修改此值。如果遇到打不开，或者 打开 后没动画，关闭不了等可能是sdk bug导致 
+		 * 此时需要加大值来避免。具体加多少以你弹窗内的节点复杂度有关，需要你自行压力测试。
+		 * 此值仅在ios下生效。
+		 */
+		watiDuration: number,
+		/**
+		 * 层级
+		 */
+		zIndex: number
+	}
+
+	const props = withDefaults(defineProps<xOverlayPropsType>(), {
+		customStyle: "",
+		customContentStyle: "",
+		showClose: false,
+		overlayClick: true,
+		disabledAni: false,
+		show: false,
+		duration: 300,
+		watiDuration: 120,
+		zIndex: 1100
+	})
+
+	// 响应式数据
+	const _width = ref(0)
+	const _height = ref(0)
+	const showOverflay = ref(false)
+	const xoverflayRef = ref<UniElement | null>(null)
+	const xoverflayWrapBoxRef = ref<UniElement | null>(null)
+	//是否动画中
+	const actioning = ref(false)
+	const status = ref("")
+	const id = ref("xoverflay" + getUid())
+	const tid = ref(0)
+	const windtop = ref(0)
+	const isOpenedDefault = ref(false)
+
+	// #ifdef H5
+	const teleportElH5 = ref("uni-page")
+	const teleportTarget = ref<string | null>(null)
+	const getTeleportTarget = () => {
+	    try {
+			if(status.value == ''||status.value=='close') return 'uni-app'
+	        // 优先尝试 uni-page
+	        if (document.querySelector('uni-page')) {
+	            return 'uni-page'
+	        }
+			// 优先尝试 uni-app
+			if (document.querySelector('uni-app')) {
+			    return 'uni-app'
+			}
+	        // 备用方案：尝试 app
+	        if (document.querySelector('#app')) {
+	            return '#app'
+	        }
+	        // 最后备用：body
+	        return 'body'
+	    } catch (error) {
+	        console.warn('Failed to get teleport target:', error)
+	        return 'body'
+	    }
+	}
+	
+	// 检查teleport目标是否可用
+	const isTeleportTargetValid = (target: string) => {
+	    try {
+	        return !!document.querySelector(target)
+	    } catch {
+	        return false
+	    }
+	}
+	// #endif
+	
+
+
+	// 计算属性
+	const _customStyle = computed((): string => props.customStyle)
+	const _customContentStyle = computed((): string => props.customContentStyle)
+	const _show = computed((): boolean => props.show)
+	const _showClose = computed((): boolean => props.showClose)
+	const _duration = computed((): number => props.duration)
+	const _animationFun = computed((): string => xConfig.animationFun)
+	const __height = computed((): string => {
+		let h = '100%';
+		// #ifdef WEB
+		h = `calc(100% - ${windtop.value}px)`
+		// #endif
+		return h;
+	})
+
+	// 方法
+	function overflayMoveTouch(evt : UniTouchEvent) {
+		evt.preventDefault()
+	}
+
+	function closeAlert() {
+	
+		if (actioning.value) return;
+		if (status.value == 'close') return;
+		actioning.value = true;
+		status.value = 'close'
+		/**
+		 * 关闭前执行
+		 */
+		emits('beforeClose')
+		// #ifdef APP||WEB
+		
+		let element = xoverflayRef.value! as UniElement
+		let elementBody = xoverflayWrapBoxRef.value! as UniElement
+		
+		element.style.setProperty('transition-duration',props.duration+'ms')
+		element.style.setProperty('transition-property','background-color')
+		element.style.setProperty('transition-timing-function','linear')
+		element.style.setProperty('background-color','rgba(0,0,0,0)')
+		
+		elementBody.style.setProperty('transition-duration',props.duration+'ms')
+		elementBody.style.setProperty('transition-property','opacity,transform')
+		elementBody.style.setProperty('transition-timing-function',xConfig.animationFun)
+		elementBody.style.setProperty('opacity','0')
+		elementBody.style.setProperty('transform','scale(0.4)')
+		
+		setTimeout(function() {
+			actioning.value = false;
+			/**
+			 * 关闭时执行
+			 */
+			emits('close')
+			/**
+			 * 等同v-model:show
+			 */
+			emits('update:show', false)
+			showOverflay.value = false;
+		}, props.duration);
+		
+		// #endif
+		
+		
+		// #ifdef MP-WEIXIN
+		setTimeout(function() {
+			actioning.value = false;
+			/**
+			 * 关闭时执行
+			 */
+			emits('close')
+			/**
+			 * 等同v-model:show
+			 */
+			emits('update:show', false)
+			showOverflay.value = false;
+		}, 250);
+		
+		// #endif
+	}
+
+	function showAlert() {
+
+		if (actioning.value) return;
+		if (status.value == 'open') return;
+		
+		showOverflay.value = true;
+		actioning.value = true;
+		status.value = 'open'
+		
+		// #ifdef WEB
+		teleportTarget.value = getTeleportTarget()
+		// #endif
+		/**
+		 * 打开前执行
+		 */
+		emits('beforeOpen')
+		clearTimeout(tid.value)
+		let dur = 50;
+		
+		// #ifdef APP||WEB
+		tid.value = setTimeout(function () {
+			let element = xoverflayRef.value! as UniElement
+			let elementBody = xoverflayWrapBoxRef.value! as UniElement
+			
+			element.style.setProperty('transition-duration',props.duration+'ms')
+			element.style.setProperty('transition-property','background-color')
+			element.style.setProperty('transition-timing-function','linear')
+			element.style.setProperty('background-color','rgba(0,0,0,0)')
+
+			elementBody.style.setProperty('transition-duration',props.duration+'ms')
+			elementBody.style.setProperty('transition-property','opacity,transform')
+			elementBody.style.setProperty('transition-timing-function',xConfig.animationFun)
+			elementBody.style.setProperty('opacity','0')
+			elementBody.style.setProperty('transform','scale(0.4)')
+			tid.value = setTimeout(function() {
+				
+				element.style.setProperty('background-color','rgba(0,0,0,0.4)')
+				
+				elementBody.style.setProperty('opacity','1')
+				elementBody.style.setProperty('transform','scale(1)')
+				
+				setTimeout(function() {
+					actioning.value = false;
+					/**
+					 * 打开执行的事件
+					 */
+					emits('open')
+				}, props.duration);
+			}, 10);
+
+		},dur)
+		
+		// #endif
+		
+		// #ifdef MP-WEIXIN
+		actioning.value = false;
+		/**
+		 * 打开执行的事件
+		 */
+		emits('open')
+		// #endif
+	}
+	
+	function onClickOverflowy() {
+		/**
+		 * 点击遮罩事件
+		 */
+		emits("click")
+		if (!props.overlayClick) {
+			return;
+		}
+		closeAlert();
+	}
+	function openOverlay() {
+		showAlert();
+	}
+
+	function wrapClick(evt : UniPointerEvent) {
+		// evt.stopPropagation()
+	}
+
+	// 监听器
+	watch(():boolean => props.show, (newval : boolean) => {
+		if (newval) {
+			showAlert()
+		} else {
+			closeAlert()
+		}
+	})
+
+	// 生命周期
+	onMounted(() => {
+		// #ifdef H5
+		nextTick(() => {
+			teleportTarget.value = getTeleportTarget()
+		})
+		// #endif
+		function oninitready(){
+			let sys = uni.getWindowInfo()
+			// #ifndef APP
+			_width.value = sys.windowWidth
+			_height.value = sys.windowHeight;
+			windtop.value = sys.windowTop;
+			// #endif
+			// #ifdef APP
+			_width.value = sys.windowWidth
+			_height.value = sys.windowHeight + 44;
+			// #endif
+		
+			if (_show.value) {
+				showAlert();
+			}
+		}
+		oninitready()
+	})
+	
+	onUpdated(() => {
+	    // #ifdef H5
+	    if (teleportTarget.value && !isTeleportTargetValid(teleportTarget.value)) {
+	        teleportTarget.value = getTeleportTarget()
+	    }
+	    // #endif
+	})
+
+	onBeforeUnmount(() => {
+
+		clearTimeout(tid.value)
+	})
+	defineExpose({
+		/** 打开 **/
+		open:()=>showAlert(),
+		/** 关闭 **/
+		close:()=>closeAlert()
+	})
+</script>
+<template>
+	<view>
+		<view @click="openOverlay">
+			<!--
+			@slot 标签触发显示遮罩，免于使用变量控制
+			@prop {Boolean} show - 当前是否已显示
+			-->
+			<slot name="trigger" :show="show"></slot>
+		</view>
+		<!-- #ifdef H5 -->
+		<teleport :to="teleportTarget || teleportElH5" :disabled="!teleportTarget">
+		<!-- #endif -->
+		<!-- #ifdef MP-WEIXIN -->
+		<root-portal >
+		<!-- #endif -->
+			<view v-if="showOverflay" :id="id" ref="xoverflayRef" class="xoverflay"
+				:style="[{width:'100%',height:__height,top:windtop+'px',zIndex:props.zIndex}]">
+				<view @click.stop="onClickOverflowy" 
+				
+				:class="[
+					status=='open'?'xoverflayMaskShow':'',
+					status=='close'?'xoverflayMaskHide':'',
+				]" 
+				class="xoverflayWrapBoxContent" :style="_customStyle">
+					<view ref="xoverflayWrapBoxRef" 
+					:class="[
+						status=='open'?'xoverflayShow':'',
+						status=='close'?'xoverflayHide':'',
+					]" 
+					class="xoverflayWrapBox" @click.stop="" :style="_customContentStyle">
+						<!--
+						默认插槽
+						-->
+						<slot name="default"></slot>
+						<view v-if="_showClose" class="closeOverBtn">
+							<x-icon @click="closeAlert" color="white" font-size="38" name="close-circle-fill"></x-icon>
+						</view>
+					</view>
+				</view>
+
+				<!-- <view @click.stop="onClickOverflowy" class="xoverflayWrapBoxMasker" @touchmove.stop="overflayMoveTouch"></view> -->
+			</view>
+		
+		
+		<!-- #ifdef MP-WEIXIN -->
+		</root-portal>
+		<!-- #endif -->
+		<!-- #ifdef H5 -->
+		</teleport>
+		<!-- #endif -->
+	
+	</view>
+
+</template>
+<style scoped>
+	.xoverflayWrapBox {
+		pointer-events: auto;
+		transform: scale(0);
+		opacity: 0;
+	}
+
+	.closeOverBtn {
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+		margin-top: 32rpx;
+		z-index: 105;
+		opacity: 0.7;
+	}
+
+	.xoverflayWrapBoxMasker {
+		width: 100%;
+		height: 100%;
+		left: 0px;
+		top: 0px;
+		position: absolute;
+		z-index: 1;
+	}
+
+	.xoverflayWrapBoxContent {
+		width: 100%;
+		height: 100%;
+		left: 0px;
+		top: 0px;
+		position: absolute;
+		z-index: 3;
+
+	}
+
+	.xoverflay {
+		background-color: rgba(0, 0, 0, 0);
+		/* opacity: 0; */
+		position: fixed;
+		/* z-index: 1100; */
+		left: 0px;
+		top: 0px;
+		/* 		transition-duration: 350ms;
+		transition-property: opacity; */
+		/* #ifndef APP */
+		backdrop-filter: blur(5px);
+		/* #endif */
+
+	}
+	/* #ifdef MP-WEIXIN */
+	.xoverflayShow{
+		
+		animation:showAniMation 250ms cubic-bezier(.42,.38,.15,.93) forwards ;
+	}
+	.xoverflayHide{
+		animation:hideAniMation 250ms cubic-bezier(.42,.38,.15,.93) forwards ;
+	}
+	.xoverflayMaskShow{
+		background-color: rgba(0, 0, 0, 0.4);
+		animation:showAniMaskMation 200ms linear  ;
+		opacity:1;
+	}
+	.xoverflayMaskHide{
+		background-color: rgba(0, 0, 0, 0);
+		opacity:0;
+		transition-duration: 250ms;
+		transition-property: background-color, opacity;
+		transition-timing-function: linear;
+		/* animation:hideAniMaskMation 200ms linear  ; */
+	}
+	
+	@keyframes showAniMaskMation {
+		0%{
+			background-color: rgba(0, 0, 0, 0);
+		}
+		100%{
+			background-color: rgba(0, 0, 0, 0.4);
+		}
+	}
+	@keyframes hideAniMaskMation {
+		0%{
+			background-color: rgba(0, 0, 0, 0.4);
+		}
+		100%{
+			background-color: rgba(0, 0, 0, 0);
+		}
+	}
+	
+	
+	@keyframes showAniMation {
+		0%{
+			transform: scale(0.6);
+			opacity: 0;
+		}
+		100%{
+			transform: scale(1);
+			opacity: 1;
+		}
+	}
+	@keyframes hideAniMation {
+		0%{
+			transform: scale(1);
+			opacity: 1;
+		}
+		100%{
+			transform: scale(0.6);
+			opacity: 0;
+		}
+	}
+	
+	/* #endif */
+</style>

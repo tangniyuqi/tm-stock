@@ -1,0 +1,41 @@
+import { HighlightConfig } from "../heightlight.uts"
+
+export function getRConfig(): HighlightConfig {
+	const config = new HighlightConfig()
+	
+	// R 关键字
+	config.keywords = [
+		'if', 'else', 'repeat', 'while', 'function', 'for', 'in', 'next',
+		'break', 'TRUE', 'FALSE', 'NULL', 'Inf', 'NaN', 'NA', 'NA_integer_',
+		'NA_real_', 'NA_complex_', 'NA_character_', 'return', 'switch'
+	]
+	
+	// R 内置函数
+	config.builtins = [
+		'c', 'list', 'vector', 'matrix', 'array', 'data.frame', 'factor',
+		'length', 'dim', 'nrow', 'ncol', 'names', 'colnames', 'rownames',
+		'print', 'cat', 'paste', 'paste0', 'sprintf',
+		'mean', 'median', 'sd', 'var', 'sum', 'prod', 'min', 'max',
+		'range', 'quantile', 'summary', 'table', 'sort', 'order', 'rank',
+		'seq', 'rep', 'rev', 'unique', 'duplicated', 'which', 'all', 'any',
+		'apply', 'lapply', 'sapply', 'tapply', 'mapply', 'vapply',
+		'merge', 'aggregate', 'subset', 'transform', 'with', 'within',
+		'read.csv', 'read.table', 'write.csv', 'write.table',
+		'library', 'require', 'install.packages', 'source',
+		'plot', 'lines', 'points', 'hist', 'boxplot', 'barplot',
+		'lm', 'glm', 'summary.lm', 'anova', 't.test', 'cor', 'cov',
+		'as.numeric', 'as.character', 'as.factor', 'as.logical',
+		'is.numeric', 'is.character', 'is.factor', 'is.logical', 'is.na',
+		'class', 'typeof', 'mode', 'str', 'head', 'tail', 'View'
+	]
+	
+	// R 操作符
+	config.operators = [
+		'+', '-', '*', '/', '^', '%%', '%/%', '%*%', '%in%', '%o%', '%x%',
+		'=', '<-', '<<-', '->', '->>', '==', '!=', '<', '>', '<=', '>=',
+		'&', '|', '!', '&&', '||', '~', ':', '$', '@', '::', ':::'
+	]
+	
+	return config
+}
+

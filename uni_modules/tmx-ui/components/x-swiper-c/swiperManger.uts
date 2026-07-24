@@ -1,0 +1,1330 @@
+import { SwiperItem, IAnimationEffect, 
+ScaleSlideEffect,SimpleSlideEffect,FadeEffect, StretchXEffect,
+StretchYEffect,PushPullEffect,ZoomFadeEffect,FlipYEffect,FlipXEffect,SimpleSlideYEffect,
+AnimationFrameState, AnimationStaticState, RenderItemConfig, StackingEffect,InStackingEffect,
+ OutStackingEffect,StackingSlideEffect} from './animationEffects.uts';
+
+/** 缓动函数类型 */
+export type EasingFunction = (t: number) => number;
+export type SwiperCallBackType = (current:number,progress:number,totalProgress:number)=>void;
+export type PositionTypeBySwiperManger = { x: number; y: number } 
+/** 缓动函数集合 */
+export const Easing:Map<string,EasingFunction> = new Map([
+	['linear',(t: number): number => t],
+	['easeInQuad',(t: number): number => t * t],
+	['easeOutQuad',(t: number): number => t * (2 - t)],
+	['easeInOutQuad',(t: number): number => {
+        return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+    }],
+	['easeInCubic',(t: number): number => t*t*t],
+	['easeOutCubic',(t: number): number => (t - 1) * t * t + 1],
+	['easeInOutCubic',(t: number): number => {
+        return t < 0.5 ? 4 * t * t * t : (t - 1) * (2 * t - 2) * (2 * t - 2) + 1;
+    }],
+	['easeInElastic',(t: number): number => {
+	    const c4 = (2 * Math.PI) / 3;
+	    return t == 0 ? 0 : t == 1 ? 1 : -Math.pow(2, 10 * t - 10) * Math.sin((t * 10 - 10.75) * c4);
+	}],
+	['easeOutElastic',(t: number): number => {
+	    const c4 = (2 * Math.PI) / 3;
+	    return t == 0 ? 0 : t == 1 ? 1 : Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * c4) + 1;
+	}],
+	['easeInOutElastic',(t: number): number => {
+	    const c5 = (2 * Math.PI) / 4.5;
+	    return t == 0 ? 0 : t == 1 ? 1 : t < 0.5
+	        ? -(Math.pow(2, 20 * t - 10) * Math.sin((20 * t - 11.125) * c5)) / 2
+	        : (Math.pow(2, -20 * t + 10) * Math.sin((20 * t - 11.125) * c5)) / 2 + 1;
+	}],
+])
+export const IAnimationEffectList:Map<string,IAnimationEffect> = new Map([
+	['ScaleSlideEffect',new ScaleSlideEffect()],
+	['SimpleSlideEffect',new SimpleSlideEffect()],
+	['SimpleSlideYEffect',new SimpleSlideYEffect()],
+	['FadeEffect',new FadeEffect()],
+	['StretchYEffect',new StretchYEffect()],
+	['StretchXEffect',new StretchXEffect()],
+	['PushPullEffect',new PushPullEffect()],
+	['ZoomFadeEffect',new ZoomFadeEffect()],
+	['FlipYEffect',new FlipYEffect()],
+	['FlipXEffect',new FlipXEffect()],
+	['StackingEffect',new StackingEffect()],
+	['InStackingEffect',new InStackingEffect()],
+	['OutStackingEffect',new OutStackingEffect()],
+	['StackingSlideEffect',new StackingSlideEffect()],
+	
+])
+/**
+ * 轮播图管理器
+ */
+export class SwiperManger {
+	/** Canvas上下文 */
+	canvas: CanvasContext | null = null;
+	/** Canvas DOM矩形信息 */
+	canvsDomRect: DOMRect | null = null;
+	/** Canvas 2D渲染上下文 */
+	canvasCtx: CanvasRenderingContext2D | null = null;
+	/** 动画帧ID */
+	animationId: number | null = null;
+	/** 回弹动画帧ID */
+	private reboundAnimationId: number | null = null;
+	/** 当前是否正在轮播中 */
+	isPlaying: boolean = false;
+	/** 自动播放定时器ID */
+	playTimeoutTid: number = 0;
+	/** 是否自动播放 */
+	autoPlay: boolean = true;
+	/** 切换间隔时间(ms) */
+	autoPlayInterval: number = 3500;
+	/** 动画过程的时间(ms) */
+	transitionDuration: number = 600;
+	/** 是否首尾衔接 */
+	circular: boolean = false;
+	/** 是否竖向播放 */
+	vertical: boolean = false;
+	/** 图片填充模式：'fill'=拉伸填充, 'cover'=裁剪居中显示 */
+	imageFit: 'fill' | 'cover' = 'cover';
+	
+	/** 轮播项列表 */
+	private items: SwiperItem[] = [];
+	/** 当前显示的索引 */
+	private currentIndex: number = 0;
+	/** 动画效果实例 */
+	private animationEffect: IAnimationEffect = new SimpleSlideEffect();
+	/** 缓动函数 */
+	private easingFunction: EasingFunction = Easing.get('easeOutQuad')!;
+	/** 动画开始时间戳 */
+	private animationStartTime: number = 0;
+	/** 是否正在执行切换动画 */
+	private isAnimating: boolean = false;
+	/** 目标索引 */
+	private targetIndex: number = 0;
+	/** 切换方向 1=向前, -1=向后 */
+	private direction: number = 1;
+	/** 图片缓存 Map<索引, Image对象> */
+	private imageCache: Map<number, Image> = new Map();
+	/** 图片加载状态 Map<索引, 是否加载完成> */
+	private imageLoadStatus: Map<number, boolean> = new Map();
+	
+	/** 是否在滑动 */
+	private isMoving: boolean = false;
+	/** 触摸开始的X坐标 */
+	private touchStartX: number = 0;
+	/** 触摸开始的Y坐标 */
+	private touchStartY: number = 0;
+	/** 当前触摸的X坐标 */
+	private touchCurrentX: number = 0;
+	/** 当前触摸的Y坐标 */
+	private touchCurrentY: number = 0;
+	/** 滑动切换的最小距离阈值（像素） */
+	swipeThreshold: number = 50;
+	/** 是否正在拖动中 */
+	private isDragging: boolean = false;
+	/** 是否允许开始拖动。 */
+	private enDragging: boolean = false;
+	/** 拖动时的目标索引 */
+	private dragTargetIndex: number = 0;
+	/** 打断动画时的进度（0-1） */
+	private interruptedProgress: number = 0;
+	/** 打断动画时的目标索引 */
+	private interruptedTargetIndex: number = 0;
+	/** 动画播放中的动画函数 */
+	private processCall:SwiperCallBackType = (current:number,progress:number,totalProgress)=>{
+		// console.log(current,progress,totalProgress)
+	}
+	/** 设置切换变化时的回调 */
+	private changeIndexCall:SwiperCallBackType = (current:number,progress:number,totalProgress)=>{
+		// console.log(current,progress,totalProgress)
+	}
+	/** 是否正在执行回弹动画 */
+	private isRebounding: boolean = false;
+	/** 回弹动画开始时间 */
+	private reboundStartTime: number = 0;
+	/** 回弹动画持续时间(ms) */
+	private reboundDuration: number = 250;
+	/** 回弹动画起始进度 */
+	private reboundStartProgress: number = 0;
+	/** 回弹动画方向 */
+	private reboundDirection: number = 1;
+	/** 回弹动画目标索引 */
+	private reboundTargetIndex: number = 0;
+	
+	/**
+	 * 设置Canvas上下文
+	 * @param cs Canvas上下文
+	 */
+	setsCanvas(cs: CanvasContext): void {
+		if(this.canvas!=null) return;
+		const dpr = uni.getDeviceInfo().devicePixelRatio ?? 1;
+		const ctx = cs.getContext('2d')!;
+		const ele = ctx.canvas;
+		ele.width = ele.offsetWidth * dpr;
+		ele.height = ele.offsetHeight * dpr;
+		ctx.scale(dpr, dpr);
+		this.canvasCtx = ctx;
+		this.canvas = cs;
+	}
+	
+	/**
+	 * 设置DOM矩形信息
+	 * @param cs DOM矩形
+	 */
+	setDomRect(cs: DOMRect): void {
+		this.canvsDomRect = cs;
+	}
+	
+	/**
+	 * 设置轮播项数据
+	 * @param items 轮播项列表
+	 */
+	setItems(items: SwiperItem[]): void {
+		this.items = items;
+		this.currentIndex = 0;
+		this.targetIndex = 0;
+		// 清除旧的图片缓存
+		this.imageCache.clear();
+		this.imageLoadStatus.clear();
+		// 预加载所有图片
+		this.preloadImages();
+	}
+	getItems(index:number):any|null{
+		return  this.items[index]?.data??null;
+	}
+	/**
+	 * 设置切换变化时的回调
+	 * @param fun 回调函数。
+	 */
+	setChange(fun:SwiperCallBackType){
+		this.changeIndexCall = fun;
+	}
+	/**
+	 * 设置动画进度回调。
+	 * @param fun 回调函数。
+	 */
+	setProcess(fun:SwiperCallBackType){
+		this.processCall = fun;
+	}
+	/**
+	 * 预加载所有图片
+	 */
+	private preloadImages(): void {
+		if (this.canvas == null) return;
+		for (let i = 0; i < this.items.length; i++) {
+			const item = this.items[i];
+			if (item.image != null && item.image != '') {
+				this.loadImage(i, item.image!);
+			}
+		}
+	}
+	
+	/**
+	 * 加载单张图片
+	 * @param index 图片索引
+	 * @param url 图片URL
+	 */
+	private loadImage(index: number, url: string): void {
+		if (this.canvas == null) return;
+		if (this.imageCache.has(index)) return; // 已经加载过了
+		
+		const image = this.canvas.createImage();
+		
+		const _this = this;
+		
+		// 标记为加载中
+		this.imageLoadStatus.set(index, false);
+		
+		image.onload = () => {
+			_this.imageCache.set(index, image);
+			_this.imageLoadStatus.set(index, true);
+			// 图片加载完成后，如果当前正在显示这个索引，重新绘制
+			if (_this.currentIndex == index && !_this.isAnimating) {
+				_this.draw();
+			}
+		};
+		
+		image.src = url;
+	}
+	
+	/**
+	 * 设置缓动函数
+	 * @param easing 缓动函数
+	 */
+	setEasing(easingName:string): void {
+		const fun = Easing.get(easingName);
+		if(fun!=null){
+			this.easingFunction = fun as EasingFunction;
+		}
+	}
+	
+	/**
+	 * 设置动画效果
+	 * @param effect 动画效果实例
+	 */
+	setEffect(effect: string): void {
+		const fun = IAnimationEffectList.get(effect);
+		if(fun!=null){
+			this.animationEffect = fun;
+		}
+	}
+	
+	/**
+	 * 开始自动播放
+	 */
+	start(): void {
+		if (this.items.length == 0) return;
+		if (this.canvasCtx == null || this.canvas == null || this.canvsDomRect == null) return;
+		
+		this.isPlaying = true;
+		this.draw();
+		
+		if (this.autoPlay && this.items.length > 1) {
+			this.scheduleNext();
+		}
+	}
+	
+	/**
+	 * 安排下一次切换
+	 */
+	private scheduleNext(): void {
+		if (!this.autoPlay || !this.isPlaying) return;
+		if (this.items.length <= 1) return;
+		
+		clearTimeout(this.playTimeoutTid);
+		this.playTimeoutTid = setTimeout(() => {
+			this.next();
+		}, this.autoPlayInterval);
+	}
+	
+	/**
+	 * 切换到下一张
+	 */
+	next(): void {
+		if (this.items.length <= 1) return;
+		if (this.isAnimating) return;
+		
+		let nextIndex = this.currentIndex + 1;
+		
+		// 处理循环
+		if (nextIndex >= this.items.length) {
+		
+			if (this.circular) {
+				nextIndex = 0;
+			} else {
+				this.switchToIndex(0)
+				return; // 不循环且到达末尾，不切换
+			}
+		}
+		
+		// 设置向前切换方向
+		this.direction = 1;
+		this.switchTo(nextIndex);
+	}
+	
+	/**
+	 * 切换到上一张
+	 */
+	prev(): void {
+		if (this.items.length <= 1) return;
+		if (this.isAnimating) return;
+		
+		let prevIndex = this.currentIndex - 1;
+		
+		// 处理循环
+		if (prevIndex < 0) {
+			if (this.circular) {
+				prevIndex = this.items.length - 1;
+			} else {
+				return; // 不循环且到达开头，不切换
+			}
+		}
+		
+		// 设置向后切换方向
+		this.direction = -1;
+		this.switchTo(prevIndex);
+	}
+	
+	/**
+	 * 切换到指定索引（公开方法）
+	 * @param index 目标索引
+	 */
+	switchToIndex(index: number): void {
+		if (this.items.length <= 1) return;
+		if (index < 0 || index >= this.items.length) return;
+		if (index == this.currentIndex) return; // 已经在当前索引，不切换
+		
+		// 根据目标索引和当前索引的关系确定方向
+		if (index > this.currentIndex) {
+			this.direction = 1; // 向前
+		} else {
+			this.direction = -1; // 向后
+		}
+		
+		this.switchTo(index);
+	}
+	
+	/**
+	 * 切换到指定索引（内部方法）
+	 * @param index 目标索引
+	 */
+	private switchTo(index: number): void {
+		if (this.items.length <= 1) return;
+		if (index < 0 || index >= this.items.length) return;
+		if (this.isAnimating) return;
+		this.stopReboundAnimation();
+		
+		// 清除当前的自动播放定时器
+		clearTimeout(this.playTimeoutTid);
+		
+		this.targetIndex = index;
+		this.isAnimating = true;
+		this.animationStartTime = Date.now();
+		
+		this.update();
+	}
+	
+	/**
+	 * 动画帧更新
+	 */
+	private update(): void {
+		if (this.canvasCtx == null || this.canvas == null || this.canvsDomRect == null) return;
+		
+		if (this.isAnimating) {
+			const now = Date.now();
+			const elapsed = now - this.animationStartTime;
+			const rawProgress = elapsed / this.transitionDuration;
+			const clampedProgress = Math.min(rawProgress, 1);
+			const progress = this.easingFunction(clampedProgress);
+			
+			// 计算总的轮播进度（0-1）
+			const totalProgress = this.items.length > 0 ? this.targetIndex / (this.items.length-1) : 0;
+			
+			// 触发动画进度回调
+			this.processCall(this.targetIndex, progress, totalProgress);
+			
+			// 绘制动画帧
+			this.drawAnimationFrame(progress);
+			
+			// 绘制后再检查动画是否完成
+			if (rawProgress >= 1) {
+				// 动画结束，更新索引
+				const oldIndex = this.currentIndex;
+				this.isAnimating = false;
+				this.currentIndex = this.targetIndex;
+				
+				// 如果索引发生变化，触发切换回调
+				if (oldIndex != this.currentIndex) {
+					const totalProgress = this.items.length > 0 ? this.currentIndex / (this.items.length -1): 0;
+					this.changeIndexCall(this.currentIndex, 1, totalProgress);
+				}
+				
+				this.draw()
+				// 安排下一次自动切换
+				if (this.autoPlay && this.isPlaying) {
+					this.scheduleNext();
+				}
+			} else {
+				// 继续动画
+				let _this = this;
+				this.animationId = this.canvas.requestAnimationFrame((tid: number) => {
+					_this.update()
+					
+				});
+			}
+		}
+	}
+	
+	/**
+	 * 绘制动画帧
+	 * @param progress 动画进度 0-1
+	 */
+	private drawAnimationFrame(progress: number): void {
+		if (this.canvasCtx == null || this.canvas == null || this.canvsDomRect == null) return;
+		if (this.items.length <= 1) {
+			this.draw();
+			return;
+		}
+		const _this = this;
+		const prevIndex = this.calcPrevIndex(this.currentIndex, this.direction);
+		const state: AnimationFrameState = {
+			currentIndex: this.currentIndex,
+			prevIndex: prevIndex,
+			nextIndex: this.targetIndex,
+			progress: progress,
+			width: this.canvsDomRect.width,
+			height: this.canvsDomRect.height,
+			vertical: this.vertical,
+			direction: this.direction,
+			circular: this.circular
+		};
+		
+		const renderItems = this.animationEffect.calculate(state, this.items);
+		
+		// 清空画布
+		this.canvasCtx.clearRect(0, 0, this.canvsDomRect.width, this.canvsDomRect.height);
+		
+		// 对渲染项进行排序，确保正确的绘制顺序
+		const sortedItems = this.sortRenderItems(renderItems, progress);
+		
+		// 绘制所有项
+		sortedItems.forEach((item: RenderItemConfig) => {
+			_this.drawItem(item);
+		});
+		
+	}
+	
+	/**
+	 * 对渲染项排序，确保正确的层级顺序
+	 * @param items 渲染项列表
+	 * @param progress 动画进度
+	 * @returns 排序后的渲染项列表
+	 */
+	private sortRenderItems(items: RenderItemConfig[], progress: number): RenderItemConfig[] {
+		// 创建副本避免修改原数组
+		const sorted = [...items];
+		
+		// 支持根据 zIndex 自定义层级，数值越大越靠上
+		sorted.sort((a, b) => {
+			const aZ = a?.zIndex ?? 0;
+			const bZ = b?.zIndex ?? 0;
+			if (aZ != bZ) {
+				return aZ - bZ;
+			}
+			
+			const aIsCurrent = a.index == this.currentIndex;
+			const bIsCurrent = b.index == this.currentIndex;
+			
+			if (aIsCurrent && !bIsCurrent) return 1;  // a是当前项，排后面（最上层）
+			if (!aIsCurrent && bIsCurrent) return -1; // b是当前项，排后面（最上层）
+			
+			// 如果都不是当前项，下一项应该比其他项更靠上
+			const aIsNext = a.index == this.targetIndex;
+			const bIsNext = b.index == this.targetIndex;
+			
+			if (aIsNext && !bIsNext) return 1;  // a是下一项，排在中间
+			if (!aIsNext && bIsNext) return -1; // b是下一项，排在中间
+			
+			return 0; // 其他项保持原顺序
+		});
+		
+		return sorted;
+	}
+	/**
+	 * 绘制单个项
+	 * @param config 渲染配置
+	 */
+	private drawItem(config: RenderItemConfig): void {
+		if (this.canvasCtx == null || this.canvas == null || this.canvsDomRect == null) return;
+		
+		const ctx = this.canvasCtx;
+		const itemIndex = config.index;
+		const radiusLimit = Math.min(config.width, config.height) / 2;
+		const cornerRadius = Math.max(0, Math.min(config.cornerRadius ?? 0, radiusLimit));
+		const anchorPoint = this.resolveAnchor(config);
+		const originX = (config.x ?? 0) + anchorPoint.x;
+		const originY = (config.y ?? 0) + anchorPoint.y;
+		const drawOffsetX = -anchorPoint.x;
+		const drawOffsetY = -anchorPoint.y;
+		
+		ctx.save();
+		
+		// 设置透明度
+		ctx.globalAlpha = config.opacity;
+		
+		// 移动到锚点位置
+		ctx.translate(originX, originY);
+		
+		// X轴和Y轴分别缩放
+		ctx.scale(config.scaleX, config.scaleY);
+		
+		// 绘制背景颜色
+		
+		if(config.color!=''){
+			ctx.fillStyle = config.color;
+			if (cornerRadius > 0) {
+				ctx.beginPath();
+				this.addRoundedRectPath(ctx, drawOffsetX, drawOffsetY, config.width, config.height, cornerRadius);
+				ctx.fill();
+			} else {
+				ctx.fillRect(drawOffsetX, drawOffsetY, config.width, config.height);
+			}
+		}
+		// 绘制图片（如果已加载）
+		const image = this.imageCache.get(itemIndex);
+		const _this = this;
+		if (image != null && this.imageLoadStatus.get(itemIndex) == true) {
+			if (_this.imageFit == 'cover') {
+				// cover 模式：裁剪居中显示，保持宽高比，完全覆盖区域
+				// @ts-ignore
+				const imgWidth = image?.width??config.width as number;
+				// @ts-ignore
+				const imgHeight = image?.height??config.height as number;
+				
+				// 计算缩放比例，确保图片完全覆盖目标区域
+				const scaleX = config.width / imgWidth;
+				const scaleY = config.height / imgHeight;
+				const scale = Math.max(scaleX, scaleY); // 取最大值确保完全覆盖
+				
+				const drawWidth = imgWidth * scale;
+				const drawHeight = imgHeight * scale;
+				
+				// 使用 clip 裁剪区域
+				ctx.save();
+				ctx.beginPath();
+				if (cornerRadius > 0) {
+					_this.addRoundedRectPath(ctx, drawOffsetX, drawOffsetY, config.width, config.height, cornerRadius);
+				} else {
+					ctx.rect(drawOffsetX, drawOffsetY, config.width, config.height);
+				}
+				ctx.clip();
+				
+				// 居中绘制（可能超出区域，但会被裁剪）
+				const rectCenterX = drawOffsetX + config.width / 2;
+				const rectCenterY = drawOffsetY + config.height / 2;
+				ctx.drawImage(
+					image,
+					rectCenterX - drawWidth / 2,
+					rectCenterY - drawHeight / 2,
+					drawWidth,
+					drawHeight
+				);
+				
+				ctx.restore();
+			} else {
+				// fill 模式：拉伸填充，直接填充整个区域
+				if (cornerRadius > 0) {
+					ctx.save();
+					ctx.beginPath();
+					_this.addRoundedRectPath(ctx, drawOffsetX, drawOffsetY, config.width, config.height, cornerRadius);
+					ctx.clip();
+					ctx.drawImage(
+						image,
+						drawOffsetX,
+						drawOffsetY,
+						config.width,
+						config.height
+					);
+					ctx.restore();
+				} else {
+					ctx.drawImage(
+						image,
+						drawOffsetX,
+						drawOffsetY,
+						config.width,
+						config.height
+					);
+				}
+			}
+			
+		}
+		
+		ctx.restore();
+	}
+	
+	/**
+	 * 绘制当前帧（静态状态）
+	 */
+	draw(): void {
+		if (this.canvasCtx == null || this.canvas == null || this.canvsDomRect == null) return;
+		if (this.items.length == 0) return;
+		
+		const boxWidth = this.canvsDomRect.width;
+		const boxHeight = this.canvsDomRect.height;
+		const prevIndex = this.calcPrevIndex(this.currentIndex, this.direction);
+		const nextIndex = this.calcNextIndex(this.currentIndex, this.direction);
+		
+		const staticState: AnimationStaticState = {
+			currentIndex: this.currentIndex,
+			prevIndex: prevIndex,
+			nextIndex: nextIndex,
+			width: boxWidth,
+			height: boxHeight,
+			direction: this.direction,
+			circular: this.circular,
+			total: this.items.length
+		};
+		
+		let configs: RenderItemConfig[] | null = this.animationEffect.getStaticState(staticState, this.items);
+		
+		if (configs == null || configs.length == 0) {
+			const currentItem = this.items[this.currentIndex];
+			configs = [{
+				x: 0,
+				y: 0,
+				width: boxWidth,
+				height: boxHeight,
+				opacity: 1,
+				scaleX: 1,
+				scaleY: 1,
+				color: currentItem.color,
+				index: this.currentIndex
+			}];
+		}
+		
+		// 清空画布
+		this.canvasCtx.clearRect(0, 0, boxWidth, boxHeight);
+		
+		configs.forEach((item: RenderItemConfig) => {
+			this.drawItem(item);
+		});
+	}
+	
+	/**
+	 * 停止播放
+	 */
+	stop(): void {
+		this.isPlaying = false;
+		if (this.animationId != null && this.canvas != null) {
+			this.canvas.cancelAnimationFrame(this.animationId);
+			this.animationId = null;
+		}
+		clearTimeout(this.playTimeoutTid);
+	}
+	
+	/**
+	 * 暂停自动播放
+	 */
+	pause(): void {
+		clearTimeout(this.playTimeoutTid);
+		this.autoPlay = false;
+	}
+	
+	/**
+	 * 恢复自动播放
+	 */
+	resume(): void {
+		this.autoPlay = true;
+		if (this.isPlaying && !this.isAnimating) {
+			this.scheduleNext();
+		}
+	}
+	
+	/**
+	 * 获取当前索引
+	 * @returns 当前显示的索引
+	 */
+	getCurrentIndex(): number {
+		return this.currentIndex;
+	}
+	
+	/**
+	 * 获取轮播项总数
+	 * @returns 轮播项数量
+	 */
+	getItemCount(): number {
+		return this.items.length;
+	}
+	
+	/**
+	 * 是否正在执行动画
+	 * @returns 是否正在动画中
+	 */
+	getIsAnimating(): boolean {
+		return this.isAnimating;
+	}
+	
+	/**
+	 * 销毁实例
+	 */
+	destory(): void {
+		this.stop();
+		this.canvas = null;
+		this.canvasCtx = null;
+		this.canvsDomRect = null;
+		this.items = [];
+	}
+	
+	/**
+	 * 触摸开始事件处理
+	 */
+	onTouchStart(evt: UniTouchEvent | UniPointerEvent): void {
+		this.stopReboundAnimation();
+		if (this.isAnimating) {
+			// 动画播放期间忽略新的交互，避免打断动画
+			// #ifdef APP
+			if (evt instanceof UniTouchEvent) {
+				evt.preventDefault();
+			}
+			// #endif
+			// #ifdef WEB||MP
+			if (typeof evt.preventDefault == 'function') {
+				evt.preventDefault();
+			}
+			// #endif
+			return;
+		}
+		let x = 0;
+		let y = 0;
+		
+		// #ifdef APP
+		if (evt instanceof UniTouchEvent) {
+			x = evt.changedTouches[0].clientX;
+			y = evt.changedTouches[0].clientY;
+		}
+		// #endif
+		// #ifdef WEB||MP
+		if (evt.type.indexOf('mouse') > -1) {
+			// @ts-ignore
+			x = evt.clientX;
+			// @ts-ignore
+			y = evt.clientY;
+		} else {
+			// @ts-ignore
+			x = evt.changedTouches[0].clientX;
+			// @ts-ignore
+			y = evt.changedTouches[0].clientY;
+		}
+		// #endif
+		// 记录触摸开始位置
+		this.touchStartX = x;
+		this.touchStartY = y;
+		this.touchCurrentX = x;
+		this.touchCurrentY = y;
+		this.isMoving = false;
+		this.isDragging = false;
+		this.enDragging = this.items.length > 1;
+		
+		// 停止当前动画和自动播放
+		if (this.isAnimating) {
+			// 计算当前动画的进度，记录打断时的状态
+			const now = Date.now();
+			const elapsed = now - this.animationStartTime;
+			const rawProgress = elapsed / this.transitionDuration;
+			const clampedProgress = Math.min(rawProgress, 1);
+			
+			// 记录被打断时的进度和目标索引
+			this.interruptedProgress = this.easingFunction(clampedProgress);
+			this.interruptedTargetIndex = this.targetIndex;
+			
+			// 停止动画
+			this.isAnimating = false;
+			if (this.animationId != null && this.canvas != null) {
+				this.canvas.cancelAnimationFrame(this.animationId);
+				this.animationId = null;
+			}
+		} else {
+			// 没有被打断的动画，重置为0
+			this.interruptedProgress = 0;
+			this.interruptedTargetIndex = this.currentIndex;
+		}
+		
+		if (this.autoPlay) {
+			clearTimeout(this.playTimeoutTid);
+		}
+	}
+	/**
+	 * 触摸移动事件处理
+	 */
+	onTouchMove(evt: UniTouchEvent | UniPointerEvent): void {
+		if (this.canvsDomRect == null || this.items.length <= 1 || !this.enDragging ) return;
+		
+		let x = 0;
+		let y = 0;
+			
+		// #ifdef APP
+		if (evt instanceof UniTouchEvent) {
+			x = evt.changedTouches[0].clientX;
+			y = evt.changedTouches[0].clientY;
+		}
+		// #endif
+		// #ifdef WEB||MP
+		if (evt.type.indexOf('mouse') > -1) {
+			// @ts-ignore
+			x = evt.clientX;
+			// @ts-ignore
+			y = evt.clientY;
+		} else {
+			// @ts-ignore
+			x = evt.changedTouches[0].clientX;
+			// @ts-ignore
+			y = evt.changedTouches[0].clientY;
+		}
+		// #endif
+		
+		// 更新当前触摸位置
+		this.touchCurrentX = x;
+		this.touchCurrentY = y;
+		
+		// 计算移动距离
+		const deltaX = x - this.touchStartX;
+		const deltaY = y - this.touchStartY;
+		
+		// 判断是否应该响应滑动
+		let shouldHandle = false;
+		let dragDistance = 0;
+		let containerSize = 0;
+		
+		if (this.vertical) {
+			// 竖向轮播：判断Y方向移动距离
+			const absDeltaY = Math.abs(deltaY);
+			const absDeltaX = Math.abs(deltaX);
+			
+			// Y方向移动距离大于X方向，且Y方向移动距离>0
+			if (absDeltaY > absDeltaX && absDeltaY > 0) {
+				shouldHandle = true;
+				dragDistance = deltaY;
+				containerSize = this.canvsDomRect.height;
+			}
+		} else {
+			// 横向轮播：判断X方向移动距离
+			const absDeltaX = Math.abs(deltaX);
+			const absDeltaY = Math.abs(deltaY);
+			
+			// X方向移动距离大于Y方向，且X方向移动距离>0
+			if (absDeltaX > absDeltaY && absDeltaX > 0) {
+				shouldHandle = true;
+				dragDistance = deltaX;
+				containerSize = this.canvsDomRect.width;
+			}
+		}
+		
+		// 如果应该响应滑动，则标记为正在滑动并阻止事件传播
+		if (shouldHandle) {
+			this.isMoving = true;
+			this.isDragging = true;
+		
+			
+			// #ifdef APP
+			if (evt instanceof UniTouchEvent) {
+				evt.preventDefault();
+			}
+			// #endif
+			// #ifdef WEB||MP
+			evt.preventDefault();
+			// #endif
+	
+			
+			// 实时绘制拖动效果
+			this.drawDragFrame(dragDistance, containerSize);
+		}
+	}
+	/**
+	 * 绘制拖动帧
+	 * @param dragDistance 拖动距离（负值表示向前，正值表示向后）
+	 * @param containerSize 容器尺寸（宽度或高度）
+	 */
+	private drawDragFrame(dragDistance: number, containerSize: number): void {
+		if (this.canvasCtx == null || this.canvas == null || this.canvsDomRect == null) return;
+		if (this.items.length <= 1) return;
+		
+		// 计算拖动进度（0-1）
+		let dragProgress = Math.abs(dragDistance) / containerSize;
+		dragProgress = Math.min(dragProgress, 1);
+		
+		// 确定拖动方向
+		const dragDir = dragDistance < 0 ? 1 : dragDistance > 0 ? -1 : 0;
+		
+		// 检查是否有被打断的动画
+		let finalProgress = 0;
+		let targetIndex = this.currentIndex;
+		let dir = dragDir;
+		
+		if (this.interruptedProgress > 0 && this.interruptedTargetIndex != this.currentIndex) {
+			// 有被打断的动画
+			// 判断拖动方向是否与被打断的动画方向一致
+			const interruptedDir = this.interruptedTargetIndex > this.currentIndex ? 1 : -1;
+			
+			if (dragDir == interruptedDir) {
+				// 方向一致，从打断的进度继续
+				targetIndex = this.interruptedTargetIndex;
+				dir = interruptedDir;
+				// 当前进度 = 打断时的进度 + 拖动的进度
+				finalProgress = Math.min(this.interruptedProgress + dragProgress, 1);
+			} else if (dragDir == -interruptedDir) {
+				// 方向相反，先回退被打断的动画
+				targetIndex = this.interruptedTargetIndex;
+				dir = interruptedDir;
+				// 回退：打断时的进度 - 拖动的进度
+				finalProgress = Math.max(this.interruptedProgress - dragProgress, 0);
+				
+				// 如果回退到0以下，则切换到反方向
+				if (this.interruptedProgress - dragProgress < 0) {
+					const reverseProgress = dragProgress - this.interruptedProgress;
+					dir = -interruptedDir;
+					// 计算反向的目标索引
+					if (dir == 1) {
+						targetIndex = this.currentIndex + 1;
+						if (targetIndex >= this.items.length) {
+							targetIndex = this.circular ? 0 : this.currentIndex;
+						}
+					} else {
+						targetIndex = this.currentIndex - 1;
+						if (targetIndex < 0) {
+							targetIndex = this.circular ? this.items.length - 1 : this.currentIndex;
+						}
+					}
+					finalProgress = reverseProgress;
+				}
+			}
+		} else {
+			// 没有被打断的动画，从0开始
+			if (dragDir == 1) {
+				// 向左/向上拖动 -> 下一项
+				dir = 1;
+				targetIndex = this.currentIndex + 1;
+				if (targetIndex >= this.items.length) {
+					targetIndex = this.circular ? 0 : this.currentIndex;
+				}
+			} else if (dragDir == -1) {
+				// 向右/向下拖动 -> 上一项
+				dir = -1;
+				targetIndex = this.currentIndex - 1;
+				if (targetIndex < 0) {
+					targetIndex = this.circular ? this.items.length - 1 : this.currentIndex;
+				}
+			}
+			finalProgress = dragProgress;
+		}
+		
+		// 处理边界情况
+		if (targetIndex == this.currentIndex) {
+			finalProgress = 0;
+		}
+		
+		// 保存目标索引和方向，供触摸结束时使用
+		this.dragTargetIndex = targetIndex;
+		this.direction = dir;
+		
+		// 计算总的轮播进度（0-1）
+		const totalProgress = this.items.length > 0 ? targetIndex / this.items.length : 0;
+		
+		// 触发拖动进度回调
+		this.processCall(targetIndex, finalProgress, totalProgress);
+		
+		// 绘制过渡帧
+		this.renderTransitionFrame(finalProgress, dir, targetIndex);
+	}
+	
+	/**
+	 * 触摸结束事件处理
+	 */
+	onTouchEnd(evt: UniTouchEvent | UniPointerEvent): void {
+		if(!this.enDragging) return;
+		let x = 0;
+		let y = 0;
+			
+		// #ifdef APP
+		if (evt instanceof UniTouchEvent) {
+			x = evt.changedTouches[0].clientX;
+			y = evt.changedTouches[0].clientY;
+		}
+		// #endif
+		// #ifdef WEB||MP
+		if (evt.type.indexOf('mouse') > -1) {
+			// @ts-ignore
+			x = evt.clientX;
+			// @ts-ignore
+			y = evt.clientY;
+		} else {
+			// @ts-ignore
+			x = evt.changedTouches[0].clientX;
+			// @ts-ignore
+			y = evt.changedTouches[0].clientY;
+		}
+		// #endif
+		
+		// 只有在确实发生了拖动时才处理
+		if (this.isDragging) {
+			// 计算总移动距离
+			const deltaX = x - this.touchStartX;
+			const deltaY = y - this.touchStartY;
+			
+			// 判断是否应该切换
+			let shouldSwitch = false;
+			let dragDistance = 0;
+			let containerSize = 0;
+			let dragProgress = 0;
+			
+			if (this.vertical) {
+				// 竖向轮播：根据Y方向滑动距离判断
+				dragDistance = Math.abs(deltaY);
+				containerSize = this.canvsDomRect?.height ?? 0;
+			} else {
+				// 横向轮播：根据X方向滑动距离判断
+				dragDistance = Math.abs(deltaX);
+				containerSize = this.canvsDomRect?.width ?? 0;
+			}
+			
+			if (containerSize > 0) {
+				dragProgress = Math.min(dragDistance / containerSize, 1);
+			}
+			
+			// 计算最终进度（包含打断的进度）
+			let finalProgress = dragProgress;
+			const dragDir = (this.vertical ? deltaY : deltaX) < 0 ? 1 : -1;
+			
+			if (this.interruptedProgress > 0 && this.interruptedTargetIndex != this.currentIndex) {
+				const interruptedDir = this.interruptedTargetIndex > this.currentIndex ? 1 : -1;
+				
+				if (dragDir == interruptedDir) {
+					// 方向一致，累加进度
+					finalProgress = Math.min(this.interruptedProgress + dragProgress, 1);
+				} else {
+					// 方向相反，回退进度
+					finalProgress = Math.max(this.interruptedProgress - dragProgress, 0);
+					// 如果回退超过，则为反向的进度
+					if (this.interruptedProgress - dragProgress < 0) {
+						finalProgress = dragProgress - this.interruptedProgress;
+					}
+				}
+			}
+			
+			// 判断是否应该切换
+			if (dragDistance >= this.swipeThreshold) {
+				shouldSwitch = true;
+			}
+			
+			// 执行切换或回弹
+			if (shouldSwitch && this.dragTargetIndex != this.currentIndex) {
+				this.stopReboundAnimation();
+				// 超过阈值，完成切换到目标索引
+				// 根据最终进度调整动画开始时间，让动画从当前位置继续
+				const elapsedTime = finalProgress * this.transitionDuration;
+				this.animationStartTime = Date.now() - elapsedTime;
+				
+				this.targetIndex = this.dragTargetIndex;
+				this.isAnimating = true;
+				this.update();
+			} else {
+				// 未超过阈值，回弹到当前索引
+				this.startReboundAnimation(finalProgress, this.direction, this.dragTargetIndex);
+			}
+			
+			// 清除打断的进度
+			this.interruptedProgress = 0;
+			this.interruptedTargetIndex = this.currentIndex;
+		} else {
+			// 如果只是轻微移动（未达到拖动条件），恢复自动播放
+			if (this.autoPlay && this.isPlaying) {
+				this.scheduleNext();
+			}
+		}
+		
+		// 重置滑动状态
+		this.isMoving = false;
+		this.isDragging = false;
+		this.enDragging = false;
+		
+		
+	}
+
+	private renderTransitionFrame(progress: number, dir: number, targetIndex: number): void {
+		if (this.canvasCtx == null || this.canvas == null || this.canvsDomRect == null) return;
+		if (this.items.length <= 1) {
+			this.draw();
+			return;
+		}
+		const prevIndex = this.calcPrevIndex(this.currentIndex, dir);
+		const state: AnimationFrameState = {
+			currentIndex: this.currentIndex,
+			prevIndex: prevIndex,
+			nextIndex: targetIndex,
+			progress: progress,
+			width: this.canvsDomRect.width,
+			height: this.canvsDomRect.height,
+			vertical: this.vertical,
+			direction: dir,
+			circular: this.circular
+		};
+		
+		const renderItems = this.animationEffect.calculate(state, this.items);
+		this.canvasCtx.clearRect(0, 0, this.canvsDomRect.width, this.canvsDomRect.height);
+		const sortedItems = this.sortRenderItems(renderItems, progress);
+		const _this = this;
+		sortedItems.forEach((item: RenderItemConfig) => {
+			_this.drawItem(item);
+		});
+	}
+
+	private startReboundAnimation(initialProgress: number, dir: number, targetIndex: number): void {
+		if (initialProgress <= 0 || targetIndex == this.currentIndex) {
+			this.draw();
+			if (this.autoPlay && this.isPlaying) {
+				this.scheduleNext();
+			}
+			return;
+		}
+		this.stopReboundAnimation();
+		this.isRebounding = true;
+		this.reboundStartTime = Date.now();
+		this.reboundStartProgress = initialProgress;
+		this.reboundDirection = dir;
+		this.reboundTargetIndex = targetIndex;
+		this.runReboundAnimation();
+	}
+
+	private runReboundAnimation(): void {
+		if (!this.isRebounding) return;
+		if (this.canvas == null) {
+			this.stopReboundAnimation();
+			return;
+		}
+		const now = Date.now();
+		const elapsed = now - this.reboundStartTime;
+		const rawProgress = Math.min(elapsed / this.reboundDuration, 1);
+		const eased = this.easingFunction(rawProgress);
+		const currentProgress = this.reboundStartProgress * (1 - eased);
+		this.renderTransitionFrame(currentProgress, this.reboundDirection, this.reboundTargetIndex);
+		
+		if (rawProgress >= 1) {
+			this.stopReboundAnimation();
+			this.draw();
+			if (this.autoPlay && this.isPlaying) {
+				this.scheduleNext();
+			}
+		} else {
+			const _this = this;
+			this.reboundAnimationId = this.canvas.requestAnimationFrame(() => {
+				_this.runReboundAnimation();
+			});
+		}
+	}
+
+	private stopReboundAnimation(): void {
+		this.isRebounding = false;
+		if (this.reboundAnimationId != null && this.canvas != null) {
+			this.canvas.cancelAnimationFrame(this.reboundAnimationId);
+		}
+		this.reboundAnimationId = null;
+	}
+
+	/**
+	 * 解析渲染项锚点
+	 * @param config 渲染配置
+	 * @returns 锚点在局部坐标内的位置
+	 */
+	private resolveAnchor(config: RenderItemConfig): PositionTypeBySwiperManger {
+		const width = config.width;
+		const height = config.height;
+		const anchor = config.anchor;
+		let anchorX = width / 2;
+		let anchorY = height / 2;
+		
+		if (anchor != null) {
+			if (anchor.preset != null) {
+				switch (anchor.preset) {
+					case 'center':
+						anchorX = width / 2;
+						anchorY = height / 2;
+						break;
+					case 'left-center':
+						anchorX = 0;
+						anchorY = height / 2;
+						break;
+					case 'right-center':
+						anchorX = width;
+						anchorY = height / 2;
+						break;
+					case 'top-center':
+						anchorX = width / 2;
+						anchorY = 0;
+						break;
+					case 'bottom-center':
+						anchorX = width / 2;
+						anchorY = height;
+						break;
+					case 'top-left':
+						anchorX = 0;
+						anchorY = 0;
+						break;
+					case 'top-right':
+						anchorX = width;
+						anchorY = 0;
+						break;
+					case 'bottom-left':
+						anchorX = 0;
+						anchorY = height;
+						break;
+					case 'bottom-right':
+						anchorX = width;
+						anchorY = height;
+						break;
+					default:
+						break;
+				}
+			}
+			
+			const useRelative = anchor.relative == true;
+			if (typeof anchor.x == 'number') {
+				anchorX = useRelative ? width * anchor.x : anchor.x;
+			}
+			if (typeof anchor.y == 'number') {
+				anchorY = useRelative ? height * anchor.y : anchor.y;
+			}
+		}
+		
+		return { x: anchorX, y: anchorY } as PositionTypeBySwiperManger;
+	}
+
+	/**
+	 * 添加圆角矩形路径
+	 * @param ctx Canvas上下文
+	 * @param x 起始X
+	 * @param y 起始Y
+	 * @param width 宽度
+	 * @param height 高度
+	 * @param radius 圆角半径
+	 */
+	private addRoundedRectPath(
+		ctx: CanvasRenderingContext2D,
+		x: number,
+		y: number,
+		width: number,
+		height: number,
+		radius: number
+	): void {
+		const r = Math.max(0, Math.min(radius, Math.min(width, height) / 2));
+		if (r == 0) {
+			ctx.rect(x, y, width, height);
+			return;
+		}
+		const right = x + width;
+		const bottom = y + height;
+		ctx.moveTo(x + r, y);
+		ctx.lineTo(right - r, y);
+		ctx.quadraticCurveTo(right, y, right, y + r);
+		ctx.lineTo(right, bottom - r);
+		ctx.quadraticCurveTo(right, bottom, right - r, bottom);
+		ctx.lineTo(x + r, bottom);
+		ctx.quadraticCurveTo(x, bottom, x, bottom - r);
+		ctx.lineTo(x, y + r);
+		ctx.quadraticCurveTo(x, y, x + r, y);
+		ctx.closePath();
+	}
+
+	/**
+	 * 计算上一个索引
+	 * @param baseIndex 当前索引
+	 * @param direction 当前方向
+	 */
+	private calcPrevIndex(baseIndex: number, direction: number): number {
+		const length = this.items.length;
+		if (length == 0) return -1;
+		let prev = baseIndex - direction;
+		if (this.circular && length > 0) {
+			prev = (prev % length + length) % length;
+			return prev;
+		}
+		if (prev < 0 || prev >= length) {
+			return -1;
+		}
+		return prev;
+	}
+
+	/**
+	 * 计算下一个索引
+	 * @param baseIndex 当前索引
+	 * @param direction 当前方向
+	 */
+	private calcNextIndex(baseIndex: number, direction: number): number {
+		const length = this.items.length;
+		if (length == 0) return -1;
+		let next = baseIndex + direction;
+		if (this.circular && length > 0) {
+			next = (next % length + length) % length;
+			return next;
+		}
+		if (next < 0 || next >= length) {
+			return -1;
+		}
+		return next;
+	}
+}

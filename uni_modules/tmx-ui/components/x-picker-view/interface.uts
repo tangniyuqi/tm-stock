@@ -1,0 +1,7 @@
+	import {  X_PICKER_X_ITEM } from "../../interface.uts"
+	export type X_PICKER_PATH_MENU_TYPE = {
+		indexPath:number[],
+		ids:string[],
+		pathData:X_PICKER_X_ITEM[],
+		list:X_PICKER_X_ITEM[][]
+	}

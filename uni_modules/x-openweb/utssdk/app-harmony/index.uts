@@ -1,0 +1,10 @@
+import { x_openweb } from "x_library_s";
+import { BusinessError } from "@kit.BasicServicesKit";
+
+export function openWeb(url : string) {
+	const context = UTSHarmony.getCurrentWindow()!.getUIContext();
+	x_openweb(context,url)
+	.catch((error:boolean)=>{
+		console.error("TMUI","打开失败")
+	})
+}

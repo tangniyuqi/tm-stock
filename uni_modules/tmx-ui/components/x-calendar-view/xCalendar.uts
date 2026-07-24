@@ -1,0 +1,300 @@
+import { xDate } from "../../core/util/xDate.uts"
+import { xDateDayInfoType, xCalendarDateStyle_type, xCalendarDateStyleStatusType } from "../../interface.uts"
+import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+import { xDateArrayItemType,xCalendarArgs,dateStyleDot,dateStyleBg,dateStyleType,xCalendarMode } from "../x-calendar-view/interface.uts"
+
+function _makeDateKey(d : Date) : number {
+	return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate()
+}
+
+function _computeStatusColor(dk : number, dateStatus : xCalendarDateStyleStatusType[]) : string {
+	if (dateStatus.length == 0) return ''
+	for (let k = 0; k < dateStatus.length; k++) {
+		let itemStatus = dateStatus[k]
+		let dates = itemStatus?.date ?? [];
+		let start = itemStatus?.between?.start ?? ''
+		let end = itemStatus?.between?.end ?? ''
+		let betweenColor = itemStatus?.between?.color ?? ''
+		let notDates = itemStatus?.between?.notDate ?? []
+		let isInBetweenDate = false;
+		if (start != '' && end != '') {
+			let startKey = _makeDateKey(new Date(start.replace(/-/g, '/')))
+			let endKey = _makeDateKey(new Date(end.replace(/-/g, '/')))
+			if (dk >= startKey && dk <= endKey) {
+				let isNotDate = false
+				for (let i = 0; i < notDates.length; i++) {
+					if (dk == _makeDateKey(new Date(notDates[i].replace(/-/g, '/')))) {
+						isNotDate = true; break;
+					}
+				}
+				isInBetweenDate = !isNotDate
+			}
+		}
+		if (isInBetweenDate) return getDefaultColor(betweenColor == '' ? 'primary' : betweenColor)
+		for (let i = 0; i < dates.length; i++) {
+			if (dk == _makeDateKey(new Date(dates[i].date.replace(/-/g, '/')))) {
+				return getDefaultColor(dates[i].color == '' ? 'primary' : dates[i].color)
+			}
+		}
+	}
+	return ''
+}
+export class xCalendar {
+	date : xDate;
+	calendar:xDateArrayItemType[] = [];
+	constructor(currentDate : string | number | Date | null = null) {
+		this.date = new xDate(currentDate)
+	}
+	isInCurrentMonth(current:Date,target:Date):boolean{
+		let y1 = current.getFullYear()
+		let m1 = current.getMonth()
+		// let d1 = current.getDate()
+		let y2 = target.getFullYear()
+		let m2 = target.getMonth()
+		// let d2 = target.getDate()
+		return y1 == y2 && m1 == m2
+	}
+	isInpanel(current:Date|string):boolean{
+		if(this.calendar.length==0) return false;
+		let s = new xDate(this.calendar[0].date.date);
+		let e = new xDate(this.calendar[this.calendar.length-1].date.date);
+		let c = new xDate(current);
+		
+		return c.getTime('d')<=e.getTime('d')&&c.getTime('d')>=s.getTime('d')
+	}
+	isInRangeDate(current:Date,targets:Date[],mode:xCalendarMode):boolean{
+		let y1 = current.getFullYear()
+		let m1 = current.getMonth()
+		let d1 = current.getDate()
+		if(mode == 'day'){
+			for(let i=0;i<targets.length;i++){
+				let target = targets[i]
+				let y2 = target.getFullYear()
+				let m2 = target.getMonth()
+				let d2 = target.getDate()
+				if(y1 == y2 && m1 == m2 && d1 == d2){
+					return true
+				}
+			}
+		}else if(mode == 'range'){
+			if(targets.length<2) return false;
+			let start = targets[0]
+			let end = targets[targets.length-1]
+			return current.getTime()>start.getTime()&&current.getTime()<end.getTime()
+		}
+		
+		return false
+	}
+	isInRangeDateByIndex(current:Date,targets:Date[],mode:xCalendarMode):number{
+		let y1 = current.getFullYear()
+		let m1 = current.getMonth()
+		let d1 = current.getDate()
+		if(mode == 'day'){
+			for(let i=0;i<targets.length;i++){
+				let target = targets[i]
+				let y2 = target.getFullYear()
+				let m2 = target.getMonth()
+				let d2 = target.getDate()
+				if(y1 == y2 && m1 == m2 && d1 == d2){
+					return i
+				}
+			}
+		}else if(mode == 'range'){
+			if(targets.length<2) return -1;
+			let start = targets[0]
+			let end = targets[targets.length-1]
+			if(current.getTime()>start.getTime()&&current.getTime()<end.getTime()) return -1
+			if(current.getTime()==start.getTime()) return 0
+			if(current.getTime()==end.getTime()) return 1
+		}
+		
+		return -1
+	}
+	isInCurrente(current:Date,targets:Date):boolean{
+		return targets.getTime() == current.getTime()
+	}
+	isDisabled(current:Date,start:Date|null,end:Date|null,targets:Date[]):boolean{
+		let y1 = current.getFullYear()
+		let m1 = current.getMonth()
+		let d1 = current.getDate()
+		let disabled = false
+		for(let i=0;i<targets.length;i++){
+			let target = targets[i]
+			let y2 = target.getFullYear()
+			let m2 = target.getMonth()
+			let d2 = target.getDate()
+			if(y1 == y2 && m1 == m2 && d1 == d2){
+				disabled = true;
+				break;
+			}
+		}
+		if(start!=null && end!=null){
+			if(start.getTime() <= end.getTime()){
+				disabled = disabled || (start.getTime() > current.getTime() || end.getTime() < current.getTime())
+			}
+		} else {
+			if(start!=null){
+				disabled = disabled || start.getTime() > current.getTime()
+			}
+			if(end!=null){
+				disabled = disabled || end.getTime() < current.getTime()
+			}
+		}
+		return disabled
+	}
+	isDisabledFast(dk:number,start:Date|null,end:Date|null,disabledKeySet:Set<number>,startTime:number,endTime:number,currentTime:number):boolean{
+		let disabled = disabledKeySet.has(dk)
+		if(start!=null && end!=null){
+			if(startTime <= endTime){
+				disabled = disabled || (startTime > currentTime || endTime < currentTime)
+			}
+		} else {
+			if(start!=null){
+				disabled = disabled || startTime > currentTime
+			}
+			if(end!=null){
+				disabled = disabled || endTime < currentTime
+			}
+		}
+		return disabled
+	}
+	isInStart(current:Date,targets:Date[]):boolean{
+		if(targets.length==0) return false;
+		return targets[0].getTime() == current.getTime()
+	}
+	isInEnd(current:Date,targets:Date[]):boolean{
+		if(targets.length<2) return false;
+		return targets[targets.length-1].getTime() == current.getTime()
+	}
+	diffDays(start:Date,end:Date):number{
+		return end.getTime()-start.getTime()
+	}
+	getDateStyle(current:Date,defaultStyle:xCalendarArgs,disabled:boolean,inMonth:boolean,inRange:boolean,isInStart:boolean,isInEnd:boolean,dateStyle:xCalendarDateStyle_type[],mode:xCalendarMode):dateStyleType{
+		let nowdatestyleIndex = dateStyle.findIndex((d:xCalendarDateStyle_type):boolean => {
+			return new Date(d.date.replace(/-/g,'/')).getTime() == current.getTime()
+		})
+		let item:xCalendarDateStyle_type|null = nowdatestyleIndex==-1?null:dateStyle[nowdatestyleIndex]
+		const label = (item?.label??'') as string;
+		let fontColor = (item?.fontColor??defaultStyle.fontColor) as string;
+		fontColor = inRange ? defaultStyle.activeFontColor : fontColor
+		let bgColor = (item?.color??'transparent') as string;
+		bgColor = inRange ? defaultStyle.color : bgColor
+		const bgstyle = {
+			label : label,
+			fontColor : fontColor,
+			backgroundColor : bgColor,
+			opacity : disabled||!inMonth?0.5:1
+		} as dateStyleBg
+		const dotstyle = {
+			dot : item?.dot??false,
+			dotColor : item?.dotColor??defaultStyle.color,
+			dotLabelColor : item?.dotLabelColor??'#ffffff',
+			dotLabel : item?.dotLabel??'',
+		} as dateStyleDot
+		return { dot : dotstyle, dstyle : bgstyle } as dateStyleType
+	}
+	getDateStyleFast(currentTime:number,defaultStyle:xCalendarArgs,disabled:boolean,inMonth:boolean,inRange:boolean,dateStyleMap:Map<number,number>,dateStyle:xCalendarDateStyle_type[]):dateStyleType{
+		let idx = dateStyleMap.get(currentTime)
+		let item:xCalendarDateStyle_type|null = idx == null ? null : dateStyle[idx!]
+		const label = (item?.label??'') as string;
+		let fontColor = (item?.fontColor??defaultStyle.fontColor) as string;
+		fontColor = inRange ? defaultStyle.activeFontColor : fontColor
+		let bgColor = (item?.color??'transparent') as string;
+		bgColor = inRange ? defaultStyle.color : bgColor
+		return {
+			dot : {
+				dot : item?.dot??false,
+				dotColor : item?.dotColor??defaultStyle.color,
+				dotLabelColor : item?.dotLabelColor??'#ffffff',
+				dotLabel : item?.dotLabel??'',
+			} as dateStyleDot,
+			dstyle : {
+				label : label,
+				fontColor : fontColor,
+				backgroundColor : bgColor,
+				opacity : disabled||!inMonth?0.5:1
+			} as dateStyleBg
+		} as dateStyleType
+	}
+	getCalendar(
+		seekDay:number,
+		mode:xCalendarMode,
+		currentDate : string | number | Date | null = null,
+		selectedDate:string,
+		start:Date|null,
+		end:Date|null,
+		defaultStyle:xCalendarArgs,
+		dateStyle:xCalendarDateStyle_type[] = [],
+		disabledDays:string[] = [],
+		isPadding:boolean = true,
+		dateStatus:xCalendarDateStyleStatusType[] = []
+	):xDateArrayItemType[]{
+		let nowdate = (currentDate == null?this.date:new xDate(currentDate)) as xDate;
+		const dateAr = nowdate.getDaysOf('m')
+		let dates = [] as xDateDayInfoType[]
+		if(isPadding){
+			let firstDayOfMonth = dateAr[0]
+			let firstDayWeek = firstDayOfMonth.week
+			let mappedWeek = (firstDayWeek + 6) % 7
+			let beforeNum = 0
+			if (seekDay === 0) {
+				beforeNum = mappedWeek
+			} else {
+				beforeNum = (mappedWeek - seekDay + 7) % 7
+			}
+			if (beforeNum > 0) {
+				const beforeDates = new xDate(firstDayOfMonth.date).getDaysOfNum(beforeNum,'before')
+				for(let bi=0;bi<beforeDates.length;bi++) dates.push(beforeDates[bi])
+				for(let bi=0;bi<dateAr.length;bi++) dates.push(dateAr[bi])
+			} else {
+				for(let bi=0;bi<dateAr.length;bi++) dates.push(dateAr[bi])
+			}
+			if(dates.length < 42){
+				let lastWeek = new xDate(dates[dates.length-1].date).getDaysOfNum(42-dates.length,'after')
+				for(let bi=0;bi<lastWeek.length;bi++) dates.push(lastWeek[bi])
+			}
+		}else{
+			dates = dateAr
+		}
+		
+		let selectedTargets = selectedDate==""?new Date():new Date(selectedDate.replace(/-/g,'/'))
+
+		const dateStyleMap = new Map<number, number>()
+		for (let si = 0; si < dateStyle.length; si++) {
+			dateStyleMap.set(new Date(dateStyle[si].date.replace(/-/g, '/')).getTime(), si)
+		}
+		const disabledKeySet = new Set<number>()
+		let disabledDaysAs = disabledDays.map((d:string):Date => new Date(d.replace(/-/g,'/')))
+		for (let di = 0; di < disabledDaysAs.length; di++) {
+			disabledKeySet.add(_makeDateKey(disabledDaysAs[di]))
+		}
+		const startTime = start != null ? start.getTime() : 0
+		const endTime = end != null ? end.getTime() : 0
+		
+		const current = nowdate.date
+		const currentYM = current.getFullYear() * 100 + current.getMonth()
+		const list = [] as xDateArrayItemType[]
+		for(let i=0;i<dates.length;i++){
+			let item = dates[i]
+			let checkDate = new Date(item.date);
+			let ct = checkDate.getTime()
+			let dk = _makeDateKey(checkDate)
+			const inmonth = checkDate.getFullYear() * 100 + checkDate.getMonth() == currentYM
+			const inRange = selectedTargets.getTime() == ct
+			const disabled = this.isDisabledFast(dk,start,end,disabledKeySet,startTime,endTime,ct)
+			const astyle = this.getDateStyleFast(ct,defaultStyle,disabled,inmonth,inRange,dateStyleMap,dateStyle)
+			list.push({
+				date : item,
+				disabled : disabled,
+				inCurrentMonth : inmonth,
+				inRange : inRange,
+				isInstart : false,
+				isInEnd : false,
+				style : astyle,
+				statusColor : _computeStatusColor(dk, dateStatus)
+			})
+		}
+		this.calendar = list;
+		return list
+	}
+}

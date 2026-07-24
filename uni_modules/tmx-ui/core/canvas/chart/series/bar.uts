@@ -1,0 +1,430 @@
+import { ICanvas } from '@/uni_modules/tmx-ui/core/canvas/ICanvas.uts';
+import { Shape } from '@/uni_modules/tmx-ui/core/canvas/lib/shape.uts';
+import { IRect } from '@/uni_modules/tmx-ui/core/canvas/lib/rect.uts';
+import { IText } from '@/uni_modules/tmx-ui/core/canvas/lib/text.uts';
+import { ILine } from '@/uni_modules/tmx-ui/core/canvas/lib/line.uts';
+import { getDatumNumber, getDatumString, getBandWidth, buildBandDomain, mapLinear, createLinearScale, measureTextW } from '../scale.uts';
+import { PlotRect, XYPoint } from '../map.uts';
+import { getChartColor } from '../palette.uts';
+import { ChartDatum, ChartSeriesOptions, ChartLabelOptions, ChartSeriesContext, sXField, sYField, sColor } from '../types.uts';
+import { resolveLinearAxisRange } from '../axis.uts';
+
+export type BarGroupEntry = {
+	series : ChartSeriesOptions,
+	seriesIdx : number,
+	visible : boolean
+}
+const sBarWidthRatio = (s : ChartSeriesOptions) : number => Math.max(0.2, Math.min(1, s.barWidthRatio ?? 0.62))
+const sBarRadius = (s : ChartSeriesOptions) : number => Math.max(0, s.barRadius ?? 4)
+const sBarMode = (s : ChartSeriesOptions) : string => s.barMode ?? 'group'
+
+export function renderBarSeries(
+	canvas : ICanvas,
+	series : ChartSeriesOptions,
+	data : ChartDatum[],
+	rect : PlotRect,
+	seriesIdx : number,
+	ctx : ChartSeriesContext,
+	transposed : boolean,
+	forcedMinY : number | null = null,
+	forcedMaxY : number | null = null
+) : Shape[]{
+	return renderBarGroup(canvas, [{ series: series, seriesIdx: seriesIdx, visible: true } as BarGroupEntry], data, rect, ctx, transposed, forcedMinY, forcedMaxY)
+}
+
+export function renderBarGroup(
+	canvas : ICanvas,
+	entries : BarGroupEntry[],
+	data : ChartDatum[],
+	rect : PlotRect,
+	ctx : ChartSeriesContext,
+	transposed : boolean,
+	forcedMinY ?: number | null,
+	forcedMaxY ?: number | null
+) : Shape[]{
+	const shapes = [] as Shape[]
+	const visible = entries.filter((e : BarGroupEntry) : boolean => e.visible)
+	if (visible.length == 0 || data.length == 0) return shapes
+
+	const first = visible[0].series
+	const mode = sBarMode(first)
+	const xf = sXField(first)
+	const domain = buildBandDomain(data, xf)
+	const band = transposed ? getBandWidth(domain, rect.top, rect.bottom) : getBandWidth(domain, rect.left, rect.right)
+	const totalRatio = sBarWidthRatio(first)
+	const barRadius = sBarRadius(first)
+
+	if (mode == 'stack' || mode == 'percentStack') {
+		return renderStacked(canvas, visible, data, rect, domain, band, totalRatio, barRadius, mode == 'percentStack', ctx, transposed, forcedMinY, forcedMaxY)
+	}
+
+	return renderGrouped(canvas, visible, data, rect, domain, band, totalRatio, barRadius, ctx, transposed, forcedMinY, forcedMaxY)
+}
+
+function renderGrouped(
+	canvas : ICanvas,
+	entries : BarGroupEntry[],
+	data : ChartDatum[],
+	rect : PlotRect,
+	domain : string[],
+	band : number,
+	totalRatio : number,
+	barRadius : number,
+	ctx : ChartSeriesContext,
+	transposed : boolean,
+	forcedMinY ?: number | null,
+	forcedMaxY ?: number | null
+) : Shape[]{
+	const shapes = [] as Shape[]
+	const n = entries.length
+	const groupSize = Math.max(n * 4, band * totalRatio)
+	const rawSize = Math.max(4, groupSize / n - (n > 1 ? 2 : 0))
+	const singleSize = transposed ? rawSize : Math.min(24, rawSize)
+	const xf = sXField(entries[0].series)
+
+	let globalMin = forcedMinY ?? 0 as number
+	let globalMax = forcedMaxY ?? 0 as number
+	if (forcedMinY == null || forcedMaxY == null) {
+		for (let ei = 0; ei < n; ei++) {
+			const yf = sYField(entries[ei].series)
+			for (let di = 0; di < data.length; di++) {
+				const v = getDatumNumber(data[di], yf, 0)
+				if (forcedMinY == null && v < globalMin) globalMin = v
+				if (forcedMaxY == null && v > globalMax) globalMax = v
+			}
+		}
+	}
+	if (globalMin > 0) globalMin = 0
+	if (globalMax < 0) globalMax = 0
+	if (globalMax == globalMin) globalMax = globalMin + 1
+
+	const valScale = transposed
+		? createLinearScale(globalMin, globalMax, rect.left, rect.right)
+		: createLinearScale(globalMin, globalMax, rect.bottom, rect.top)
+	const zeroPos = mapLinear(0, valScale)
+
+	const isSingle = n == 1
+	const isDenseBar = band < 2
+	let _ci : number = 0
+	for (let di = 0; di < data.length; di++) {
+		_ci = di
+		const diIdx = _ci
+		const xLabel = getDatumString(data[di], xf, `${di}`)
+		const idx = domain.indexOf(xLabel)
+		if (idx == -1) continue
+		const bandCenter = transposed
+			? rect.top + idx * band + band / 2
+			: rect.left + idx * band + band / 2
+		const isActive = ctx.activeType == 'bar' && ctx.activeIndex == diIdx
+
+		if (isActive) {
+			if (transposed) {
+				shapes.push(new IRect({ x: rect.left, y: bandCenter - band / 2, width: rect.right - rect.left, height: band, fill: ctx.activeStyle.backdrop }, canvas))
+			} else {
+				shapes.push(new IRect({ x: bandCenter - band / 2, y: rect.top, width: band, height: rect.bottom - rect.top, fill: ctx.activeStyle.backdrop }, canvas))
+			}
+		}
+
+		if (!isDenseBar) {
+			const hitColor = sColor(entries[0].series, entries[0].seriesIdx)
+			const hitYf = sYField(entries[0].series)
+			const hitV = getDatumNumber(data[di], hitYf, 0)
+			const hitPos = mapLinear(hitV, valScale)
+			const bandHit = transposed
+				? new IRect({ x: rect.left, y: bandCenter - band / 2, width: rect.right - rect.left, height: band, fill: 'rgba(0,0,0,0)', opacity: 0 }, canvas)
+				: new IRect({ x: bandCenter - band / 2, y: rect.top, width: band, height: rect.bottom - rect.top, fill: 'rgba(0,0,0,0)', opacity: 0 }, canvas)
+			bandHit.addEventListener('click', () => {
+				if (transposed) ctx.onClickPoint('bar', diIdx, hitPos, bandCenter, xLabel, `${hitYf}: ${hitV}`, hitColor)
+				else ctx.onClickPoint('bar', diIdx, bandCenter, hitPos, xLabel, `${hitYf}: ${hitV}`, hitColor)
+			})
+			shapes.push(bandHit)
+		}
+
+		for (let ei = 0; ei < n; ei++) {
+			const entry = entries[ei]
+			const yf = sYField(entry.series)
+			const color = sColor(entry.series, entry.seriesIdx)
+			const offset = -groupSize / 2 + (groupSize / n) * ei + (groupSize / n - singleSize) / 2
+			const v = getDatumNumber(data[di], yf, 0)
+			const vPos = mapLinear(v, valScale)
+
+			const gradient = entry.series.gradient
+			const hasGradient = gradient != null && gradient!.length >= 2
+
+			let barX = 0 as number
+			let barY = 0 as number
+			let barW = 0 as number
+			let barH = 0 as number
+			if (transposed) {
+				barX = v >= 0 ? zeroPos : vPos
+				barY = bandCenter + offset
+				barW = Math.max(1, Math.abs(vPos - zeroPos))
+				barH = singleSize
+			} else {
+				barX = bandCenter + offset
+				barY = v >= 0 ? vPos : zeroPos
+				barW = singleSize
+				barH = Math.max(1, Math.abs(vPos - zeroPos))
+			}
+
+			let barGradient = [] as string[]
+			if (hasGradient) {
+				barGradient.push(transposed ? 'to right' : 'to bottom')
+				const colors = [] as string[]
+				for (let gi = 0; gi < gradient!.length; gi++) {
+					const item = gradient![gi]
+					if (item.includes('deg') || item.startsWith('to ')) continue
+					const parts = item.split(' ')
+					colors.push(parts[0])
+				}
+				for (let ci = 0; ci < colors.length; ci++) {
+					const pct = Math.round(ci / Math.max(1, colors.length - 1) * 100)
+					barGradient.push(`${colors[ci]} ${pct}`)
+				}
+			}
+
+			const bar = new IRect({
+				x: barX, y: barY, width: barW, height: barH,
+				fill: hasGradient ? '' : color,
+				fillGradient: hasGradient ? barGradient : [] as string[],
+				radius: barRadius
+			}, canvas)
+			bar.addEventListener('click', () => {
+				if (transposed) ctx.onClickPoint('bar', diIdx, vPos, bandCenter, xLabel, `${yf}: ${v}`, color)
+				else ctx.onClickPoint('bar', diIdx, bandCenter, vPos, xLabel, `${yf}: ${v}`, color)
+			})
+			shapes.push(bar)
+		}
+	}
+
+	for (let ei = 0; ei < n; ei++) {
+		const entry = entries[ei]
+		const labelOpts = entry.series.label
+		if (labelOpts?.show != true) continue
+		const yf = sYField(entry.series)
+		const lFontSize = labelOpts?.fontSize ?? 10
+		const lColor = labelOpts?.color ?? '#6b7280'
+		const offset = -groupSize / 2 + (groupSize / n) * ei + (groupSize / n - singleSize) / 2
+		for (let di = 0; di < data.length; di++) {
+			const xLabel = getDatumString(data[di], xf, `${di}`)
+			const idx = domain.indexOf(xLabel)
+			if (idx == -1) continue
+			const bandCenter = transposed ? rect.top + idx * band + band / 2 : rect.left + idx * band + band / 2
+			const v = getDatumNumber(data[di], yf, 0)
+			const vPos = mapLinear(v, valScale)
+			const text = `${v}`
+			if (transposed) {
+				const textW = measureTextW(text, lFontSize, canvas.ctx)
+				const barLen = Math.abs(vPos - zeroPos)
+				const labelInside = barLen > textW + 8
+				shapes.push(new IText({
+					x: labelInside ? vPos - textW - 4 : vPos + 4,
+					y: bandCenter + offset + singleSize / 2 - lFontSize / 2,
+					text: text,
+					fill: labelInside ? '#ffffff' : lColor,
+					fontSize: lFontSize
+				}, canvas))
+			} else {
+				shapes.push(new IText({
+					x: bandCenter + offset + singleSize / 2 - measureTextW(text, lFontSize, canvas.ctx) / 2,
+					y: (v >= 0 ? vPos : zeroPos) - lFontSize - 4,
+					text: text, fill: lColor, fontSize: lFontSize
+				}, canvas))
+			}
+		}
+	}
+
+	if (globalMin < 0) {
+		if (transposed) {
+			shapes.push(new ILine({ pointStart: { x: zeroPos, y: rect.top }, pointEnd: { x: zeroPos, y: rect.bottom }, stroke: '#94a3b8', strokeWidth: 1 }, canvas))
+		} else {
+			shapes.push(new ILine({ pointStart: { x: rect.left, y: zeroPos }, pointEnd: { x: rect.right, y: zeroPos }, stroke: '#94a3b8', strokeWidth: 1 }, canvas))
+		}
+	}
+
+	return shapes
+}
+
+function renderStacked(
+	canvas : ICanvas,
+	entries : BarGroupEntry[],
+	data : ChartDatum[],
+	rect : PlotRect,
+	domain : string[],
+	band : number,
+	totalRatio : number,
+	barRadius : number,
+	isPercent : boolean,
+	ctx : ChartSeriesContext,
+	transposed : boolean,
+	forcedMinY : number | null = null,
+	forcedMaxY : number | null = null
+) : Shape[]{
+	const shapes = [] as Shape[]
+	const n = entries.length
+	const rawBarSize = Math.max(6, band * totalRatio)
+	const barSize = transposed ? rawBarSize : Math.min(24, rawBarSize)
+	const xf = sXField(entries[0].series)
+
+	let globalMax = forcedMaxY ?? 0 as number
+	if (!isPercent && forcedMaxY == null) {
+		for (let di = 0; di < data.length; di++) {
+			let sum = 0
+			for (let ei = 0; ei < n; ei++) {
+				sum += Math.max(0, getDatumNumber(data[di], sYField(entries[ei].series), 0))
+			}
+			if (sum > globalMax) globalMax = sum
+		}
+	}
+	if (isPercent) globalMax = 100
+	if (globalMax <= 0) globalMax = 1
+	const globalMin = forcedMinY ?? 0
+	const valScale = transposed
+		? createLinearScale(globalMin, globalMax, rect.left, rect.right)
+		: createLinearScale(globalMin, globalMax, rect.bottom, rect.top)
+
+	let _ci2 : number = 0
+	for (let di = 0; di < data.length; di++) {
+		_ci2 = di
+		const diIdx = _ci2
+		const xLabel = getDatumString(data[di], xf, `${di}`)
+		const idx = domain.indexOf(xLabel)
+		if (idx == -1) continue
+		const bandCenter = transposed ? rect.top + idx * band + band / 2 : rect.left + idx * band + band / 2
+		const isActive = ctx.activeType == 'bar' && ctx.activeIndex == diIdx
+
+		if (isActive) {
+			if (transposed) {
+				shapes.push(new IRect({ x: rect.left, y: bandCenter - band / 2, width: rect.right - rect.left, height: band, fill: ctx.activeStyle.backdrop }, canvas))
+			} else {
+				shapes.push(new IRect({ x: bandCenter - band / 2, y: rect.top, width: band, height: rect.bottom - rect.top, fill: ctx.activeStyle.backdrop }, canvas))
+			}
+		}
+
+		const stackHitColor = sColor(entries[0].series, entries[0].seriesIdx)
+		const stackHitYf = sYField(entries[0].series)
+		const stackHitV = getDatumNumber(data[di], stackHitYf, 0)
+		const stackBandHit = transposed
+			? new IRect({ x: rect.left, y: bandCenter - band / 2, width: rect.right - rect.left, height: band, fill: 'rgba(0,0,0,0)', opacity: 0 }, canvas)
+			: new IRect({ x: bandCenter - band / 2, y: rect.top, width: band, height: rect.bottom - rect.top, fill: 'rgba(0,0,0,0)', opacity: 0 }, canvas)
+		stackBandHit.addEventListener('click', () => {
+			if (transposed) ctx.onClickPoint('bar', diIdx, rect.left + 20, bandCenter, xLabel, `${stackHitYf}: ${stackHitV}`, stackHitColor)
+			else ctx.onClickPoint('bar', diIdx, bandCenter, rect.top + 20, xLabel, `${stackHitYf}: ${stackHitV}`, stackHitColor)
+		})
+		shapes.push(stackBandHit)
+
+		let totalSum = 0
+		if (isPercent) {
+			for (let ei = 0; ei < n; ei++) {
+				totalSum += Math.max(0, getDatumNumber(data[di], sYField(entries[ei].series), 0))
+			}
+			if (totalSum <= 0) totalSum = 1
+		}
+
+		let stackBase = transposed ? rect.left as number : rect.bottom as number
+		for (let ei = 0; ei < n; ei++) {
+			const entry = entries[ei]
+			const yf = sYField(entry.series)
+			const rawVal = Math.max(0, getDatumNumber(data[di], yf, 0))
+			const val = isPercent ? (rawVal / totalSum * 100) : rawVal
+			const vPos = mapLinear(val, valScale)
+			const segLen = transposed ? Math.abs(vPos - rect.left) : Math.abs(rect.bottom - vPos)
+			if (segLen <= 0) continue
+
+			const color = sColor(entry.series, entry.seriesIdx)
+
+			let bx = 0 as number
+			let by = 0 as number
+			let bw = 0 as number
+			let bh = 0 as number
+			if (transposed) {
+				bx = stackBase
+				by = bandCenter - barSize / 2
+				bw = Math.max(1, segLen)
+				bh = barSize
+			} else {
+				bx = bandCenter - barSize / 2
+				by = stackBase - segLen
+				bw = barSize
+				bh = Math.max(1, segLen)
+			}
+
+			const bar = new IRect({
+				x: bx, y: by, width: bw, height: bh,
+				fill: color
+			}, canvas)
+			bar.addEventListener('click', () => {
+				const displayVal = isPercent ? `${rawVal} (${val.toFixed(1)}%)` : `${rawVal}`
+				if (transposed) ctx.onClickPoint('bar', diIdx, bx + bw, bandCenter, xLabel, `${yf}: ${displayVal}`, color)
+				else ctx.onClickPoint('bar', diIdx, bandCenter, by, xLabel, `${yf}: ${displayVal}`, color)
+			})
+			shapes.push(bar)
+			stackBase = transposed ? stackBase + segLen : stackBase - segLen
+		}
+
+	
+	}
+
+	return shapes
+}
+
+export type BarMapResult = {
+	domain : string[],
+	minY : number,
+	maxY : number
+}
+
+export const getBarSeriesRange = (data : ChartDatum[], series : ChartSeriesOptions, rect : PlotRect) : BarMapResult => {
+	const xf = sXField(series)
+	const yf = sYField(series)
+	const domain = buildBandDomain(data, xf)
+	let minY = 0 as number
+	let maxY = 0 as number
+	for (let i = 0; i < data.length; i++) {
+		const v = getDatumNumber(data[i], yf, 0)
+		if (v < minY) minY = v
+		if (v > maxY) maxY = v
+	}
+	if (minY > 0) minY = 0
+	if (maxY <= 0) maxY = 1
+	const yRange = resolveLinearAxisRange(minY, maxY, 5)
+	return { domain: domain, minY: yRange.min, maxY: yRange.max } as BarMapResult
+}
+
+export const getBarGroupRange = (data : ChartDatum[], entries : BarGroupEntry[]) : BarMapResult => {
+	if (entries.length == 0) return { domain: [] as string[], minY: 0, maxY: 1 } as BarMapResult
+	const first = entries[0].series
+	const xf = sXField(first)
+	const mode = sBarMode(first)
+	const domain = buildBandDomain(data, xf)
+
+	if (mode == 'percentStack') {
+		return { domain: domain, minY: 0, maxY: 100 } as BarMapResult
+	}
+
+	let minY = 0 as number
+	let maxY = 0 as number
+
+	if (mode == 'stack') {
+		for (let di = 0; di < data.length; di++) {
+			let sum = 0
+			for (let ei = 0; ei < entries.length; ei++) {
+				sum += Math.max(0, getDatumNumber(data[di], sYField(entries[ei].series), 0))
+			}
+			if (sum > maxY) maxY = sum
+		}
+	} else {
+		for (let ei = 0; ei < entries.length; ei++) {
+			const yf = sYField(entries[ei].series)
+			for (let di = 0; di < data.length; di++) {
+				const v = getDatumNumber(data[di], yf, 0)
+				if (v < minY) minY = v
+				if (v > maxY) maxY = v
+			}
+		}
+		if (minY > 0) minY = 0
+	}
+	if (maxY <= 0) maxY = 1
+	const yRange = resolveLinearAxisRange(minY, maxY, 5)
+	return { domain: domain, minY: yRange.min, maxY: yRange.max } as BarMapResult
+}

@@ -1,0 +1,19 @@
+import { getDefaultColor } from "@/uni_modules/tmx-ui/core/util/xCoreColorUtil.uts";
+
+export const CHART_THEME_COLORS = [
+	'#636DFA', '#EF553B', '#00CC96', '#AB63FA', '#FFA15A',
+	'#19D3F3', '#FF6692', '#B6E880', '#FF97FF', '#FECB52',
+	'#3366CC', '#DC3912', '#FF9900', '#109618', '#990099',
+	'#0099C6', '#DD4477', '#66AA00', '#B82E2E', '#316395',
+	'#5B5EA6', '#9C6B30', '#E6550D', '#8CA252', '#BD9E39',
+	'#D6616B', '#CE6DBD', '#31A354', '#756BB1', '#E7969C',
+	'#6BAED6', '#FD8D3C', '#74C476', '#9E9AC8', '#969696',
+	'#E377C2', '#8C564B', '#BCBD22', '#17BECF', '#AEC7E8'
+] as string[];
+
+export const getChartColor = (index : number) : string => {
+	const len = CHART_THEME_COLORS.length;
+	if (len == 0) return getDefaultColor('primary');
+	const i = ((index % len) + len) % len;
+	return CHART_THEME_COLORS[i];
+}

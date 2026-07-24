@@ -1,0 +1,185 @@
+import { ICanvas } from '@/uni_modules/tmx-ui/core/canvas/ICanvas.uts';
+import { Shape } from '@/uni_modules/tmx-ui/core/canvas/lib/shape.uts';
+import { IRect } from '@/uni_modules/tmx-ui/core/canvas/lib/rect.uts';
+import { IText } from '@/uni_modules/tmx-ui/core/canvas/lib/text.uts';
+import { PlotRect } from '../map.uts';
+import { getChartColor } from '../palette.uts';
+import { ChartDatum, ChartSeriesContext } from '../types.uts';
+
+const getNodeChildren = (node : ChartDatum) : ChartDatum[] => {
+	const raw = node.get('children')
+	if (raw == null) return [] as ChartDatum[]
+	if (raw instanceof Array) return raw as ChartDatum[]
+	return [] as ChartDatum[]
+}
+
+const getNodeName = (node : ChartDatum) : string => {
+	const v = node.get('name')
+	if (v == null) return ''
+	return `${v}`
+}
+
+function computeValue(node : ChartDatum, valueField : string) : number {
+	const v = node.get(valueField)
+	if (v != null && typeof v == 'number') return v as number
+	const children = getNodeChildren(node)
+	if (children.length == 0) return 0
+	let sum = 0
+	for (let i = 0; i < children.length; i++) {
+		sum += computeValue(children[i], valueField)
+	}
+	return sum
+}
+
+type TmRect = {
+	x : number,
+	y : number,
+	w : number,
+	h : number
+}
+
+type TmItem = {
+	node : ChartDatum,
+	value : number,
+	name : string
+}
+
+let tmIdx : number = 0
+
+function layoutSquarify(
+	canvas : ICanvas,
+	shapes : Shape[],
+	items : TmItem[],
+	rect : TmRect,
+	valueField : string,
+	colorIdx : number,
+	depth : number,
+	rootColor : string,
+	ctx : ChartSeriesContext
+) : void {
+	if (items.length == 0 || rect.w < 2 || rect.h < 2) return
+
+	let total = 0
+	for (let i = 0; i < items.length; i++) total += items[i].value
+	if (total <= 0) return
+
+	const isHorizontal = rect.w >= rect.h
+
+	let pos = isHorizontal ? rect.x : rect.y
+	for (let i = 0; i < items.length; i++) {
+		const item = items[i]
+		const ratio = item.value / total
+		const idx = tmIdx++
+
+		let bx = 0 as number
+		let by = 0 as number
+		let bw = 0 as number
+		let bh = 0 as number
+
+		if (isHorizontal) {
+			bw = rect.w * ratio
+			bh = rect.h
+			bx = pos
+			by = rect.y
+			pos += bw
+		} else {
+			bw = rect.w
+			bh = rect.h * ratio
+			bx = rect.x
+			by = pos
+			pos += bh
+		}
+
+		const actualColor = depth == 0 ? getChartColor(colorIdx + i) : rootColor
+		const children = getNodeChildren(item.node)
+		const isLeaf = children.length == 0 || bw <= 8 || bh <= 8
+
+		if (isLeaf) {
+			const color = lightenColor(actualColor, depth)
+			const isActive = ctx.activeType == 'treemap' && ctx.activeIndex == idx
+			const hasAny = ctx.activeType == 'treemap' && ctx.activeIndex >= 0
+			shapes.push(new IRect({
+				x: bx + 1, y: by + 1,
+				width: Math.max(0, bw - 2), height: Math.max(0, bh - 2),
+				fill: color, radius: 2,
+				opacity: hasAny ? (isActive ? 1 : 0.78) : 1
+			}, canvas))
+
+			if (isActive) {
+				shapes.push(new IRect({
+					x: bx + 1, y: by + 1,
+					width: Math.max(0, bw - 2), height: Math.max(0, bh - 2),
+					stroke: ctx.activeStyle.borderColor, strokeWidth: ctx.activeStyle.borderWidth, radius: 2
+				}, canvas))
+			}
+
+			const hit = new IRect({
+				x: bx, y: by, width: bw, height: bh,
+				fill: 'rgba(0,0,0,0)', opacity: 0
+			}, canvas)
+			hit.addEventListener('click', () => {
+				ctx.onClickPoint('treemap', idx, bx + bw / 2, by + bh / 2, item.name, `${item.value}`, color)
+			})
+			shapes.push(hit)
+
+			if (bw > 30 && bh > 16) {
+				const fontSize = Math.min(12, Math.max(9, Math.floor(Math.min(bw, bh) * 0.22)))
+				shapes.push(new IText({
+					x: bx + 4, y: by + 4,
+					text: item.name, fill: '#ffffff', fontSize: fontSize
+				}, canvas))
+			}
+		} else {
+			const childItems = [] as TmItem[]
+			for (let ci = 0; ci < children.length; ci++) {
+				const cv = computeValue(children[ci], valueField)
+				if (cv > 0) childItems.push({ node: children[ci], value: cv, name: getNodeName(children[ci]) } as TmItem)
+			}
+			childItems.sort((a : TmItem, b : TmItem) : number => b.value - a.value)
+
+			const innerRect = { x: bx, y: by, w: bw, h: bh } as TmRect
+			layoutSquarify(canvas, shapes, childItems, innerRect, valueField, colorIdx + i, depth + 1, actualColor, ctx)
+		}
+	}
+}
+
+const lightenColor = (hex : string, depth : number) : string => {
+	if (hex.length < 7) return hex
+	const rr = parseInt(hex.substring(1, 3), 16)
+	const gg = parseInt(hex.substring(3, 5), 16)
+	const bb = parseInt(hex.substring(5, 7), 16)
+	if (isNaN(rr) || isNaN(gg) || isNaN(bb)) return hex
+	const mix = Math.min(0.6, depth * 0.2)
+	const r = Math.round(rr + (255 - rr) * mix)
+	const g = Math.round(gg + (255 - gg) * mix)
+	const b = Math.round(bb + (255 - bb) * mix)
+	const toHex = (n : number) : string => {
+		const s = n.toString(16)
+		return s.length < 2 ? '0' + s : s
+	}
+	return `#${toHex(r)}${toHex(g)}${toHex(b)}`
+}
+
+export const renderTreemapSeries = (
+	canvas : ICanvas,
+	data : ChartDatum[],
+	rect : PlotRect,
+	valueField : string,
+	ctx : ChartSeriesContext
+) : Shape[] => {
+	const shapes = [] as Shape[]
+	if (data.length == 0) return shapes
+
+	tmIdx = 0
+	const items = [] as TmItem[]
+	for (let i = 0; i < data.length; i++) {
+		const v = computeValue(data[i], valueField)
+		if (v > 0) items.push({ node: data[i], value: v, name: getNodeName(data[i]) } as TmItem)
+	}
+	items.sort((a : TmItem, b : TmItem) : number => b.value - a.value)
+
+	const tmRect = { x: rect.left, y: rect.top, w: rect.right - rect.left, h: rect.bottom - rect.top } as TmRect
+	layoutSquarify(canvas, shapes, items, tmRect, valueField, 0, 0, '', ctx)
+
+	return shapes
+}

@@ -1,0 +1,66 @@
+/**
+ * Code 39（ISO/IEC 16388），自动加起始/结束符 *；字符集同 zint SILVER 前 43 位。
+ * 宽窄模块表来自 libzint backend/code.c（C39Table）
+ */
+class code39 {
+	data = ""
+
+	private static SILVER = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-. $/+%"
+
+	private static TABLE = [
+		"1112212111", "2112111121", "1122111121", "2122111111", "1112211121",
+		"2112211111", "1122211111", "1112112121", "2112112111", "1122112111",
+		"2111121121", "1121121121", "2121121111", "1111221121", "2111221111",
+		"1121221111", "1111122121", "2111122111", "1121122111", "1111222111",
+		"2111111221", "1121111221", "2121111211", "1111211221", "2111211211",
+		"1121211211", "1111112221", "2111112211", "1121112211", "1111212211",
+		"2211111121", "1221111121", "2221111111", "1211211121", "2211211111",
+		"1221211111", "1211112121", "2211112111", "1221112111", "1212121111",
+		"1212111211", "1211121211", "1112121211", "1211212111"
+	]
+
+	private static expandPat(s: string, len: number): string {
+		let o = ""
+		let isBar = true
+		for (let i = 0; i < len; i++) {
+			const w = parseInt(s.charAt(i))
+			for (let k = 0; k < w; k++) {
+				o += isBar ? "1" : "0"
+			}
+			isBar = !isBar
+		}
+		return o
+	}
+
+	private static charIndex(ch: string): number {
+		for (let i = 0; i < code39.SILVER.length; i++) {
+			if (code39.SILVER.charAt(i) == ch) {
+				return i
+			}
+		}
+		return -1
+	}
+
+	constructor(text: string) {
+		this.data = text.toUpperCase()
+	}
+
+	encode(): string {
+		if (this.data.length == 0) {
+			return ""
+		}
+		let bits = ""
+		bits += code39.expandPat(code39.TABLE[43], 10)
+		for (let i = 0; i < this.data.length; i++) {
+			const idx = code39.charIndex(this.data.charAt(i))
+			if (idx < 0) {
+				return ""
+			}
+			bits += code39.expandPat(code39.TABLE[idx], 10)
+		}
+		bits += code39.expandPat(code39.TABLE[43].substring(0, 9), 9)
+		return bits
+	}
+}
+
+export { code39 }

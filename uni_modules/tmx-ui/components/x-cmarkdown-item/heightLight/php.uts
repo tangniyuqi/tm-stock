@@ -1,0 +1,44 @@
+import { HighlightConfig } from "../heightlight.uts"
+
+export function getPhpConfig(): HighlightConfig {
+	const config = new HighlightConfig()
+	
+	// PHP 关键字
+	config.keywords = [
+		'abstract', 'and', 'array', 'as', 'break', 'callable', 'case', 'catch',
+		'class', 'clone', 'const', 'continue', 'declare', 'default', 'die',
+		'do', 'echo', 'else', 'elseif', 'empty', 'enddeclare', 'endfor',
+		'endforeach', 'endif', 'endswitch', 'endwhile', 'eval', 'exit',
+		'extends', 'final', 'finally', 'fn', 'for', 'foreach', 'function',
+		'global', 'goto', 'if', 'implements', 'include', 'include_once',
+		'instanceof', 'insteadof', 'interface', 'isset', 'list', 'match',
+		'namespace', 'new', 'or', 'print', 'private', 'protected', 'public',
+		'require', 'require_once', 'return', 'static', 'switch', 'throw',
+		'trait', 'try', 'unset', 'use', 'var', 'while', 'xor', 'yield',
+		'yield from'
+	]
+	
+	// PHP 内置函数和常量
+	config.builtins = [
+		'true', 'false', 'null', 'TRUE', 'FALSE', 'NULL',
+		'$this', 'self', 'parent',
+		'int', 'float', 'string', 'bool', 'object', 'mixed', 'void',
+		'array_map', 'array_filter', 'array_reduce', 'count', 'strlen',
+		'substr', 'strpos', 'str_replace', 'explode', 'implode',
+		'json_encode', 'json_decode', 'var_dump', 'print_r',
+		'file_get_contents', 'file_put_contents', 'fopen', 'fclose',
+		'mysqli_connect', 'PDO', '__construct', '__destruct',
+		'__get', '__set', '__call', '__toString', '__FILE__', '__LINE__'
+	]
+	
+	// PHP 操作符
+	config.operators = [
+		'+', '-', '*', '/', '%', '**', '=', '==', '===', '!=', '!==', '<>',
+		'<', '>', '<=', '>=', '<=>', '&&', '||', '!', 'and', 'or', 'xor',
+		'&', '|', '^', '~', '<<', '>>', '++', '--', '.', '->',
+		'=>', '??', '?:', '...', '@', '::'
+	]
+	
+	return config
+}
+

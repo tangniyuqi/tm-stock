@@ -1,0 +1,43 @@
+type uniAppEvaJsTypeCallBackTemp = {
+	callbackId?:string|null,
+	success:boolean,
+	errorMessage:any|null,
+	data:any|null,
+	type?:string|null
+}
+export type xWebviewUCallMethodType = {
+	data:any|null,
+	success:(data:any|null)=>void,
+	fail:(errorMessage:string)=>void
+}
+export type TmuiSchemaType = {
+	schema:string,
+	//失败时前往安装的地址
+	installUrl:string
+}
+
+export type uniAppEvaJsTypeOnUpdate = (arg?:any|null) => void;
+export type uniAppEvaJsTypeCallBackFun = (data?:UTSJSONObject|null) => void;
+export type uniAppPostmessageType = {
+	detail:string
+}
+export type uniAppDownLoadMessageType = {
+	url:string,
+	userAgent:string,
+	contentDisposition:string,
+	mimeType:string,
+	contentLength:number
+}
+
+export type xWebviewUOpts = {
+	url?:string,
+	isLocalHost?:boolean,
+	onPageStart?:(url?:string|null)=>void,
+	onPageFinish?:(url?:string|null)=>void,
+	onPageError?:(url?:string|null)=>void,
+	allowLoadUrl?:(url?:string|null)=>boolean,
+	uniAppEvaJs:(url:string|null,methodName:string,callbackId?:string,params?:UTSJSONObject,onUpdate?:uniAppEvaJsTypeOnUpdate) => Promise<UTSJSONObject|null>,
+	uniAppEvaJsIos?:(url:string|null,methodName:string,callbackId?:string,params?:UTSJSONObject,onUpdate?:uniAppEvaJsTypeOnUpdate,callback?:uniAppEvaJsTypeCallBackFun)=>void,
+	uniActions?:(name:string,arg:any|null) => string|null
+}
+

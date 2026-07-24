@@ -1,0 +1,138 @@
+import { HighlightConfig } from "../heightlight.uts"
+import { getPythonConfig } from "./python.uts"
+import { getJavaConfig } from "./java.uts"
+import { getCSharpConfig } from "./csharp.uts"
+import { getCppConfig } from "./cpp.uts"
+import { getCConfig } from "./c.uts"
+import { getTypeScriptConfig } from "./typescript.uts"
+import { getPhpConfig } from "./php.uts"
+import { getSwiftConfig } from "./swift.uts"
+import { getKotlinConfig } from "./kotlin.uts"
+import { getGoConfig } from "./go.uts"
+import { getRubyConfig } from "./ruby.uts"
+import { getRustConfig } from "./rust.uts"
+import { getObjectiveCConfig } from "./objc.uts"
+import { getDartConfig } from "./dart.uts"
+import { getSqlConfig } from "./sql.uts"
+import { getRConfig } from "./r.uts"
+import { getPerlConfig } from "./perl.uts"
+import { getScalaConfig } from "./scala.uts"
+import { getBashConfig } from "./bash.uts"
+import { getHtmlConfig } from "./html.uts"
+
+/**
+ * 根据语言名称获取对应的高亮配置
+ * @param language 语言名称（不区分大小写）
+ * @returns HighlightConfig | null 返回对应语言的配置，如果未找到返回 null
+ */
+export function getLanguageConfig(language: string): HighlightConfig | null {
+	const lang = language.toLowerCase().trim()
+	
+	switch (lang) {
+		case 'python':
+		case 'py':
+			return getPythonConfig()
+			
+		case 'java':
+			return getJavaConfig()
+			
+		case 'csharp':
+		case 'c#':
+		case 'cs':
+			return getCSharpConfig()
+			
+		case 'cpp':
+		case 'c++':
+		case 'cplusplus':
+			return getCppConfig()
+			
+		case 'c':
+			return getCConfig()
+			
+		case 'typescript':
+		case 'javascript':
+		case 'uts':
+		case 'arkts':
+		case 'js':
+		case 'ts':
+			return getTypeScriptConfig()
+			
+		case 'php':
+			return getPhpConfig()
+			
+		case 'swift':
+			return getSwiftConfig()
+			
+		case 'kotlin':
+		case 'kt':
+			return getKotlinConfig()
+			
+		case 'go':
+		case 'golang':
+			return getGoConfig()
+			
+		case 'ruby':
+		case 'rb':
+			return getRubyConfig()
+			
+		case 'rust':
+		case 'rs':
+			return getRustConfig()
+			
+		case 'objectivec':
+		case 'objective-c':
+		case 'objc':
+		case 'obj-c':
+			return getObjectiveCConfig()
+			
+		case 'dart':
+			return getDartConfig()
+			
+		case 'sql':
+		case 'mysql':
+		case 'postgresql':
+		case 'postgres':
+		case 'sqlite':
+			return getSqlConfig()
+			
+		case 'r':
+			return getRConfig()
+			
+		case 'perl':
+		case 'pl':
+			return getPerlConfig()
+			
+		case 'scala':
+			return getScalaConfig()
+			
+		case 'bash':
+		case 'sh':
+		case 'shell':
+		case 'zsh':
+			return getBashConfig()
+			
+		case 'html':
+		case 'vue':
+		case 'uvue':
+		case 'nvue':
+		case 'htmlx':
+		case 'htm':
+			return getHtmlConfig()
+			
+		default:
+			return null
+	}
+}
+
+/**
+ * 获取所有支持的语言列表
+ * @returns string[] 返回所有支持的语言名称数组
+ */
+export function getSupportedLanguages(): string[] {
+	return [
+		'python', 'java', 'csharp', 'cpp', 'c', 'typescript','javaScript','vue','uvue','arkTs','uts','nvue', 'php',
+		'swift', 'kotlin', 'go', 'ruby', 'rust', 'objectivec', 'dart',
+		'sql', 'r', 'perl', 'scala', 'bash', 'html'
+	]
+}
+

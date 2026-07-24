@@ -1,0 +1,129 @@
+﻿<script lang="ts" setup>
+	import { computed } from "vue"
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { checkIsCssUnit } from "../../core/util/xCoreUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+
+	/**
+	 * 
+	 * @name 分割线 xDivider
+	 * @description 横和竖向，内容左，中，右。
+	 * @page /pages/index/divider
+	 * @category 展示组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({name:"xDivider"})
+
+	type alignType = "left" | "right" | "center"
+	type modelType = "solid" | "dotted"
+
+	type xDividerPropsType = {
+		/**
+		 * 对齐方式
+		 */
+		align: alignType,
+		/**
+		 * 文本
+		 */
+		label: string,
+		/**
+		 * 线的颜色
+		 */
+		color: string,
+		/**
+		 * 线的暗黑颜色，如果不提供取全局的borderDarkColor
+		 */
+		darkColor: string,
+		/**
+		 * 线粗细度。
+		 */
+		lineWidth: string,
+		/**
+		 * 竖向时的高度
+		 */
+		height: string,
+		/**
+		 * 文本颜色
+		 */
+		labelColor: string,
+		/**
+		 * 线条样式
+		 */
+		model: modelType,
+		/**
+		 * 字体大小
+		 */
+		fontSize: string,
+		/**
+		 * 是否是竖向
+		 */
+		vertical: boolean
+	}
+
+	const props = withDefaults(defineProps<xDividerPropsType>(), {
+		align: "center",
+		label: "",
+		color: "#e5e5e5",
+		darkColor: "",
+		lineWidth: "1",
+		height: "10",
+		labelColor: "#a2a2a2",
+		model: "solid",
+		fontSize: "11",
+		vertical: false
+	})
+
+	const _lineWidth = computed((): string => checkIsCssUnit(props.lineWidth, xConfig.unit))
+	const _fontSize = computed((): string => checkIsCssUnit(props.fontSize, xConfig.unit))
+	const _height = computed((): string => checkIsCssUnit(props.height, xConfig.unit))
+	const _color = computed((): string => {
+		if(xConfig.dark == 'dark'){
+			if(props.darkColor != '') return getDefaultColor(props.darkColor)
+			return xConfig.borderDarkColor
+		}
+		return getDefaultColor(props.color)
+	})
+	const _labelColor = computed((): string => getDefaultColor(props.labelColor))
+
+</script>
+<template>
+	<view class="xDivider"
+		:style="{height:vertical?_height:'auto','border-left':vertical?`${_lineWidth} ${model} ${_color}`:'none'}">
+		<view v-if="!vertical" class="xDividerLeft"
+			:style="{flex:align=='left'?1:6,'border-bottom':`${_lineWidth} ${model} ${_color}`}"></view>
+		<!-- 
+		 @slot 默认文本插槽。建议通过属性label填写，如果你有特殊要求可以
+		 在插槽中自定义样式和布局。
+		 -->
+		<slot>
+			<text v-if="label!=''&&!vertical" class="xDividerText" :style="{color:_labelColor,fontSize:_fontSize}">{{label}}</text>
+		</slot>
+		<view v-if="!vertical" class="xDividerRight"
+			:style="{flex:align=='right'?1:6,'border-bottom':`${_lineWidth} ${model} ${_color}`}"></view>
+	</view>
+</template>
+<style>
+	.xDivider {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: space-between;
+	}
+
+	.xDividerText {
+		margin: 0 24rpx;
+		white-space: nowrap;
+	}
+
+	.xDividerLeft {
+		flex: 6;
+	}
+
+	.xDividerRight {
+		flex: 6;
+	}
+
+</style>

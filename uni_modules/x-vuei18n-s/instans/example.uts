@@ -1,0 +1,244 @@
+/**
+ * Vue I18n UTS 使用示例
+ * 展示如何在UniApp-X中使用移植的vue-i18n库
+ */
+import { createI18n} from '@/uni_modules/x-vuei18n-s'
+import { Tmui4xI18n,NumberFormat,DateTimeFormat} from '@/uni_modules/x-vuei18n-s/interface.uts'
+// 示例：创建简单的i18n实例
+export function createExampleI18n():Tmui4xI18n{
+  // 准备消息数据
+  const messages: UTSJSONObject = {}
+  
+  // 中文消息
+  const zhMessages: UTSJSONObject = {
+    'hello': '你好',
+    'welcome': '欢迎使用UniApp-X',
+    'user': {
+      'name': '用户名',
+      'age': '年龄',
+      'profile': '个人资料'
+    },
+    'items': {
+      'apple': '苹果 | 苹果们',
+      'apple2': '苹果 | 苹果们 | 复杂嵌套{count}',
+      'book': '书 | 书们'
+    },
+    'greeting': '你好，{name}！',
+    'greetingList': '你好，{0}！',
+    'itemCount': '你有 {count} 个项目'
+  }
+  
+  // 英文消息
+  const enMessages: UTSJSONObject = {
+    'hello': 'Hello',
+    'welcome': 'Welcome to UniApp-X',
+    'user': {
+      'name': 'Username',
+      'age': 'Age',
+      'profile': 'Profile'
+    },
+    'items': {
+      'apple': 'apple | apples',
+	  'apple2': 'apple | apples | apples{count}',
+      'book': 'book | books'
+    },
+    'greeting': 'Hello, {name}!',
+    'greetingList': 'Hello, {0}!',
+    'itemCount': 'You have {count} items'
+  }
+  
+  messages.set('zh-Hans', zhMessages)
+  messages.set('en', enMessages)
+  
+  // 创建i18n实例
+  const i18n = createI18n({locale:'zh-Hans',messages})
+  
+  return i18n
+}
+
+// 示例：基本翻译功能
+export function basicTranslationExample() {
+  const i18n = createExampleI18n()
+  
+  console.log('=== 基本翻译示例 ===')
+  
+  // 简单翻译
+  console.log(i18n.t('hello')) // 输出: 你好
+  console.log(i18n.t('welcome')) // 输出: 欢迎使用UniApp-X
+  
+  // 嵌套路径翻译
+  console.log(i18n.t('user.name')) // 输出: 用户名
+  console.log(i18n.t('user.profile')) // 输出: 个人资料
+  
+  // 切换语言
+  i18n.setLocale('en')
+  console.log(i18n.t('hello')) // 输出: Hello
+  console.log(i18n.t('user.name')) // 输出: Username
+  
+  
+  // 切换回中文
+  i18n.setLocale('zh-Hans')
+}
+
+// 示例：参数插值
+export function interpolationExample() {
+  const i18n = createExampleI18n()
+  
+  console.log('=== 参数插值示例 ===')
+  
+  // 命名参数
+  const namedParams: UTSJSONObject = { 'name': '张三' }
+  console.log(i18n.t('greeting', namedParams),'----') // 输出: 你好，张三！
+  
+  // 列表参数
+  const listParams = ['李四']
+  console.log(i18n.t('greetingList', listParams)) // 输出: 你好，李四！
+  
+  // 数字参数
+  const countParams: UTSJSONObject = { 'count': 5 }
+  console.log(i18n.t('itemCount', countParams)) // 输出: 你有 5 个项目
+}
+
+// 示例：复数处理
+export function pluralExample() {
+  const i18n = createExampleI18n()
+  
+  console.log('=== 复数处理示例 ===')
+  
+  // 单数
+  console.log(i18n.t('items.apple', 0)) // 输出: 苹果
+  
+  // 复数
+  console.log(i18n.t('items.apple', 1)) // 输出: 苹果们
+  console.log(i18n.t('items.apple2', 2,{count:8})) // 输出: 复杂嵌套8
+  
+  
+  // 切换到英文测试复数
+  i18n.setLocale('en')
+  console.log(i18n.t('items.apple', 0)) // 输出: apple
+  console.log(i18n.t('items.apple', 1)) // 输出: apples
+  console.log(i18n.t('items.apple2', 2,{count:8})) // 输出: apples8
+  i18n.setLocale('zh-Hans')
+}
+
+// 示例：数字格式化
+export function numberFormatExample() {
+  const i18n = createExampleI18n()
+  
+  console.log('=== 数字格式化示例 中文 ===')
+  
+  // 基本数字格式化
+  console.log(i18n.n(1234)) // 输出: 1,234.56
+  console.log(i18n.n(1234567.89)) // 输出: 1,234,567.89
+  
+  // 货币格式化
+  const currencyOptions:NumberFormat = {
+    style: 'currency',
+    currency: 'CNY',
+	useGrouping:true
+  }
+  console.log(i18n.n(1234.56,null, currencyOptions)) // 输出: ¥1,234.56
+  
+  // 百分比格式化
+  const percentOptions:NumberFormat = {
+    style: 'percent'
+  }
+  console.log(i18n.n(0.1234,null, percentOptions)) // 输出: 12.34%
+  
+  
+  console.log('=== 货币式化示例 英文 ===')
+  // 货币格式化
+  const currencyOptionsEn:NumberFormat = {
+    style: 'currency',
+    currency: 'USD',
+	useGrouping:true
+  }
+  console.log(i18n.n(1234.56,null, currencyOptionsEn))
+ 
+  
+}
+
+// 示例：日期时间格式化
+export function dateTimeFormatExample() {
+  const i18n = createExampleI18n()
+  
+  console.log('=== 日期时间格式化示例 ===')
+  
+  const now = new Date()
+  
+  // 基本日期格式化
+  console.log(i18n.d(now)) // 输出: 2024年01月01日 12:00:00
+  
+  // 自定义格式
+  const dateOptions:DateTimeFormat = {
+  year: 'numeric',
+  month: 'long', 
+  day: 'numeric',
+	dateSeparator:'',
+	local:'en'
+  }
+  console.log(i18n.d(now,null, dateOptions)) // 输出: 2024年一月1日
+  
+  // 时间格式
+  const timeOptions:DateTimeFormat = {
+		year: '',
+		month: '',
+		day: '',
+	  hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  }
+  console.log(i18n.d(now,null, timeOptions)) // 输出: 12:00:00
+}
+
+// 示例：检查翻译键是否存在
+export function translationExistsExample() {
+  const i18n = createExampleI18n()
+  
+  console.log('=== 翻译键存在检查示例 ===')
+  
+  console.log(i18n.te('hello')) // 输出: true
+  console.log(i18n.te('user.name')) // 输出: true
+  console.log(i18n.te('nonexistent.key')) // 输出: false
+  
+  // 检查特定语言的键
+  console.log(i18n.te('hello', 'en')) // 输出: true
+  console.log(i18n.te('hello', 'fr-FR')) // 输出: false
+}
+
+// 示例：动态添加翻译
+export function dynamicTranslationExample() {
+  const i18n = createExampleI18n()
+  
+  console.log('=== 动态翻译示例 ===')
+  
+  // 添加新的翻译
+  const newMessages: UTSJSONObject = {
+    'goodbye': '再见',
+    'settings': {
+      'language': '语言设置',
+      'theme': '主题设置'
+    }
+  }
+  
+  i18n.mergeLocaleMessage('zh-Hans', newMessages)
+  console.log(i18n.t('goodbye')) // 输出: 再见
+  console.log(i18n.t('settings.language')) // 输出: 语言设置
+  
+  console.log('可用语言:', i18n.availableLocales()) // 输出: ['zh-CN', 'en-US']
+}
+
+// 运行所有示例
+export function runAllExamples() {
+  console.log('Vue I18n UTS 库示例开始运行...')
+  // createExampleI18n()
+  basicTranslationExample()
+  interpolationExample()
+  pluralExample()
+  numberFormatExample()
+  dateTimeFormatExample()
+  translationExistsExample()
+  dynamicTranslationExample()
+  
+  console.log('Vue I18n UTS 库示例运行完成！')
+}

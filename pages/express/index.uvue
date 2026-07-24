@@ -1,0 +1,21 @@
+<template>
+  <view class="container">
+    <text class="title">快讯页面</text>
+  </view>
+</template>
+
+<script lang="uts" setup>
+</script>
+
+<style lang="css">
+.container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+.title {
+  font-size: 36px;
+  color: #333;
+}
+</style>

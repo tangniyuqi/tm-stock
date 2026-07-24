@@ -1,0 +1,75 @@
+import { ChartDatum } from './types.uts';
+import { getDatumNumber, getDatumString, mapLinear, mapBandCenter, buildBandDomain, createLinearScale, LinearScale } from './scale.uts';
+
+export type PlotRect = {
+	left : number,
+	top : number,
+	right : number,
+	bottom : number
+}
+
+export type XYPoint = {
+	x : number,
+	y : number
+}
+
+export type XYMapResult = {
+	points : XYPoint[],
+	domain : string[],
+	yScale : LinearScale
+}
+
+export const mapLineOrBarPoints = (data : ChartDatum[], xField : string, yField : string, rect : PlotRect, forcedMinY : number | null, forcedMaxY : number | null) : XYMapResult => {
+	const domain = buildBandDomain(data, xField);
+	let minY = forcedMinY ?? Number.POSITIVE_INFINITY;
+	let maxY = forcedMaxY ?? Number.NEGATIVE_INFINITY;
+	if (forcedMinY == null || forcedMaxY == null) {
+		for (let i = 0; i < data.length; i++) {
+			const value = getDatumNumber(data[i], yField, 0);
+			if (forcedMinY == null && value < minY) minY = value;
+			if (forcedMaxY == null && value > maxY) maxY = value;
+		}
+	}
+	if (!isFinite(minY)) minY = 0;
+	if (!isFinite(maxY)) maxY = 1;
+	if (minY > 0) minY = 0;
+	const yScale = createLinearScale(minY, maxY, rect.bottom, rect.top);
+	const points = [] as XYPoint[];
+	for (let i = 0; i < data.length; i++) {
+		const record = data[i];
+		const xLabel = getDatumString(record, xField, `${i}`);
+		const yValue = getDatumNumber(record, yField, 0);
+		points.push({
+			x: mapBandCenter(xLabel, domain, rect.left, rect.right),
+			y: mapLinear(yValue, yScale)
+		} as XYPoint);
+	}
+	return {
+		points: points,
+		domain: domain,
+		yScale: yScale
+	} as XYMapResult;
+}
+
+export type MergedYRange = {
+	domain : string[],
+	minY : number,
+	maxY : number
+}
+
+export const computeMergedYRange = (data : ChartDatum[], yFields : string[], xField : string) : MergedYRange => {
+	let minY = Number.POSITIVE_INFINITY;
+	let maxY = Number.NEGATIVE_INFINITY;
+	for (let i = 0; i < data.length; i++) {
+		for (let f = 0; f < yFields.length; f++) {
+			const value = getDatumNumber(data[i], yFields[f], 0);
+			if (value < minY) minY = value;
+			if (value > maxY) maxY = value;
+		}
+	}
+	if (!isFinite(minY)) minY = 0;
+	if (!isFinite(maxY)) maxY = 1;
+	if (minY > 0) minY = 0;
+	const domain = buildBandDomain(data, xField);
+	return { domain: domain, minY: minY, maxY: maxY } as MergedYRange;
+}

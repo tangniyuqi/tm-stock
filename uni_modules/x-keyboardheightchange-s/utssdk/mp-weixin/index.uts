@@ -1,0 +1,10 @@
+type cacelCall = () => void;
+export const keyboardHeightChange = (callback : (h : number) => void) : cacelCall => {
+	const fun = (result) => {
+		callback(result.height)
+	}
+	wx.onKeyboardHeightChange(fun)
+	return () => {
+		wx.offKeyboardHeightChange(fun)
+	}
+}

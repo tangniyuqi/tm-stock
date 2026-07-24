@@ -1,0 +1,5 @@
+{
+	"dependencies": {
+		"x_tips_s": "./lib/x_tips_s.har"
+	}
+}

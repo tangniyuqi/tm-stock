@@ -1,0 +1,5 @@
+{
+	"dependencies": {
+		"x_ocr_s": "./lib/x_ocr_s.har"
+	}
+}

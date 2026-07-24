@@ -1,0 +1,311 @@
+<script lang="ts" setup>
+	import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
+	import { getDefaultColor, setTextColorLightByDark } from "../../core/util/xCoreColorUtil.uts"
+	import { checkIsCssUnit, getUid, getUnit,noramlNoziNoArVal } from "../../core/util/xCoreUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	import { xTween } from "../../core/util/xTween.uts"
+	import { xTweenAnimate, xTweenEventCallFunType } from "../../interface.uts"
+	// #ifdef APP|| WEB
+	import remixicon from "./remixicon.uts"
+	// #endif
+
+	/**
+	 * @name 图标 xIcon
+	 * @description 图标使用的是开源图标:[https://remixicon.com/](https://remixicon.com/)，版本是：4.5.0 ，使用时，不用带ri-前缀。
+	 * @page /pages/index/icon
+	 * @category 常用组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({name:"xIcon"})
+	const emits = defineEmits(['click'])
+
+	type xIconPropsType = {
+		/**
+		 * 图标名称，不带ri-前缀（不推荐在app上使用这个属性,建议使用code显示,性能明显更快）
+		 * 也可以是本地或者远程图片
+		 */
+		name: string,
+		/**
+		 * 图标大小,单位任意,比如"12",12px,12rpx
+		 */
+		fontSize: string|number,
+		/**
+		 * 自定义图标字体，前提是
+		 * 你要在appuvue中已经安装好字体文件，
+		 * 否则无法使用。
+		 * 要让自定图标生效你需要配合code属性一起使用
+		 */
+		fontFamily: string,
+		/**
+		 * 图标的16进制字符串，注意不含u
+		 * 比如：ea0c，ea14这种，
+		 * 如果你提供了code优化解析这，那么name将失效，如果你是纯字体图标使用
+		 * 你可以使用这个属性，可以提供性能和自己定义的图标会比较方便。
+		 */
+		code: string,
+		/**
+		 * 图标颜色
+		 */
+		color: string,
+		/**
+		 * 暗黑时的文本颜色，如果你不提供，将自动反转。
+		 * 自动反转是根据亮度反转，色相不变。
+		 */
+		darkColor: string,
+		/**
+		 * 是否旋转动画
+		 */
+		spin: boolean,
+		/**
+		 * 旋转角度
+		 */
+		rotation: number,
+		/**
+		 * 动画时间
+		 */
+		duration: number,
+	}
+
+	const props = withDefaults(defineProps<xIconPropsType>(), {
+		name: "home-3-fill",
+		fontSize: "16",
+		fontFamily: "remixicon",
+		code: "",
+		color: "black",
+		darkColor: "",
+		spin: false,
+		rotation: 0,
+		duration: 1500,
+	})
+
+	const id = ("xIconspin" + getUid()) as string
+	let isdestory = false
+	let xt : xTween | null = null
+	const xIcons = ref<UniElement | null>(null)
+
+	const _mpcode = computed((): string => {
+		let cname = ''
+		// #ifdef MP
+		cname = props.code==''?('ri-'+props.name):'';
+		// #endif
+		return cname
+	})
+
+	const _isFileImg = computed((): boolean => {
+		if (props.name.lastIndexOf(".") > -1 ||
+			props.name.indexOf("ftp:") > -1 ||
+			props.name.indexOf("https:") > -1 ||
+			props.name.indexOf("http:") > -1 ||
+			props.name.indexOf("data:image") > -1
+		) {
+			return true;
+		}
+		return false;
+	})
+
+	const iconName = computed((): string => {
+		if (_isFileImg.value) return props.name
+		let texts = ""
+		try {
+			// #ifdef APP||WEB
+			let codestr = ''
+			if(props.code==''){
+				codestr = remixicon.getString(props.name)!
+			}else{
+				codestr = props.code
+			}
+			// #endif
+			
+			// #ifdef APP-ANDROID
+			let codePoint = Integer.parseInt(codestr, 16);
+			let charArray = Character.toChars(codePoint);
+			texts = new String(charArray);
+			// #endif
+			// #ifdef APP-IOS|| WEB||APP-HARMONY
+			texts = String.fromCharCode(parseInt(codestr, 16));
+			// #endif
+			
+			// #ifdef MP
+			if(props.code!=''){
+				texts = String.fromCharCode(parseInt(props.code, 16));
+			}
+			// #endif
+
+		} catch (e) {
+			console.error("xicon解析失败。", e)
+		}
+		return texts
+	})
+
+	const _fontSize = computed((): string => {
+		let fontSize = noramlNoziNoArVal(props.fontSize)
+		fontSize = checkIsCssUnit(fontSize, xConfig.unit);
+		if (xConfig.fontScale == 1) return fontSize;
+		let sizeNumber = parseInt(fontSize)
+		if (isNaN(sizeNumber)) {
+			sizeNumber = 16
+		}
+		return (sizeNumber * xConfig.fontScale).toString() + getUnit(fontSize)
+	})
+
+	const _color = computed((): string => {
+		let color = props.color==""?'black':props.color;
+		if (xConfig.dark == 'dark') {
+			if (props.darkColor != "") {
+				color = props.darkColor!
+				return getDefaultColor(color)
+			}
+			return setTextColorLightByDark(color)
+		}
+		return getDefaultColor(color);
+	})
+
+	function setRadeg() {
+		let el = xIcons.value
+		if (el == null) return
+		try {
+			el!.style.setProperty("transition-duration", props.duration.toString() + 'ms')
+			el!.style.setProperty("transform", `rotate(${props.rotation}deg)`)
+		} catch (_e) {
+		}
+	}
+	
+	function playSpin() {
+		if (!props.spin || isdestory) return;
+		
+		let el = xIcons.value
+		if (el == null) return
+		
+		// #ifdef APP || WEB
+		if (xt != null) {
+			xt!.pause()
+			xt!.destroy()
+		}
+		xt = new xTween()
+		xt!.startRender()
+		xt!.addAnimate({
+			loop:-1,
+			duration:props.duration,
+			complete:(item:xTweenEventCallFunType)=>{
+			},
+			enter:(item:xTweenEventCallFunType)=>{
+				el!.style.setProperty("transition-duration", '0ms')
+				el!.style.setProperty("transform", `rotate(${360 * item.progress}deg)`)
+			},
+			pause:(item:xTweenEventCallFunType)=>{},
+		} as xTweenAnimate)
+		xt!.play()
+		// #endif
+	}
+	
+	function clickListen() {
+		emits("click")
+	}
+	
+	
+	
+
+	watch(():boolean => props.spin, () => {
+		if (props.spin) {
+			playSpin();
+		}else if (xt != null) {
+			xt!.pause()
+			xt!.destroy()
+			xt = null
+		}
+	})
+
+	watch(():number => props.rotation, () => {
+		if (props.spin) return;
+		setRadeg();
+	})
+
+	onBeforeUnmount(() => {
+		isdestory = true;
+		if (xt != null) {
+			xt!.destroy()
+			xt = null
+		}
+	})
+
+	onMounted(() => {
+		isdestory = false;
+		if (props.spin) {
+			playSpin();
+		} else {
+			nextTick(() => {
+				setRadeg();
+			})
+		}
+	})
+
+
+</script>
+
+<template>
+	<!-- #ifdef MP-WEIXIN -->
+	<view class="faceBox">
+	<!-- #endif -->
+		<text 
+		v-if="!_isFileImg" 
+		@click="clickListen" 
+		:id="id" 
+		ref="xIcons" 
+		class="face"
+			:class="[props.spin?'faceSpinIcon':'',_mpcode]" 
+			:style="{
+			'font-family': fontFamily,
+			'font-size':_fontSize,
+			'color':_color,
+			'width':_fontSize,
+			'height':_fontSize,
+			'lineHeight':_fontSize
+		}">
+			{{iconName}}
+		</text>
+		<image @click="clickListen"  :id="id" v-else  ref="xIcons" :style="{width:_fontSize,height:_fontSize}" :src="iconName"></image>
+	<!-- #ifdef MP-WEIXIN -->
+	</view>
+	<!-- #endif -->
+</template>
+
+<style scoped >
+	/* #ifdef MP-WEIXIN */
+	.faceBox{
+		display: inline-block;
+	}
+	/* #endif */
+	.face {
+		transition-property: transform;
+		transition-duration: 0ms;
+		transition-timing-function: linear;
+		transform: rotate(0deg);
+		
+		text-align: center;
+		/* #ifdef WEB || MP-WEIXIN */
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+		align-items: center;
+		line-height: 1 !important;
+		/* #endif */
+	}
+	
+	/* #ifdef WEB || MP-WEIXIN */
+	.faceSpinIcon{
+		animation:xFontIconRotate 1s linear infinite ;
+	}
+	@keyframes xFontIconRotate {
+		0%{
+			transform: rotate(0deg);
+		}
+		100%{
+			transform: rotate(360deg);
+		}
+	}
+	/* #endif */
+	
+</style>

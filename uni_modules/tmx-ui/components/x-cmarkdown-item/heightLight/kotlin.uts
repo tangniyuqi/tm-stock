@@ -1,0 +1,44 @@
+import { HighlightConfig } from "../heightlight.uts"
+
+export function getKotlinConfig(): HighlightConfig {
+	const config = new HighlightConfig()
+	
+	// Kotlin 关键字
+	config.keywords = [
+		'abstract', 'actual', 'annotation', 'as', 'break', 'by', 'catch',
+		'class', 'companion', 'const', 'constructor', 'continue', 'crossinline',
+		'data', 'delegate', 'do', 'dynamic', 'else', 'enum', 'expect',
+		'external', 'false', 'final', 'finally', 'for', 'fun', 'get',
+		'if', 'import', 'in', 'infix', 'init', 'inline', 'inner',
+		'interface', 'internal', 'is', 'lateinit', 'noinline', 'null',
+		'object', 'open', 'operator', 'out', 'override', 'package',
+		'private', 'protected', 'public', 'reified', 'return', 'sealed',
+		'set', 'super', 'suspend', 'tailrec', 'this', 'throw', 'true',
+		'try', 'typealias', 'typeof', 'val', 'var', 'vararg', 'when',
+		'where', 'while'
+	]
+	
+	// Kotlin 内置类型和函数
+	config.builtins = [
+		'Boolean', 'Byte', 'Char', 'Double', 'Float', 'Int', 'Long', 'Short',
+		'String', 'Array', 'List', 'MutableList', 'Set', 'MutableSet',
+		'Map', 'MutableMap', 'Pair', 'Triple', 'Sequence', 'Collection',
+		'Unit', 'Nothing', 'Any', 'Number', 'Comparable', 'Throwable',
+		'Exception', 'Error', 'Runnable', 'Iterable', 'Iterator',
+		'println', 'print', 'readLine', 'TODO', 'require', 'check',
+		'error', 'assert', 'lazy', 'let', 'apply', 'run', 'with', 'also',
+		'takeIf', 'takeUnless', 'repeat', 'listOf', 'mutableListOf',
+		'setOf', 'mutableSetOf', 'mapOf', 'mutableMapOf'
+	]
+	
+	// Kotlin 操作符
+	config.operators = [
+		'+', '-', '*', '/', '%', '=', '==', '!=', '===', '!==',
+		'<', '>', '<=', '>=', '&&', '||', '!', '&', '|', '^',
+		'++', '--', '+=', '-=', '*=', '/=', '%=',
+		'..', '?:', '!!', '?.', '->', '::', 'in', '!in', 'as', 'as?', 'is', '!is'
+	]
+	
+	return config
+}
+

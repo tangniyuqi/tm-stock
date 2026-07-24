@@ -1,0 +1,576 @@
+<script setup lang="ts">
+	import { computed, onMounted, ref, type PropType } from "vue"
+	import { PICKER_ITEM_INFO, X_PICKER_X_ITEM } from "../../interface.uts"
+	import { getUid } from "../../core/util/xCoreUtil.uts"
+	import { checkIsCssUnit, rpx2px, getUnit } from "../../core/util/xCoreUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	import { getTreeNodesPath, updatePickerLinkage } from "./util.uts"
+	import type { X_PICKER_PATH_MENU_TYPE } from "./interface.uts"
+
+	/**
+	 * @name 选择器容器 xPickerView
+	 * @description 采用id作为索引为选中值。
+	 * @page /pages/index/picker-view
+	 * @category 表单组件
+	 * @constant 平台兼容
+	 * 	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.19 |
+	 */
+	defineOptions({ name: "xPickerView" })
+	defineSlots<{
+		label(props: {
+			checked: boolean,
+			value: string
+		}): any
+	}>()
+	type xPickerViewPropsType = {
+		/**
+		 * 数据
+		 */
+		list: Array<PICKER_ITEM_INFO>,
+		/**
+		 * 数据项,这是内部使用的以提高数据的转换性能。如果你确定你提供的是这个类型，可以赋值此值，避免转换时间。
+		 * 格式类型为：X_PICKER_X_ITEM
+		 * 数据如果超过1mb不要去转换，最后直接从后台提供string然后直接JSON.getArray<X_PICKER_X_ITEM>(data)赋值到值。
+		 * 这样性能在安卓上可以提高到好多。
+		 */
+		listPro: Array<X_PICKER_X_ITEM>,
+		/**
+		 * 当前选中项的id值
+		 */
+		modelValue: Array<string>,
+		/**
+		 * 当前选中项的标题文本
+		 */
+		modelStr: string,
+		/**
+		 * 自动同步modelstr拼接时的符号.
+		 */
+		modelStrJoin: string,
+		/**
+		 * 显示在顶部的单位名称
+		 */
+		cellUnits: string[],
+		/**
+		 * 单位名称字号
+		 */
+		unitsFontSize: string,
+		/**
+		 * 项目的字体号大小
+		 */
+		fontSize: string,
+	}
+	type normalizeListType = (tree: PICKER_ITEM_INFO[]) => X_PICKER_X_ITEM[];
+	type applyResultType = { emitModelStr?: boolean, emitModelValue?: boolean }
+	type pickerPathResult = {
+		ids : string[],
+		titles : string[]
+	}
+
+	const props = withDefaults(defineProps<xPickerViewPropsType>(), {
+		list: (): Array<PICKER_ITEM_INFO> => [] as Array<PICKER_ITEM_INFO>,
+		listPro: (): Array<X_PICKER_X_ITEM> => [] as Array<X_PICKER_X_ITEM>,
+		modelValue: (): Array<string | number> => [] as Array<string | number>,
+		cellUnits: (): Array<string> => [] as Array<string>,
+		modelStr: '',
+		modelStrJoin: ',',
+		unitsFontSize: '12',
+		fontSize: '16'
+	})
+
+	const emits = defineEmits([
+		/**
+		 * 选项变化时触发
+		 * @param {string[]} ids - 当前选中项的id
+		 */
+		'change',
+		/**
+		 * 等同v-model:model-str
+		 * 只对外输出当前回选区的选中项的文本，不要外部改变此值。
+		 */
+		'update:modelStr',
+		'update:modelValue'
+	])
+
+	const _fontSize = computed((): string => checkIsCssUnit(props.fontSize, xConfig.unit))
+	const _unitsFontSize = computed((): string => checkIsCssUnit(props.unitsFontSize, xConfig.unit))
+	const _isDark = computed((): boolean => xConfig.dark == 'dark')
+
+	// picker-view 当前选中的索引数组
+	const pickerValue = ref<number[]>([])
+	const tempPickerValue = ref<number[]>([])
+	let timdid = 0
+	const isCanChange = ref(true)
+	const _maskStyle = computed((): string => {
+		if (_isDark.value) {
+			return 'background-image:linear-gradient(to bottom,rgba(0, 0, 0, 0),rgba(0, 0, 0, 0)),linear-gradient(to top, rgba(0, 0, 0, 0),rgba(0, 0, 0, 0));border:none;'
+		}
+		return 'background-image:linear-gradient(to bottom,rgba(255,255,255,0),rgba(255,255,255,0)),linear-gradient(to top, rgba(255,255,255,0),rgba(255,255,255,0));border:none;'
+	})
+
+	// 标准化列表数据
+	let normalizeList: normalizeListType = (tree: PICKER_ITEM_INFO[]): X_PICKER_X_ITEM[] => [] as X_PICKER_X_ITEM[]
+	normalizeList = (tree: PICKER_ITEM_INFO[]): X_PICKER_X_ITEM[] => {
+		let nowlist = [] as X_PICKER_X_ITEM[]
+		for (let i = 0; i < tree.length; i++) {
+			const node = tree[i];
+			const disabled = (node.disabled == null ? false : (node.disabled! as boolean));
+			const id = (node.id == null ? i.toString() : (node.id! as string));
+			const children = (node.children == null ? ([] as PICKER_ITEM_INFO[]) : (node.children! as PICKER_ITEM_INFO[]));
+			let item = {
+				id: id,
+				title: node.title,
+				disabled: disabled,
+				children: [] as X_PICKER_X_ITEM[]
+			} as X_PICKER_X_ITEM
+			if (children.length > 0) {
+				item.children = normalizeList(children)
+			}
+			nowlist.push(item)
+		}
+		return nowlist
+	}
+
+	function getNorMalizeList(): X_PICKER_X_ITEM[] {
+		if (props.listPro.length > 0) return props.listPro;
+		return normalizeList!(props.list)
+	}
+
+	const _listData = computed((): X_PICKER_X_ITEM[] => getNorMalizeList())
+
+	// 当前联动数据的列数组，用于渲染 picker-view-column
+	const columnData = ref<X_PICKER_X_ITEM[][]>([])
+
+	// 根据索引数组获取联动数据
+	const getColumnsByIndexes = (indexes: number[]): X_PICKER_X_ITEM[][] => {
+		const normalized = _listData.value;
+		if (normalized.length == 0) {
+			return [];
+		}
+		const columns = [] as X_PICKER_X_ITEM[][];
+		let nodes = normalized;
+		let depth = 0;
+
+		while (nodes.length > 0) {
+			columns.push(nodes);
+			let idx = 0;
+			if (depth < indexes.length) {
+				idx = indexes[depth];
+				if (idx >= nodes.length) {
+					idx = nodes.length - 1;
+				}
+				if (idx < 0) {
+					idx = 0;
+				}
+			}
+			const node = nodes[idx];
+			nodes = node.children;
+			depth++;
+			if (nodes.length == 0) {
+				break;
+			}
+		}
+		return columns;
+	}
+
+	// 根据ids获取索引路径
+	const getIndexesByIds = (ids: string[]): number[] => {
+		if (ids.length == 0 || _listData.value.length == 0) {
+			return [];
+		}
+		const indexes: number[] = [];
+		let nodes = _listData.value;
+		for (let i = 0; i < ids.length; i++) {
+			const targetId = ids[i];
+			const idx = nodes.findIndex((item: X_PICKER_X_ITEM) => item.id == targetId);
+			if (idx == -1) {
+				// 找不到则使用第一个
+				indexes.push(0);
+				if (nodes.length > 0) {
+					nodes = nodes[0].children;
+				}
+			} else {
+				indexes.push(idx);
+				nodes = nodes[idx].children;
+			}
+			if (nodes.length == 0) {
+				break;
+			}
+		}
+		return indexes;
+	}
+
+	// 根据索引获取当前选中的ids和titles（单次遍历）
+	const getPathByIndexes = (indexes: number[]): pickerPathResult => {
+		const ids: string[] = [];
+		const titles: string[] = [];
+		let nodes = _listData.value;
+		for (let i = 0; i < indexes.length; i++) {
+			const idx = indexes[i];
+			if (idx >= 0 && idx < nodes.length) {
+				const node = nodes[idx];
+				ids.push(node.id);
+				titles.push(node.title);
+				nodes = node.children;
+			} else {
+				break;
+			}
+			if (nodes.length == 0) {
+				break;
+			}
+		}
+		return { ids, titles } as pickerPathResult;
+	}
+
+	// picker-view 变化事件处理
+	const onPickerChange = (e: UniPickerViewChangeEvent) => {
+		// #ifdef APP-IOS||APP-HARMONY
+		if(!isCanChange.value) return;
+		// #endif
+	
+		const newIndexes = e.detail.value;
+		const oldIndexes = pickerValue.value;
+		// 找到第一个变化的位置
+		let changeIndex = 0;
+		for (let i = 0; i < Math.min(oldIndexes.length, newIndexes.length); i++) {
+			if (oldIndexes[i] !== newIndexes[i]) {
+				changeIndex = i;
+				break;
+			}
+			changeIndex = i + 1;
+		}
+
+		// 使用联动更新逻辑
+		const result = updatePickerLinkage(_listData.value, oldIndexes, newIndexes);
+		if (result == null) return;
+
+		// 更新 picker 选中的索引
+		pickerValue.value = result.indexPath;
+
+		
+
+		// 获取ids并触发事件
+		const ids = result.ids;
+		const titles = result.pathData.map((el: X_PICKER_X_ITEM): string => el.title);
+
+		emits('update:modelStr', titles.join(props.modelStrJoin));
+		emits('update:modelValue', ids);
+		emits('change', ids);
+		
+		
+		clearTimeout(timdid)
+		timdid = setTimeout(function() {
+			columnData.value = getColumnsByIndexes(result.indexPath);
+			tempPickerValue.value = pickerValue.value
+		}, 100);
+	}
+
+	// 根据数据深度生成默认索引数组（全为0）
+	const getDefaultIndexes = (columns: X_PICKER_X_ITEM[][]): number[] => {
+		return columns.map((el:X_PICKER_X_ITEM[]):number => 0);
+	}
+
+	// 获取数据的最大深度（沿第一个子节点链路，因为 picker 只需要列数）
+	const getMaxDepth = (nodes: X_PICKER_X_ITEM[]): number => {
+		let depth = 0;
+		let current = nodes;
+		while (current.length > 0) {
+			depth++;
+			current = current[0].children;
+		}
+		return depth;
+	}
+
+	// 初始化数据
+	const initData = () => {
+		// #ifdef APP-IOS||APP-HARMONY
+		isCanChange.value = false
+		// #endif
+		const normalized = _listData.value;
+		if (normalized.length == 0) {
+			columnData.value = [];
+			pickerValue.value = [];
+			return;
+		}
+
+		// 根据 modelValue 获取索引
+		let indexes = getIndexesByIds(props.modelValue as string[]);
+
+		// 如果没有提供 modelValue，使用默认路径 [0, 0, 0, ...]
+		if (indexes.length == 0) {
+			const maxDepth = getMaxDepth(normalized);
+			indexes = new Array(maxDepth).fill(0);
+		}
+
+		// 根据索引获取完整的列数据（联动）
+		const columns = getColumnsByIndexes(indexes);
+
+		// 确保索引长度与列数匹配
+		if (indexes.length < columns.length) {
+			while (indexes.length < columns.length) {
+				indexes.push(0);
+			}
+		}
+
+		// 确保每个索引都在有效范围内
+		indexes = indexes.map((idx, colIndex) => {
+			if (colIndex < columns.length) {
+				const maxIndex = columns[colIndex].length - 1;
+				if (idx < 0) return 0;
+				if (idx > maxIndex) return maxIndex;
+			}
+			return idx;
+		});
+
+		// 更新列数据和 picker 值
+		columnData.value = columns;
+		pickerValue.value = indexes;
+		tempPickerValue.value = indexes
+	
+
+		// 如果 modelValue 为空，需要触发事件同步默认值
+		if (props.modelValue.length == 0 && columns.length > 0) {
+			const path = getPathByIndexes(indexes);
+			emits('update:modelValue', path.ids);
+			emits('update:modelStr', path.titles.join(props.modelStrJoin));
+		} else if (props.modelStr == '' && props.modelValue.length > 0) {
+			const path = getPathByIndexes(indexes);
+			emits('update:modelStr', path.titles.join(props.modelStrJoin));
+		}
+		// #ifdef APP-IOS||APP-HARMONY
+		clearTimeout(timdid)
+		timdid = setTimeout(function() {
+			isCanChange.value = true;
+		}, 650);
+		// #endif
+	}
+
+	watch((): PICKER_ITEM_INFO[] => props.list, () => {
+		nextTick(() => {
+			initData();
+		});
+	}, { deep: true })
+
+	watch([(): any => props.modelValue], () => {
+		// 外部 modelValue 变化时同步更新
+		nextTick(() => {
+			const indexes = getIndexesByIds(props.modelValue as string[]);
+			if (indexes.length > 0) {
+				// 确保索引长度与列数匹配
+				const currentColumns = columnData.value;
+				let finalIndexes = indexes.slice(0);
+				if (finalIndexes.length < currentColumns.length) {
+					while (finalIndexes.length < currentColumns.length) {
+						finalIndexes.push(0);
+					}
+				}
+				// 确保索引在有效范围内
+				finalIndexes = finalIndexes.map((idx, colIndex) => {
+					if (colIndex < currentColumns.length) {
+						const maxIndex = currentColumns[colIndex].length - 1;
+						if (idx < 0) return 0;
+						if (idx > maxIndex) return maxIndex;
+					}
+					return idx;
+				});
+				pickerValue.value = finalIndexes;
+				columnData.value = getColumnsByIndexes(finalIndexes);
+				tempPickerValue.value = pickerValue.value
+			}
+		});
+	}, { deep: true })
+
+	onMounted(() => {
+		initData();
+	})
+</script>
+<template>
+	<view class="xPickerView" ref="xPickerView">
+		<template v-for="(_unitsName,index) in props.cellUnits" :key="index">
+			<view class="xPickerViewUnit" v-if="_unitsName!=''">
+				<x-text :font-size="unitsFontSize" class="xPickerViewUnitText">{{_unitsName}}</x-text>
+			</view>
+		</template>
+		<view class="xPickerBg" :style="{height:'250px'}">
+			<view class="xPickerCurrentBg" :style="{
+				top:'100px',
+				height:'50px',
+				backgroundColor:'rgba(125,125,125,0.1)',
+				borderRadius:'0'
+			}"></view>
+			<view class="xPickerViewList" v-if="columnData.length > 0" 
+			:style="{pointerEvents:!isCanChange?'none':'auto'}"
+			>
+				<picker-view
+					class="picker-view"
+					:style="{height:'250px'}"
+					:value="tempPickerValue"
+					@change="onPickerChange"
+					:mask-style="_maskStyle"
+					indicator-class="indicatorClass"
+					indicator-style="height:50px;border-none;"
+					:mask-top-style="_maskStyle"
+					:mask-bottom-style="_maskStyle"
+				>
+					<picker-view-column
+					
+						v-for="(column, columnIndex) in columnData"
+						:key="columnIndex"
+					>
+						<view
+							
+							class="picker-item"
+							v-for="(item, itemIndex) in column"
+							:key="itemIndex"
+						>
+							<text 
+							:class="['picker-item-text', pickerValue[columnIndex] === itemIndex ? 'picker-item-active' : '']"
+							:style="{
+								fontSize:_fontSize,
+								color:_isDark?'#fff':'#000'
+							}"
+							>
+								{{item.title}}
+							</text>
+						</view>
+					</picker-view-column>
+				</picker-view>
+			</view>
+		</view>
+	</view>
+</template>
+<style>
+	.indicatorClass::before,.indicatorClass::after{
+		border: none;
+	}
+	.picker-view {
+		width: 100%;
+		height: 250px;
+	}
+
+	.picker-item {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.picker-item-text {
+		/* color: #333; */
+		height: 50px;
+		line-height: 50px;
+		text-align: center;
+		opacity: 0.6;
+	}
+
+	.picker-item-active {
+		/* color: #000; */
+		font-weight: bold;
+		opacity: 1;
+	}
+
+	.xPickerBg {
+		position: relative;
+	}
+
+	.xPickerCurrentBg {
+		position: absolute;
+		left: 0;
+		top: 0;
+		width: 100%;
+		z-index: 4;
+		left: 0;
+	}
+
+	.xPickerViewList {
+		display: flex;
+		flex-direction: row;
+		height: 100%;
+		position: absolute;
+		left: 0;
+		top: 0;
+		width: 100%;
+		z-index: 5;
+	}
+
+	.xPickerViewUnit {
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+		padding: 8px;
+	}
+
+	.xPickerViewUnitText {
+		font-size: 12px;
+		color: #888;
+		font-weight: bold;
+	}
+
+	.xPickerViewWrapCoumnText {
+		margin: 0 6px;
+		width: 100%;
+		text-align: center;
+		/* lines: 2; */
+		/* #ifdef WEB */
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		-webkit-box-orient: vertical;
+		text-overflow: ellipsis;
+		overflow: hidden;
+		word-break: break-all;
+		/* #endif */
+	}
+
+	.xPickerView {
+		/* display: flex;
+		flex-direction: row; */
+	}
+
+	.xPickerViewWrap {
+		position: relative;
+	}
+
+	.xPickerContent {
+		position: absolute;
+		left: 0;
+		top: 0;
+		width: 100%;
+		z-index: 5;
+	}
+
+	.xPickerMasker {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: center;
+		pointer-events: none;
+		height: 100%;
+		width: 100%;
+		top: 0px;
+		left: 0px;
+		position: absolute;
+	}
+
+	.xPickErBar {
+		background-color: #f5f5f5;
+		border-radius: 10px;
+		margin: 0 3px;
+		flex: 1;
+
+	}
+
+	.xPickerContent {
+		transition-duration: 350ms;
+		transition-property: left, right, top, bottom;
+		transition-timing-function: cubic-bezier(0, 0.55, 0.45, 1);
+	}
+
+	.xPickerViewWrapCoumn {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		align-items: center;
+		/* background-color: #f5f5f5; */
+	}
+</style>

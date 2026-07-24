@@ -1,0 +1,406 @@
+﻿<script lang="ts" setup>
+	import { ref, computed, inject, watch, onMounted, onBeforeUnmount, getCurrentInstance } from "vue"
+	import { getUid } from "../../core/util/xCoreUtil.uts"
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { checkIsCssUnit } from "../../core/util/xCoreUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	import { FORM_RULE, FORM_SUBMIT_OBJECT } from "../../interface.uts"
+	import { FORM_ITEM } from "../x-form/interface.uts"
+	import { formVaild } from "../x-form/util.uts"
+
+	/**
+	 * @name 表单子组件 xFormItem
+	 * @description 从1.1.2开始允许非xform直接子节点了,也就是在xform可以嵌套view进行form-item布局了,但建议不要嵌套太深,影响性能.
+	 * 1.1.17开始支持嵌套对象字段，key必须/分割如'user/id'，sdk不支持以.分割符。
+	 * @page /pages/index/form
+	 * @category 表单组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({ name: "xFormItem" })
+
+	type xFormItemPropsType = {
+		/** 表单名称 */
+		label : string,
+		/** 是否显示标题 */
+		showLabel : boolean,
+		/** 校验的字段名称，字段名称一定要存在于form表单数据中。否则报错。 */
+		field : string,
+		/** 是否是必填项。设置了此值，才会执行校验。 */
+		required : boolean,
+		/** 是否显示校验必填项前面的红*符号 */
+		showRequired : boolean,
+		/** 校验规则对象 */
+		rule : FORM_RULE[],
+		/** 标签宽（横向表单时有效），默认空值取父form统一的设置。 */
+		labelWidth : string,
+		/** 默认空值取父form统一的设置。vertical|horizontal */
+		labelDirection : string,
+		/** 默认空值取父form统一的设置。标签的文本颜色 */
+		labelFontColor : string,
+		/** 默认空值取父form统一的设置。标签的文本大小 */
+		labelFontSize : string,
+		/** 标签标题对齐方式 left,right,center */
+		labelAlign : string,
+		/** 是否显示底部边框 */
+		showBottomBorder : boolean,
+		/** 排版布局上和下的间隙。[上,下] */
+		cellPadding : string[],
+		/** 排版布局上和下的间隙。[上,下]，竖向时才生效 */
+		labelPadding : string[],
+		/** 校验时，是否显示下边的出错信息 */
+		showError : boolean,
+		/** 默认区域内的自定样式 */
+		contentStyle : string,
+	}
+
+	const props = withDefaults(defineProps<xFormItemPropsType>(), {
+		label: "",
+		showLabel: true,
+		field: "",
+		required: false,
+		showRequired: true,
+		rule: () : FORM_RULE[] => [] as FORM_RULE[],
+		labelWidth: "",
+		labelDirection: "",
+		labelFontColor: "",
+		labelFontSize: "",
+		labelAlign: "left",
+		showBottomBorder: true,
+		cellPadding: () : string[] => ['10', '10'] as string[],
+		labelPadding: () : string[] => ['12', '12'] as string[],
+		showError: true,
+		contentStyle: "",
+	})
+
+	const instance = getCurrentInstance()
+
+	const id = ("xFormItem-" + getUid()) as string
+	const errorText = ref<string>("请正确填写")
+	const isError = ref<boolean>(false)
+	const first = ref<boolean>(true)
+	let tid = 0
+
+	const XFORMITEM_TOP = inject<number>('XFORMITEM_TOP', 0)
+	const XFORMITEM_LABEL_WIDTH = inject<string>('XFORMITEM_LABEL_WIDTH', '100')
+	const XFORMITEM_LABEL_Direction = inject<string>('XFORMITEM_LABEL_Direction', 'horizontal')
+	const XFORMITEM_LABEL_FontColor = inject<string>('XFORMITEM_LABEL_FontColor', '#333333')
+	const XFORMITEM_LABEL_SCROLL = inject<boolean>('XFORMITEM_LABEL_SCROLL', true)
+	const XFORMITEM_LABEL_FontSize = inject<string>('XFORMITEM_LABEL_FontSize', '16')
+	const XFORMITEM_SHOWLABEL = inject<boolean>('XFORMITEM_SHOWLABEL', true)
+	const XFORMITEM_ERROR_ALIGN = inject<string>('XFORMITEM_ERROR_ALIGN', 'right')
+
+	const _cellPadding = computed(() : string[] => {
+		let mb = checkIsCssUnit(props.cellPadding[0], xConfig.unit)
+		let pb = checkIsCssUnit(props.cellPadding[1], xConfig.unit)
+		return [mb, pb]
+	})
+
+	const _labelPadding = computed(() : string[] => {
+		let mb = checkIsCssUnit(props.labelPadding[0], xConfig.unit)
+		let pb = checkIsCssUnit(props.labelPadding[1], xConfig.unit)
+		return [mb, pb]
+	})
+
+	const _labelWidth = computed(() : string => {
+		if (props.labelWidth != "") return checkIsCssUnit(props.labelWidth, xConfig.unit)
+		return checkIsCssUnit(XFORMITEM_LABEL_WIDTH, xConfig.unit)
+	})
+
+	const _labelFontSize = computed(() : string => {
+		let labelsize = checkIsCssUnit(XFORMITEM_LABEL_FontSize, xConfig.unit)
+		if (props.labelFontSize != "") {
+			labelsize = checkIsCssUnit(props.labelFontSize, xConfig.unit)
+		}
+		return labelsize
+	})
+
+	const _labelDirection = computed(() : string => {
+		if (props.labelDirection != "") return props.labelDirection
+		return XFORMITEM_LABEL_Direction
+	})
+
+	const _labelFontColor = computed(() : string => {
+		if (props.labelFontColor != "") return getDefaultColor(props.labelFontColor)
+		return getDefaultColor(XFORMITEM_LABEL_FontColor)
+	})
+
+	const _labelFontDarkColor = computed(() : string => {
+		if (xConfig.dark == 'dark' && props.labelFontColor == '') return ''
+		if (props.labelFontColor != "") return getDefaultColor(props.labelFontColor)
+		return getDefaultColor(XFORMITEM_LABEL_FontColor)
+	})
+
+	const _showLabel = computed(() : boolean => {
+		if (!props.showLabel) return false
+		return XFORMITEM_SHOWLABEL
+	})
+
+	const _errorFontsize = computed(() : string => {
+		return (xConfig.fontScale * 14).toString() + 'px'
+	})
+
+	const _bordrBottomSolid = computed(() : string => {
+		if (!props.showBottomBorder) return "border-bottom:none";
+		let lightSolid = "border-bottom: 1px solid #f5f5f5";
+		let darkSolid = `border-bottom: 1px solid ${xConfig.borderDarkColor}`
+		return xConfig.dark == 'dark' ? darkSolid : lightSolid
+	})
+
+	const _labelAlign = computed(() : string => {
+		let dq = 'flex-start'
+		if (props.labelAlign == 'right') {
+			dq = 'flex-end'
+		} else if (props.labelAlign == 'center') {
+			dq = 'center'
+		}
+		return dq;
+	})
+
+	function findParent(parent : VueComponent | null) : VueComponent | null {
+		if (parent == null) return null;
+		// #ifdef WEB||APP-IOS|| MP-WEIXIN||APP-HARMONY
+		if ((parent.$parent?.id?.indexOf('xFormParent') ?? -1) > -1) return parent.$parent;
+		// #endif
+		// #ifdef APP-ANDROID
+		if (parent.$parent instanceof XFormComponentPublicInstance) return parent.$parent;
+		// #endif
+		let parents = findParent(parent.$parent)
+		// #ifdef WEB||APP-IOS || MP-WEIXIN||APP-HARMONY
+		if ((parents?.id?.indexOf('xFormParent') ?? -1) > -1) return parents;
+		// #endif
+		// #ifdef APP-ANDROID
+		if (parents instanceof XFormComponentPublicInstance) return parents;
+		// #endif
+		return null;
+	}
+
+	function pushDataToParent() {
+		let pelement = findParent(instance!.proxy);
+		if (pelement == null) return;
+		// @ts-ignore
+		let parent : XFormComponentPublicInstance = pelement as XFormComponentPublicInstance;
+		parent.pushAdd({
+			id: id,
+			ele: instance!.proxy as XFormItemComponentPublicInstance,
+			top: 0,
+			name: props.field,
+		} as FORM_ITEM)
+
+		uni.createSelectorQuery().in(instance!.proxy)
+			.select(".xFormItem")
+			.boundingClientRect().exec((ret) => {
+				if (ret.length == 0) return;
+				let nodeinfo = ret[0] as NodeInfo
+				if (nodeinfo == null) return;
+				parent.pushAdd({
+					id: id,
+					ele: instance!.proxy as XFormItemComponentPublicInstance,
+					top: nodeinfo.top!,
+					name: props.field,
+				} as FORM_ITEM)
+			})
+	}
+
+	function removeSelf() {
+		let pelement = findParent(instance!.proxy);
+		if (pelement == null) return;
+		// @ts-ignore
+		let parent : XFormComponentPublicInstance = pelement as XFormComponentPublicInstance;
+		parent.delItem(id)
+	}
+
+	function getParentRules() : FORM_RULE[] {
+		let pelement = findParent(instance!.proxy);
+		if (pelement == null) return [] as FORM_RULE[];
+		// @ts-ignore
+		let parent : XFormComponentPublicInstance = pelement as XFormComponentPublicInstance;
+		return parent.getRules(props.field) as FORM_RULE[]
+	}
+
+	function vaildCompele(val : any | null, isSkipBlur : boolean | null = true) : FORM_SUBMIT_OBJECT {
+		first.value = false;
+
+		if (!props.required) {
+			return {
+				valid: true,
+				key: props.field,
+				value: val,
+				errorMessage: ""
+			} as FORM_SUBMIT_OBJECT;
+		}
+		const rulesList = [...props.rule, ...getParentRules()] as FORM_RULE[]
+
+		if (rulesList.length == 0 && props.required) {
+			let isSuccess = formVaild(val, {} as FORM_RULE)
+			isError.value = !isSuccess
+
+			return {
+				valid: isSuccess,
+				key: props.field,
+				value: val,
+				errorMessage: isSuccess ? "" : '请正确填写/选择'
+			} as FORM_SUBMIT_OBJECT;
+		}
+		let isSuccess = true;
+		for (let i = 0; i < rulesList.length; i++) {
+			let item = rulesList[i]
+			if (item.trigger == 'blur' && isSkipBlur == true) continue;
+			isSuccess = formVaild(val, item)
+			isError.value = !isSuccess
+
+			if (!isSuccess) {
+				if (item.errorMessage != "" && typeof item.errorMessage == 'string') {
+					errorText.value = item.errorMessage! as string
+				} else {
+					errorText.value = '请正确填写/选择'
+				}
+				break;
+			}
+		}
+
+		return {
+			valid: isSuccess,
+			key: props.field,
+			value: val,
+			errorMessage: isSuccess ? "" : errorText.value
+		} as FORM_SUBMIT_OBJECT;
+	}
+
+	function clearValid() {
+		isError.value = false;
+		first.value = true;
+	}
+
+	function getVaildStatus(val : any | null) : FORM_SUBMIT_OBJECT {
+		if (!props.required) {
+			return {
+				valid: true,
+				key: props.field,
+				value: val,
+				errorMessage: ""
+			} as FORM_SUBMIT_OBJECT;
+		}
+		const rulesList = [...props.rule, ...getParentRules()] as FORM_RULE[]
+		if (rulesList.length == 0 && props.required) {
+			let isSuccess = formVaild(val, {} as FORM_RULE)
+			return {
+				valid: isSuccess,
+				key: props.field,
+				value: val,
+				errorMessage: isSuccess ? "" : '请正确填写/选择'
+			} as FORM_SUBMIT_OBJECT;
+		}
+		let isSuccess = true;
+		let errotips = ''
+		for (let i = 0; i < rulesList.length; i++) {
+			let item = rulesList[i]
+			isSuccess = formVaild(val, item)
+			if (!isSuccess) {
+				if (item.errorMessage != "" && typeof item.errorMessage == 'string') {
+					errotips = item.errorMessage! as string
+				} else {
+					errotips = '请正确填写/选择'
+				}
+				break;
+			}
+		}
+		return {
+			valid: isSuccess,
+			key: props.field,
+			value: val,
+			errorMessage: isSuccess ? "" : errotips
+		} as FORM_SUBMIT_OBJECT;
+	}
+
+	function validByblur(value : any) {
+		vaildCompele(value, false)
+	}
+
+	watch(() : string => props.field, () => {
+		pushDataToParent();
+	})
+
+	onMounted(() => {
+		pushDataToParent();
+	})
+
+	onBeforeUnmount(() => {
+		removeSelf();
+		clearTimeout(tid);
+	})
+
+	defineExpose({
+		vaildCompele,
+		getVaildStatus,
+		clearValid,
+		validByblur,
+	})
+</script>
+<template>
+	<view class="xFormItem" ref="xFormItem" :style="[
+			_bordrBottomSolid,
+			{
+				paddingTop: _cellPadding[0],
+				paddingBottom: _cellPadding[1]
+			}
+		]">
+		<view class="xFormIitemWrap" :style="{flexDirection:_labelDirection=='horizontal'?'row':'column'}">
+			<view v-if="_showLabel" class="xFormIteLabel" :style="{
+				width:_labelDirection=='horizontal'?_labelWidth:'auto',
+				paddingBottom:_labelDirection=='horizontal'?'0':_labelPadding[1],
+				paddingTop:_labelDirection=='horizontal'?'0':_labelPadding[0],
+				'justify-content': _labelAlign
+				}">
+				<!-- 
+				 @slot 标题
+				 -->
+				<slot name="label">
+					<text v-if="showRequired&&required"
+						:style="{fontSize:_labelFontSize,color:'red',paddingRight:'8rpx'}">*</text>
+					<x-text v-if="label" :fontSize="_labelFontSize" :color="_labelFontColor" :darkColor="_labelFontDarkColor">
+						{{label}}
+					</x-text>
+				</slot>
+			</view>
+			<view class="xFormIteContent" :style="[{flex:_labelDirection=='horizontal'?'1':'auto'},contentStyle]">
+				<!-- 
+				 @slot 默认内容区域
+				 -->
+				<slot></slot>
+			</view>
+		</view>
+		<view v-if="isError&&!first&&required&&showError" class="xFormItemError">
+			<!-- 
+			 @slot 出错提示的插槽
+			 -->
+			<slot name="error">
+				<text class="xFormItemErrorText" :style="{fontSize:_errorFontsize,textAlign:XFORMITEM_ERROR_ALIGN}">{{errorText}}</text>
+			</slot>
+		</view>
+	</view>
+</template>
+<style scoped>
+	.xFormIteLabel {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+	}
+
+	.xFormItem {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.xFormItemErrorText {
+		color: red;
+		padding-top: 5px;
+		display: flex;
+
+	}
+	.xFormIitemWrap{
+		display: flex;
+	}
+</style>

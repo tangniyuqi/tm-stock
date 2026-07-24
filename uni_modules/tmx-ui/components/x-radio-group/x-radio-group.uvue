@@ -1,0 +1,154 @@
+<script lang="ts" setup>
+	import { ref, computed, watch, onMounted, provide } from "vue"
+	import { RADIO_ITEM_INFO } from '../../interface.uts';
+
+	type XRADIO_LISTITEM_TYPE = {
+		id : string,
+		data : RADIO_ITEM_INFO
+	}
+
+	/**
+	 * @name 单选框组 xRadioGroup
+	 * @description 使用时,从1.1.2开始允许是非直接xRadio子节点布局,但考虑到性能建议是直接子节点.
+	 * @page /pages/index/radio
+	 * @category 表单组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({name:"xRadioGroup"})
+
+	export type xRadioGroupPropsType = {
+		/**
+		 * 当前选中的值。null表示未选中。
+		 */
+		modelValue: string|number|boolean,
+		/**
+		 * 对齐方式
+		 */
+		direction: "row" | "column"
+	}
+
+	const props = withDefaults(defineProps<xRadioGroupPropsType>(), {
+		modelValue: "",
+		direction: "row"
+	})
+
+	const emits = defineEmits([
+		/**
+		 * 选项变化时触发。
+		 * @param {string|number|boolean} val - 当前选中的值
+		 */
+		'change', 
+		'update:modelValue'
+	])
+
+	// 响应式数据
+	const oldvalueList = ref<XRADIO_LISTITEM_TYPE[]>([])
+	const checkvaluelist = ref<string|number|boolean>("")
+
+	// 方法
+	
+	function clearAll() {
+		oldvalueList.value.forEach((item : XRADIO_LISTITEM_TYPE) => {
+			item.data.nowvalue = item.data.unvalue
+		})
+	}
+	
+	function addItem(item : RADIO_ITEM_INFO, ischange : boolean) {
+		let index = oldvalueList.value.findIndex((el : XRADIO_LISTITEM_TYPE) : boolean => el.id == item.id);
+		let nowitem = item
+		clearAll();
+		
+		if (!ischange) {
+			if (checkvaluelist.value == item.value && item.nowvalue != item.value) {
+				nowitem.nowvalue = nowitem.value;
+			} else {
+				nowitem.nowvalue = nowitem.unvalue;
+			}
+		}
+
+		if (index > -1) {
+			oldvalueList.value.splice(index, 1, {
+				id: nowitem.id,
+				data: nowitem
+			} as XRADIO_LISTITEM_TYPE)
+
+		} else {
+			oldvalueList.value.push({
+				id: nowitem.id,
+				data: nowitem
+			} as XRADIO_LISTITEM_TYPE)
+		}
+
+		if (ischange) {
+			let fl = oldvalueList.value.filter((el : XRADIO_LISTITEM_TYPE) : boolean => el.data.nowvalue == el.data.value)
+			checkvaluelist.value = fl.length == 1 ? fl[0].data.value : ""
+			/**
+			 * 等同v-model=""
+			 */
+			emits("update:modelValue", checkvaluelist.value)
+			/**
+			 * 选项变化时触发。
+			 * @param val {string} 当前选中的值,null表示未选中
+			 */
+			emits("change", checkvaluelist.value)
+		}
+	}
+
+	//当前选中的值
+	function setOldCheckboxValue() {
+		oldvalueList.value.forEach((item : XRADIO_LISTITEM_TYPE) => {
+			
+			if (checkvaluelist.value == item.data.value) {
+				item.data.nowvalue = item.data.value
+				
+			} else {
+				item.data.nowvalue = item.data.unvalue
+			}
+		})
+	}
+
+	
+
+
+	function getAllSelecteds(): string|number|boolean {
+		return checkvaluelist.value
+	}
+
+	// 监听器
+	watch((): string|number|boolean => props.modelValue, (newValue : string|number|boolean) => {
+		if (newValue != checkvaluelist.value) {
+			checkvaluelist.value = newValue
+			setOldCheckboxValue();
+		}
+	})
+
+	// 生命周期
+	onMounted(() => {
+		checkvaluelist.value = props.modelValue;
+	})
+	provide('xRadioModelvalue',computed(():string|number|boolean => props.modelValue))
+	
+	defineExpose({
+		/** 添加单选项 **/
+		addItem,
+		/** 获取所有选中的值 **/
+		getAllSelecteds
+	})
+</script>
+<template>
+	<view class="xRadioGroup" :style="{'flex-direction':direction}">
+		<!-- 
+		@slot 从1.1.2开始允许是非直接xRadioGroup子节点布局,但考虑到性能建议是直接子节点.
+		-->
+		<slot></slot>
+	</view>
+</template>
+<style>
+	.xRadioGroup {
+		display: flex;
+		flex-wrap: wrap;
+	}
+</style>

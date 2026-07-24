@@ -1,0 +1,429 @@
+import { Shape } from '../shape.uts';
+import { ICanvas } from '@/uni_modules/tmx-ui/core/canvas/ICanvas.uts';
+import { Tween, EasingFunction,Easing } from '../animation/tween.uts';
+
+// 物理属性接口
+export type PhysicsPropertiesOpartl =  {
+    // 重力加速度 (像素/秒²)
+    gravity?: number;
+    // 阻力系数 (0-1)
+    friction?: number;
+    // 质量 (影响惯性)
+    mass?: number;
+    // 弹性系数 (0-1, 碰撞反弹)
+    restitution?: number;
+    // 是否启用重力
+    enableGravity?: boolean;
+    // 是否启用阻力
+    enableFriction?: boolean;
+    // 是否启用边界碰撞
+    enableBoundaryCollision?: boolean;
+    // 最大速度限制
+    maxVelocity?: number;
+}
+
+// 物理属性接口
+export type PhysicsProperties = {
+    // 重力加速度 (像素/秒²)
+    gravity: number;
+    // 阻力系数 (0-1)
+    friction: number;
+    // 质量 (影响惯性)
+    mass: number;
+    // 弹性系数 (0-1, 碰撞反弹)
+    restitution: number;
+    // 是否启用重力
+    enableGravity: boolean;
+    // 是否启用阻力
+    enableFriction: boolean;
+    // 是否启用边界碰撞
+    enableBoundaryCollision: boolean;
+    // 最大速度限制
+    maxVelocity: number;
+}
+
+// 速度向量
+export type Velocity =  {
+    x: number;
+    y: number;
+}
+
+// 力向量
+export type Force = {
+    x: number;
+    y: number;
+}
+export type Boundary = {
+        left: number;
+        right: number;
+        top: number;
+        bottom: number;
+    }
+// 重力插件类
+export class GravityPlugin {
+    private shape: Shape;
+    private canvas: ICanvas;
+    private physics: PhysicsProperties;
+    private velocity: Velocity;
+    private forces: Force[];
+    private isActive: boolean = false;
+    private _tickId: number = -1;
+    private lastTime: number = 0;
+    private deltaTime: number = 0;
+    
+    // 边界检测
+    private boundary: Boundary;
+
+    constructor(shape: Shape, canvas: ICanvas, physics?: PhysicsPropertiesOpartl) {
+        this.shape = shape;
+        this.canvas = canvas;
+        
+        // 默认物理属性
+        this.physics = {
+            gravity: physics?.gravity ?? 980, // 默认重力加速度 (像素/秒²)
+            friction: physics?.friction ??0.98, // 默认阻力系数
+            mass: physics?.mass ??1, // 默认质量
+            restitution: physics?.restitution ??0.8, // 默认弹性系数
+            enableGravity: physics?.enableGravity ??true,
+            enableFriction: physics?.enableFriction ??true,
+            enableBoundaryCollision: physics?.enableBoundaryCollision ??true,
+            maxVelocity: physics?.maxVelocity ??1000 // 最大速度限制
+        };
+       
+        
+        // 初始化速度
+        this.velocity = { x: 0, y: 0 };
+        this.forces = [] as Force[];
+        
+        // 设置边界
+        this.boundary = {
+            left: 0,
+            right: canvas.width,
+            top: 0,
+            bottom: canvas.height
+        } as Boundary;
+    }
+
+    /**
+     * 设置物理属性
+     */
+    setPhysics(physics: PhysicsPropertiesOpartl): GravityPlugin {
+        this.physics = {
+            gravity: physics?.gravity ?? this.physics.gravity, // 默认重力加速度 (像素/秒²)
+            friction: physics?.friction ??this.physics.friction, // 默认阻力系数
+            mass: physics?.mass ??this.physics.mass, // 默认质量
+            restitution: physics?.restitution ??this.physics.restitution, // 默认弹性系数
+            enableGravity: physics?.enableGravity ??this.physics.enableGravity,
+            enableFriction: physics?.enableFriction ??this.physics.enableFriction,
+            enableBoundaryCollision: physics?.enableBoundaryCollision ??this.physics.enableBoundaryCollision,
+            maxVelocity: physics?.maxVelocity ??this.physics.maxVelocity // 最大速度限制
+        };
+        return this;
+    }
+
+    /**
+     * 设置初始速度
+     */
+    setVelocity(x: number, y: number): GravityPlugin {
+        this.velocity.x = x;
+        this.velocity.y = y;
+        return this;
+    }
+
+    /**
+     * 添加力
+     */
+    addForce(force: Force): GravityPlugin {
+        this.forces.push(force);
+        return this;
+    }
+
+    /**
+     * 清除所有力
+     */
+    clearForces(): GravityPlugin {
+        this.forces = [] as Force[];
+        return this;
+    }
+
+    /**
+     * 设置边界
+     */
+    setBoundary(left: number, right: number, top: number, bottom: number): GravityPlugin {
+        this.boundary = { left, right, top, bottom } as Boundary;
+        return this;
+    }
+
+    /**
+     * 启动重力系统
+     */
+    start(): GravityPlugin {
+        if (this.isActive) return this;
+        
+        this.isActive = true;
+        this.lastTime = Date.now();
+		if (this._tickId < 0) {
+			const _this = this;
+			this._tickId = this.canvas.registerTick((_time : number) : boolean => {
+				return _this._tick();
+			});
+		}
+        return this;
+    }
+
+    /**
+     * 停止重力系统
+     */
+    stop(): GravityPlugin {
+        this.isActive = false;
+		if (this._tickId >= 0) {
+			this.canvas.unregisterTick(this._tickId);
+			this._tickId = -1;
+		}
+        return this;
+    }
+
+    /**
+     * 重置到初始状态
+     */
+    reset(): GravityPlugin {
+        this.velocity = { x: 0, y: 0 };
+        this.forces = [];
+        this.stop();
+        return this;
+    }
+
+    /**
+     * 应用初始动力（根据目标位置计算初始速度）
+     */
+    applyImpulse(targetX: number, targetY: number, duration: number = 1): GravityPlugin {
+        const currentX = this.shape.x;
+        const currentY = this.shape.y;
+        
+        // 计算需要的初始速度
+        const deltaX = targetX - currentX;
+        const deltaY = targetY - currentY;
+        
+        // 考虑重力影响，计算初始速度
+        const gravityEffect = this.physics.gravity * duration * duration / 2;
+        const initialVelocityX = deltaX / duration;
+        const initialVelocityY = (deltaY - gravityEffect) / duration;
+        
+        this.setVelocity(initialVelocityX, initialVelocityY);
+        return this;
+    }
+
+
+    private _tick() : boolean {
+        if (!this.isActive) {
+			this._tickId = -1;
+			return false;
+		}
+        
+        const currentTime = Date.now();
+        this.deltaTime = (currentTime - this.lastTime) / 1000;
+        this.lastTime = currentTime;
+        
+        if (this.physics.enableGravity) {
+            this.velocity.y += this.physics.gravity * this.deltaTime;
+        }
+        
+        this.forces.forEach(force => {
+            this.velocity.x += (force.x / this.physics.mass) * this.deltaTime;
+            this.velocity.y += (force.y / this.physics.mass) * this.deltaTime;
+        });
+        
+        if (this.physics.enableFriction) {
+            this.velocity.x *= this.physics.friction;
+            this.velocity.y *= this.physics.friction;
+        }
+        
+        const speed = Math.sqrt(this.velocity.x * this.velocity.x + this.velocity.y * this.velocity.y);
+        if (speed > this.physics.maxVelocity) {
+            const ratio = this.physics.maxVelocity / speed;
+            this.velocity.x *= ratio;
+            this.velocity.y *= ratio;
+        }
+        
+        const newX = this.shape.x + this.velocity.x * this.deltaTime;
+        const newY = this.shape.y + this.velocity.y * this.deltaTime;
+        
+        if (this.physics.enableBoundaryCollision) {
+            this.handleBoundaryCollision(newX, newY);
+        } else {
+            this.shape.setX(newX).setY(newY);
+        }
+        
+        const minVelocity = 0.1;
+        if (Math.abs(this.velocity.x) < minVelocity && Math.abs(this.velocity.y) < minVelocity) {
+            this.velocity.x = 0;
+            this.velocity.y = 0;
+        }
+        
+        this.shape.needsUpdate = true;
+		return true;
+    }
+
+    /**
+     * 处理边界碰撞
+     */
+    private handleBoundaryCollision(newX: number, newY: number): void {
+        let finalX = newX;
+        let finalY = newY;
+        let bounced = false;
+        
+        // 左右边界
+        if (newX <= this.boundary.left) {
+            finalX = this.boundary.left;
+            this.velocity.x = -this.velocity.x * this.physics.restitution;
+            bounced = true;
+        } else if (newX + this.shape.width >= this.boundary.right) {
+            finalX = this.boundary.right - this.shape.width;
+            this.velocity.x = -this.velocity.x * this.physics.restitution;
+            bounced = true;
+        }
+        
+        // 上下边界
+        if (newY <= this.boundary.top) {
+            finalY = this.boundary.top;
+            this.velocity.y = -this.velocity.y * this.physics.restitution;
+            bounced = true;
+        } else if (newY + this.shape.height >= this.boundary.bottom) {
+            finalY = this.boundary.bottom - this.shape.height;
+            this.velocity.y = -this.velocity.y * this.physics.restitution;
+            bounced = true;
+        }
+        
+        this.shape.setX(finalX).setY(finalY);
+        
+        // 如果发生碰撞，可以触发回调
+        if (bounced) {
+            this.onBoundaryCollision();
+        }
+    }
+
+    /**
+     * 边界碰撞回调（可重写）
+     */
+    protected onBoundaryCollision(): void {
+        // 子类可以重写此方法
+    }
+
+    /**
+     * 获取当前速度
+     */
+    getVelocity(): Velocity {
+        return { ...this.velocity };
+    }
+
+    /**
+     * 获取当前物理属性
+     */
+    getPhysics(): PhysicsProperties {
+        return { ...this.physics };
+    }
+
+    /**
+     * 检查是否正在运行
+     */
+    isRunning(): boolean {
+        return this.isActive;
+    }
+
+    /**
+     * 销毁插件
+     */
+    destroy(): void {
+        this.stop();
+        this.forces = [];
+        this.velocity = { x: 0, y: 0 };
+		
+		this.canvas.removeShape(this.shape)
+    }
+}
+
+// 重力管理器 - 管理多个重力对象
+export class GravityManager {
+    private plugins: Map<string, GravityPlugin> = new Map();
+    private canvas: ICanvas;
+
+    constructor(canvas: ICanvas) {
+        this.canvas = canvas;
+    }
+
+    /**
+     * 添加重力插件
+     */
+    addGravity(shape: Shape, physics?: PhysicsPropertiesOpartl): GravityPlugin {
+        const plugin = new GravityPlugin(shape, this.canvas, physics);
+        this.plugins.set(shape.id, plugin);
+        return plugin;
+    }
+
+    /**
+     * 移除重力插件
+     */
+    removeGravity(shapeId: string): void {
+        const plugin = this.plugins.get(shapeId);
+        if (plugin !=null) {
+            plugin.destroy();
+            this.plugins.delete(shapeId);
+        }
+    }
+
+    /**
+     * 获取重力插件
+     */
+    getGravity(shapeId: string): GravityPlugin | null {
+        return this.plugins.get(shapeId);
+    }
+
+    /**
+     * 启动所有重力
+     */
+    startAll(): void {
+        this.plugins.forEach((plugin:GravityPlugin) => {
+			plugin.start()
+		});
+    }
+
+    /**
+     * 停止所有重力
+     */
+    stopAll(): void {
+		this.plugins.forEach((plugin:GravityPlugin) => {
+			plugin.stop()
+		});
+    }
+
+    /**
+     * 清除所有重力
+     */
+    clearAll(): void {
+		this.plugins.forEach((plugin:GravityPlugin) => {
+			plugin.destroy()
+		});
+        this.plugins.clear();
+    }
+
+    /**
+     * 获取所有重力插件
+     */
+    getAllGravities(): GravityPlugin[] {
+		let plugs:GravityPlugin[] = []
+		this.plugins.forEach((el:GravityPlugin) => {
+			plugs.push(el)
+		})
+        return plugs;
+    }
+}
+
+// 便捷函数：为Shape添加重力
+export function addGravityToShape(shape: Shape, canvas: ICanvas, physics?: PhysicsPropertiesOpartl): GravityPlugin {
+    return new GravityPlugin(shape, canvas, physics);
+}
+
+// 便捷函数：创建重力管理器
+export function createGravityManager(canvas: ICanvas): GravityManager {
+    return new GravityManager(canvas);
+}

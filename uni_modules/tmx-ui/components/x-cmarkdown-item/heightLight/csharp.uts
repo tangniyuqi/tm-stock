@@ -1,0 +1,42 @@
+import { HighlightConfig } from "../heightlight.uts"
+
+export function getCSharpConfig(): HighlightConfig {
+	const config = new HighlightConfig()
+	
+	// C# 关键字
+	config.keywords = [
+		'abstract', 'as', 'base', 'bool', 'break', 'byte', 'case', 'catch',
+		'char', 'checked', 'class', 'const', 'continue', 'decimal', 'default',
+		'delegate', 'do', 'double', 'else', 'enum', 'event', 'explicit',
+		'extern', 'false', 'finally', 'fixed', 'float', 'for', 'foreach',
+		'goto', 'if', 'implicit', 'in', 'int', 'interface', 'internal', 'is',
+		'lock', 'long', 'namespace', 'new', 'null', 'object', 'operator',
+		'out', 'override', 'params', 'private', 'protected', 'public',
+		'readonly', 'ref', 'return', 'sbyte', 'sealed', 'short', 'sizeof',
+		'stackalloc', 'static', 'string', 'struct', 'switch', 'this', 'throw',
+		'true', 'try', 'typeof', 'uint', 'ulong', 'unchecked', 'unsafe',
+		'ushort', 'using', 'virtual', 'void', 'volatile', 'while',
+		'async', 'await', 'var', 'dynamic', 'yield', 'when', 'where'
+	]
+	
+	// C# 内置对象
+	config.builtins = [
+		'String', 'Int32', 'Int64', 'Double', 'Float', 'Boolean', 'Char',
+		'Byte', 'Object', 'Type', 'Console', 'Math', 'Array', 'List',
+		'Dictionary', 'HashSet', 'Queue', 'Stack', 'Task', 'Thread',
+		'Exception', 'DateTime', 'TimeSpan', 'Guid', 'StringBuilder',
+		'Stream', 'File', 'Directory', 'Path', 'Regex', 'Convert',
+		'IEnumerable', 'ICollection', 'IList', 'IDictionary', 'IDisposable'
+	]
+	
+	// C# 操作符
+	config.operators = [
+		'+', '-', '*', '/', '%', '=', '==', '!=', '<', '>', '<=', '>=',
+		'&&', '||', '!', '&', '|', '^', '~', '<<', '>>',
+		'++', '--', '+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=',
+		'<<=', '>>=', '?', ':', '??', '?.', '=>', '::'
+	]
+	
+	return config
+}
+

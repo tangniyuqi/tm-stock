@@ -1,0 +1,680 @@
+<script lang="ts" setup>
+	import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick, getCurrentInstance } from "vue"
+	import { xConfig } from "../../config/xConfig.uts"
+	import { xFileSystem, xFileSListType } from "@/uni_modules/x-file-s"
+
+	export type XFILESUPLOAD_BEFORE_CALLBACK = (list : xFileSListType[]) => Promise<xFileSListType[]>
+
+	
+	const i18n = xConfig.i18n
+	
+	/**
+	 * 
+	 * @name 文件选择 xUploadFile
+	 * @page /pages/index/upload-file
+	 * @category 表单组件
+	 * @description 使用时请注意区别：安卓端和IOS端没有区别。web端是我模拟的格式有点区别，上传文件是File对象。
+	 * 没有提供双向绑定，因为可能的数据格式化比较麻烦，请根据change事件来保存数据,微信端请保证你的小程序隐私政策中勾选了相关权限使用.
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({ name: "xUploadFile" })
+
+	const proxy = getCurrentInstance()?.proxy ?? null
+
+	const emits = defineEmits([
+		/**
+		 * 只有删除和上传完成时才会触发
+		 * 并返回当前的文件列表。
+		 */
+		'change'
+	])
+
+	type xUploadFilePropsType = {
+		/**
+		 * 提供的默认上传的文件列表
+		 * 请确保要有以下三个字段：
+		 * 1.name
+		 * 2.type
+		 * 3.request 你服务器自己构造的成功数据，例：{code,data,msg}
+		 * 小心的是，如果你变动了此值，内部会把默认当前的列表数据清空，直接用此列表替换。这样你在表单加载数据更新编辑时
+		 * 会很有用。
+		 */
+		defaultList : UTSJSONObject[] | null,
+		/**
+		 * 头部数据
+		 */
+		header : UTSJSONObject | null,
+		/**
+		 * 文件上传的字段名称
+		 */
+		name : string,
+		/**
+		 * 表单数据
+		 */
+		formData : UTSJSONObject | null,
+		/**
+		 * 服务器上传地址
+		 */
+		url : string,
+		/**
+		 * 最大上传数量
+		 * -1表示不限制
+		 */
+		maxCount : number,
+		/**
+		 * 是否多选
+		 */
+		multiple : boolean,
+		/**
+		 * 最大文件大小,单位字节
+		 * 超过此大小的文件不会被上传。30*1024*1024
+		 */
+		maxFileSize : number,
+		/**
+		 * 当前是否在上传中
+		 * 请使用v-model:loading来
+		 * 不可更改此值。
+		 */
+		loading : boolean,
+		/**
+		 * 选择文件后自动上传
+		 */
+		autoStart : boolean,
+		/**
+		 * 服务正常返回的状态码如果为此值表示失败。
+		 */
+		statusCode : number,
+		/**
+		 * 禁用上传功能
+		 */
+		disabled : boolean,
+		/**
+		 * 已上传的文件是否禁用删除
+		 * 这个是某些特殊的erp系统中的需求需要。
+		 */
+		uploadFileDisabledDel : boolean,
+		/**
+		 * 文件过滤器,不要动态修改。
+		 * 空数组时为所有文件类型,类型请注意使用如下规范:
+		 * 如:["jpg","docx","doc","webp"]
+		 * 在ios需要14+支持类型过滤，14以下此属性无效,
+		 * web是过滤指定类型.
+		 * 在安卓端事实上系统差异,暂时无法多文件类型过滤,安卓只会取类型文件中的最后一项,如上述只会取webp
+		 * 但在安卓是我映射的类型,因为如果比如我要jpg,gif格式,只取gif肯定不行,因此你写jpg,gif,png其实在
+		 * 安卓端都是同一种类型文件对应image*所有图图片类型,比如你写pdf,zip,josn格式,都是统一为application*
+		 * 因此在安卓它是对应一种文件类的类型不是指代具体的后缀.
+		 */
+		filter : string[],
+		/**
+		 * 底部线条颜色
+		 */
+		borderBottomColor : string,
+		/**
+		 * 上传前执行的函数勾子,如果不会使用见demo
+		 * 类型:(lsit:xFileSListType[]) => Promise<xFileSListType[]>
+		 * 这里可以过滤不需要上传的文件.
+		 */
+		beforeUpload : XFILESUPLOAD_BEFORE_CALLBACK
+	}
+
+	const props = withDefaults(defineProps<xUploadFilePropsType>(), {
+		defaultList: ():UTSJSONObject[]|null =>{
+			return null
+		},
+		header: ():UTSJSONObject|null =>{
+			return null
+		},
+		name: "file",
+		formData: ():UTSJSONObject|null =>{
+			return null
+		},
+		url: "https://mockapi.eolink.com/LRViGGZ8e6c1e8b4a636cd82bca1eb15d2635ed8c74e774/admin/upload_pic/",
+		maxCount: -1,
+		multiple: true,
+		maxFileSize: 30 * 1024 * 1024,
+		loading: true,
+		autoStart: true,
+		statusCode: 200,
+		disabled: false,
+		uploadFileDisabledDel: false,
+		filter: () : string[] => [] as string[],
+		borderBottomColor: "#f5f5f5",
+		beforeUpload: (list : xFileSListType[]) : Promise<xFileSListType[]> => {
+			return Promise.resolve(list)
+		}
+	})
+
+	// 响应式数据
+	const xfile = ref<xFileSystem | null>(null)
+	const fileList = ref<xFileSListType[]>([])
+	const _uploading = ref<boolean>(false)
+	const _uploadingIndex = ref<number>(0)
+
+	// 计算属性
+	const _disabled = computed(() : boolean => {
+		return props.disabled || (fileList.value.length > props.maxCount && props.maxCount > -1)
+	})
+
+	const _borderBottomColor = computed(() : string => {
+		if (xConfig.dark == 'dark') return xConfig.borderDarkColor
+		return props.borderBottomColor;
+	})
+
+	const _isDark = computed(() : boolean => {
+		return xConfig.dark == 'dark'
+	})
+
+	// 方法
+	const covertList = () => {
+		if (props.defaultList == null) return;
+
+		let dlist = props.defaultList!.map((el : UTSJSONObject, index : number) : xFileSListType => {
+			let uid = Math.floor(Math.random() * 1 * Math.floor(Math.random() * Date.now())).toString().substring(0, 10);
+			let type = el.getString("type")
+			type = type == null ? uid : type
+			let name = el.getString("name")
+			name = name == null ? index.toString() : name;
+			let requestdata = el.getAny("request")
+			// #ifdef APP || MP-WEIXIN
+			return {
+				name,
+				type,
+				id: uid,
+				request: requestdata as any,
+				realFilePath: "",
+				cacheFilePath: "",
+				status: 2,
+				file: "",
+				uri: "",
+				size: 0
+			} as xFileSListType
+			// #endif
+			// #ifdef WEB
+			return {
+				name,
+				type,
+				id: uid,
+				request: requestdata as any,
+				realFilePath: "",
+				cacheFilePath: "",
+				status: 2,
+				file: "",
+				uri: "",
+				size: 0
+			}
+			// #endif
+
+		})
+
+		fileList.value = dlist;
+		xfile.value!.clear();
+	}
+
+	/**
+	 * 文件目录或者文件是否存在
+	 */
+	const fileIsOnlyInSys = (dir : string) : Promise<string> => {
+		// #ifdef WEB||MP-WEIXIN
+		return Promise.resolve("")
+		// #endif
+
+
+		let baseNamePath = dir == null ? 'tmui4temp' : dir
+		baseNamePath = uni.env.CACHE_PATH + "/" + baseNamePath
+		const fileManager = uni.getFileSystemManager()
+		return new Promise((res, rej) => {
+			fileManager.readdir({
+				dirPath: baseNamePath,
+				success(result : ReadDirSuccessResult) {
+					if (result == null) {
+						fileManager.mkdir({
+							dirPath: baseNamePath,
+							recursive: true,
+							success(result : FileManagerSuccessResult) {
+								res(baseNamePath)
+							},
+							fail(er : IFileSystemManagerFail) {
+								console.log('创建目录失败', er)
+								rej("")
+							}
+						} as MkDirOptions)
+					} else {
+						// console.log(result)
+						res(baseNamePath)
+					}
+				},
+				fail(ere : IFileSystemManagerFail) {
+					fileManager.mkdir({
+						dirPath: baseNamePath,
+						recursive: true,
+						success(result : FileManagerSuccessResult) {
+							res(baseNamePath)
+						},
+						fail(er : IFileSystemManagerFail) {
+							console.log('创建目录失败', er)
+							rej("")
+						}
+					} as MkDirOptions)
+				}
+			} as ReadDirOptions)
+		})
+	}
+
+	const getCacheFiles = (dir : string | null) : Promise<string[]> => {
+		// #ifdef WEB || MP-WEIXIN
+		return Promise.resolve([])
+		// #endif
+		let baseNamePath = dir == null ? 'tmui4temp' : dir
+		baseNamePath = uni.env.CACHE_PATH + "/" + baseNamePath
+		const fileManager = uni.getFileSystemManager()
+		return new Promise((res, rej) => {
+			fileManager.readdir({
+				dirPath: baseNamePath,
+				success(result : ReadDirSuccessResult) {
+					if (result == null) {
+						fileManager.mkdir({
+							dirPath: baseNamePath,
+							recursive: true,
+							success(result2 : FileManagerSuccessResult) {
+								res([] as string[])
+
+							},
+							fail(er : IFileSystemManagerFail) {
+
+								rej([] as string[])
+							}
+						} as MkDirOptions)
+					} else {
+						res(result.files)
+					}
+				},
+				fail(ere : IFileSystemManagerFail) {
+					fileManager.mkdir({
+						dirPath: baseNamePath,
+						recursive: true,
+						success(result : FileManagerSuccessResult) {
+							res([] as string[])
+						},
+						fail(er : IFileSystemManagerFail) {
+							console.log('创建目录失败', er)
+							rej([] as string[])
+						}
+					} as MkDirOptions)
+				}
+			} as ReadDirOptions)
+		})
+	}
+
+	/**
+	 * 安卓专用清缓存函数
+	 * @description 如果你是安卓端，如果不用了离开页面了，请手动调用 下此函数
+	 * 来清空应用缓存文件。以免造成数据占了内存卡。
+	 * @public
+	 */
+	const clearCacheFiles = () => {
+		// #ifdef APP-ANDROID
+		let baseNamePath = 'tmui4temp'
+		baseNamePath = uni.env.CACHE_PATH + "/" + baseNamePath
+		getCacheFiles(null)
+			.then((files : string[]) => {
+				const fileManager = uni.getFileSystemManager()
+				files.forEach((el : string) => {
+					fileManager.unlink({
+						filePath: baseNamePath + "/" + el,
+						success: (res : FileManagerSuccessResult) => {
+							console.info("缓存清除成功：", el)
+						},
+						fail: (res : IFileSystemManagerFail) => {
+							console.error("文件删除失败：", el)
+						}
+					} as UnLinkOptions)
+				})
+			})
+		// #endif
+	}
+
+	const statusColor = (status : number | null) : string => {
+		if (status == 0) return "#888888"
+		if (status == 1 || status == 4) return "#FF0000"
+		if (status == 2) return "#12cb4d"
+		return "#1480e5"
+	}
+
+	const getFilesize = (item : xFileSListType) : string => {
+		let size = item.size
+		if (size == null || size == 0) return ""
+		let fileszie = size! as number;
+		if (fileszie <= 1024) {
+			return fileszie.toString() + " B"
+		}
+		if (fileszie <= 1024 * 1024) {
+			let fz = (fileszie / 1024).toFixed(2)
+			return fz + "kb"
+		}
+		if (fileszie <= 1024 * 1024 * 1024) {
+			let fz = (fileszie / (1024 * 1024)).toFixed(2)
+			return fz + "mb"
+		}
+		let fz = (fileszie / (1024 * 1024 * 1024)).toFixed(2)
+		return fz + "gb"
+	}
+
+	const getTextStatus = (item : xFileSListType) : string => {
+
+		let text = "";
+		if (item.status == 0) {
+			text = i18n.t("tmui4x.uploadFile.uploadStatus", 0);//"待上传"
+		} else if (item.status == 1) {
+			text = i18n.t("tmui4x.uploadFile.uploadStatus", 2);//"上传失败"
+		} else if (item.status == 2) {
+			text = i18n.t("tmui4x.uploadFile.uploadStatus", 3);//"上传成功"
+		} else if (item.status == 3) {
+			text = i18n.t("tmui4x.uploadFile.uploadStatus", 1);//"上传中..."
+		} else if (item.status == 4) {
+			text = i18n.t("tmui4x.uploadFile.uploadStatus", 4);//"超过大小"
+		}
+		let fsize = getFilesize(item as xFileSListType);
+
+		return text + (fsize == '' ? "" : " | " + fsize)
+	}
+
+	const copyFile = (item : xFileSListType, call : (item : xFileSListType | null) => void) => {
+		let index = fileList.value.findIndex((v : xFileSListType) : boolean => v.id == item.id)
+
+		if (index == -1) {
+			call(null)
+			return
+		}
+
+		// #ifdef APP-IOS
+		item!.realFilePath = uni.env.CACHE_PATH + '/' + item!.realFilePath
+		call(item)
+		// #endif
+		// #ifdef MP-WEIXIN
+		item!.realFilePath = item!.realFilePath
+		call(item)
+		// #endif
+
+		if ((item?.cacheFilePath != null && item?.cacheFilePath != "") || item.status != 0) {
+			// #ifndef APP-IOS
+			call(item)
+			// #endif
+			return
+		}
+
+		//创建临时存放的目录
+		fileIsOnlyInSys('tmui4temp')
+			.then((basedir : string) => {
+				// #ifndef APP-IOS
+				xfile.value!.copyFileToPath(item, basedir)
+					.then((oreal : xFileSListType | null) => {
+						if (oreal != null) {
+							item = oreal!
+							fileList.value.splice(index, 1, oreal!)
+							call(item)
+						} else {
+							call(null)
+						}
+					})
+				// #endif
+
+			})
+
+	}
+	const $forceUpdate = ()=>{
+		proxy?.$forceUpdate()
+	}
+	let uploadFile = () => {}
+	uploadFile = () => {
+		if (fileList.value.length == 0 || _uploadingIndex.value > fileList.value.length - 1) {
+			_uploading.value = false;
+			if (_uploadingIndex.value <= fileList.value.length) {
+				emits("change", fileList.value.slice(0))
+			}
+
+			clearCacheFiles()
+			xfile.value?.destory()
+			xfile.value = new xFileSystem(props.filter, props.multiple, props.maxFileSize)
+			return;
+		}
+		let item = fileList.value[_uploadingIndex.value];
+
+		if (item.status == 2 || item.status == 4) {
+			_uploadingIndex.value += 1;
+			uploadFile();
+			return;
+		}
+
+
+		copyFile(item, (realItem : xFileSListType | null) => {
+
+			if (realItem != null) {
+				item = realItem!
+
+				item.status = 3;
+				$forceUpdate()
+
+				let filepath = item!.realFilePath;
+				let files = null as null | UploadFileOptionFiles[];
+				// #ifdef WEB
+				filepath = "";
+				files = [
+					{
+						name: props.name,
+						uri: "",
+						file: item.file!
+					}
+				] as UploadFileOptionFiles[]
+
+				// #endif
+
+				uni.uploadFile({
+					url: props.url,
+					formData: props.formData,
+					name: props.name,
+					header: props.header,
+					filePath: item!.realFilePath,
+					files,
+					success: (res : UploadFileSuccess) => {
+						if (res.statusCode != props.statusCode) {
+							item.status = 1;
+							_uploadingIndex.value += 1;
+							$forceUpdate()
+							uploadFile();
+						} else {
+							item.status = 2;
+							item!.request = res.data;
+							_uploadingIndex.value += 1;
+							// #ifdef WEB
+							item.file = null;
+							// #endif
+							$forceUpdate()
+							uploadFile();
+						}
+					},
+					fail: (error : UploadFileFail) => {
+						console.error(error)
+						item.status = 1;
+						_uploadingIndex.value += 1;
+						$forceUpdate()
+						uploadFile();
+					}
+				})
+			}
+
+		})
+
+
+	}
+
+	/**
+	 * 上传文件列表
+	 * @public
+	 */
+	const start = () => {
+		if (_uploading.value) return;
+		_uploadingIndex.value = 0;
+		_uploading.value = true;
+
+		props.beforeUpload(fileList.value.slice(0))
+			.then((list : xFileSListType[]) => {
+
+				fileList.value = list.slice(0)
+
+				uploadFile();
+
+			})
+			.catch((_ : any | null) => {
+				console.error("参数有误,请返回正确.")
+			})
+	}
+
+	const remove = (item : xFileSListType) => {
+		if (_uploading.value) {
+			// "上传中禁止删除"
+			uni.showToast({ title: i18n.t("tmui4x.uploadFile.tips1"), icon: 'none' })
+			return;
+		}
+
+		if (props.uploadFileDisabledDel) {
+			// 已上传文件禁止删除
+			uni.showToast({ title: i18n.t("tmui4x.uploadFile.tips2"), icon: 'none' })
+			return;
+		}
+		xfile.value!.remove(item.id)
+		let tems = fileList.value.slice(0)
+		fileList.value = tems.filter((v : xFileSListType) : boolean => v.id != item.id);
+		/**
+		 * 变动触发change
+		 * @param {xFileSListType[]} fileList -文件列表。
+		 */
+		emits("change", fileList.value.slice(0))
+	}
+
+	const openfile = () => {
+		if (_uploading.value || _disabled.value) return;
+
+		xfile.value!.openDocument((listtest : any) => {
+			let list = [] as xFileSListType[];
+			// #ifdef APP-IOS
+			let templist = JSON.parseArray<string>(listtest)
+			for (let i = 0; i < templist.length; i++) {
+				let item = JSON.parse(templist[i])! as xFileSListType;
+				list.push(item)
+			}
+			// #endif
+
+			// #ifndef APP-IOS
+			list = listtest as xFileSListType[]
+			// #endif
+			for (let i = 0; i < list.length; i++) {
+				let el = list[i] as xFileSListType
+				let isSonme = fileList.value.some((ele : xFileSListType) : boolean => ele.type == el.type && ele.name == el.name)
+				if (fileList.value.length > props.maxCount && props.maxCount > -1) {
+					break;
+				} else if (!isSonme) {
+
+					fileList.value.push(el as xFileSListType)
+				}
+			}
+			if (props.autoStart) {
+
+				start();
+			}
+		})
+	}
+
+	// 监听器
+	watch(() : UTSJSONObject[] | null => props.defaultList, () => {
+		covertList();
+	})
+
+	// 生命周期
+	onMounted(() => {
+		xfile.value = new xFileSystem(props.filter, props.multiple, props.maxFileSize)
+
+		nextTick(() => {
+			covertList();
+		})
+	})
+
+	onBeforeUnmount(() => {
+		xfile.value?.destory()
+	})
+
+	defineExpose({
+		/** 上传文件列表 */
+		start,
+		/** 安卓专用清缓存函数 */
+		clearCacheFiles,
+	})
+</script>
+<template>
+	<view class="xFile">
+		<view @click="openfile">
+			<!-- 
+			 @slot 触发文件选择的区域插槽
+			 -->
+			<slot>
+				<view style="pointer-events: none;">
+					<!-- 选择文件 -->
+					<x-button :disabled="_disabled" :loading="_uploading" icon="sticky-note-add-line"
+						:block="true">{{i18n!.t("tmui4x.uploadFile.title")}}</x-button>
+				</view>
+			</slot>
+		</view>
+		<slot name="list" :list="fileList">
+			<view style="margin-top: 16px;" v-if="fileList.length>0">
+				<view class="xFileItem" :style="
+					{
+						borderBottomColor:index==fileList.length-1? 'transparent': _borderBottomColor,
+						padding:`16px 0px`
+					}" v-for="(item,index) in fileList"
+					:key="index">
+					<view class="xFileItemWrap">
+						<view style="margin-right: 20px;flex:1">
+							<text :style="{color:_isDark?'#ffffff':'#333333',fontSize:'15px'}" class="xFileItemTitle">{{item.name}}</text>
+							<text class="xFileItemSubtext"
+								:style="{color:statusColor(item.status),fontSize:'12px'}">{{getTextStatus(item)}}</text>
+						</view>
+						<x-icon v-if="(item.status!=3)&&!uploadFileDisabledDel" @click="remove(item)" name="close-line"
+							font-size="24px" color="#bdbdbd"></x-icon>
+					</view>
+				</view>
+			</view>
+		</slot>
+	</view>
+</template>
+<style scoped>
+	.xFileItemWrap {
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: center;
+	}
+
+	.xFileItem {
+		/* padding: 16px 0px; */
+		border-bottom-width: 1px;
+		border-bottom-style: solid;
+	}
+
+	.xFileItemTitle {
+		/* font-size: 15px; */
+		/* #ifdef APP */
+		lines: 1;
+		text-overflow: ellipsis;
+		/* #endif */
+		/* #ifdef H5 */
+		word-break: break-all;
+		/* #endif */
+	}
+
+	.xFileItemSubtext {
+		/* font-size: 12px; */
+		margin-top: 5px;
+	}
+</style>

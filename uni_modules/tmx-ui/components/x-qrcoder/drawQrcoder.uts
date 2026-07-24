@@ -1,0 +1,306 @@
+import { GenerateFrameResult, XQrcoderProps } from "./interface.uts"
+import { generateFrame } from "./qrcode.uts"
+
+// 绘制圆形定位点模式的函数
+function drawRoundedPositionPattern(ctx: CanvasRenderingContext2D, x: number, y: number, px: number, pdColor: string, bgColor: string) {
+	// 外层黑色圆形 (7x7)
+	ctx.fillStyle = pdColor
+	ctx.beginPath()
+	ctx.arc(x + px * 3.5, y + px * 3.5, px * 3.5, 0, 2 * Math.PI)
+	ctx.fill()
+	ctx.closePath()
+	
+	// 中层白色圆形 (5x5)
+	ctx.fillStyle = bgColor
+	ctx.beginPath()
+	ctx.arc(x + px * 3.5, y + px * 3.5, px * 2.5, 0, 2 * Math.PI)
+	ctx.fill()
+	ctx.closePath()
+	
+	// 内层黑色圆形 (3x3)
+	ctx.fillStyle = pdColor
+	ctx.beginPath()
+	ctx.arc(x + px * 3.5, y + px * 3.5, px * 1.5, 0, 2 * Math.PI)
+	ctx.fill()
+	ctx.closePath()
+}
+
+// 绘制星形图案的函数
+function drawStar(ctx: CanvasRenderingContext2D, x: number, y: number, px: number) {
+	const centerX = x + px / 2
+	const centerY = y + px / 2
+	const outerRadius = px * 0.4  // 外圆半径
+	const innerRadius = px * 0.15 // 内圆半径
+	const spikes = 4 // 四个尖角
+	
+	ctx.beginPath()
+	
+	for (let i = 0; i < spikes * 2; i++) {
+		const angle = (i * Math.PI) / spikes
+		const radius = i % 2 === 0 ? outerRadius : innerRadius
+		const starX = centerX + Math.cos(angle) * radius
+		const starY = centerY + Math.sin(angle) * radius
+		
+		if (i === 0) {
+			ctx.moveTo(starX, starY)
+		} else {
+			ctx.lineTo(starX, starY)
+		}
+	}
+	
+	ctx.closePath()
+	ctx.fill()
+}
+
+// 兼容的圆角矩形绘制函数
+function drawRoundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {
+	ctx.beginPath()
+	
+	// 如果圆角半径太大，限制为宽度或高度的一半
+	const maxRadius = Math.min(width, height) / 2
+	radius = Math.min(radius, maxRadius)
+	
+	// 绘制圆角矩形路径
+	ctx.moveTo(x + radius, y)
+	ctx.lineTo(x + width - radius, y)
+	ctx.arc(x + width - radius, y + radius, radius, -Math.PI / 2, 0)
+	ctx.lineTo(x + width, y + height - radius)
+	ctx.arc(x + width - radius, y + height - radius, radius, 0, Math.PI / 2)
+	ctx.lineTo(x + radius, y + height)
+	ctx.arc(x + radius, y + height - radius, radius, Math.PI / 2, Math.PI)
+	ctx.lineTo(x, y + radius)
+	ctx.arc(x + radius, y + radius, radius, Math.PI, Math.PI * 3 / 2)
+	ctx.closePath()
+}
+
+function isPositionDetectionPattern(i : number, j : number, width : number) : boolean {
+	if (i < 7 && j < 7) return true;
+	if (i > width - 8 && j < 7) return true;
+	if (i < 7 && j > width - 8) return true;
+	return false;
+}
+
+export function drawQrcode(opts : XQrcoderProps, img : any | null = null) {
+	let fo = generateFrame(opts.text, opts.ecc)
+	let points = fo.frameBuffer
+	let width = fo.width
+	let px = opts.size / width
+	let borderWidth = 0
+	const ctx = opts.ctx;
+
+	ctx.fillStyle = opts.background
+	ctx.fillRect(0, 0, opts.size, opts.size)
+
+	let dot = px * 0.1
+	let halfPx = px / 2
+	let circleRadius = halfPx - dot
+	let twoPi = 2 * Math.PI
+	let pdColor = opts?.pdColor??opts.foreground
+	let widthMinus8 = width - 8
+	
+	// 先绘制定位点区域（如果需要圆角）
+	if ((opts?.pdRounded??false)) {
+		// 绘制三个定位点的同心圆角矩形结构
+		// 左上角
+		drawRoundedPositionPattern(ctx, borderWidth, borderWidth, px, pdColor, opts.background)
+		
+		// 右上角
+		drawRoundedPositionPattern(ctx, borderWidth + px * (width - 7), borderWidth, px, pdColor, opts.background)
+		
+		// 左下角
+		drawRoundedPositionPattern(ctx, borderWidth, borderWidth + px * (width - 7), px, pdColor, opts.background)
+	}
+	
+	for (let i = 0; i < width; i++) {
+		for (let j = 0; j < width; j++) {
+			if (points[j * width + i] > 0) {
+				// 设置颜色，如果是定位点则使用pdColor，否则使用foreground
+				const isPostion = isPositionDetectionPattern(i, j, width);
+				ctx.fillStyle = opts.foreground;
+				
+				if (isPostion) {
+					// 如果启用了圆角，定位点区域已经整体绘制过了，跳过单个方块的绘制
+					if (!(opts?.pdRounded??false)) {
+						ctx.fillStyle = pdColor
+						ctx.fillRect(borderWidth + px * i, borderWidth + px * j, px, px)
+					}
+				} else {
+					if (opts.mode == 'line') {
+						ctx.fillRect(borderWidth + px * i, borderWidth + px * j, px, px / 2)
+					} else if (opts.mode == 'circular') {
+						ctx.beginPath()
+						let rx = borderWidth + px * i + px / 2 - dot
+						let ry = borderWidth + px * j + px / 2 - dot
+						ctx.arc(rx, ry, px / 2 - dot, 0, 2 * Math.PI)
+						ctx.fill()
+						ctx.closePath()
+					} else if (opts.mode == 'rectSmall') {
+					
+						ctx.fillRect(borderWidth + px * i + dot, borderWidth + px * j + dot, px - dot*2, px - dot*2)
+					} else if (opts.mode == 'xing') {
+						// 绘制星形
+						drawStar(ctx, borderWidth + px * i, borderWidth + px * j, px)
+					} else if (opts.mode == 'vertical') {
+						continue
+					} else {
+						ctx.fillRect(borderWidth + px * i, borderWidth + px * j, px, px)
+					}
+				}
+
+
+
+
+
+			}
+		}
+	}
+
+	// 对于vertical模式，需要特殊处理垂直方向的连续点
+	if (opts.mode == 'vertical') {
+		// 创建已处理标记数组
+		let processed:boolean[] = [] as boolean[]
+		for(let km=0;km<width * width;km++){
+			processed.push(false)
+		}
+		for (let i = 0; i < width; i++) {
+			for (let j = 0; j < width; j++) {
+				let index = j * width + i
+				if (points[index] > 0 && !processed[index]) {
+					const isPostion = isPositionDetectionPattern(i, j, width);
+					
+					if (isPostion) {
+						// 定位点跳过，已经处理过了
+						continue
+					}
+					
+					// 分析垂直方向的连续点
+					let verticalLength = 1
+					let startJ = j
+					
+					// 向上查找连续点
+					while (startJ > 0 && points[(startJ - 1) * width + i] > 0 && 
+						   !isPositionDetectionPattern(i, startJ - 1, width)) {
+						startJ--
+						verticalLength++
+					}
+					
+					// 向下查找连续点
+					let endJ = j
+					while (endJ < width - 1 && points[(endJ + 1) * width + i] > 0 && 
+						   !isPositionDetectionPattern(i, endJ + 1, width)) {
+						endJ++
+						verticalLength++
+					}
+					
+					// 标记这些点为已处理
+					for (let k = startJ; k <= endJ; k++) {
+						processed[k * width + i] = true
+					}
+					
+					// 根据长度决定绘制方式
+					ctx.fillStyle = opts.foreground
+					
+					if (verticalLength == 1) {
+						// 单个点：绘制圆点
+						ctx.beginPath()
+						let centerX = borderWidth + px * i + px / 2
+						let centerY = borderWidth + px * j + px / 2
+						ctx.arc(centerX, centerY, px * 0.25, 0, 2 * Math.PI)  // 稍微减小圆点半径
+						ctx.fill()
+						ctx.closePath()
+					} else if (verticalLength <= 3) {
+						// 2-3个点：绘制连续线条
+						let x = borderWidth + px * i + px / 2
+						let y = borderWidth + px * startJ + px * 0.2  // 减少上下间距
+						let lineWidth = px * 0.5  // 减少线条宽度
+						let lineHeight = px * (endJ - startJ + 1) * 0.8  // 增加线条高度
+						// 圆角半径适中，不完全半圆
+						let radius = px * 0.5
+						drawRoundedRect(ctx, x - lineWidth / 2, y, lineWidth, lineHeight, radius)
+						ctx.fill()
+					} else {
+						// 超过3个点：分段绘制，每3个点一段
+						let segments = Math.ceil(verticalLength / 3)
+						for (let seg = 0; seg < segments; seg++) {
+							let segStart = startJ + seg * 3
+							let segEnd = Math.min(startJ + (seg + 1) * 3 - 1, endJ)
+							let segLength = segEnd - segStart + 1
+							
+							let x = borderWidth + px * i + px / 2
+							let y = borderWidth + px * segStart + px * 0.2  // 减少上下间距
+							let lineWidth = px * 0.5  // 减少线条宽度
+							let lineHeight = px * segLength * 0.8  // 增加线条高度
+							// 圆角半径适中，不完全半圆
+							let radius = px * 0.5
+							drawRoundedRect(ctx, x - lineWidth / 2, y, lineWidth, lineHeight, radius)
+							ctx.fill()
+						}
+					}
+				}
+			}
+		}
+	}
+
+	if (opts.logo != '') {
+		// #ifdef APP-ANDROID||APP-IOS||WEB
+		let images = new Image(opts.logoSize, opts.logoSize)
+		images.src = opts.logo
+		console.log(opts.logo)
+		images.onload = () => {
+
+			uni.getImageInfo({
+				src: opts.logo,
+				success: (res) => {
+					ctx.save()
+					ctx.fillStyle = opts.logoBgColor
+					let centerx = (opts.size - opts.logoSize) / 2;
+					ctx.fillRect(centerx, centerx, opts.logoSize, opts.logoSize)
+					ctx.drawImage(images, 0, 0, res.width, res.height, centerx + 3, centerx + 3, opts.logoSize - 6, opts.logoSize - 6)
+					ctx.restore()
+				}
+			})
+		}
+		// #endif
+		// #ifdef MP-WEIXIN||APP-HARMONY
+		img.src = opts.logo
+		img.onload = () => {
+			uni.getImageInfo({
+				src: opts.logo,
+				success: (res) => {
+					ctx.save()
+					ctx.fillStyle = opts.logoBgColor
+					let centerx = (opts.size - opts.logoSize) / 2;
+					ctx.fillRect(centerx, centerx, opts.logoSize, opts.logoSize)
+					
+					// #ifdef MP
+					ctx.drawImage(
+					img, 
+					0, 
+					0, 
+					res.width, 
+					res.height, 
+					centerx + 3, 
+					centerx + 3, 
+					opts.logoSize - 6, 
+					opts.logoSize - 6
+					)
+					// #endif
+					// #ifdef APP-HARMONY
+					let dpr = uni.getWindowInfo().pixelRatio
+					ctx.drawImage(
+						img,
+						centerx + 3,
+						centerx + 3,
+						opts.logoSize - 6,
+						opts.logoSize - 6
+					)
+					// #endif
+					ctx.restore()
+				}
+			})
+		}
+		// #endif
+
+
+	}
+}

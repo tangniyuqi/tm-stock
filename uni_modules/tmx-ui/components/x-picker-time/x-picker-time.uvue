@@ -1,0 +1,552 @@
+<script setup lang="ts">
+	import { computed, ref, watch, onMounted } from "vue"
+	import { setPagePullRefresh, getPagePullRefresh } from "../../core/util/xCoreUtil.uts"
+	import { xDate, xDateTypeTime } from "../../core/util/xDate.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	import { X_PICKER_X_ITEM } from "../../interface.uts"
+	const i18n = xConfig.i18n
+	type coverValue = {
+		value: string[][],
+		str: string
+	}
+	/**
+	 * @name 时间选择器 xPickerTime
+	 * @description 这是单独显示和控制选择时分秒选择器。如果你需要年月日到秒的全部选择请参考x-picker-date。
+	 * @page /pages/index/picker-time
+	 * @category 表单组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({ name: "xPickerTime" })
+
+	type XPickerTimeProps = {
+		/**
+		 * 当前时间,与modelStr不同，此提供的值必须是正常的时间格式xx:xx:xx
+		 * 否则报错，无法运行。
+		 */
+		modelValue?: string
+		/**
+		 * 当前时间经过format格式化后输出的值。
+		 * 此值不会处理输入，只输出显示。
+		 */
+		modelStr?: string
+		/**
+		 * 当前打开的状态。
+		 * 等同v-model:model-show
+		 */
+		modelShow?: boolean
+		/**
+		 * 是否懒加载内部内容。
+		 * 当前你的列表内容非常多，且影响打开的动画性能时，请务必
+		 * 设置此项为true，以获得流畅视觉效果。如果选择数据较少没有必要打开
+		 * 要兼容微信就必须打开为true,非微信可以设置为false
+		 */
+		lazyContent?: boolean
+		/**
+		 * 顶部标题
+		 */
+		title?: string
+		/**
+		 * 取消按钮的文本
+		 */
+		cancelText?: string
+		/**
+		 * 确认按钮的文本
+		 */
+		confirmText?: string
+		/**
+		 * 开始时间：请提供正确的时间格式xx:xx:xx
+		 */
+		start?: string
+		/**
+		 * 结束时间：请提供正确的时间格式xx:xx:xx
+		 */
+		end?: string
+		/**
+		 * 精确到的级别
+		 * hour:小时
+		 * minute:小时分钟
+		 * second:小时分钟秒
+		 */
+		type?: "hour" | "minute" | "second" | "day" | "year" | "month"
+		/**
+		 * 输出时间格式，只对v-model:modelStr有效
+		 * 有效格式：
+		 * hh小时
+		 * mm分钟
+		 * ss秒
+		 */
+		format?: string
+		/**
+		 * 上方的单位名称,'小时', '分钟', '秒数'
+		 */
+		cellUnits?: string[]
+		/**
+		 * 层级
+		 */
+		zIndex?: number
+		/**
+		 * 是否显示关闭按钮
+		 */
+		showClose?: boolean
+		/**
+		 * 是否禁用弹出
+		 */
+		disabled?: boolean
+		/**
+		 * 宽屏时是否让内容剧中显示
+		 * 并限制其宽为屏幕宽，只展示中间内容以适应宽屏。
+		 */
+		widthCoverCenter?: boolean
+	}
+
+	const props = withDefaults(defineProps<XPickerTimeProps>(), {
+		modelValue: "",
+		modelStr: "",
+		modelShow: false,
+		lazyContent: false,
+		title: "",
+		cancelText: "",
+		confirmText: "",
+		start: "",
+		end: "",
+		type: "second",
+		format: "hh:mm:ss",
+		cellUnits: () => [] as string[],
+		zIndex: 1100,
+		showClose: false,
+		disabled: false,
+		widthCoverCenter: false
+	})
+
+	const emit = defineEmits([
+		/**
+		 * 取消时触发
+		 */
+		'cancel',
+		/**
+		 * 确认触发
+		 * @param {string} date 当前选中时间
+		 */
+		'confirm',
+		/**
+		 * 滑动变换时触发
+		 * @param {string} date - 当前选中时间
+		 */
+		'change',
+		/**
+		 * 变量控制打开状态
+		 * 等同v-model:model-show
+		 */
+		'update:modelShow',
+		/**
+		 * 经格式化后的值。等同v-model:model-str
+		 */
+		'update:modelStr',
+		'update:modelValue'
+	])
+	const  default_time_date = '1999-1-1 '
+	const show = ref(false)
+	
+	const currentStr = ref('')
+	let updateDateListTimer = 56
+	const nowValue =  ref<string[][]>([])
+	let startValue = new xDate(new xDate().format("YYYY-MM-DD 00:00:00"));
+	let endValue = new xDate(new xDate().format("YYYY-MM-DD 59:59:59"));
+	startValue.subtraction(1, 'y')
+	
+	const dateList = ref<X_PICKER_X_ITEM[][]>([])
+	const nowPull = ref(false)
+
+	const _cellUnits = computed((): string[] => {
+		if (props.cellUnits.length == 0) {
+			return [
+				i18n.t("tmui4x.pickerDate.hour"),
+				i18n.t("tmui4x.pickerDate.minute"),
+				i18n.t("tmui4x.pickerDate.second"),
+			]
+		}
+		return props.cellUnits
+	})
+
+	const _start_date = computed((): xDate => {
+		if (props.start == "") return startValue
+		return new xDate(default_time_date + props.start)
+	})
+
+	const _end_date = computed((): xDate => {
+		if (props.end == "") return endValue
+		return new xDate(default_time_date + props.end)
+	})
+	const currentVal = computed(():xDate => {
+		if(props.modelValue == '') return _end_date.value
+		return new xDate(default_time_date+props.modelValue)
+	})
+	const _getDateType = computed((): xDateTypeTime => {
+		let isType = 's' as xDateTypeTime
+		if (props.type == 'year') isType = 'y'
+		if (props.type == 'month') isType = 'm'
+		if (props.type == 'day') isType = 'd'
+		if (props.type == 'hour') isType = 'h'
+		if (props.type == 'minute') isType = 'M'
+		return isType
+	})
+
+	const _cancelText = computed((): string => {
+		if (props.cancelText == '') {
+			return i18n.t("tmui4x.cancel")
+		}
+		return props.cancelText
+	})
+
+	const _confirmText = computed((): string => {
+		if (props.confirmText == '') {
+			return i18n.t("tmui4x.confirm")
+		}
+		return props.confirmText
+	})
+
+	const _title = computed((): string => {
+		if (props.title == '') {
+			return i18n.t("tmui4x.pickerTitle")
+		}
+		return props.title
+	})
+	
+	
+	const indexToHex = (i: number): string => {
+		let n = i.toString()
+		if (n.length == 1) return '0' + n
+		return n
+	}
+	const fillNumber = (n: string): string => {
+		if (n.length > 1) return n
+		return "0" + n
+	}
+	const getNowTypeLenIndex = () : number => {
+		let index = 6
+		if (props.type == 'hour') {
+			index = 4;
+		} else if (props.type == 'minute') {
+			index = 5;
+		}
+		return index;
+	}
+	const stringArValuCoverToString = () : string => {
+		if (nowValue.value.length != 6) return "";
+		let newsday = new xDate(nowValue.value[0][0] + "-" + (parseInt(nowValue.value[1][0])).toString() + "-1")
+		let days = parseInt(nowValue.value[2][0])
+		days = days >= newsday.getMonthCountDay() ? newsday.getMonthCountDay() : days
+		nowValue.value.splice(2, 1, [days.toString()])
+		return fillNumber(nowValue.value[0][0]) + "-" + fillNumber((parseInt(nowValue.value[1][0])).toString())
+			+ "-" + fillNumber(nowValue.value[2][0])
+			+ " " + fillNumber(nowValue.value[3][0]) + ":"
+			+ fillNumber(nowValue.value[4][0]) + ":"
+			+ fillNumber(nowValue.value[5][0])
+	}
+	
+	const getRangByDateTime = (d : xDate) : coverValue => {
+		let nowRange = [
+			[d.getYear().toString()],
+			[(d.getMonth()+1).toString()],
+			[d.getDate().toString()],
+			[d.getHours().toString()],
+			[d.getMinutes().toString()],
+			[d.getSeconds().toString()],
+		] as string[][]
+		let nowRangeStr = d.getYear().toString() + "-" + (d.getMonth() + 1).toString()
+			+ "-" + d.getDate().toString()
+			+ " " + d.getHours().toString() + ":"
+			+ d.getMinutes().toString() + ":"
+			+ d.getSeconds().toString()
+		return {
+			value: nowRange as string[][],
+			str: nowRangeStr
+		} as coverValue
+	}
+	
+	const getRangCuror = (start:xDate,end:xDate,currentDate:xDate,type:string):number[] => {
+		let max = 0;
+		let min = 0;
+		
+		// 判断 currentDate 与 start/end 的关系
+		const currentTime = currentDate.date.getTime();
+		const startTime = start.date.getTime();
+		const endTime = end.date.getTime();
+		
+		// currentDate 在 start 之前，min 取 start 的值，max 取正常最大值
+		const isBeforeStart = currentTime < startTime;
+		// currentDate 在 end 之后，max 取 end 的值，min 取正常最小值
+		const isAfterEnd = currentTime > endTime;
+		
+		if(type == 'year'){
+			min = start.getYear();
+			max = end.getYear();
+		}else if(type == 'month'){
+			if(isBeforeStart || currentDate.getYear() == start.getYear()){
+				min = start.getMonth();
+			}else{
+				min = 0;
+			}
+			if(isAfterEnd || currentDate.getYear() == end.getYear()){
+				max = end.getMonth();
+			}else{
+				max = 11;
+			}
+			min+=1;
+			max+=1;
+		}else if(type == 'day'){
+			if(isBeforeStart || (currentDate.getYear() == start.getYear() && currentDate.getMonth() == start.getMonth())){
+				min = start.getDate();
+			}else{
+				min = 1;
+			}
+			if(isAfterEnd || (currentDate.getYear() == end.getYear() && currentDate.getMonth() == end.getMonth())){
+				max = end.getDate();
+			}else{
+				max = currentDate.getMonthCountDay();
+			}
+		}else if(type == 'hour'){
+			if(isBeforeStart || (currentDate.getYear() == start.getYear() && currentDate.getMonth() == start.getMonth() && currentDate.getDate() == start.getDate())){
+				min = start.getHours();
+			}else{
+				min = 0;
+			}
+			if(isAfterEnd || (currentDate.getYear() == end.getYear() && currentDate.getMonth() == end.getMonth() && currentDate.getDate() == end.getDate())){
+				max = end.getHours();
+			}else{
+				max = 23;
+			}
+		}else if(type == 'minute'){
+			if(isBeforeStart || (currentDate.getYear() == start.getYear() && currentDate.getMonth() == start.getMonth() && currentDate.getDate() == start.getDate() && currentDate.getHours() == start.getHours())){
+				min = start.getMinutes();
+			}else{
+				min = 0;
+			}
+			if(isAfterEnd || (currentDate.getYear() == end.getYear() && currentDate.getMonth() == end.getMonth() && currentDate.getDate() == end.getDate() && currentDate.getHours() == end.getHours())){
+				max = end.getMinutes();
+			}else{
+				max = 59;
+			}
+		}else if(type == 'second'){
+			if(isBeforeStart || (currentDate.getYear() == start.getYear() && currentDate.getMonth() == start.getMonth() && currentDate.getDate() == start.getDate() && currentDate.getHours() == start.getHours() && currentDate.getMinutes() == start.getMinutes())){
+				min = start.getSeconds();
+			}else{
+				min = 0;
+			}
+			if(isAfterEnd || (currentDate.getYear() == end.getYear() && currentDate.getMonth() == end.getMonth() && currentDate.getDate() == end.getDate() && currentDate.getHours() == end.getHours() && currentDate.getMinutes() == end.getMinutes())){
+				max = end.getSeconds();
+			}else{
+				max = 59;
+			}
+		}
+		
+		return [min,max]
+	}
+			
+	const getTreeDate = (start:xDate,end:xDate,nowValue:xDate):X_PICKER_X_ITEM[][] =>{
+		let r = [
+			getRangCuror(start,end,nowValue,'year'),
+			getRangCuror(start,end,nowValue,'month'),
+			getRangCuror(start,end,nowValue,'day'),
+			getRangCuror(start,end,nowValue,'hour'),
+			getRangCuror(start,end,nowValue,'minute'),
+			getRangCuror(start,end,nowValue,'second'),
+		]
+		const d = r.map((el:number[]):X_PICKER_X_ITEM[] => {
+			let min = el[0]
+			let max = el[1]
+			let result:X_PICKER_X_ITEM[] = []
+			for(let i=min;i<max+1;i++){
+				result.push({
+					id:i.toString(),
+					title:fillNumber(i.toString()),
+					children:[],
+					disabled:false
+				})
+			}
+			return result
+		})
+			
+		return d;
+	}
+	
+	const formatTimeDate = () : string => {
+		if (nowValue.value.length != 6) return "";
+		let sp = props.format;
+		sp = sp.replace(/YYYY/g, fillNumber(nowValue.value[0][0]))
+		sp = sp.replace(/MM/g, fillNumber((parseInt(nowValue.value[1][0])).toString()))
+		sp = sp.replace(/DD/g, fillNumber(nowValue.value[2][0]))
+		sp = sp.replace(/hh/g, fillNumber(nowValue.value[3][0]))
+		sp = sp.replace(/mm/g, fillNumber(nowValue.value[4][0]))
+		sp = sp.replace(/ss/g, fillNumber(nowValue.value[5][0]))
+		return sp;
+	}
+	
+	const defaultModelvalue = (newvalue : string, showStr : boolean) => {
+	
+		let isType = _getDateType.value
+		let tempNowValue = new xDate(newvalue)
+	
+		if (tempNowValue.isBetweenOf(_start_date.value, '<=', isType)) {
+			tempNowValue = _start_date.value;
+		}
+		if (tempNowValue.isBetweenOf(_end_date.value, '>=', isType)) {
+			tempNowValue = _end_date.value;
+		}
+		let stp = getRangByDateTime(tempNowValue)
+		
+		
+		dateList.value = getTreeDate(_start_date.value, _end_date.value,tempNowValue)
+	
+		// #ifdef APP-IOS
+		clearTimeout(updateDateListTimer)
+		updateDateListTimer = setTimeout(function() {
+			nowValue.value = stp.value;
+			currentStr.value = stp.str;
+		}, 350);
+		// #endif
+		// #ifndef APP-IOS
+		nowValue.value = stp.value;
+		currentStr.value = stp.str;
+		// #endif
+		if(showStr){
+			/**
+			 * 经格式化后的值。等同v-model:model-str
+			 */
+			emit('update:modelStr', formatTimeDate());
+		}
+		
+	}
+	
+	const onCancel = () => {
+		emit('cancel')
+		dateList.value = getTreeDate(_start_date.value,_end_date.value,currentVal.value);
+		let stp = getRangByDateTime(currentVal.value)
+		nowValue.value = stp.value;
+		currentStr.value = stp.str;
+	}
+
+	
+	const openShow = () => {
+		if (props.disabled) return
+		show.value = true
+		/**
+		 * 变量控制打开状态
+		 * 等同v-model:model-show
+		 */
+		emit('update:modelShow', true)
+		setPagePullRefresh(false)
+	}
+	
+	const onClose = () => {
+		/**
+		 * 变量控制打开状态
+		 * 等同v-model:model-show
+		 */
+		emit('update:modelShow', false)
+		setPagePullRefresh(nowPull.value)
+	}
+	
+	const mchange = (ids: string[], index: number) => {
+		nowValue.value.splice(index, 1, ids)
+		currentStr.value = stringArValuCoverToString()
+		dateList.value = getTreeDate(_start_date.value, _end_date.value,new xDate(currentStr.value))
+		clearTimeout(updateDateListTimer)
+		// #ifdef APP-IOS
+		updateDateListTimer = setTimeout(function() {
+			/**
+			 * 滑动变换时触发
+			 * @param {string} date 当前选中时间
+			 */
+			emit('change', currentStr.value.split(" ")[1])
+		}, 50);
+		// #endif
+		// #ifndef APP-IOS
+		updateDateListTimer = setTimeout(function() {
+			/**
+			 * 滑动变换时触发
+			 * @param {string} date 当前选中时间
+			 */
+			emit('change', currentStr.value.split(" ")[1])
+		}, 150);
+		// #endif
+		
+	}
+	const onConfirm = () => {
+		const syncValue : string = stringArValuCoverToString()
+		/**
+		 * 点击确认时同步。等同v-model
+		 */
+		emit('update:modelValue', syncValue.split(" ")[1])
+
+		/**
+		 * 经格式化后的值。等同v-model:model-str
+		 */
+		emit('update:modelStr', formatTimeDate())
+		emit('confirm', syncValue.split(" ")[1])
+	}
+	
+	watch((): string => props.modelValue, (newvalue: string) => {
+		if (newvalue == '') return
+		dateList.value = getTreeDate(_start_date.value,_end_date.value,currentVal.value);
+		let stp = getRangByDateTime(currentVal.value)
+		nowValue.value = stp.value;
+		currentStr.value = stp.str;
+	})
+	
+	watch((): boolean => props.modelShow, (newValue: boolean) => {
+		if (newValue == show.value) return
+		openShow()
+	})
+	
+	onMounted(() => {
+		nowPull.value = getPagePullRefresh()
+		defaultModelvalue(currentVal.value.format('YYYY-MM-DD hh:mm:ss'), props.modelValue != '')
+	})
+</script>
+<template>
+	<view @click="openShow">
+		<!--
+		 @slot 插槽,默认触发打开选择器。你的默认布局可以放置在这里。
+		 -->
+		<slot></slot>
+	</view>
+	<x-drawer 
+	:lazy="props.lazyContent"
+	:cancel-text="_cancelText" 
+	:confirm-text="_confirmText"  
+	:zIndex="zIndex" 
+	:widthCoverCenter="widthCoverCenter"  
+	:disabledScroll="true" 
+	:title="_title" 
+	@close="onClose" 
+	@confirm="onConfirm" 
+	@cancel="onCancel"
+	:showFooter="true" 
+	v-model:show="show" 
+	:show-close="showClose" 
+	size="410px">
+		<view class="xPickerDateWrap">
+			<x-picker-view
+			v-for="(item,index) in dateList.slice(3,getNowTypeLenIndex())" 
+			:listPro="item"
+			:key="index"
+			@change="mchange($event as string[],index+3)"
+			style="flex: 1;"
+			:title="_title"
+			:model-value="nowValue[index+3]"
+			:cellUnits="[_cellUnits[index]]">
+			</x-picker-view>
+		</view>
+	</x-drawer>
+</template>
+<style scoped>
+	.xPickerDateWrap {
+		display: flex;
+		flex-direction: row;
+		justify-content: flex-start;
+	}
+</style>

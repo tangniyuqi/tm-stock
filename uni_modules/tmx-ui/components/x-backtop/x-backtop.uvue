@@ -1,0 +1,192 @@
+<script lang="ts" setup>
+	import { computed, ref, watch } from "vue"
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { checkIsCssUnit, rpx2px } from "../../core/util/xCoreUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	import { xProvitae } from "../../config/xConfig.uts"
+
+	/**
+	 * @name 返回顶部 xBacktop
+	 * @page /pages/index/backtop
+	 * @category 导航组件
+	 * @description 在uvue页面中，根节点一定是scroll-view并且设置为flex:1才可滚动到顶部。
+	 * 如果你想局部放到scroll-view组件中，你需要scroll事件中的top传递到属性scrollTop上并启用局部滚动置顶
+	 * 如果你想改变或者自定位置，你可以直接在组件上写style来覆盖定位。详见：https://doc.dcloud.net.cn/uni-app-x/api/page-scroll-to.html
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({ name: "xBacktop" })
+
+	type xBacktopPropsType = {
+		/**
+		 * 圆角,空值时取全局的drawr圆角。
+		 */
+		round: string,
+		/**
+		 * 向下滚动页面时，如果超过此值显示返回顶部按钮。
+		 */
+		offset: number,
+		/**
+		 * 背景,支持渐变值如:linear-gradient(to left, #FFED46, #FF7EC7)
+		 * 默认空值，取全局主题值。
+		 */
+		bgColor: string,
+		/**
+		 * 宽度
+		 */
+		width: string,
+		/**
+		 * 高度
+		 */
+		height: string,
+		/**
+		 * 图标颜色。
+		 */
+		color: string,
+		/**
+		 * 图标
+		 */
+		icon: string,
+		/**
+		 * 图标大小
+		 */
+		iconSize: string,
+		/**
+		 * 如果你想让本组件放置到局部的scroll中时，你外部scrollview通过scroll事件取得距离顶部的位置传递到此。
+		 */
+		scrollTop: number,
+		/**
+		 * 禁用页面级根节点滚动后，可以通过scrollTop来实现局部置顶功能。
+		 */
+		disabledPageScroll:boolean
+	}
+
+	const props = withDefaults(defineProps<xBacktopPropsType>(), {
+		round: "50px",
+		offset: 100,
+		bgColor: "",
+		width: "50px",
+		height: "50px",
+		color: "white",
+		icon: "skip-up-fill",
+		iconSize: "30",
+		disabledPageScroll:false,
+		scrollTop:0,
+	})
+
+	const emits = defineEmits<{
+		/**
+		 * 点击时触发
+		 */
+		(e: 'click'): void
+	}>()
+
+	// 响应式数据
+	const opened = ref<boolean>(false)
+
+	// 计算属性scrollTop
+	const _stop = computed((): number => {
+		if(props.disabledPageScroll){
+			return props.scrollTop
+		}
+		return xProvitae.scrollTop;
+	})
+	const _round = computed((): string => checkIsCssUnit(props.round, xConfig.unit))
+
+	const _width = computed((): number => {
+		let p = parseInt(props.width)
+		if (props.width.lastIndexOf('rpx') > -1) {
+			p = rpx2px(p)
+		}
+		return Math.floor(p)
+	})
+
+	const _height = computed((): number => {
+		let p = parseInt(props.height)
+		if (props.height.lastIndexOf('rpx') > -1) {
+			p = rpx2px(p)
+		}
+		return Math.floor(p)
+	})
+
+	const _styleMap = computed((): Map<string, any> => {
+		const styleMap = new Map<string, any>()
+		styleMap.set('width', _width.value.toString() + 'px')
+		styleMap.set('height', _height.value.toString() + 'px')
+		styleMap.set('borderRadius', _round.value)
+		if (props.bgColor.indexOf('linear-gradient') > -1) {
+			styleMap.set('backgroundImage', props.bgColor)
+		} else {
+			const color = props.bgColor == "" ? getDefaultColor(xConfig.color) : getDefaultColor(props.bgColor)
+			styleMap.set('backgroundColor', color)
+		}
+		if(props.disabledPageScroll){
+			styleMap.set('position', 'absolute')
+		}else{
+			styleMap.set('position', 'fixed')
+		}
+		
+		styleMap.set('transform', opened.value ? 'scale(1)' : 'scale(0)')
+		styleMap.set('opacity', opened.value ? '1' : '0')
+		return styleMap
+	})
+
+	const _color = computed((): string => getDefaultColor(props.color))
+
+	// 监听器
+	watch(_stop, (newValue: number) => {
+		opened.value = newValue >= props.offset
+	})
+
+	// 方法
+	function onclick(): void {
+		/**
+		 * 点击组件时触发。
+		 */
+		emits('click')
+		if(props.disabledPageScroll) return;
+		
+		/**
+		 * h5端的uni.pageScrollTo有bug，延迟厉害，性能差，不如原生快。
+		 */
+		// #ifdef WEB
+		window.scrollTo({ top: 0, behavior: 'smooth' })
+		console.log('window.scrollTo')
+		// #endif
+		// #ifndef WEB
+		uni.pageScrollTo({
+			scrollTop: 0,
+			duration: 650
+		})
+		// #endif
+	}
+</script>
+<template>
+	<view @click="onclick" class="xBackTop" :style="_styleMap">
+		<!-- 
+		 @slot 默认图标插槽
+		 -->
+		<slot>
+			<x-icon :font-size="iconSize" :name="icon" :color="_color"></x-icon>
+		</slot>
+	</view>
+</template>
+<style scoped>
+	.xBackTop {
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+		align-items: center;
+		right: 16px;
+		bottom: 24px;
+		transition-duration: 350ms;
+		transition-property: transform, opacity;
+		transition-timing-function: cubic-bezier(0, 0.55, 0.45, 1);
+		transform: scale(0);
+		opacity: 1;
+		z-index:100;
+		/* box-shadow: 0 5px 24px rgba(0, 0, 0, 0.06); */
+	}
+</style>

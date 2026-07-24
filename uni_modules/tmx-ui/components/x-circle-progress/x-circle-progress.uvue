@@ -1,0 +1,462 @@
+<script lang="ts" setup>
+	import { getUid, rpx2px } from "../../core/util/xCoreUtil.uts"
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { checkIsCssUnit, getUnit } from "../../core/util/xCoreUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+
+	type OPTIONS = {
+		start : number,
+		end : number,
+		duration : number,
+		run : (current : number) => void,
+		complete : () => void
+	}
+	type ANIMATECALLBACK = {
+		stop : () => void
+	}
+
+	/**
+	 * @name 圆形进度环 xCircleProgress
+	 * @page /pages/index/circle-progress
+	 * @category 展示组件
+	 * @description 样式灵活多变。
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({ name: "xCircleProgress" })
+
+	const props = defineProps({
+		/**
+		 * 可以是px,rpx,纯数字符串。默认以rpx为单位。
+		 */
+		size: {
+			type: String,
+			default: "60"
+		},
+		/**
+		 * 可以是px,rpx,纯数字符串。默认以rpx为单位。
+		 */
+		lineWidth: {
+			type: String,
+			default: "3"
+		},
+		/**
+		 * 起始角度，默认是0，正上方顺时针
+		 */
+		startAngle: {
+			type: Number,
+			default: 0
+		},
+		/**
+		 * 圆环背景颜色,暗黑时取inputDarkColor
+		 */
+		color: {
+			type: String,
+			default: "info"
+		},
+
+		/**
+		 * 当前激活的进度颜色，空值读取全局值。
+		 */
+		activeColor: {
+			type: String,
+			default: ""
+		},
+		/**
+		 * 当前的值,以百分比为值0-100
+		 * 等同v-model=""
+		 * 您直接:model-value="xx"也是一样可以改变值。
+		 */
+		modelValue: {
+			type: Number,
+			default: 30
+		},
+		/**
+		 * 中间文本字号
+		 */
+		labelFontSize: {
+			type: String,
+			default: "16"
+		},
+		/**
+		 * 数字的单位。
+		 */
+		labelUnit: {
+			type: String,
+			default: "%"
+		},
+		/**
+		 * 是否显示中间文本。
+		 */
+		showLabel: {
+			type: Boolean,
+			default: false
+		},
+		/**
+		 * 中间文本的颜色。
+		 */
+		labelColor: {
+			type: String,
+			default: "#333333"
+		},
+		/**
+		 * 中间文本的暗黑颜色。空值是取白色
+		 */
+		darkLabelColor: {
+			type: String,
+			default: ""
+		},
+		/**
+		 * 进度条动画的时间,单位ms。
+		 * 请不要设置的过慢，否则会有停顿感。
+		 */
+		duration: {
+			type: Number,
+			default: 300
+		},
+		/**
+		 * 渐变背景，使用使用正经的background-image请查阅官方文档,例：'linear-gradient(to bottom,red,green)'
+		 * 仅支持小程序和web，app不支持（原因 是canvas对渐变色的动画频繁绘制及canvas性能不行，app不是采用canvas，而是采用原生view绘制所以性能强）
+		 */
+		linearColor: {
+			type: String,
+			default: ""
+		}
+	})
+	const nowValue = ref(props.modelValue)
+	const oladValue = ref(0)
+	let tid = ref(0)
+	const proxy = getCurrentInstance()?.proxy
+	const instans = getCurrentInstance()
+	const id = 'xCircle-' + getUid()
+	const xCircleProgressRef = ref<UniCanvasElement | null>(null)
+	const xCircleProgressViewRef = ref<UniElement | null>(null)
+	let canvansCache : CanvasContext | null = null;
+
+	const nowback = ref<ANIMATECALLBACK>({
+		stop: () => { }
+	})
+	const _labelFontSize = computed(() : string => {
+		let fontSize = checkIsCssUnit(props.labelFontSize, xConfig.unit);
+		if (xConfig.fontScale == 1) return fontSize;
+		let sizeNumber = parseInt(fontSize)
+		if (isNaN(sizeNumber)) {
+			sizeNumber = 14
+		}
+		return (sizeNumber * xConfig.fontScale).toString() + getUnit(fontSize)
+	})
+	const _labelUnit = computed(() : string => props.labelUnit)
+	const _labelColor = computed(() : string => {
+		if (xConfig.dark == 'dark') {
+			if (props.darkLabelColor != '') return getDefaultColor(props.darkLabelColor)
+			return "#ffffff"
+		}
+		return getDefaultColor(props.labelColor)
+	})
+	const _showLabel = computed(() : boolean => props.showLabel)
+	const _linearColor = computed(() : string => props.linearColor)
+	
+	const _width = computed(() : number => {
+		let p = parseInt(props.size);
+		if (props.size.lastIndexOf('rpx') > -1) {
+			p = rpx2px(p);
+		}
+		return p
+	})
+	const _lineWidth = computed(() : number => {
+		let p = parseInt(props.lineWidth);
+		if (props.lineWidth.lastIndexOf('rpx') > -1) {
+			p = rpx2px(p);
+		}
+		return Math.floor(p)
+	})
+	const _color = computed(() : string => {
+		if (xConfig.dark == 'dark') return getDefaultColor(xConfig.inputDarkColor)
+		return getDefaultColor(props.color)
+	})
+	const _activeColor = computed(() : string => {
+		if (props.activeColor == "") return getDefaultColor(xConfig.color)
+		return getDefaultColor(props.activeColor)
+	})
+	
+	// 解析渐变色
+	const parseLinearGradient = (linearColor: string):string[]|null => {
+	    if (linearColor=='' || linearColor.indexOf('linear-gradient') == -1) {
+	        return null
+	    }
+	    // 匹配 linear-gradient(to right, #FFEB3A 0%, #4DEF8E 100%) 格式
+	    const match = linearColor.match(/linear-gradient\(([^,]+),\s*([^)]+)\)/)
+	    if (match==null) return null
+	    const direction = match[1]!.trim()
+	    const colorStops = match[2]!.trim()
+	    // 解析颜色和位置 - 简单按逗号分割
+	    const stops = colorStops.split(',').map(stop => stop.trim())
+	    let colors = stops.map((stop:string):string => {
+	        const colorMatch = stop.match(/(^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3})|rgba?\([^)]+\)|[a-zA-Z]+)/)
+	        return colorMatch!=null ? (colorMatch[1]!) : stop
+	    })
+		colors = colors.filter((colorItem:string):boolean => colorItem!='')
+	    
+	    if (colors.length < 2) return null
+	    
+	    return colors
+	}
+	
+	const animate = (options : OPTIONS) : ANIMATECALLBACK => {
+		const start = options.start; // 初始值，默认为0
+		const end = options.end; // 目标值，默认为100
+		const duration = options.duration; // 动画时长，默认为1000毫秒
+		let current = 0; // 当前值
+		let startTime = 0; // 动画开始时间
+		let isRunning = true; // 动画运行状态
+		let run = () => { }
+		run = () => {
+			if (startTime <= 0) {
+				startTime = Date.now(); // 记录动画开始时间
+			}
+			const progress = Math.min((Date.now() - startTime) / duration, 1); // 计算当前进度
+			current = start + (end - start) * progress; // 根据进度计算当前值
+			if (isRunning) {
+				options.run(current); // 执行传入的运行中状态回调函数
+			}
+			if (progress < 1 && isRunning) {
+				tid.value = setTimeout(() => {
+					run()
+				}, 16); // 递归调用自身，实现动画效果
+			} else {
+				options.complete(); // 动画结束时执行回调函数
+			}
+		}
+		run(); // 开始执行动画
+		return {
+			stop: () => {
+				// 设置动画运行状态为false
+				isRunning = false;
+			}
+		} as ANIMATECALLBACK;
+	}
+	const getCanvasContext = () : Promise<CanvasContext | null> => {
+		return new Promise((res) => {
+			if (canvansCache != null) {
+				res(canvansCache)
+				return;
+			}
+			uni.createCanvasContextAsync({
+				id: id,
+				// #ifdef WEB
+				component: proxy,
+				// #endif
+				// #ifdef MP
+				component: instans,
+				// #endif
+
+				success(result : CanvasContext) {
+					canvansCache = result
+					res(canvansCache)
+				},
+				fail() {
+					res(null)
+				}
+			})
+		})
+	}
+	
+	const clear = async () => {
+
+		let ratio = 1;
+		let ctx:DrawableContext|null = null
+		// #ifdef APP
+		let canvasView = xCircleProgressViewRef.value
+		if (canvasView == null) return;
+		ctx = canvasView!.getDrawableContext()!
+		// #endif
+		
+		// #ifdef WEB||MP
+		let ctxnode = await getCanvasContext()
+		if (ctxnode == null) return
+		const canvasContext = ctxnode.getContext('2d')!;
+		const canvas = canvasContext.canvas;
+		ctx = canvasContext
+		ratio = uni.getDeviceInfo().devicePixelRatio ?? 1;
+		// #endif
+
+
+		try {
+			// #ifndef WEB
+			ctx?.reset()
+			// #endif
+		} catch (e) {
+			//TODO handle the exception
+		}
+
+		ctx!.fillStyle = 'rgba(0,0,0,0)'
+		ctx!.fillRect(0, 0, _width.value * ratio, _width.value * ratio)
+		ctx!.fill()
+		// #ifdef APP
+		ctx!.update()
+		// #endif
+
+	}
+
+	const dreawer = async (start : number, end : number) : Promise<any | null> => {
+
+		let ratio = 1;
+		let ctx:DrawableContext|null = null
+		// #ifdef APP
+		let canvasView = xCircleProgressViewRef.value
+		if (canvasView == null) return Promise.resolve(null);
+		ctx = canvasView!.getDrawableContext()!
+		// #endif
+
+		// #ifdef MP || WEB
+
+		let ctxnode = await getCanvasContext()
+		if (ctxnode == null) return
+		const canvasContext = ctxnode.getContext('2d')!;
+		const canvas = canvasContext.canvas;
+		ctx = canvasContext
+		// 处理高清屏逻辑
+		const dpr = uni.getDeviceInfo().devicePixelRatio ?? 1;
+		canvas.width = canvas.offsetWidth * dpr;
+		canvas.height = canvas.offsetHeight * dpr;
+		ctx.scale(dpr, dpr);
+		
+		// #endif
+
+		// 使用自定义起始角度，Web标准：0度为正上方，顺时针为正
+		const startAngle = (props.startAngle) * Math.PI / 180;
+		const endAngle = startAngle + end;
+
+		let cx = (_width.value) / 2
+		let cy = cx
+		let cr = (_width.value - _lineWidth.value) / 2
+		ctx!.beginPath()
+		ctx!.strokeStyle = _color.value
+		ctx!.lineWidth = _lineWidth.value
+		ctx!.lineCap = "round"
+		ctx!.arc(cx * ratio, cy * ratio, cr * ratio, 0, Math.PI * 2)
+		ctx!.closePath()
+		ctx!.stroke()
+
+		ctx!.beginPath()
+		// #ifdef MP || WEB
+		const linearColos = parseLinearGradient(_linearColor.value);
+		if (linearColos!=null) {
+			// 创建渐变
+			const gradient = ctx.createLinearGradient(0, 0, _width.value, _width.value)
+			
+			linearColos.forEach((color:string, index:number) => {
+				gradient.addColorStop(index / (linearColos.length - 1), color)
+			})
+			// @ts-ignore
+			ctx.strokeStyle = gradient
+		} else {
+			ctx!.strokeStyle = _activeColor.value
+		}
+		// #endif
+		
+		// #ifdef APP
+		ctx!.strokeStyle = _activeColor.value
+		// #endif
+		
+		ctx!.lineWidth = _lineWidth.value
+		ctx!.arc(cx * ratio, cy * ratio, cr * ratio, startAngle, endAngle)
+		ctx!.stroke()
+		
+		// #ifdef APP
+		ctx!.update()
+		// #endif
+
+		return Promise.resolve(null)
+	}
+
+
+	const play = () => {
+		nowback.value.stop()
+		clearTimeout(tid.value)
+		clear();
+
+		nowback.value = animate({
+			start: 0,
+			end: 100,
+			duration: props.duration,
+			complete() {
+
+			},
+			run(cureent : number) {
+				let angle = Math.PI * 2;
+				if (nowValue.value >= oladValue.value) {
+					let startAngle = (oladValue.value / 100) * angle
+					let endAngle = ((cureent / 100) * (nowValue.value - oladValue.value) / 100) * angle
+					endAngle = Math.max(endAngle, 0)
+
+					dreawer(startAngle, endAngle + startAngle)
+				} else {
+					let startAngle = (nowValue.value / 100) * angle
+					let endAngle = ((cureent / 100) * (oladValue.value - nowValue.value) / 100) * angle
+					let diff = (oladValue.value - nowValue.value) / 100 * angle
+					dreawer(startAngle, diff + startAngle - endAngle)
+				}
+			}
+		} as OPTIONS)
+	}
+	watch(() : number => props.modelValue, (newval : number) => {
+		if (newval != nowValue.value) {
+			oladValue.value = nowValue.value
+			nowValue.value = newval
+			play();
+		}
+	})
+	onMounted(() => {
+		play();
+	})
+	onBeforeUnmount(() => {
+		clearTimeout(tid.value)
+	})
+</script>
+<template>
+
+	<view :style="{width:_width+'px',height:_width+'px',position: 'relative'}">
+		<!-- #ifdef APP -->
+		<view class="xCircleProgress" ref="xCircleProgressViewRef" :style="{width:_width+'px',height:_width+'px'}">
+		</view>
+		<!-- #endif -->
+		<!-- #ifdef WEB || MP -->
+		<canvas class="xCircleProgress" ref="xCircleProgressRef" :id="id" :canvas-id="id"
+			:style="{width:_width+'px',height:_width+'px'}"></canvas>
+		<!-- #endif -->
+		<view v-if="_showLabel" class="xCircleProgressLabel">
+			<!-- 
+			 @slot 默认文本插槽
+			 @prop {number} current - 当前的进度值。
+			 -->
+			<slot current="nowValue">
+				<text :style="{
+					fontSize:_labelFontSize,
+					color:_labelColor
+				}">{{nowValue}}{{_labelUnit}}</text>
+			</slot>
+		</view>
+
+	</view>
+</template>
+<style scoped>
+	.xCircleProgress {
+		transform: rotate(-90deg);
+	}
+
+	.xCircleProgressLabel {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		position: absolute;
+		left: 0px;
+		top: 0px;
+		width: 100%;
+		height: 100%;
+
+	}
+</style>

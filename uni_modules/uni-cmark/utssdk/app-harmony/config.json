@@ -1,0 +1,6 @@
+{
+  "minApiLevel": "17",
+  "dependencies": {
+    "cmark": "./libs/cmark.har"
+  }
+}

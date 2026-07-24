@@ -1,0 +1,624 @@
+<template>
+	<!-- #ifdef APP-ANDROID || APP-HARMONY -->
+	<scroll-view
+	@scroll="onScrollTop"
+	 class="xTreeFlatBox"
+	 :scroll-top="scrollTop"
+	:scroll-y="true" direction="vertical" :style="{width:_width,height:_height}"
+	>
+		<scroll-view @scroll="onScrollLeft" :scroll-left="scrollLeft" :scroll-x="true" direction="horizontal" :style="{width: _width,height: canvasHeight+'px'}">
+			<canvas :key="keyids" @click="onclickCanvas" @touchstart="onCanvasTouchStart" @touchmove="onCanvasTouchMove" @touchend="onCanvasTouchEnd" @touchcancel="onCanvasTouchEnd" :id="id" ref="canvasRef" :style="{width:canvasWidth+'px',height:canvasHeight+'px'}"></canvas>
+		</scroll-view>
+	</scroll-view>
+	<!-- #endif -->
+	<!-- #ifdef APP-IOS -->
+	<!--
+	 iOS 原生 UIScrollView 嵌套中，子元素若声明 touchstart/touchmove 监听会抢占 scroll-view 的 pan 手势，
+	 导致横向 scroll-view 完全无法滚动。因此这里只保留 click / touchend / touchcancel（用于双击重置），
+	 牺牲双指缩放能力换取横滑正常。用户如需快速适配视图可用"双击空白"触发 fitView。
+	 -->
+	<scroll-view
+	@scroll="onScrollTop"
+	 class="xTreeFlatBox"
+	 :scroll-top="scrollTop"
+	:scroll-y="true" direction="vertical" :style="{width:_width,height:_height}"
+	>
+		<scroll-view @scroll="onScrollLeft" :scroll-left="scrollLeft" :scroll-x="true" direction="horizontal" :style="{width: _width,height: canvasHeight+'px'}">
+			<canvas :key="keyids" @click="onclickCanvas" @touchend="onCanvasTouchEnd" @touchcancel="onCanvasTouchEnd" :id="id" ref="canvasRef" :style="{width:canvasWidth+'px',height:canvasHeight+'px'}"></canvas>
+		</scroll-view>
+	</scroll-view>
+	<!-- #endif -->
+	<!-- #ifdef MP -->
+	<view ref="xTreeFlatBox" class="xTreeFlatBox" :style="{width:_width,height:_height}">
+		<scroll-view @scroll="onScrollAll" class="xTreeFlatBoxScroll" :scroll-top="scrollTop" :scroll-left="scrollLeft" :scroll-x="true" :scroll-y="true" direction="all" :style="{width: '100%',height: '100%'}">
+			<canvas :key="keyids" @click="onclickCanvas" @touchstart="onCanvasTouchStart" @touchmove="onCanvasTouchMove" @touchend="onCanvasTouchEnd" @touchcancel="onCanvasTouchEnd" :id="id" ref="canvasRef" :style="{width:canvasWidth+'px',height:canvasHeight+'px'}"></canvas>
+		</scroll-view>
+	</view>
+	<!-- #endif -->
+	<!-- #ifdef WEB -->
+	<view ref="xTreeFlatBox" class="xTreeFlatBox" :style="{width:_width,height:_height}">
+		<canvas :key="keyids" @click="onclickCanvas" @dblclick="onCanvasDblclick" @mousewheel="onCanvasWheel" @touchstart="onCanvasTouchStart" @touchmove="onCanvasTouchMove" @touchend="onCanvasTouchEnd" @touchcancel="onCanvasTouchEnd" :id="id" ref="canvasRef" :style="{width:canvasWidth+'px',height:canvasHeight+'px'}"></canvas>
+	</view>
+	<!-- #endif -->
+</template>
+
+<script lang="ts" setup>
+
+	import { computed, ref, onMounted,PropType,getCurrentInstance,nextTick } from "vue"
+	import { xDate } from "../../core/util/xDate.uts"
+	import { checkIsCssUnit, getUnit } from "../../core/util/xCoreUtil.uts"
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	import { XTREEFLAT_NODES,XTreeFlatOpts } from "../../interface.uts"
+	import {XTREEFLAT_CONFIG,XTREEFLAT_CHILDREN,propsTypeAsSelef } from "./interface.uts"
+	import { OrgChartRenderer, XTREEFLAT_PINCH_POINT } from "./draw.uts"
+	
+	/**
+	 * @name 思维导图 xTreeFlat
+	 * @page /pages/index/tree-flat
+	 * @category 其它组件
+	 * @description 主要用来展示平面树平面结构,思维导图的展示。大数据量时：布局阶段对子树高/宽与节点尺寸做了缓存，连线绘制用 id 索引替代全表查找；请保证各节点 id 全局唯一。
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({name:"xTreeFlat"})
+	
+	const xTreeFlatBox = ref<UniElement | null>(null)
+	// canvas 元素 ref：双指缩放期间用来做 CSS transform 即时反馈（GPU 加速），
+	// 避免每次 touchmove 都触发全量 draw() 造成掉帧。
+	const canvasRef = ref<UniElement | null>(null)
+	
+	const id = "xTreeFlat-"+Math.random().toString(16).substring(4,20)
+	const proxy = getCurrentInstance()?.proxy??null;
+	const scrollLeft  = ref(0)
+	const scrollTop  = ref(0)
+	const scrollLeft_onlyRead  = ref(0)
+	const scrollTop_onlyRead  = ref(0)
+	const boxNodeinfo = ref<NodeInfo|null>(null)
+	let tid = 23
+	const props = withDefaults(defineProps<propsTypeAsSelef>(),{
+		/** 
+		 * 画板宽,总宽不要小于节点展开后的宽,可以尽量设置大点
+		 */
+		canvasWidth:800,
+		/** 
+		 * 画板高,总高不要小于节点展开后的高,可以尽量设置大点
+		 */
+		canvasHeight:800,
+		/** 
+		 * 组件宽,可以为auto,百分比,数字字符,带单位字符
+		 */
+		width:'100%',
+		/**
+		 * 组件高,不能为auto
+		*/
+		height:'600',
+		/**
+		 * 动态数据
+		 */
+		list:[] as XTREEFLAT_NODES[],
+		/**
+		 * 配置见类型：XTreeFlatOpts ，建议使用ref方法setData来设置
+		 */
+		opts:():XTreeFlatOpts|null =>{
+			return null
+		},
+		/**
+		 * 首次渲染自动缩放：若内容超出视口则自动缩小以完整展示，
+		 * 不超出则保持 1.0 原始尺寸；同时滚动使内容视觉居中。默认 true。
+		 */
+		autoFit: true
+	})
+	
+	
+
+	const _width = computed(():string=>checkIsCssUnit(props.width,xConfig.unit))
+	const _height = computed(():string=>checkIsCssUnit(props.height,xConfig.unit))
+	const render = ref<null|OrgChartRenderer>(null)
+	const canvasWidth = ref(props.canvasWidth)
+	const canvasHeight = ref(props.canvasHeight)
+	const keyids = ref(23)
+	const emits = defineEmits([
+		/**
+		 * 引擎初始化完成,可以进行通过ref来异步设置数据
+		 */
+		'init',
+		/** 当list数据被编辑变动时触发 */
+		'change',
+		/**
+		 * 当前节点被点击时触发
+		 * @param {item:XTREEFLAT_CHILDREN} 被点击的节点数据
+		 */
+		'click'
+	])
+	const setScrollPosition = ()=>{
+		// #ifdef WEB
+		let ele = xTreeFlatBox.value;
+		if(ele==null) return;
+		ele.scrollLeft = scrollLeft.value
+		ele.scrollTop = scrollTop.value
+		// #endif
+	}
+	
+	/**
+	 * 将 scroll 位置设置到"缩放后"的内容中心对齐视口中心。
+	 * 缩放中心是 canvas 几何中心，所以逻辑坐标 p 缩放后的像素坐标为:
+	 *   p' = (p - c) * s + c，其中 c 为 canvas 中心，s 为 scaleXY。
+	 */
+	const centerScrollToContent = ()=>{
+		if(render.value==null||boxNodeinfo.value==null) return;
+		const viewW : number = boxNodeinfo.value!.width!
+		const viewH : number = boxNodeinfo.value!.height!
+		const bounds = render.value!.getDrawBounds()
+		const s : number = render.value!.scaleXY
+		const cx : number = canvasWidth.value / 2
+		const cy : number = canvasHeight.value / 2
+		const scaledX : number = (bounds.x - cx) * s + cx
+		const scaledY : number = (bounds.y - cy) * s + cy
+		const scaledW : number = bounds.width * s
+		const scaledH : number = bounds.height * s
+		scrollTop_onlyRead.value = scrollTop.value
+		scrollLeft_onlyRead.value = scrollLeft.value
+		scrollTop.value = scaledY - (viewH - scaledH) / 2
+		scrollLeft.value = scaledX - (viewW - scaledW) / 2
+		setScrollPosition()
+	}
+
+	/**
+	 * 根据内容尺寸自动缩放并居中显示。
+	 * UTS 限制：箭头函数不支持参数默认值，改用 function 命名函数。
+	 * @param shrinkOnly true 只缩小不放大；false 允许放大以填满视口。
+	 */
+	function fitView(shrinkOnly : boolean = true) {
+		if(render.value==null||boxNodeinfo.value==null) return;
+		const s : number = render.value!.calculateFitScale(shrinkOnly)
+		render.value!.setScale(s)
+		centerScrollToContent()
+	}
+
+	/**
+	 * 设置数据
+	 * @param {XTREEFLAT_NODES[]} list 设置当前数据
+	 */
+	const setData = (list:XTREEFLAT_NODES[])=>{
+		if(render==null||boxNodeinfo.value==null){
+			console.error('render未初始化')
+			return;
+		}
+		render.value!.setData(list)
+		if(props.autoFit){
+			// 自动适配：超视口则缩小、不超视口保持原尺寸；并把内容滚动到视口中心
+			fitView(true)
+			return;
+		}
+		// 兼容原行为：不改 scale，仅滚动使内容居中
+		let dboxwidth = render.value!.getDrawBounds()
+		scrollTop_onlyRead.value = scrollTop.value
+		scrollLeft_onlyRead.value = scrollLeft.value
+		scrollTop.value = dboxwidth.y - (boxNodeinfo.value!.height!-dboxwidth.height)/2
+		scrollLeft.value = dboxwidth.x - (boxNodeinfo.value!.width!-dboxwidth.width)/2
+		setScrollPosition()
+	}
+	
+	const onScrollTop = (evt:UniScrollEvent)=>{
+		scrollTop_onlyRead.value = evt.detail.scrollTop
+	}
+	const onScrollLeft = (evt:UniScrollEvent)=>{
+		scrollLeft_onlyRead.value = evt.detail.scrollLeft
+	}
+	const onScrollAll = (evt:UniScrollEvent)=>{
+		nextTick(()=>{
+			scrollTop_onlyRead.value = evt.detail.scrollTop
+			scrollLeft_onlyRead.value = evt.detail.scrollLeft
+		})
+	}
+	
+	// pinch 相关状态：只保留运行期必要字段，避免无意义的响应式原语
+	// 松手后 canvas 透明掩盖期时长（ms），覆盖 native canvas flush 延迟窗口
+	const PINCH_BLIND_MS : number = 60
+	let pinchBlindTid : number = 0
+	let pinchInitialPoints = [] as XTREEFLAT_PINCH_POINT[]
+	let pinchInitialScale : number = 1.0
+	let isPinching : boolean = false
+	// 一次 touch 序列内是否已进行过 pinch（用于抑制后续 click）
+	let hasPinchedInSequence : boolean = false
+	// 双击检测：上次单指 tap 结束时间与坐标
+	let lastTapTime : number = 0
+	let lastTapX : number = 0
+	let lastTapY : number = 0
+	// 本次 touchend 触发了双击重置，用于抑制后续 click 造成的节点展开
+	let suppressNextClick : boolean = false
+	const DOUBLE_TAP_MS : number = 300
+	const DOUBLE_TAP_DIST : number = 30
+
+	/**
+	 * 双指缩放性能优化方案：
+	 * touchmove 期间"不"调用 draw（全量重绘大树上 10-30ms/帧是主要卡顿源），
+	 * 只改 canvas 元素的 CSS transform scale（GPU 合成，~0 开销）做实时视觉反馈。
+	 * touchend 时先把 transform 清回 1，再一次性 setScale + draw 做真实像素重绘。
+	 * 由于 CSS transform 默认原点与 draw 里的缩放中心（canvas 几何中心）一致，
+	 * 松手瞬间 transform→1 和 draw 结果视觉无缝对齐，不会闪跳。
+	 */
+	// 记录最后一次 touchmove 的双指坐标，touchend 用它真正 applyPinchZoom。
+	let lastPinchCurrentPoints = [] as XTREEFLAT_PINCH_POINT[]
+
+	const readPinchPoints = (evt:UniTouchEvent):XTREEFLAT_PINCH_POINT[]=>{
+		return [
+			{ x: evt.touches[0].clientX, y: evt.touches[0].clientY } as XTREEFLAT_PINCH_POINT,
+			{ x: evt.touches[1].clientX, y: evt.touches[1].clientY } as XTREEFLAT_PINCH_POINT
+		] as XTREEFLAT_PINCH_POINT[]
+	}
+
+	/**
+	 * 双击/双指重置：autoFit 开启时等价于回到"适配 + 居中"初始视图；
+	 * 关闭时等价于缩放回 1.0 并保留当前 scroll 位置。
+	 */
+	const doubleTapReset = ()=>{
+		if(render.value==null) return;
+		if(props.autoFit){
+			fitView(true)
+		} else {
+			render.value!.resetScale()
+		}
+	}
+
+	const onCanvasTouchStart = (evt:UniTouchEvent)=>{
+		if(render.value==null) return;
+		if(evt.touches.length >= 2){
+			// 双指开始：记录初始距离与初始缩放，并阻止 scroll-view 的滚动/页面默认行为
+			evt.preventDefault()
+			evt.stopPropagation()
+			isPinching = true
+			hasPinchedInSequence = true
+			pinchInitialPoints = readPinchPoints(evt)
+			pinchInitialScale = render.value!.scaleXY
+			lastPinchCurrentPoints = [] as XTREEFLAT_PINCH_POINT[]
+			// 打断上次 pinch 可能残留的透明恢复定时器，并确保 canvas 立即可见
+			clearTimeout(pinchBlindTid)
+			const el = canvasRef.value
+			if(el != null){
+				el.style.setProperty('opacity', '1')
+			}
+		}
+	}
+
+	const onCanvasTouchMove = (evt:UniTouchEvent)=>{
+		if(!isPinching || render.value==null) return;
+		if(evt.touches.length < 2){
+			// 手指减少到 1 个时等到 touchend 处理
+			return;
+		}
+		evt.preventDefault()
+		evt.stopPropagation()
+		const currentPoints = readPinchPoints(evt)
+		lastPinchCurrentPoints = currentPoints
+		// 根据双指距离变化计算目标 scale（与 draw.uts applyPinchZoom 算法保持一致）
+		const dx0 = pinchInitialPoints[1].x - pinchInitialPoints[0].x
+		const dy0 = pinchInitialPoints[1].y - pinchInitialPoints[0].y
+		const dx1 = currentPoints[1].x - currentPoints[0].x
+		const dy1 = currentPoints[1].y - currentPoints[0].y
+		const d0 = Math.sqrt(dx0 * dx0 + dy0 * dy0)
+		const d1 = Math.sqrt(dx1 * dx1 + dy1 * dy1)
+		if(d0 <= 0 || d1 <= 0) return;
+		const damping : number = 0.45
+		const ratio : number = d1 / d0
+		const damped : number = 1 + (ratio - 1) * damping
+		const renderer = render.value!
+		// 目标绝对 scale 限制到 scaleMin~scaleMax，避免缩得过大过小视觉飞掉
+		let target : number = pinchInitialScale * damped
+		if(target < renderer.scaleMin) target = renderer.scaleMin
+		if(target > renderer.scaleMax) target = renderer.scaleMax
+		// CSS transform 是"相对当前 canvas 视觉"的倍数；touchstart 时 canvas 正以 pinchInitialScale 显示，
+		// 所以 CSS scale = target / pinchInitialScale
+		let cssScale : number = target / pinchInitialScale
+		// CSS transform 层面硬上限，避免 pinchInitialScale 极小(如 0.3)时 cssScale 过大(如 10x)
+		// 触发 GPU 渲染资源不足导致闪退
+		const MAX_CSS_SCALE : number = 4.0
+		if(cssScale > MAX_CSS_SCALE) cssScale = MAX_CSS_SCALE
+		// 计算双指中心相对 canvas 元素左上角的像素坐标，作为 transform-origin（"捏哪儿放哪儿"）
+		const fingerCenterClientX = (currentPoints[0].x + currentPoints[1].x) / 2
+		const fingerCenterClientY = (currentPoints[0].y + currentPoints[1].y) / 2
+		const box = boxNodeinfo.value
+		const el = canvasRef.value
+		if(el != null){
+			if(box != null){
+				// canvas 元素左上角相对屏幕 = scroll-view 左上角 - scroll 当前滚动偏移
+				const scrollViewLeft = box!.left ?? 0
+				const scrollViewTop = box!.top ?? 0
+				const originX : number = fingerCenterClientX - scrollViewLeft + scrollLeft_onlyRead.value
+				const originY : number = fingerCenterClientY - scrollViewTop + scrollTop_onlyRead.value
+				el.style.setProperty('transform-origin', `${originX}px ${originY}px`)
+			}
+			el.style.setProperty('transform', `scale(${cssScale})`)
+		}
+	}
+
+	// #ifdef WEB
+	/** PC 鼠标滚轮缩放：deltaY<0 放大、>0 缩小，以步长 0.1 平滑调整 */
+	const onCanvasWheel = (evt : WheelEvent)=>{
+		if(render.value==null) return;
+		// 阻止外层容器滚动与页面默认滚动
+		evt.preventDefault()
+		evt.stopPropagation()
+		const step : number = 0.1
+		const current : number = render.value!.scaleXY
+		let next : number = current
+		if(evt.deltaY < 0){
+			next = current + step
+		} else {
+			next = current - step
+		}
+		render.value!.setScale(next)
+	}
+	/**
+	 * PC 鼠标双击重置缩放。
+	 * 浏览器事件顺序为 click → click → dblclick，前两次 click 已经对节点 toggle 两次
+	 * (opened / selected 均为 toggle)，状态回到原点，视觉几乎无副作用，因此无需额外抑制 click。
+	 */
+	const onCanvasDblclick = (evt : MouseEvent)=>{
+		if(render.value==null) return;
+		evt.preventDefault()
+		evt.stopPropagation()
+		doubleTapReset()
+	}
+	// #endif
+
+	const onCanvasTouchEnd = (evt:UniTouchEvent)=>{
+		if(render.value==null) return;
+		// 还有手指在屏幕上，先结束 pinch 状态
+		if(evt.touches.length >= 2){
+			return;
+		}
+		const wasPinching = isPinching
+		if(wasPinching){
+			isPinching = false
+			/*
+			 * 松手收尾：先判断 pinch 是否真的改变了 scale（未变则跳过重绘和 opacity 掩盖，
+			 * 避免达到 scaleMin/scaleMax 边界时继续 pinch 造成的无谓闪烁）。
+			 *
+			 * 有变化时走 opacity 掩盖方案：
+			 *   - 松手瞬间同时设 opacity=0 + transform=1 + 发 draw 命令
+			 *   - 用户看到 canvas 短暂不可见（~60ms），看不到几何不一致
+			 *   - 60ms 后 canvas flush 已完成到目标 scale，opacity 恢复为 1
+			 */
+			// 1) 计算 target scale（与 touchmove 同一算法），判断是否实际变化
+			let targetScale : number = pinchInitialScale
+			if(lastPinchCurrentPoints.length >= 2){
+				const dx0 = pinchInitialPoints[1].x - pinchInitialPoints[0].x
+				const dy0 = pinchInitialPoints[1].y - pinchInitialPoints[0].y
+				const dx1 = lastPinchCurrentPoints[1].x - lastPinchCurrentPoints[0].x
+				const dy1 = lastPinchCurrentPoints[1].y - lastPinchCurrentPoints[0].y
+				const d0 = Math.sqrt(dx0 * dx0 + dy0 * dy0)
+				const d1 = Math.sqrt(dx1 * dx1 + dy1 * dy1)
+				if(d0 > 0 && d1 > 0){
+					const renderer0 = render.value!
+					const damping : number = 0.45
+					const ratio : number = d1 / d0
+					const damped : number = 1 + (ratio - 1) * damping
+					let t : number = pinchInitialScale * damped
+					if(t < renderer0.scaleMin) t = renderer0.scaleMin
+					if(t > renderer0.scaleMax) t = renderer0.scaleMax
+					targetScale = t
+				}
+			}
+			const SCALE_EPS : number = 0.001
+			const hasChanged : boolean = Math.abs(targetScale - pinchInitialScale) > SCALE_EPS
+
+			const el = canvasRef.value
+			if(!hasChanged){
+				// 2a) 无变化（通常是已达 scaleMin/scaleMax 后继续 pinch）：只复位 CSS transform，
+				//     不触发 draw 也不走 opacity 掩盖，避免每次都闪一下
+				if(el != null){
+					el.style.setProperty('transform', 'scale(1)')
+					el.style.setProperty('transform-origin', 'center center')
+				}
+			} else {
+				// 2b) 有变化：走 opacity 掩盖 + draw 流程
+				// 计算双指中心在 canvas 内部像素坐标，作为 draw 的缩放原点，与 touchmove 的 CSS transform-origin 一致
+				let scaleCenterX : number = -1
+				let scaleCenterY : number = -1
+				if(lastPinchCurrentPoints.length >= 2 && boxNodeinfo.value != null){
+					const box = boxNodeinfo.value!
+					const fingerCenterClientX = (lastPinchCurrentPoints[0].x + lastPinchCurrentPoints[1].x) / 2
+					const fingerCenterClientY = (lastPinchCurrentPoints[0].y + lastPinchCurrentPoints[1].y) / 2
+					scaleCenterX = fingerCenterClientX - (box.left ?? 0) + scrollLeft_onlyRead.value
+					scaleCenterY = fingerCenterClientY - (box.top ?? 0) + scrollTop_onlyRead.value
+				}
+				if(el != null){
+					el.style.setProperty('opacity', '0')
+					el.style.setProperty('transform', 'scale(1)')
+					el.style.setProperty('transform-origin', 'center center')
+				}
+				render.value!.applyPinchZoom(pinchInitialPoints, lastPinchCurrentPoints, pinchInitialScale, scaleCenterX, scaleCenterY)
+				// 等 canvas flush 完成后恢复可见
+				clearTimeout(pinchBlindTid)
+				pinchBlindTid = setTimeout(() => {
+					const el2 = canvasRef.value
+					if(el2 != null) el2.style.setProperty('opacity', '1')
+				}, PINCH_BLIND_MS) as number
+			}
+			lastPinchCurrentPoints = [] as XTREEFLAT_PINCH_POINT[]
+		}
+		// 所有手指都离开才尝试识别 tap / 双击
+		if(evt.touches.length == 0){
+			// 如果本 touch 序列经历过 pinch，则不算作 tap，也不触发双击
+			if(hasPinchedInSequence){
+				hasPinchedInSequence = false
+				lastTapTime = 0
+				return;
+			}
+			if(evt.changedTouches.length == 0) return;
+			const t = evt.changedTouches[0]
+			const now = Date.now()
+			if(now - lastTapTime < DOUBLE_TAP_MS
+				&& Math.abs(t.clientX - lastTapX) < DOUBLE_TAP_DIST
+				&& Math.abs(t.clientY - lastTapY) < DOUBLE_TAP_DIST){
+				// 双击：重置视图并抑制紧跟的 click 避免误展开节点
+				doubleTapReset()
+				suppressNextClick = true
+				lastTapTime = 0
+				return;
+			}
+			lastTapTime = now
+			lastTapX = t.clientX
+			lastTapY = t.clientY
+		}
+	}
+
+	const onclickCanvas = (evt:UniPointerEvent)=>{
+		if(render.value==null||boxNodeinfo.value==null){
+			return;
+		}
+		// 经过 pinch 或双击时不触发节点点击
+		if(hasPinchedInSequence){
+			hasPinchedInSequence = false
+			return;
+		}
+		if(suppressNextClick){
+			suppressNextClick = false
+			return;
+		}
+		// #ifdef WEB
+		let ele = xTreeFlatBox.value;
+		if(ele==null) return;
+		scrollTop_onlyRead.value = ele.scrollTop||0
+		scrollLeft_onlyRead.value = ele.scrollLeft||0
+		// #endif
+		render.value!.addEventClick(evt,scrollTop_onlyRead.value,scrollLeft_onlyRead.value)
+	}
+	const onRenderClick = (item:XTREEFLAT_CHILDREN)=>{
+		emits('click',item)
+	}
+	const onInit = ():Promise<any> =>{
+		return new Promise(()=>{
+			uni.createSelectorQuery()
+			.in(proxy)
+			.select(".xTreeFlatBox")
+			.boundingClientRect()
+			.exec(result=>{
+				if(result.length == 0) return;
+				let node = result[0]! as NodeInfo
+				canvasWidth.value = Math.max(props.canvasWidth,node.width!)
+				canvasHeight.value = Math.max(props.canvasHeight,node.height!)
+				keyids.value +=10
+				clearTimeout(tid)
+				tid = setTimeout(function() {
+					uni.createCanvasContextAsync({
+						id: id,
+						component: proxy,
+						success: (context : CanvasContext) => {
+							let opts = {} as XTreeFlatOpts
+							if(props.opts!=null){
+								opts = props.opts! as XTreeFlatOpts
+							}
+							render.value = new OrgChartRenderer( {
+								width:canvasWidth.value,
+								height:canvasHeight.value,
+								canvas:context,
+								nodeInfo:node,
+								bgColor:opts?.bgColor,
+								nodeBgColor:opts?.nodeBgColor,
+								fontColor:opts?.fontColor,
+								fontSize: opts?.fontSize,
+								lineColor:opts?.lineColor,
+								lineWidth:opts?.lineWidth,
+								padding: opts?.padding,
+								gutter:opts?.gutter,
+								parentLineGutter :opts?.parentLineGutter,
+								enbleOpenChildren :opts?.enbleOpenChildren,
+								nodeRadius : opts?.nodeRadius,
+								layout: opts?.layout,
+								lineType: opts?.lineType
+							} )
+							boxNodeinfo.value = node
+							render.value!.onListen(onRenderClick)
+							
+							if(props.list.length>0){
+								setData(props.list)
+							}
+							/**
+							 * 引擎初始化完成,可以进行通过ref来异步设置数据
+							 */
+							emits('init')
+						}
+					})
+				}, 100);
+			})
+		})
+		
+	}
+	
+	
+	/**
+	 * opts 动态生效：已初始化则 mergeOpts 后按 list 重算（与原先 onInit 内用 opts 建引擎再 setData 一致）；
+	 * 未初始化时走 onInit。使用 deep，便于改对象内字段。
+	 */
+	watch((): XTreeFlatOpts | null => props.opts, () => {
+		if (render.value == null) {
+			onInit()
+			return
+		}
+		render.value!.mergeOpts(props.opts ?? null)
+		if (props.list.length > 0) {
+			setData(props.list)
+		} else {
+			render.value!.relayoutFromCurrentData()
+		}
+	}, { deep: true })
+	onMounted(()=>{
+		// #ifdef APP-HARMONY || APP-ANDROID||APP-IOS||WEB
+		clearTimeout(tid)
+		tid = setTimeout(function() {
+			onInit();
+		}, 80);
+		// #endif
+	})
+	
+	// #ifdef MP
+	onReady(()=>{
+		clearTimeout(tid)
+		tid = setTimeout(function() {
+			onInit();
+		}, 50);
+	})
+	// #endif
+	
+	onBeforeUnmount(()=>{
+		clearTimeout(tid)
+		clearTimeout(pinchBlindTid)
+	})
+	defineExpose({
+		/**
+		 * 设置树形组件的数据
+		 * @description 用于动态设置或更新树形组件的数据源
+		 * @param {XTREEFLAT_NODES[]} list - 树形节点数据数组
+		 * @returns {void}
+		 */
+		setData,
+		/**
+		 * 自动适配缩放并居中显示
+		 * @description 按可视区域与内容包围盒计算合适缩放比例并滚动居中。
+		 * 常用于数据动态变化或用户双击/主动重置后重新适配视图。
+		 * @param {boolean} [shrinkOnly=true] true=只缩小不放大；false=允许放大以填满视口
+		 */
+		fitView
+	})
+	
+</script>
+
+<style scoped>
+	.xTreeFlatBox{
+		position: relative;
+		/* #ifdef WEB */
+		overflow: auto;
+		/* #endif */
+	}
+	/* #ifdef MP||WEB */
+	.xTreeFlatBoxScroll{
+		position: absolute;
+	}
+	/* #endif */
+
+</style>

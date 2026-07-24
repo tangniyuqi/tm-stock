@@ -1,0 +1,288 @@
+<script lang="ts" setup>
+	import { type PropType, computed, ref, watch, onMounted, getCurrentInstance } from "vue"
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { checkIsCssUnit, getUnit } from "../../core/util/xCoreUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	const i18n = xConfig.i18n
+
+	type MENTION_BEFOREREMOVE_TYPE = (tag:string) => boolean
+	type MENTION_EXPORT_TYPE = {
+		setFoucus: (val:boolean) => void
+	}
+	/**
+	 * @name 提及 xMention
+	 * @description 它是依照微信的输入体验来的,请自行体验效果,样式是可以直接在标签上写style来定义你想的外观.
+	 * @page /pages/index/mention
+	 * @category 其它组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({name:"xMention"})
+	const emits = defineEmits([
+		/**
+		 * 字符变化时触发
+		 * @param {string} value - 当前的值。
+		 */
+		'change',
+		/**
+		 * 输入提及符时触发
+		 */
+		'mention',
+		/**
+		 * 用记在删除字符时,如果触发删除标签时触发
+		 * @param {string} value - 当前被删除的标签
+		 */
+		'removemention',
+		/**
+		 * 键盘确认时触发.
+		 * @param {string} value - 当前的值。
+		 */
+		'confirm',
+		/**
+		 * 输入时触发.
+		 * @param {string} value - 当前的值。
+		 */
+		'input',
+		/**
+		 * 失去焦点
+		 */
+		'blur',
+		/**
+		 * 获得焦点
+		 */
+		'foucs',
+		/**
+		 * 键盘高度变化时
+		 * @param {number} height - 高。
+		 */
+		'keyboardheightchange',
+		'update:modelValue',
+	])
+	
+	const props = defineProps({
+		/**
+		 * 输入框背景及标签背景
+		 */
+		bgColor: {
+			type: String,
+			default: "#f5f5f5"
+		},
+		/**
+		 * 输入框的暗黑背景色
+		 * 空值读取全局的Input暗黑背景色
+		 */
+		darkBgColor: {
+			type: String,
+			default: ""
+		},
+		/**
+		 * 右边按钮主题色，空取全局主题色
+		 */
+		btnColor: {
+			type: String,
+			default: ""
+		},
+		/**
+		 * 文本大小
+		 */
+		fontSize: {
+			type: String,
+			default: "16"
+		},
+		/**
+		 * 文本颜色，暗黑时取白
+		 */
+		fontColor: {
+			type: String,
+			default: "#333333"
+		},
+		/**
+		 * 宽
+		 */
+		width: {
+			type: String,
+			default: "auto"
+		},
+		/**
+		 * 高
+		 */
+		height: {
+			type: String,
+			default: "40"
+		},
+		/**
+		 * 圆角
+		 */
+		round: {
+			type: String,
+			default: ""
+		},
+		/**
+		 * 输入提示词,请输入内容，@选择朋友,按确认完成
+		 */
+		placeholder: {
+			type: String,
+			default: ""
+		},
+		/**
+		 * 双向绑定
+		 */
+		modelValue: {
+			type: String,
+			default: ""
+		},
+		/**
+		 * 提及符号
+		 */
+		mentionChar:{
+			type:String,
+			default:"@"
+		},
+		autFoucs:{
+			type:Boolean,
+			default:false
+		},
+		adjustPosition:{
+			type:Boolean,
+			default:false
+		},
+		holdKeyboard:{
+			type:Boolean,
+			default:false
+		},
+		beforeRemove:{
+			type: Function as PropType<MENTION_BEFOREREMOVE_TYPE>,
+			default: (tag : string) : boolean => {
+				return true
+			}
+		}
+	})
+	const nowValue = ref<string>("")
+	const focusinput = ref<boolean>(false)
+
+	const _placeholder = computed(():string => {
+		if(props.placeholder == '') return i18n.t("tmui4x.mention.placeholder")
+		return props.placeholder
+	})
+	const _bgColor = computed(() : string => {
+		let color = getDefaultColor(props.bgColor)
+		if (xConfig.dark == 'dark') {
+			if (props.darkBgColor == "") {
+				color = xConfig.inputDarkColor
+			} else {
+				color = getDefaultColor(props.darkBgColor)
+			}
+		}
+		return color
+	})
+	const _fontColor = computed(() : string => {
+		if (xConfig.dark == 'dark') return '#ffffff'
+		return getDefaultColor(props.fontColor)
+	})
+	const _fontSize = computed(() : string => {
+		let fontSize = checkIsCssUnit(props.fontSize, xConfig.unit);
+		if (xConfig.fontScale == 1) return fontSize;
+		let sizeNumber = parseInt(fontSize)
+		if (isNaN(sizeNumber)) {
+			sizeNumber = 16
+		}
+		return (sizeNumber * xConfig.fontScale).toString() + getUnit(fontSize)
+	})
+
+	function okConfirm() {
+		emits('confirm', nowValue.value)
+	}
+	function oninput(evt:UniInputEvent){
+		let word = evt.detail.value;
+		let isDel = word.length < nowValue.value.length
+		if(isDel){
+			let reg = new RegExp(`${props.mentionChar}\\S+`,'g');
+			let result = nowValue.value.match(reg)
+			if(result!=null&&Array.isArray(result)){
+				if(result.length>0){
+					let lastName = result[result.length-1]! as string
+					let removeChart = word.substring(word.length - lastName.length)
+					if(lastName == removeChart){
+						let isremove = props.beforeRemove(lastName.substring(1))
+						if(isremove){
+							word = word.substring(0,word.length - lastName.length)
+							emits('removemention',lastName)
+						}
+					}
+				}
+			}
+		}else if(word.length>0){
+			let lastchars = word.substring(word.length-1)
+			if(lastchars == props.mentionChar){
+				focusinput.value = false;
+				emits('mention')
+			}
+		}
+		nowValue.value = word;
+		emits('update:modelValue', word)
+		emits('change', word)
+	}
+	function onfoucusByCoustom(evt:UniInputFocusEvent){
+		// #ifndef APP-HARMONY
+		focusinput.value = true;
+		// #endif
+		emits('foucs')
+	}
+	function onblurByCoustom(evt:UniInputBlurEvent){
+		// #ifndef APP-HARMONY
+		focusinput.value = false;
+		// #endif
+		emits('blur')
+	}
+	function onkeyboardheightchange(evt:UniInputKeyboardHeightChangeEvent){
+		emits('keyboardheightchange',evt.detail.height)
+	}
+	/**
+	 * 设置当前焦点
+	 * @public
+	 * @param {boolean} val 焦点值true,false
+	 */
+	function setFoucus(val:boolean){
+		if(val==focusinput.value) return;
+		focusinput.value = val;
+	}
+	watch(():string => props.modelValue, (newValue : string) => {
+		if (newValue == nowValue.value) return;
+		nowValue.value = newValue;
+	})
+	onMounted(() => {
+		nowValue.value = props.modelValue;
+	})
+	defineExpose({
+		setFoucus
+	})
+</script>
+<template>
+	<input 
+	class="xInputTagIntag"
+	:hold-keyboard="holdKeyboard" 
+	:focus="focusinput" 
+	:adjust-position="adjustPosition"
+	:auto-focus="autFoucs" 
+	@keyboardheightchange="onkeyboardheightchange" 
+	@focus="onfoucusByCoustom" 
+	@blur="onblurByCoustom" 
+	@input="oninput" 
+	:confirm-hold="true" 
+	:value="nowValue" 
+	@confirm="okConfirm" 
+	:placeholder="_placeholder"
+	:style="[{color:_fontColor,fontSize:_fontSize,height:'44px',marginBottom:'8px',backgroundColor:_bgColor}]" 
+	type="text" />
+
+</template>
+<style scoped>
+	.xInputTagIntag {
+	
+		padding:0px 12px;
+		
+	}
+
+</style>

@@ -1,0 +1,261 @@
+﻿<script lang="ts" setup>
+	import { computed, ref, getCurrentInstance, onBeforeUnmount } from "vue"
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+
+	/**
+	 * @name 动态全屏 xViewTofull
+	 * @page /pages/index/view-tofull
+	 * @category 展示组件
+	 * @description 动态全屏，点击某一区域时，让该内容自动全屏展开，关闭时，回落到原位置，场景比如：视频播放，详情等不想开新页面的时候非常有用。
+	 * 如果想完全全屏，可以自定义导航栏和自定义关闭按钮实现。web端使用时注意：不能套在父组件设置了css transform属性里面，否则错乱。
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({ name: "xViewTofull" })
+
+	type xViewTofullPropsType = {
+		/**
+		 * 全屏弹出来时的背景色。
+		 */
+		bgColor : string,
+		/**
+		 * 全屏弹出来时的暗黑背景色。
+		 * 默认为空，取全局的暗黑背景
+		 */
+		darkBgColor : string,
+		/**
+		 * 展开时的动画时长，单位ms
+		 */
+		duration : number,
+		/**
+		 * 是否显示关闭按钮
+		 * 你可以关闭，通过ref来关闭。
+		 * 如果要全屏可以自定义导航栏。
+		 */
+		showClose : boolean,
+	}
+
+	const props = withDefaults(defineProps<xViewTofullPropsType>(), {
+		bgColor: '#ffffff',
+		darkBgColor: '',
+		duration: 300,
+		showClose: true,
+	})
+
+	defineSlots<{
+		default(props : { opened : boolean }) : any
+	}>()
+
+	const instance = getCurrentInstance()
+
+	const nodeeleinfo = ref<null | NodeInfo>(null)
+	const opeing = ref<boolean>(false)
+	const opened = ref<boolean>(false)
+	const isCloseing = ref<boolean>(false)
+	const showCloseBtn = ref<boolean>(false)
+	const showPlace = ref<boolean>(false)
+	const zIndex = ref<number>(50)
+	const opeingZindex = ref<boolean>(false)
+	let tid = 0
+
+	const xViewToFullBlockRef = ref<UniElement | null>(null)
+
+	const _bgColor = computed((): string => {
+		if (xConfig.dark == 'dark') {
+			if (props.darkBgColor == "") {
+				return getDefaultColor(xConfig.backgroundColorContentDark)
+			}
+			return getDefaultColor(props.darkBgColor)
+		}
+		return getDefaultColor(props.bgColor)
+	})
+
+	const _boxMapStyle = computed((): Map<string, any> => {
+		let stylemap = new Map<string, any>()
+		let w = nodeeleinfo.value?.width ?? 0;
+		let h = nodeeleinfo.value?.height ?? 0;
+		stylemap.set('width', w + 'px')
+		stylemap.set('height', h + 'px')
+		return stylemap;
+	})
+
+	function closeAniEnd(): void {
+		if (opeing.value) {
+			opeing.value = false;
+			opened.value = true;
+			isCloseing.value = false;
+			showCloseBtn.value = true;
+		}
+		if (!isCloseing.value) return;
+		isCloseing.value = false;
+		opeing.value = false;
+		opened.value = false;
+		let ele = xViewToFullBlockRef.value as UniElement | null;
+		if (ele == null) return;
+		let el = ele! as UniElement;
+		el.style.setProperty('transition-duration', '0ms')
+		el.style.setProperty('position', 'static')
+		el.style.setProperty('top', '0px')
+		el.style.setProperty('left', '0px')
+		el.style.setProperty('background-color', 'transparent')
+		showPlace.value = false;
+		opeingZindex.value = false;
+	}
+
+	function setOpens(): void {
+		let ele = xViewToFullBlockRef.value as UniElement | null;
+		if (ele == null) return;
+		opeing.value = true;
+		let el = ele! as UniElement;
+		let top = 0
+		let sys = uni.getWindowInfo()
+		// #ifdef WEB
+		top = 44
+		// #endif
+
+		isCloseing.value = false;
+		el.style.setProperty('width', nodeeleinfo.value!.width! + 'px')
+		el.style.setProperty('height', nodeeleinfo.value!.height! + 'px')
+		el.style.setProperty('left', nodeeleinfo.value!.left! + 'px')
+		el.style.setProperty('top', nodeeleinfo.value!.top! + 'px')
+
+		setTimeout(() => {
+			el.style.setProperty('position', 'fixed')
+			el.style.setProperty('transition-duration', props.duration + 'ms')
+			el.style.setProperty('left', '0px')
+			el.style.setProperty('top', top + 'px')
+			el.style.setProperty('width', sys.windowWidth + 'px')
+			el.style.setProperty('height', sys.windowHeight + 'px')
+			el.style.setProperty('background-color', _bgColor.value)
+		}, 50)
+		// #ifdef APP-HARMONY
+		clearTimeout(tid)
+		tid = setTimeout(() => {
+			closeAniEnd()
+		}, props.duration + 50);
+		// #endif
+	}
+
+	function getNodeinfo(): void {
+		if (opened.value || opeing.value) return;
+		opened.value = false
+
+		uni.createSelectorQuery()
+			.in(instance!.proxy)
+			.select(".xViewToFull")
+			.boundingClientRect()
+			.exec((result) => {
+				let node = result[0] as NodeInfo
+				nodeeleinfo.value = node!;
+				setOpens()
+				showPlace.value = true;
+			})
+	}
+
+	/**
+	 * 手动打开弹层
+	 * @public
+	 */
+	function open(): void {
+		opeingZindex.value = true;
+		getNodeinfo()
+	}
+
+	/**
+	 * 手动ref调用关闭弹层。
+	 * @public
+	 */
+	function close(): void {
+		opeingZindex.value = false;
+		if (!opened.value || opeing.value) return;
+		let ele = xViewToFullBlockRef.value as UniElement | null;
+		if (ele == null) return;
+		let el = ele! as UniElement;
+		isCloseing.value = true;
+		showCloseBtn.value = false;
+		let top = 0
+		// #ifdef WEB
+		top = 44
+		// #endif
+		el.style.setProperty('width', nodeeleinfo.value!.width! + 'px')
+		el.style.setProperty('height', nodeeleinfo.value!.height! + 'px')
+		el.style.setProperty('left', nodeeleinfo.value!.left! + 'px')
+		el.style.setProperty('top', (nodeeleinfo.value!.top! + top) + 'px')
+		// #ifdef APP-HARMONY
+		opeing.value = false;
+		opened.value = false;
+		isCloseing.value = false;
+		showCloseBtn.value = false;
+		// #endif
+	}
+
+	function onClick(): void {
+		open()
+	}
+
+	onBeforeUnmount(() => {
+		clearTimeout(tid)
+	})
+
+	defineExpose({
+		open,
+		close
+	})
+</script>
+<template>
+	<view  class="xViewToFull">
+		
+		<view 
+			@click="onClick" 
+			@transitionend="closeAniEnd" 
+			ref="xViewToFullBlockRef" 
+			class="xViewToFullBlock"
+			:style="{zIndex:opeingZindex?(zIndex+1):zIndex}"
+		 >
+			
+			<view v-if="showCloseBtn&&showClose" @click.stop="close" class="xViewToFullClose">
+				<!-- 
+				 @slot 关闭按钮插槽
+				 @prop {boolean} opened - 是否打开状态
+				 -->
+				<slot name="close" :opened="opened">
+					<x-icon font-size="24" name="close-circle-line"></x-icon>
+				</slot>
+			</view>
+			<!--
+			 @slot 默认内容插槽
+			 @prop {boolean} opened - 是否打开状态
+			 -->
+			<slot :opened="opened"></slot>
+		</view>
+		
+		<view class="xViewToFullPlace" v-if="showPlace" :style="_boxMapStyle"></view>
+	</view>
+</template>
+<style>
+.xViewToFullBlock{
+	transition-duration: 0ms;
+	transition-property: width,left,top,width,height,opacity;
+	transition-timing-function: cubic-bezier(.42,.38,.15,.93);
+	left: 0px;
+	top:0px;
+	position: relative;
+	/* #ifdef MP */
+	box-sizing: border-box;
+	overflow: hidden;
+	/* #endif */
+}
+.xViewToFullClose{
+	display: flex;
+	flex-direction: row;
+	justify-content: center;
+	align-items: center;
+	position: absolute;
+	right: 16px;
+	top:16px;
+	z-index: 50;
+}
+</style>

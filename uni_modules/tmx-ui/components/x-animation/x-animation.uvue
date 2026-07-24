@@ -1,0 +1,385 @@
+<script lang="ts" setup>
+	import { xConfig } from "../../config/xConfig.uts"
+	import bezier from "@/uni_modules/tmx-ui/core/util/bezier.uts"
+
+	type xAnimationStatusType = 'reset' | 'playing' | 'complete'
+	type xAnimationPropsType = {
+		/**
+		 * 是否自动播放
+		 */
+		autoPlay: boolean,
+		/**
+		 * 动画播放的时间+50+5
+		 */
+		duration: number,
+		/**
+		 * 当自动播放时，延迟自动播放的时间
+		 */
+		delay: number,
+		/**
+		 * 动画名称
+		 */
+		name: string,
+		/**
+		 * 缓动动画名称
+		 */
+		ease: string,
+
+		/**
+		 * 自动监测是否播放。如果标志为play就开始播放动画，但
+		 * 如果动画在播放中这个值不会有任何响应，而且需要v-model:playing用法来双向绑定读取此属性
+		 * 你可以通过播放事件来确定修改此值。
+		 *  'play' | 'default'
+		 */
+		control: string,
+		/**
+		 * 播放状态，只能用来读取此值，不可更改，使用时请v-model:status来读取动态的状态值
+		 */
+		status: xAnimationStatusType
+	}
+	/**
+	 * @name 动画 xAnimation
+	 * @page /pages/index/animation
+	 * @description 动画组件
+	 * @category 其它组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.81+ | 1.1.20 |
+	 */
+	defineOptions({ name: "xAnimation" })
+	
+	const props = withDefaults(defineProps<xAnimationPropsType>(),{
+		autoPlay: false,
+		name: 'fadeIn',
+		ease: 'tmxEase',
+		control: 'default',
+		status: 'complete',
+		duration:350,
+		delay: 0
+	})
+	const emits = defineEmits([
+			/**
+			 * 播放前执行
+			 */
+			'beforePlay',
+			/**
+			 * 播放完成执行
+			 */
+			'complete',
+			/**
+			 * 播放时触发
+			 */
+			'play',
+			/**
+			 * 同步控制播放参数
+			 * 等同v-model:control
+			 */
+			'update:control',
+			/**
+			 * 当前播放的状态
+			 * 等同vmodel:status
+			 * 它是单向输出的
+			 */
+			'update:status'])
+			
+	let _easingListCache : Map<string, number[]> | null = null
+	function getEasingList() : Map<string, number[]> {
+		if (_easingListCache != null) return _easingListCache!
+		_easingListCache = new Map<string, number[]>([
+			["linear", [0.250, 0.250, 0.750, 0.750]],
+			["ease", [0.250, 0.100, 0.250, 1.000]],
+			["easeIn", [0.420, 0.000, 1.000, 1.000]],
+			["easeOut", [0.000, 0.000, 0.580, 1.000]],
+			["easeInOut", [0.420, 0.000, 0.580, 1.000]],
+			["easeInQuad", [0.550, 0.085, 0.680, 0.530]],
+			["easeOutQuad", [0.250, 0.460, 0.450, 0.940]],
+			["easeInOutQuad", [0.455, 0.030, 0.515, 0.955]],
+			["easeInCubic", [0.550, 0.055, 0.675, 0.190]],
+			["easeOutCubic", [0.215, 0.610, 0.355, 1.000]],
+			["easeInOutCubic", [0.645, 0.045, 0.355, 1.000]],
+			["easeInQuart", [0.895, 0.030, 0.685, 0.220]],
+			["easeOutQuart", [0.165, 0.840, 0.440, 1.000]],
+			["easeInOutQuart", [0.770, 0.000, 0.175, 1.000]],
+			["easeInQuint", [0.755, 0.050, 0.855, 0.060]],
+			["easeOutQuint", [0.230, 1.000, 0.320, 1.000]],
+			["easeInOutQuint", [0.860, 0.000, 0.070, 1.000]],
+			["easeInSine", [0.470, 0.000, 0.745, 0.715]],
+			["easeOutSine", [0.390, 0.575, 0.565, 1.000]],
+			["easeInOutSine", [0.445, 0.050, 0.550, 0.950]],
+			["easeInExpo", [0.950, 0.050, 0.795, 0.035]],
+			["easeOutExpo", [0.190, 1.000, 0.220, 1.000]],
+			["easeInOutExpo", [1.000, 0.000, 0.000, 1.000]],
+			["easeInCirc", [0.600, 0.040, 0.980, 0.335]],
+			["easeOutCirc", [0.075, 0.820, 0.165, 1.000]],
+			["easeInOutBack", [0.680, -0.550, 0.265, 1.550]],
+			["tmxEase", [0.42, 0.38, 0.15, 0.93]]
+		])
+		return _easingListCache!
+	}
+
+	const xAnimationRef = ref<UniElement|null>(null)
+	const playStatus = ref<xAnimationStatusType>('complete')
+	const timeid = ref<number | null>(null)
+	let tid = 0
+
+	const resetStatusInitType = ()=> {
+	
+		if (xAnimationRef.value == null) return;
+		let element = xAnimationRef.value!
+		playStatus.value = 'reset'
+		emits('update:status', 'reset')
+	
+		if (props.name == 'fadeIn') {
+				element.style.setProperty("opacity", '0')
+				element.style.setProperty("transform", 'scale(1) translateX(0%) translateY(0%)')
+			}
+			if (props.name == 'fadeOut') {
+				element.style.setProperty("opacity", '1')
+				element.style.setProperty("transform", 'scale(1) translateX(0%) translateY(0%)')
+			}
+			if (props.name == 'zoomIn') {
+				element.style.setProperty("opacity", '0')
+				element.style.setProperty("transform", 'scale(0) translateX(0%) translateY(0%)')
+				
+			}
+			if (props.name == 'zoomOut') {
+				element.style.setProperty("opacity", '1')
+				element.style.setProperty("transform", 'scale(1) translateX(0%) translateY(0%)')
+			
+			}
+			if (props.name == 'leftIn') {
+				element.style.setProperty("transform", 'translateX(-100%) scale(1) translateY(0%)')
+			}
+			if (props.name == 'leftOut') {
+				element.style.setProperty("transform", 'translateX(0%) scale(1) translateY(0%)')
+			}
+			if (props.name == 'rightIn') {
+				element.style.setProperty("opacity", '0')
+				element.style.setProperty("transform", 'translateX(100%) scale(1) translateY(0%)')
+			}
+			if (props.name == 'rightOut') {
+				element.style.setProperty("opacity", '1')
+				element.style.setProperty("transform", 'translateX(0%) scale(1) translateY(0%)')
+			}
+			if (props.name == 'topIn') {
+				element.style.setProperty("opacity", '0')
+				element.style.setProperty("transform", 'translateY(-100%) scale(1) translateX(0%)')
+			}
+			if (props.name == 'topOut') {
+				element.style.setProperty("opacity", '1')
+				element.style.setProperty("transform", 'translateY(0%) scale(1) translateX(0%)')
+			}
+			if (props.name == 'bottomIn') {
+				element.style.setProperty("opacity", '0')
+				element.style.setProperty("transform", 'translateY(100%) scale(1) translateX(0%)')
+			}
+			if (props.name == 'bottomOut') {
+				element.style.setProperty("opacity", '1')
+				element.style.setProperty("transform", 'translateY(0%) scale(1) translateX(0%)')
+			}
+	}
+	const autoPlaySetFlex = () => {
+		if (xAnimationRef.value == null) return;
+		let element = xAnimationRef.value!
+		element.style.setProperty("display", 'flex')
+	}
+	// 带动画的函数
+	const ani = (duration:number,callback:(percent:number)=>void) => {
+		// 如果已经在动画中，先清理之前的定时器
+		if (timeid.value != null) {
+			// #ifdef APP||WEB
+			cancelAnimationFrame(timeid.value!)
+			// #endif
+			// #ifdef MP
+			clearTimeout(timeid.value!);
+			// #endif
+		}
+		let lastValue = 0
+		let frame = 0
+		const startTime = Date.now(); // 记录动画开始时间
+		let animate:(task:number) =>void = (n:number)=>{}
+		animate = (task:number) => {
+			const currentTime = Date.now();
+			const elapsed = currentTime - startTime; // 计算已过去的时间
+			const percent = Math.min(100, Math.floor((elapsed / duration) * 100)); // 计算百分比，不超过100%
+			frame = task - lastValue
+			if(frame > 0){
+				callback(percent)
+				if(percent>=100 || elapsed >= duration) { // 根据duration判断动画是否结束
+					// #ifdef APP||WEB
+					cancelAnimationFrame(timeid.value!)
+					// #endif
+					// #ifdef MP
+					clearTimeout(timeid.value!);
+					// #endif
+					timeid.value = null
+					return;
+				}
+			}
+			lastValue = task
+			// #ifdef APP||WEB
+			timeid.value =requestAnimationFrame(animate)
+			// #endif
+			// #ifdef MP
+			timeid.value =setTimeout(()=>{
+				animate(new Date().getTime())
+			}, 16)
+			// #endif
+		}
+		animate(0)
+	}
+	
+	/**
+	 * 播放动画
+	 */
+	const play = ()=>{
+
+		if (xAnimationRef.value == null) return;
+		let element = xAnimationRef.value!
+		if (element == null || playStatus.value == 'playing') return;
+		if (playStatus.value != 'reset') {
+			resetStatusInitType()
+		}
+		/**
+		 * 播放前触发
+		 */
+		emits('beforePlay')
+		playStatus.value = 'playing'
+		emits('update:status', 'playing')
+		let atr = props.name
+		let easingList = getEasingList()
+		let ease = easingList.get(props.ease) ?? easingList.get('ease')!
+		const fun = bezier(ease[0], ease[1], ease[2], ease[3])!
+		ani(props.duration,(percent:number)=>{
+			const progress = fun(percent/100) 
+			
+			if(atr == 'fadeIn'){
+				element.style.setProperty('opacity',(progress).toString())
+			}else if(atr == 'fadeOut'){
+				element.style.setProperty('opacity',(1-progress).toString())
+			}else if(atr == 'zoomIn'){
+				
+				element.style.setProperty("opacity", progress)
+				element.style.setProperty("transform", `scale(${progress})`)
+			}else if(atr == 'zoomOut'){
+				element.style.setProperty("opacity", (1-progress))
+				element.style.setProperty("transform", `scale(${1-progress})`)
+			}else if(atr == 'leftIn'){
+				let left = (1-progress)*100*-1
+				element.style.setProperty('opacity',(progress).toString())
+				element.style.setProperty("transform", `translateX(${left.toString()}%)`)
+				
+			}else if(atr == 'leftOut'){
+				let left = (progress)*100*-1
+				element.style.setProperty('opacity',(1-progress).toString())
+				element.style.setProperty("transform", `translateX(${left.toString()}%)`)
+			}else if(atr == 'rightIn'){
+				let left = (1-progress)*100
+				element.style.setProperty('opacity',(progress).toString())
+			
+				element.style.setProperty("transform", `translateX(${left.toString()}%)`)
+				
+			}else if(atr == 'rightOut'){
+				let left = (progress)*100
+				element.style.setProperty('opacity',(1-progress).toString())
+				element.style.setProperty("transform", `translateX(${left.toString()}%)`)
+			}else if(atr == 'topIn'){
+				let left = (1-progress)*100*-1
+				element.style.setProperty('opacity',(progress).toString())
+				element.style.setProperty("transform", `translateY(${left.toString()}%)`)
+				
+			}else if(atr == 'topOut'){
+				let left = (progress)*100*-1
+				element.style.setProperty('opacity',(1-progress).toString())
+				element.style.setProperty("transform", `translateY(${left.toString()}%)`)
+			}else if(atr == 'bottomIn'){
+				let left = (1-progress)*100
+				element.style.setProperty('opacity',(progress).toString())
+				element.style.setProperty("transform", `translateY(${left.toString()}%)`)
+				
+			}else if(atr == 'bottomOut'){
+				let left = (progress)*100
+				element.style.setProperty('opacity',(1-progress).toString())
+				element.style.setProperty("transform", `translateY(${left.toString()}%)`)
+			}
+			
+			if(progress>=1){
+				playStatus.value = 'complete'
+				/**
+				 * 播放完成触发
+				 */
+				emits('complete')
+				emits('update:status', 'complete')
+				emits('update:control', 'default');
+			}
+		})
+		
+		
+		
+	}
+	
+	watch(():any=>props.name,()=>{
+		resetStatusInitType();
+		autoPlaySetFlex()
+		if (props.autoPlay) {
+			play();
+		}
+	})
+	watch(():any=>props.control,()=>{
+		if (playStatus.value == 'playing' || props.control != 'play') {
+			emits('update:control', 'default')
+			return;
+		}
+		play();
+	})
+	onMounted(()=>{
+		resetStatusInitType();
+		autoPlaySetFlex()
+		if (props.autoPlay) {
+			if(props.delay>0){
+				tid = setTimeout(function() {
+					play();
+				}, props.delay);
+			}else{
+				play();
+			}
+			
+		}
+	})
+	onBeforeUnmount(()=>{
+		clearTimeout(tid)
+		if (timeid.value != null) {
+			// #ifdef APP||WEB
+			cancelAnimationFrame(timeid.value!)
+			// #endif
+			// #ifdef MP
+			clearTimeout(timeid.value!);
+			// #endif
+		}
+	})
+	
+	defineExpose({
+		/**
+		 * 播放动画
+		 */
+		play
+	})
+</script>
+<template>
+	<view ref="xAnimationRef" class="xAnimation">
+		<!--
+		@slot 默认插槽,下面的数据微信没有
+		@prop {object} status - 状态 {state:'reset'|'playing'|'complete',flag:'play'|'default'}
+		-->
+		<slot :status="{state:playStatus,flag:props.control}"></slot>
+	</view>
+</template>
+<style>
+	.xAnimation {
+		display: none;
+		flex-direction: column;
+		/* transition-property: opacity, transform;
+		transition-duration: 350ms; */
+	}
+</style>

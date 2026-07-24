@@ -1,0 +1,254 @@
+<script lang="ts" setup>
+	import { ref, computed, watch, onMounted, nextTick, getCurrentInstance } from "vue"
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { checkIsCssUnit } from "../../core/util/xCoreUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+
+	type positionType = "right" | "left" | "bottomLeft" | "bottomRight" | 'top' | 'bottom'
+
+	/**
+	 * @name 角标 xBadge
+	 * @page /pages/index/badge
+	 * @category 展示组件
+	 * @description 角标
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({name:"xBadge"})
+
+	type xBadgePropsType = {
+		/**
+		 * 文字大小，可数字或者带单位
+		 */
+		fontSize: string,
+		/**
+		 * 背景颜色，合法和颜色值及主题名称
+		 */
+		bgColor: string,
+		/**
+		 * 文字颜色，合法和颜色值及主题名称
+		 */
+		fontColor: string,
+		/**
+		 * 是否显示为点，优先级小于count,label
+		 */
+		dot: boolean,
+		/**
+		 * 是否显示为文本数字，优先级小于label
+		 */
+		count: number,
+		/**
+		 * 为数字时大于此值显示+号
+		 */
+		maxCount: number,
+		/**
+		 * 是否显示为文本，优先级最大
+		 */
+		label: string,
+		/**
+		 * 位置
+		 */
+		position: positionType,
+		/**
+		 * 偏移
+		 */
+		offset: number[]
+	}
+
+	const props = withDefaults(defineProps<xBadgePropsType>(), {
+		fontSize: "9",
+		bgColor: "error",
+		fontColor: "white",
+		dot: true,
+		count: 0,
+		maxCount: 99,
+		label: "",
+		position: "right",
+		offset: ():number[] => [0, 0] as number[]
+	})
+
+	const padding = ref<string>('4px 4px')
+
+	function getNodeInfo(): void {
+		uni.createSelectorQuery().in(getCurrentInstance()?.proxy)
+			.select(".xBadge-countAndLabel")
+			.boundingClientRect().exec((ret) => {
+				if(ret.length==0) return;
+				let nodeinfo = ret[0] as NodeInfo
+				if(nodeinfo==null) return;
+				let width = nodeinfo.width as number
+				let height = nodeinfo.height as number
+				let max = Math.max(width, height)
+				let px = Math.ceil(max / 2);
+				// let py = max / 2;
+				padding.value = `${px}px ${px}px`;
+			})
+	}
+
+	// 计算属性
+	const _isDot = computed((): boolean => {
+		if (props.label != "" || props.count > 0 || !props.dot) return false;
+		return true;
+	})
+
+	const _fontColor = computed((): string => {
+		return getDefaultColor(props.fontColor)
+	})
+
+	const _fontSize = computed((): string => {
+		return checkIsCssUnit(props.fontSize, xConfig.unit)
+	})
+
+	const _label = computed((): string => {
+		if (props.label != "") return props.label;
+		if (props.count > 0 && props.count <= props.maxCount) return props.count.toString();
+		if (props.count <= 0) return ""
+		return props.maxCount.toString() + "+"
+	})
+
+	const _cStyles = computed((): Map<string, string>[] => {
+		let trs = ''
+		if (props.position == 'right') {
+			trs = 'translate(50%, -50%)'
+		} else if (props.position == 'left') {
+			trs = 'translate(-50%, -50%)'
+		} else if (props.position == 'bottomLeft') {
+			trs = 'translate(-50%, 50%)'
+		} else if (props.position == 'bottomRight') {
+			trs = 'translate(50%, 50%)'
+		} else if (props.position == 'top') {
+			trs = 'translate(0%, -50%)'
+		} else if (props.position == 'bottom') {
+			trs = 'translate(0%, 50%)'
+		}
+		let top = ''
+		let bottom = ''
+		let left = ''
+		let right = ''
+		if (props.position == 'top') {
+			top = '0px'
+			left = 'auto'
+			right = 'auto'
+		} else if (props.position == 'bottom') {
+			bottom = '0px'
+			left = 'auto'
+			right = 'auto'
+		} else 		if (props.position == 'right') {
+			top = props.offset[1].toString() + 'px'
+			right = props.offset[0].toString() + 'px'
+		} else if (props.position == 'left') {
+			top = '0px'
+			left = '0px'
+		} else if (props.position == 'bottomLeft') {
+			bottom = '0px'
+			left = '0px'
+		} else if (props.position == 'bottomRight') {
+			bottom = '0px'
+			right = '0px'
+		}
+
+		let dotMapCs = new Map<string, string>()
+		dotMapCs.set("background", getDefaultColor(props.bgColor))
+		dotMapCs.set("left", left)
+		dotMapCs.set("right", right)
+		dotMapCs.set("top", top)
+		dotMapCs.set("bottom", bottom)
+		dotMapCs.set("transform", trs)
+
+		let labelMapCs = new Map<string, string>()
+
+		labelMapCs.set("background", getDefaultColor(props.bgColor))
+		labelMapCs.set("left", left)
+		labelMapCs.set("right", right)
+		labelMapCs.set("top", top)
+		labelMapCs.set("bottom", bottom)
+		labelMapCs.set("transform", trs)
+		labelMapCs.set("visibility", _label.value == "" ? "hidden" : "visible")
+
+		return [dotMapCs, labelMapCs] as Map<string, string>[]
+	})
+
+	// 监听器
+	watch([
+		(): string => props.label,
+		(): string => props.position,
+		(): number => props.count,
+		(): number[] => props.offset,
+	], (): void => {
+		nextTick(() => {
+			getNodeInfo();
+		})
+	})
+	// 生命周期
+	onMounted((): void => {
+		getNodeInfo();
+	})
+</script>
+<template>
+	<view class="xBadge" :style='{padding:padding}'>
+		<view class="xBadgeWrap">
+			<text :style='_cStyles[0]!' class="xBadge-dot" :class="[_isDot?'noneShow':'nonex']"></text>
+			<view id="xBadge-countAndLabel" class="xBadge-countAndLabel" :class="[_isDot?'nonex':'noneShow']"
+				:style='_cStyles[1]!'>
+				<text class="xBadge-countAndLabelText"
+					:style='{color:_fontColor,fontSize:_fontSize}'>{{_label}}</text>
+			</view>
+
+			<!-- 
+			 @slot 默认内容区域,你的正常内容放置在标签内
+			 -->
+			<slot></slot>
+		</view>
+	</view>
+</template>
+<style>
+	.xBadge {
+		overflow: visible;
+	}
+
+	.xBadge-countAndLabel {
+		position: absolute;
+		z-index: 3;
+		border-radius: 100px;
+		/* min-width: 16px; */
+		padding: 0rpx 4px;
+
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.xBadge-countAndLabelText {
+		line-height: 1.5;
+		text-align: center;
+	}
+
+	.xBadge-dot {
+		position: absolute;
+
+		width: 6px;
+		height: 6px;
+		border-radius: 18px;
+		z-index: 3;
+		opacity: 0;
+	}
+
+	.noneShow {
+		opacity: 1;
+	}
+
+	.nonex {
+		opacity: 0;
+	}
+
+	.xBadgeWrap {
+		flex-direction: column;
+		justify-content: center;
+		align-items: center;
+		overflow: visible;
+		position: relative;
+	}
+</style>

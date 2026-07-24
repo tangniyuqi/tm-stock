@@ -1,0 +1,326 @@
+<script lang="ts" setup>
+	import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue"
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { checkIsCssUnit, getUnit } from "../../core/util/xCoreUtil.uts"
+	import { xAnimate } from '../../core/util/xAnimate.uts';
+	import { XANIMATE_OPIONS } from "../../interface";
+	import { xConfig } from "../../config/xConfig.uts"
+
+	/**
+	 * @name 数字翻滚 xRollingNumber
+	 * @description 是否小数点，取决与你的的endVal目标值，如果它带小数点，那动画也是相应带小数点。
+	 * @page /pages/index/rolling-number
+	 * @category 展示组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({name:"xRollingNumber"})
+
+	type xRollingNumberPropsType = {
+		/**
+		 * 文字大小
+		 */
+		fontSize: string,
+		/**
+		 * 文字颜色
+		 */
+		fontColor: string,
+		fontStyle:string,
+		/**
+		 * 暗黑时的文字颜色，如果为空取白
+		 */
+		darkFontColor: string,
+		/**
+		 * 起始值
+		 */
+		startVal: number,
+		/**
+		 * 目标值（当前需要显示的值）
+		 */
+		endVal: number,
+		/**
+		 * 动画速率。控制翻滚动的动画效果。
+		 */
+		duration: number,
+		/**
+		 * 缓动函数类型
+		 */
+		easing: string,
+		/**
+		 * 是否显示千分位分隔符
+		 */
+		useGrouping: boolean,
+		/**
+		 * 小数位数
+		 */
+		decimals: number,
+		/**
+		 * 前缀符号（如货币符号）
+		 */
+		prefix: string,
+		/**
+		 * 后缀符号（如单位）
+		 */
+		suffix: string,
+		/**
+		 * 是否启用动画
+		 */
+		enableAnimation: boolean
+	}
+
+	const props = withDefaults(defineProps<xRollingNumberPropsType>(), {
+		fontSize: "32",
+		fontColor: "black",
+		darkFontColor: "",
+		startVal: 0,
+		endVal: 0,
+		duration: 400,
+		easing: "easeIn",
+		useGrouping: false,
+		decimals: -1,
+		prefix: "",
+		suffix: "",
+		enableAnimation: true,
+		fontStyle:''
+	})
+
+	const emits = defineEmits([
+		/**
+		 * 动画开始时触发
+		 */
+		'animationStart',
+		/**
+		 * 动画完成时触发
+		 */
+		'animationComplete',
+		/**
+		 * 动画暂停时触发
+		 */
+		'animationPause',
+		/**
+		 * 动画恢复时触发
+		 */
+		'animationResume',
+		/**
+		 * 动画停止时触发
+		 */
+		'animationStop',
+		/**
+		 * 数值变化时触发
+		 */
+		'valueChange'
+	])
+
+	defineSlots<{
+		default(props: { value: string, formattedValue: string }): any
+	}>()
+
+	// 响应式数据
+	const ani = ref<null | xAnimate>(null)
+	const endValue = ref<number>(0)
+	const oldValue = ref<number>(0)
+	const targetValue = ref<string>('0')
+	const isAnimating = ref<boolean>(false)
+
+	// 计算属性
+	const _fontSize = computed((): string => {
+		let fontSize = checkIsCssUnit(props.fontSize, xConfig.unit);
+		if (xConfig.fontScale == 1) return fontSize;
+		let sizeNumber = parseInt(fontSize)
+		if (isNaN(sizeNumber)) {
+			sizeNumber = 32
+		}
+		return (sizeNumber * xConfig.fontScale).toString() + getUnit(fontSize)
+	})
+
+
+	const _fontColor = computed((): string => {
+		if (xConfig.dark == 'dark') {
+			if (props.darkFontColor != '') {
+				return getDefaultColor(props.darkFontColor)
+			}
+			return "#FFFFFF"
+		}
+		return getDefaultColor(props.fontColor)
+	})
+
+	const _dmit = computed((): number => {
+		if (props.decimals >= 0) {
+			return props.decimals
+		}
+		let str = props.endVal.toString();
+		let pasa = str.indexOf(".")
+		let endStrNum = 0
+		if (pasa > -1) {
+			endStrNum = str.substring(pasa + 1).length
+		}
+		return endStrNum
+	})
+
+	// 格式化数值
+	const formatNumber = (value: number): string => {
+		let formatted = value.toFixed(_dmit.value)
+		
+		if (props.useGrouping) {
+			// 添加千分位分隔符
+			const parts = formatted.split('.')
+			parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+			formatted = parts.join('.')
+		}
+		
+		return props.prefix + formatted + props.suffix
+	}
+
+	// 格式化后的显示值
+	const formattedValue = computed((): string => {
+		return formatNumber(parseFloat(targetValue.value))
+	})
+
+	// 方法
+	function createAnimation(): xAnimate {
+		return new xAnimate(null, {
+			duration: props.duration,
+			timingFunction: props.easing,
+			frame(propress: number) {
+				const currentValue = propress * (endValue.value - oldValue.value) + oldValue.value
+				targetValue.value = currentValue.toFixed(_dmit.value)
+				emits('valueChange', parseFloat(targetValue.value))
+			},
+			start() {
+				emits('animationStart')
+			},
+			complete() {
+				targetValue.value = endValue.value.toFixed(_dmit.value)
+				isAnimating.value = false
+				emits('animationComplete')
+				emits('valueChange', endValue.value)
+			}
+		} as XANIMATE_OPIONS)
+	}
+
+	function play(): void {
+		if (!props.enableAnimation) {
+			targetValue.value = endValue.value.toFixed(_dmit.value)
+			emits('valueChange', endValue.value)
+			return
+		}
+
+		if (isAnimating.value) {
+			ani.value?.stop()
+		}
+		
+		ani.value = createAnimation()
+		isAnimating.value = true
+		
+		ani.value!.stop()
+		ani.value!.attr('run', '0', '100')
+		ani.value!.setDurations(props.duration)
+		ani.value!.play()
+	}
+
+	function pause(): void {
+		ani.value?.pause()
+		isAnimating.value = false
+		emits('animationPause')
+	}
+
+	function resume(): void {
+		ani.value?.play()
+		isAnimating.value = true
+		emits('animationResume')
+	}
+
+	function stop(): void {
+		ani.value?.stop()
+		isAnimating.value = false
+		targetValue.value = endValue.value.toFixed(_dmit.value)
+		emits('animationStop')
+		emits('valueChange', endValue.value)
+	}
+
+	function reset(): void {
+		stop()
+		oldValue.value = props.startVal
+		endValue.value = props.startVal
+		targetValue.value = props.startVal.toFixed(_dmit.value)
+		emits('valueChange', props.startVal)
+	}
+
+	// 监听器
+	watch((): number => props.endVal, (newValue: number, oldValue_s: number): void => {
+		targetValue.value = `${oldValue_s}`
+		endValue.value = newValue
+		oldValue.value = oldValue_s
+
+		play()
+	})
+
+	// 监听动画开关
+	watch((): boolean => props.enableAnimation, (newVal: boolean): void => {
+		if (!newVal && isAnimating.value) {
+			stop()
+		}
+	})
+
+	// 生命周期
+	onMounted(() => {
+		oldValue.value = props.startVal
+		endValue.value = props.endVal
+		targetValue.value = props.startVal.toFixed(_dmit.value)
+		
+		// 如果起始值和目标值不同且启用动画，则播放动画
+		if (props.startVal !== props.endVal && props.enableAnimation) {
+			play()
+		} else if (!props.enableAnimation) {
+			// 如果禁用动画，直接显示目标值
+			targetValue.value = props.endVal.toFixed(_dmit.value)
+		}
+	})
+
+	onBeforeUnmount(() => {
+		ani.value?.stop()
+		ani.value = null;
+	})
+
+	// 暴露方法给父组件
+	defineExpose({
+		/** 播放动画 **/
+		play: () => play(),
+		/** 暂停动画 **/
+		pause: () => pause(),
+		/** 恢复动画 **/
+		resume: () => resume(),
+		/** 停止动画 **/
+		stop: () => stop(),
+		/** 重置到起始值 **/
+		reset: () => reset(),
+		/** 是否正在动画中 **/
+		isAnimating: (): boolean => isAnimating.value,
+		/** 获取当前值 **/
+		getValue: (): number => parseFloat(targetValue.value),
+		/** 获取格式化后的值 **/
+		getFormattedValue: (): string => formattedValue.value
+	})
+</script>
+<template>
+	<view class="xRolling">
+		<!-- 
+		 @slot 默认插槽
+		 @prop {string} value - 当前的值
+		 @prop {string} formattedValue - 格式化后的值
+		 -->
+		<slot :value="targetValue" :formattedValue="formattedValue">
+			<text :style="[{fontSize:_fontSize,color:_fontColor},fontStyle]">{{formattedValue}}</text>
+		</slot>
+	</view>
+</template>
+<style scoped>
+	.xRolling {
+		display: flex;
+		flex-direction: row;
+		flex-wrap: nowrap;
+		justify-content: center;
+	}
+</style>

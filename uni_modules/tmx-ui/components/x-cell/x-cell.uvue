@@ -1,0 +1,532 @@
+<script lang="ts" setup>
+	import { computed, watch } from "vue"
+	import { getDefaultColor, colorAddDeepen } from "../../core/util/xCoreColorUtil.uts"
+	import { checkIsCssUnit, getUnit, fillArrayCssValue } from "../../core/util/xCoreUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+
+	type xCellItemType = {
+		icon : string,
+		title : string,
+		desc : string,
+		label : string,
+		bottom : boolean,
+		link : boolean,
+		url : string,
+		iconColor : string,
+		labelColor : string,
+		card : boolean
+	}
+	/**
+	 * @name 列表 xCell
+	 * @page /pages/index/cell
+	 * @category 展示组件
+	 * @description card为true时，圆角可统一全局配置和动态全局配置，保持所有页面列表样式统一，免于一个一个配置。
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({ name: "xCell" })
+
+	defineSlots<{
+		avatar(props : { icon : string }) : any
+		default() : any
+		desc(props : { desc : string }) : any
+		label(props : { label : string }) : any
+		right() : any
+	}>()
+
+	const emits = defineEmits([
+		/**
+		 * 项目点击
+		 */
+		'click',
+		/**
+		 * 等同v-model:show
+		 */
+		'update:show'
+	])
+	type xCellPropsType = {
+		/**
+		 * 左图标
+		 */
+		icon : string,
+		/**
+		 * 左侧图标、头像圆角。默认为8
+		 */
+		avatarRound : string,
+		/**
+		 * 背景的主题色
+		 */
+		color : string,
+		/**
+		 * 暗黑背景的主题色，空值时取sheetDarkColor
+		 */
+		darkColor : string,
+		/**
+		 * 图标色,空值时取全局主题值。
+		 */
+		iconColor : string,
+		/**
+		 * 标题
+		 */
+		title : string,
+		/**
+		 * 标题颜色
+		 */
+		titleColor : string,
+		/**
+		 * 暗黑标题颜色，如果不填写取白
+		 */
+		darkTitleColor : string,
+		/**
+		 * 标题大小
+		 */
+		titleSize : string,
+		/**
+		 * 图标大小
+		 */
+		iconSize : string,
+		/**
+		 * 右边文本
+		 */
+		label : string,
+		/**
+		 * 右边文本颜色
+		 */
+		labelColor : string,
+		darklabelColor : string,
+		/**
+		 * 右侧label文字大小
+		 */
+		labelSize : string,
+		/**
+		 * 标题正文的简介文本
+		 */
+		desc : string,
+		/**
+		 * 是否显示下边线
+		 */
+		showBottomBorder : boolean,
+		/**
+		 * 是否让下边线显示居右，不贯穿到左边。
+		 */
+		bottomBorderInsert : boolean,
+		/**
+		 * 下边线的颜色。如果你设定了的话。
+		 * 暗黑的边颜色失效，采用你自定的颜色。
+		 */
+		bottomBorderColor : string,
+		/**
+		 * 是否显示链接状态，有点按效果。包括出现右边跳转指示。
+		 * 关闭的话，事件反应和跳转会更快。
+		 * 如果true右侧箭头图标会显示
+		 */
+		link : boolean,
+		/**
+		 * 右指示图标的颜色
+		 */
+		linkColor : string,
+		/**
+		 * 右指示图标的暗黑颜色
+		 */
+		linkDarkColor : string,
+		/**
+		 * 右指示图标的大小。
+		 */
+		linkIconSize : string|number,
+		/**
+		 * 需要跳转的页面地址。
+		 * 如果填写了右侧箭头图标会显示
+		 * 跳转时如果失败会回退到switchTab跳转。
+		 */
+		url : string,
+		/**
+		 * 是否是卡片模式
+		 */
+		card : boolean,
+		/**
+		 * 卡片模式圆角,不填写采用全局的cardRadius属性值.
+		 */
+		round : string,
+		/**
+		 * 左边图标区域宽和高的大小。
+		 */
+		leftSize : string,
+		/**
+		 * 最小高度，主要是用来统一风格高度不至于让点击范围过小
+		 * 如果你需要紧凑型可以设置为auto
+		 */
+		minHeight : string,
+		/**
+		 * 是否禁用url跳转，当link为true或者url需要跳转时
+		 * 如果禁用，点击时不会触发跳转。
+		 */
+		disabled : boolean,
+		/**
+		 * 内间隙[x]全部,[x,x]左右，上下,[x,x,x]左上右,[x,x,x,x]左上右下
+		 * 空数组时取全局值
+		 */
+		padding : string[],
+		/**
+		 * margin 同sheet原理
+		 * [x]全部,[x,x]左右，上下,[x,x,x]左上右,[x,x,x,x]左上右下
+		 * 空数组时取全局值cellMargin
+		 */
+		margin : string[],
+		/**
+		 * 右侧label宽，插槽时，这个属性不会生效
+		 * 以你自己布局宽为准。
+		 */
+		rightWidth : string
+	}
+
+	const props = withDefaults(defineProps<xCellPropsType>(), {
+		icon: "",
+		avatarRound: "8",
+		color: 'white',
+		darkColor: '',
+		iconColor: "",
+		title: "标题",
+		titleColor: "black",
+		darkTitleColor: "white",
+		titleSize: "16",
+		iconSize: "24",
+		label: "",
+		labelColor: "#bfbfbf",
+		darklabelColor:"",
+		labelSize: "13",
+		desc: "",
+		showBottomBorder: true,
+		bottomBorderInsert: false,
+		bottomBorderColor: "",
+		link: true,
+		linkColor: '#bfbfbf',
+		linkDarkColor: '#bfbfbf',
+		url: "",
+		card: true,
+		round: "",
+		leftSize: '32',
+		minHeight: "55",
+		linkIconSize:"20",
+		disabled: false,
+		padding: () : string[] => ['12', '0'] as string[],
+		margin: () : string[] => [] as string[],
+		rightWidth: "100"
+	})
+	// 计算属性
+	const _padding = computed(() : string => {
+		if (props.padding.length == 0) {
+			let par = fillArrayCssValue(xConfig.sheetPadding)
+			if (par.length == 0) return "0px 0px 0px 0px";
+			return par.join(" ")
+		}
+		let ar : string[] = fillArrayCssValue(props.padding as string[])
+		if (ar.length == 0) return "0px 0px 0px 0px";
+		return ar.join(" ")
+	})
+
+	const _margin = computed(() : string => {
+		if (props.margin.length == 0) {
+			let par = fillArrayCssValue(xConfig.cellMargin)
+			if (par.length == 0) return "0px 0px 0px 0px";
+			return par.join(" ")
+		}
+		let ar : string[] = fillArrayCssValue(props.margin as string[])
+		if (ar.length == 0) return "0px 0px 0px 0px";
+		return ar.join(" ")
+	})
+
+	const _disabled = computed(() : boolean => {
+		return props.disabled;
+	})
+
+	const _color = computed(() : string => {
+		if (xConfig.dark == 'dark') {
+			if (props.darkColor != '') return getDefaultColor(props.darkColor)
+			return getDefaultColor(xConfig.sheetDarkColor)
+		}
+		return getDefaultColor(props.color)
+	})
+
+	const _titleColor = computed(() : string => {
+		if (xConfig.dark == 'dark') {
+			if (props.darkTitleColor != '') return getDefaultColor(props.darkTitleColor)
+			return '#ffffff'
+		}
+		return getDefaultColor(props.titleColor)
+	})
+
+	const _leftSize = computed(() : string => {
+		return checkIsCssUnit(props.leftSize, xConfig.unit);
+	})
+
+	const _rightWidth = computed(() : string => {
+		return checkIsCssUnit(props.rightWidth, xConfig.unit);
+	})
+
+	const _avatarRound = computed(() : string => {
+		return checkIsCssUnit(props.avatarRound, xConfig.unit);
+	})
+
+	const _minHeight = computed(() : string => {
+		return checkIsCssUnit(props.minHeight, xConfig.unit);
+	})
+
+	const _bottomBorderColor = computed(() : string => {
+		if (props.bottomBorderColor != "") return getDefaultColor(props.bottomBorderColor)
+		if (xConfig.dark == 'dark') return xConfig.borderDarkColor
+		return "#f5f5f5"
+	})
+
+	const _icon = computed(() : string => {
+		return props.icon
+	})
+
+	const _allAttr = computed(() : xCellItemType => {
+		let iconColor = props.iconColor;
+		if (iconColor == '') {
+			iconColor = xConfig.color;
+		}
+		let labelColor = props.labelColor;
+		if(xConfig.dark == 'dark'){
+			if(props.darklabelColor!=''){
+				labelColor = props.darklabelColor
+			}
+		}
+		let p = {
+			icon: props.icon,
+			title: props.title,
+			desc: props.desc,
+			label: props.label,
+			bottom: props.showBottomBorder,
+			link: props.link,
+			url: props.url,
+			iconColor: getDefaultColor(iconColor),
+			labelColor: getDefaultColor(labelColor),
+			card: props.card
+		} as xCellItemType
+		return p
+	})
+
+	const _cardRadius = computed(() : string => {
+		if (props.round == "") return checkIsCssUnit(xConfig.inputRadius, xConfig.unit)
+		return checkIsCssUnit(xConfig.cellRadius, xConfig.unit)
+	})
+
+	const _titleSize = computed(() : string => {
+		let fontSize = checkIsCssUnit(props.titleSize, xConfig.unit);
+		if (xConfig.fontScale == 1) return fontSize;
+		let sizeNumber = parseInt(fontSize)
+		if (isNaN(sizeNumber)) {
+			sizeNumber = 16
+		}
+		return (sizeNumber * xConfig.fontScale).toString() + getUnit(fontSize)
+	})
+
+	const _iconSize = computed(() : string => {
+		let fontSize = checkIsCssUnit(props.iconSize, xConfig.unit);
+		if (xConfig.fontScale == 1) return fontSize;
+		let sizeNumber = parseInt(fontSize)
+		if (isNaN(sizeNumber)) {
+			sizeNumber = 17
+		}
+		return (sizeNumber * xConfig.fontScale).toString() + getUnit(fontSize)
+	})
+
+	const _rightLableSize = computed(() : string => {
+		let fontSize = checkIsCssUnit(props.labelSize, xConfig.unit);
+		if (xConfig.fontScale == 1) return fontSize;
+		let sizeNumber = parseInt(fontSize)
+		if (isNaN(sizeNumber)) {
+			sizeNumber = 13
+		}
+		return (sizeNumber * xConfig.fontScale).toString() + getUnit(fontSize)
+	})
+
+	const _isLinksHover = computed(() : boolean => {
+		return props.link
+	})
+	// 方法
+	function clickLisent() : void {
+		/**
+		 * 整个列表被点击
+		 */
+		emits("click");
+		if (props.url != "" && !_disabled.value) {
+			uni.navigateTo({
+				url: props.url,
+				fail() {
+					uni.switchTab({
+						url: props.url,
+					})
+				}
+			})
+		}
+	}
+</script>
+<template>
+
+
+
+	<view @click="clickLisent" <!-- #ifndef APP-HARMONY -->
+		:hover-start-time="_isLinksHover?50:0"
+		:hover-stay-time="_isLinksHover?100:0"
+		:hover-class="_isLinksHover?'cellHover':''"
+		<!-- #endif -->
+		class="xCell "
+		:style="{
+		backgroundColor:_color,
+		borderRadius:_allAttr.card==true?_cardRadius:'0px',
+		minHeight:_minHeight,
+		padding:_padding,
+		margin:_allAttr.card?_margin:'0px',
+		borderBottom:_allAttr.bottom&& !_allAttr.card&&!bottomBorderInsert?`1px solid ${_bottomBorderColor}`:'none'
+		}">
+
+		<view v-if="_icon" class="xCellAvatar" :style="{width:_leftSize,height:_leftSize,borderRadius:_avatarRound}">
+			<!-- 
+				@slot 头像图标
+				@prop {string} icon - 图标名称
+				 -->
+			<slot name="avatar" :icon="_icon">
+				<x-icon :color="_allAttr.iconColor" :font-size="_iconSize" :name="_icon"></x-icon>
+			</slot>
+		</view>
+
+		<view class="xCellWrap" :style="{
+				borderBottom:_allAttr.bottom&& !_allAttr.card&&bottomBorderInsert?`1px solid ${_bottomBorderColor}`:'none'
+			}">
+			<view class="center">
+				<!-- 
+				@slot 默认标题插槽 
+				-->
+				<slot>
+					<text class="title" :style="{color:_titleColor,fontSize:_titleSize}">{{ _allAttr.title}}</text>
+				</slot>
+				<!--
+				@slot 简介
+				@prop {string} desc - 简介
+				-->
+				<slot name="desc" :desc="_allAttr.desc">
+					<x-text v-if="_allAttr.desc!=''" font-size="12" color='#bfbfbf' dark-color='#bfbfbf'
+						class="desc">{{_allAttr.desc}}</x-text>
+				</slot>
+			</view>
+			<view class="xcellRight">
+				<!--
+				@slot 右边文字
+				@prop {string} label - 标签内容
+				-->
+				<slot name="label" :label="_allAttr.label">
+					<text v-if="_allAttr.label!=''"
+						:style="{marginLeft:'16px',color:_allAttr.labelColor,fontSize:_rightLableSize,width:_rightWidth }"
+						class="rightLabel">{{_allAttr.label}}</text>
+
+				</slot>
+				<!--
+				@slot 右插槽
+				-->
+				<slot name="right"></slot>
+				<view v-if="_allAttr.url!=''||_allAttr.link" style="margin-left: 5px;">
+					<x-icon :dark-color="linkDarkColor" :color="linkColor" :font-size="props.linkIconSize"
+						name="arrow-right-s-line"></x-icon>
+				</view>
+			</view>
+
+		</view>
+
+	</view>
+</template>
+<style scoped lang="scss">
+	.cellHover {
+		opacity: 0.9;
+	}
+
+	.xCell {
+		padding: 12px 0;
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: center;
+	}
+
+	.cardInset {
+		// padding: 0 12px;
+	}
+
+	.cellCard {
+		// padding: 0 12px;
+		// margin-bottom: 6px;
+		// margin-left: 12px;
+		// margin-right: 12px;
+	}
+
+	.xCellWrap {
+		flex: 1;
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: center;
+		height: 100%;
+		padding: 12px 0px;
+	}
+
+
+
+	.title {
+		lines: 2;
+		text-overflow: ellipsis;
+		flex: 1;
+		flex-shrink: 0;
+		line-height: 1.7;
+	}
+
+	.desc {
+		font-size: 12px;
+		padding-top: 2px;
+	}
+
+	.xCellAvatar {
+		margin-right: 10px;
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		align-items: center;
+		flex-shrink: 0;
+		overflow: hidden;
+	}
+
+	.center {
+		flex: 1;
+	}
+
+	.xcellRight {
+		// padding-left: 16px;
+		flex-direction: row;
+		justify-content: flex-end;
+		align-items: center;
+
+	}
+
+	.rightLabel {
+		lines: 1;
+		text-overflow: ellipsis;
+		font-size: 12px;
+		text-align: right;
+
+		// 以下是sdk4.51+不支持
+		// max-width: 100px;
+		// width:100px;
+
+		// #ifndef APP
+		white-space: nowrap;
+		/* 防止文本换行 */
+		overflow: hidden;
+		/* 超出部分隐藏 */
+		text-overflow: ellipsis;
+		/* 显示省略号 */
+		// #endif
+
+	}
+</style>

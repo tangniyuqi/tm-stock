@@ -1,0 +1,118 @@
+import { URL, Data, String } from 'Foundation';
+import { xSSEMethod, xSSEOptions } from "../interface.uts"
+
+
+export class SSEClientApp {
+	private sseClient : SSEClient | null = null;
+	public url : string = ''
+	private method : xSSEMethod = "get"
+	private headers : Map<string, string>
+	private body : string | ArrayBuffer | UTSJSONObject = ''
+	private closed : boolean = true;
+	private onOpenEvt = () => { }
+	private onErrorEvt = () => { }
+	private onClosedEvt = () => { }
+	private onMessageEvt = (data : string) => { }
+
+	private httpMethodString() : string {
+		return this.method == "post" ? "POST" : "GET"
+	}
+
+	private mergeHeaders(extra : UTSJSONObject) : Map<string, string> {
+		const merged = new Map<string, string>()
+		this.headers.forEach((value, key) => {
+			merged.set(key, value)
+		})
+		for (const key in extra) {
+			merged.set(key, extra.getString(key)!)
+		}
+		return merged
+	}
+
+	private buildHttpBody() : Data | null {
+		if (typeof this.body == "string") {
+			if (this.body == "") {
+				return null
+			}
+			return new String(this.body as string).data(using = String.Encoding.utf8)!
+		}
+		if (this.body instanceof ArrayBuffer) {
+			return (this.body as ArrayBuffer).toData()
+		}
+		const json = JSON.stringify(this.body)!
+		return new String(json).data(using = String.Encoding.utf8)!
+	}
+
+	private createClient(headerMap : Map<string, string>) : SSEClient {
+		return new SSEClient(
+			url = new URL(string = this.url)!,
+			headers = headerMap,
+			method = this.httpMethodString(),
+			httpBody = this.buildHttpBody()
+		)
+	}
+
+	constructor(options : xSSEOptions) {
+		this.url = options.url;
+		this.method = options.method == null ? 'get' : options.method;
+		let _headers = new Map<string, string>()
+		const headersOpts = (options.header != null ? (options.header as UTSJSONObject) : ({} as UTSJSONObject))
+		for (const key in headersOpts) {
+			_headers.set(key, headersOpts.getString(key)!)
+		}
+		this.headers = _headers
+
+	}
+	@UTSJS.keepAlive
+	onOpen(callback : () => void) {
+		this.onOpenEvt = callback
+	}
+	@UTSJS.keepAlive
+	onError(callback : () => void) {
+		this.onErrorEvt = callback
+	}
+	@UTSJS.keepAlive
+	onClosed(callback : () => void) {
+		this.onClosedEvt = callback
+	}
+	@UTSJS.keepAlive
+	onMessage(callback : (data : string) => void) {
+		this.onMessageEvt = callback
+	}
+	public setBody(bodyStr : string | ArrayBuffer | UTSJSONObject) : void {
+		this.body = bodyStr;
+	}
+	connect(headers : UTSJSONObject = {}) {
+		if (!this.closed) return;
+		const _headers = this.mergeHeaders(headers)
+		this.sseClient = this.createClient(_headers)
+
+		this.closed = true;
+		this.sseClient?.start()
+		let _this = this;
+		this.sseClient?.onMessage((data : string) => {
+			if (data == "[DONE]") {
+				_this.disconnect()
+				return
+			}
+			_this.onMessageEvt(data)
+		})
+		this.sseClient?.onOpen(() => {
+			_this.onOpenEvt()
+			_this.closed = false;
+		})
+		this.sseClient?.onError((error : any | null) => {
+			_this.onErrorEvt()
+			console.error(error)
+			_this.closed = true;
+		})
+	}
+	disconnect() {
+		this.sseClient?.stop()
+		this.closed = true;
+		this.onClosedEvt()
+	}
+	isConnected() : boolean {
+		return !this.closed;
+	}
+}

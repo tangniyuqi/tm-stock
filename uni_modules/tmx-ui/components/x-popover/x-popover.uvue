@@ -1,0 +1,613 @@
+﻿<script lang="ts" setup>
+	import { xConfig } from "../../config/xConfig.uts"
+	import { checkIsCssUnit, rpx2px, getUid } from "../../core/util/xCoreUtil.uts"
+	import { type PropType } from 'vue'
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	type NODE_INFO = {
+		left : number,
+		width : number,
+		height : number,
+		bottom : number,
+		right : number,
+		top : number
+	}
+	type xPopopverPosType = 'bc' | 'br' | 'bl' | 'tr' | 'tc' | 'tl'
+	type xPopopverStatusType = "open" | "playing" | "close" | "compeleted"
+	type xPopoverPropsType = {
+			/**
+			 * 弹出的位置。
+			 * 'bc'|'br'|'bl'|'tr'|'tc'|'tl'
+			 * 底中|底右|底左|顶右|顶中|顶左
+			 */
+			position: xPopopverPosType,
+			/**
+			 * 如果你的弹出层内容是异步加载。
+			 * 你需要刷新下此key以刷新位置。如果你是vif一来切换或者显示前内容是固定的，则不需要刷新此值。
+			 */
+			keyName: number,
+			/**
+			 * 变量控制是否显示菜单，等同v-model=""
+			 * 如果你想默认显示，但不受变量控制由内部自行处理可以:model-value="true"即可
+			 */
+			modelValue: boolean,
+			/**
+			 * 点击弹出的内容是否允许关闭。
+			 */
+			isClickClose: boolean,
+			/**
+			 * 容器圆角。ios如果不设置，你内容圆角没有用。
+			 */
+			round: string,
+			/**
+			 * 遮罩背景,默认是透明
+			 */
+			maskBgColor:string,
+			/**
+			 * 是否显示指示的三角形。
+			 */
+			showTriangle:boolean,
+			/**
+			 * 三角指示的背景色
+			 */
+			triangleColor:string,
+			/**
+			 * 三角指示的暗黑背景色,空取sheet暗黑背影色
+			 */
+			triangleDarkColor:string,
+			zIndex:number
+		}
+		
+	/**
+	 * @name 汽泡菜单 xPopover
+	 * @description 汽泡菜单,警告:如果你弹出的内容比如文本,它会自动宽和高,是个特殊组件在web上,此类需要固定下宽.
+	 * 建议内容要自己写个固定宽或者高性能更好。另外sdk4.57开始，在微信端你的菜单内容最好不要动态更改导致宽和高动态变化，在微信端只会记录首次的
+	 * 内容区域的宽和高（触发插槽不限制），如果确实在微信端要动态变更内容可以vif整体组件或者改变key来刷新组件解决。非微信端无此限制。
+	 * @page /pages/index/popover
+	 * @category 反馈组件 
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({ name: "xPopover" });
+	
+	const props = withDefaults(defineProps<xPopoverPropsType>(),{
+		position: 'bc',
+		keyName:0,
+		modelValue: false,
+		isClickClose: true,
+		round:'16',
+		maskBgColor:"rgba(0,0,0,0)",
+		showTriangle:false,
+		triangleColor:'white',
+		triangleDarkColor:'',
+		zIndex:100
+	})
+		
+	const emit = defineEmits(['update:modelValue'])
+	const xPopoverRef = ref<UniElement|null>(null)
+	const trggleRef = ref<UniElement|null>(null)
+	const xPopoverMaskerRef = ref<UniElement|null>(null)
+	const xPopoverWrapRef = ref<UniElement|null>(null)
+	
+	const _width = ref(0)
+	const _height = ref(0)
+	const trrigerNodeInfo = ref<NODE_INFO|null>(null)
+	const menuNodeInfo = ref<NODE_INFO|null>(null)
+	const showPro = ref(false)
+	const status = ref<xPopopverStatusType>('open')
+	const isGeiNodeInfoOk = ref(false)
+	const showquerinnode = ref(false)
+	const windtop = ref(0)
+	const tid = ref(2)
+	const nowPos = ref<xPopopverPosType>('bc')
+	
+	
+	const xPopoverWrapPos = computed(() : string => {
+		if (trrigerNodeInfo.value == null||menuNodeInfo.value==null) return ""
+		const sys = uni.getWindowInfo()
+		
+		let tl = trrigerNodeInfo.value.left as number
+		let tr = trrigerNodeInfo.value.right as number
+		let tw = trrigerNodeInfo.value.width as number
+		let mw = menuNodeInfo.value.width as number
+		let mh = menuNodeInfo.value.height as number + 8
+		let mb = menuNodeInfo.value.bottom as number
+	
+		let tb = trrigerNodeInfo.value.bottom as number
+		let tp = trrigerNodeInfo.value.top as number
+		let nopos = props.position;
+		function getStyleCss(pos:string):string{
+			if (pos == 'bc') {
+				let left = tl - (mw - tw) / 2
+				let top = tb + 10
+				return `left:${left}px;top:${top}px;transform-origin: 50% 0px;`
+			} else if (pos == 'br') {
+				let left = tr - mw
+				let top = tb + 10
+				return `left:${left}px;top:${top}px;transform-origin: 100% 0px;`
+			} else if (pos == 'bl') {
+				let left = tl
+				let top = tb + 10
+				return `left:${left}px;top:${top}px;transform-origin: 0px 0px;`
+			} else if (pos == 'tc') {
+				let left = tl - (mw - tw) / 2
+				let top = tp - mh - 10
+				return `left:${left}px;top:${top}px;transform-origin: 50% 200%;`
+			} else if (pos == 'tl') {
+				let left = tl
+				let top = tp - mh - 10
+				return `left:${left}px;top:${top}px;transform-origin: 0% 200%;`
+			} else if (pos == 'tr') {
+				let left = tr - mw
+				let top = tp - mh - 10
+				return `left:${left}px;top:${top}px;transform-origin: 100% 200%;`
+			}
+			return ""
+		}
+		let poscss = "";
+		switch(props.position){
+			case "bc":{
+				const diffb = sys.windowHeight - tb
+				const difft = tp - sys.windowTop
+				// 当底空间不够菜单高且，顶可以容纳菜单时，切换为顶显示，避免裁剪。
+				if(diffb<mh&&difft>=diffb&&diffb < mh){
+					nopos = "tc"
+				}
+				poscss = getStyleCss(nopos)
+				break;
+			}
+			case "br":{
+				const diffb = sys.windowHeight - tb
+				const difft = tp - sys.windowTop
+				const diffl = tl;
+				const diffr = sys.windowWidth - tr;
+				
+				if(diffb<mh&&difft>=diffb&&diffb < mh){
+					nopos = "tr"
+				}
+				poscss = getStyleCss(nopos)
+				break;
+			}
+			case "bl":{
+				const diffb = sys.windowHeight - tb
+				const difft = tp - sys.windowTop
+			
+				if(diffb<mh&&difft>=diffb&&diffb < mh){
+					nopos = "tl"
+				}
+				poscss = getStyleCss(nopos)
+				break;
+			}
+			case "tc":{
+				const diffb = sys.windowHeight - tb
+				const difft = tp - sys.windowTop
+				// 逻辑与bc相反。
+				if(diffb>mh&&difft<=diffb&&difft < mh){
+					nopos = "bc"
+				}
+				poscss = getStyleCss(nopos)
+				break;
+			}
+			case "tr":{
+				const diffb = sys.windowHeight - tb
+				const difft = tp - sys.windowTop
+				
+				if(diffb>mh&&difft<=diffb&&difft < mh){
+					nopos = "br"
+				}
+				poscss = getStyleCss(nopos)
+				break;
+			}
+			case "tl":{
+				const diffb = sys.windowHeight - tb
+				const difft = tp - sys.windowTop
+			
+				if(diffb>mh&&difft<=diffb&&difft < mh){
+					nopos = "bl"
+				}
+				poscss = getStyleCss(nopos)
+				break;
+			}
+		}
+		nowPos.value = nopos
+		return poscss
+	})
+	const _animationFun = computed(() : string=> `cubic-bezier(0.07, 0.82, 0.17, 1.20)`)
+	const _maskBgColor = computed(() : string=> props.maskBgColor)
+	const __height = computed(() : string=> {
+		let h = '100%';
+		// #ifdef WEB
+		h = `calc(100% - ${windtop.value}px)`
+		// #endif
+			
+		return h;
+	})
+	const _round = computed(() : string=> checkIsCssUnit(props.round, xConfig.unit))
+	const _triangleColor = computed(() : string=> {
+		if(xConfig.dark=='dark'){
+			if(props.triangleDarkColor == ''){
+				return getDefaultColor(xConfig.sheetDarkColor)
+			}
+			return getDefaultColor(props.triangleDarkColor)
+		}
+		return getDefaultColor(props.triangleColor)
+	})
+	
+	
+	const  mskerTouch = (evt:UniTouchEvent)=>{
+		evt.stopPropagation()
+		evt.preventDefault()
+	}
+	// 创建背景动画
+	const playBgColorAniInit = ()=>{
+		if(_maskBgColor.value == '' || _maskBgColor.value == 'transparent' || _maskBgColor.value == 'rgba(0,0,0,0)') return;
+		if(xPopoverMaskerRef.value==null) return;
+		let ele = xPopoverMaskerRef.value
+		ele.style.setProperty('transition-duration','0ms')
+		ele.style.setProperty('background-color','rgba(0,0,0,0)')
+	}
+	const playBgColorAni = () => {
+		if(_maskBgColor.value == '' || _maskBgColor.value == 'transparent' || _maskBgColor.value == 'rgba(0,0,0,0)') return;
+		if(xPopoverMaskerRef.value==null) return;
+		let ele = xPopoverMaskerRef.value
+		ele.style.setProperty('transition-duration','600ms')
+		ele.style.setProperty('transition-timing-function',_animationFun.value)
+		ele.style.setProperty('background-color',_maskBgColor.value)
+	}
+	
+	const getNodes = ():Promise<boolean> => {
+		let triele = xPopoverRef.value;
+		let delay = 0
+		// #ifdef APP-IOS
+		delay = 50
+		// #endif
+		return new Promise(res=>{
+			if(triele==null){
+				res(true)
+				return;
+			}
+			setTimeout(function() {
+				triele.getBoundingClientRectAsync()
+				?.then((ret:DOMRect)=>{
+					
+					let nodeinfo = ret
+					let trinode = {
+						left: nodeinfo.left!,
+						width: nodeinfo.width!,
+						height: nodeinfo.height!,
+						bottom: nodeinfo.bottom!,
+						right: nodeinfo.right!,
+						top: nodeinfo.top!,
+					} as NODE_INFO
+					
+					if (!showPro.value) {
+						trrigerNodeInfo.value = trinode
+						res(true)
+						return;
+					}
+					// 微信端无法动态获取悬浮节点的宽和高准确的准确性，因为只记录首次正常的值，后面不再更新。
+					// #ifdef MP
+					if(menuNodeInfo.value !=null){
+						trrigerNodeInfo.value = trinode
+						res(true)
+						return;
+					}
+					// #endif
+					
+					let delayTImeout = 30
+					// #ifdef MP
+					delayTImeout = 30
+					// #endif
+					setTimeout(function() {
+						let ele = xPopoverWrapRef.value;
+						if(ele==null) return;
+						ele!.getBoundingClientRectAsync()
+						?.then((rect2:DOMRect)=>{
+							nodeinfo = rect2
+							trrigerNodeInfo.value = trinode
+							menuNodeInfo.value = {
+								left: nodeinfo.left!,
+								width: nodeinfo.width!,
+								height: nodeinfo.height!,
+								bottom: nodeinfo.bottom!,
+								right: nodeinfo.right!,
+								top: nodeinfo.top!,
+							} as NODE_INFO
+							res(true)
+						})
+						
+					}, delayTImeout);
+				})
+			}, delay);
+		})
+	}
+	
+	const  openProWrap = () => {
+		status.value = "playing"
+		showquerinnode.value = false
+		getNodes().then(()=>{
+			if(xPopoverWrapRef.value==null) return;
+			let ele = xPopoverWrapRef.value
+			ele.style.setProperty('transition-duration','0ms')
+			ele.style.setProperty('transform','scale(0)')
+			ele.style.setProperty('opacity','0')
+			playBgColorAniInit()
+			setTimeout(function() {
+				playBgColorAni()
+				ele.style.setProperty('transition-duration','300ms')
+				ele.style.setProperty('transform','scale(1)')
+				ele.style.setProperty('opacity','1')
+				showquerinnode.value = true;
+			}, 25);
+		})
+	}
+	
+	const closeProWrap = ()=> {
+		if (status.value == "close") return;
+		status.value = "close"
+		try {
+			if(xPopoverWrapRef.value==null) return;
+			let el = xPopoverWrapRef.value;
+			el.style.setProperty("transition-duration", "300ms")
+			el.style.setProperty("transform", "scale(0.64)")
+			el.style.setProperty("opacity", "0")
+		} catch (e) {
+			console.error(e)
+		}
+	}
+	const contentWrapClick = (evt : UniPointerEvent)=> {
+		if (props.isClickClose) {
+			closeProWrap()
+		}
+	
+	}
+	const onEnd = () => {
+		if (status.value == "close") {
+			showPro.value = false
+			/**
+			 * 等同v-model=""
+			 * @param val {boolean} 当前的显示状态
+			 */
+			emit('update:modelValue', false)
+		}
+		status.value = "compeleted"
+	}
+	const openAlert = ()=> {
+		if (status.value == 'playing') return;
+		isGeiNodeInfoOk.value = false
+		showPro.value = true;
+		emit('update:modelValue', true)
+		status.value = "open"
+	
+		openProWrap();
+		
+		// #ifndef MP
+		let currentPage = getCurrentPages()[getCurrentPages().length-1]
+		currentPage.setPageStyle({
+			"disableScroll": true
+		})
+		// #endif
+		
+	}
+	onMounted(()=>{
+		let sys = uni.getWindowInfo()
+		_width.value = sys.windowWidth
+		_height.value = sys.windowHeight;
+		windtop.value = 0
+		
+		if (props.modelValue) {
+			isGeiNodeInfoOk.value = false
+			showPro.value = true;
+			status.value = "open"
+			openProWrap();
+		}
+	})
+	watch(():number=>props.keyName,()=>{
+		getNodes()
+	})
+	watch(():boolean=>props.modelValue,(newval:boolean)=>{
+		if (showPro.value == newval || status.value == 'playing') return;
+		if (newval) {
+			isGeiNodeInfoOk.value = false
+			showPro.value = true;
+			status.value = "open"
+			openProWrap();
+		
+		} else {
+			closeProWrap();
+		}
+	})
+	onBeforeUnmount(()=>{
+		clearTimeout(tid.value)
+	})
+	
+</script>
+<template>
+	<view class="xPopover" ref="xPopoverRef">
+		<view ref="trggleRef" @click="openAlert" style="flex:1">
+			<!-- 
+			@slot 默认插槽触发区域，点击此插槽内容可显示菜单。
+			 -->
+			<slot></slot>
+		</view>
+		
+		<!-- #ifdef H5 -->
+		<teleport to="uni-app">
+		<!-- #endif -->
+		
+		<!-- @touchmove.stop="" @touchstart.stop=""  -->
+		<view 
+			@click="closeProWrap" 
+			@touchmove="closeProWrap"
+			v-if="showPro"
+			ref="xPopoverMaskerRef"
+			class="xPopoverMasker" 
+			:style="{
+			width:'100%',
+			height:__height,
+			opacity:showquerinnode?1:0,
+			backgroundColor:_maskBgColor,
+			zIndex:zIndex
+		}">
+
+			<view  
+			@click.stop="contentWrapClick" 
+			@transitionend="onEnd"  
+			@touchmove.stop=""
+			ref="xPopoverWrapRef" 
+			class="xPopoverWrap"
+			:style="[
+				xPopoverWrapPos,
+				{
+					'transition-timing-function':_animationFun
+				}
+			]">
+				<view v-if="(nowPos=='bc'||nowPos=='bl'||nowPos=='br')&&showTriangle" :class="`xPopoverUp_${nowPos}` " :style="{padding:`0px ${_round}`}">
+					<view class="xPopoverUp " :style="{ 'border-bottom-color': _triangleColor}"></view>
+				</view>
+				<!-- 多出来的节点是兼容ios -->
+				<view :style="{borderRadius:_round}">
+					<!--
+					 @slot 菜单弹出区域的插槽，弹出内容可以在这里自由布局。
+					 -->
+					<slot name="menu"></slot>
+				</view>
+				<view v-if="(nowPos=='tc'||nowPos=='tl'||nowPos=='tr')&&showTriangle" :class="`xPopoverUp_${nowPos}` " :style="{padding:`0px ${_round}`}">
+					<view class="xPopoverBp " :style="{ 'border-bottom-color': _triangleColor}"></view>
+				</view>
+			</view>
+		</view>
+		
+		<!-- #ifdef H5 -->
+		</teleport>
+		<!-- #endif -->
+	</view>
+</template>
+<style scoped lang="scss">
+	.xPopoverUp {
+	  width: 0;
+	  height: 0;
+	  border-left: 10px solid transparent;
+	  border-right: 10px solid transparent;
+	  border-bottom-width: 10px;
+	  border-bottom-style: solid;
+	  transform: rotate(0deg) translateY(1px);
+	}
+	.xPopoverBp{
+		width: 0;
+		height: 0;
+		border-left: 10px solid transparent;
+		border-right: 10px solid transparent;
+		border-bottom-width: 10px;
+		border-bottom-style: solid;
+		
+		
+		// #ifndef APP-ANDROID
+		transform: rotate(180deg) translateY(1px);;
+		// #endif
+		// #ifdef APP-ANDROID
+		transform: rotate(180deg) translateY(0px);
+		// #endif
+	}
+	.xPopoverUp_bc{
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+		align-items: flex-end;
+	}
+	.xPopoverUp_bl{
+		display: flex;
+		flex-direction: row;
+		justify-content: flex-start;
+		align-items: flex-end;
+	}
+	.xPopoverUp_br{
+		display: flex;
+		flex-direction: row;
+		justify-content: flex-end;
+		align-items: flex-end;
+	}
+	.xPopoverUp_tc{
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+		align-items: flex-end;
+		.xPopoverUp{
+			
+		}
+	}
+	.xPopoverUp_tl{
+		display: flex;
+		flex-direction: row;
+		justify-content: flex-start;
+		align-items: flex-end;
+	}
+	.xPopoverUp_tr{
+		display: flex;
+		flex-direction: row;
+		justify-content: flex-end;
+		align-items: flex-end;
+	}
+	.xPoperPlace{
+		/* transform: translateX(-1000px); */
+	}
+	.xPopover {
+		display: flex;
+		flex-direction: row;
+	}
+
+	.xPopoverMasker {
+		position: fixed;
+		// z-index: 100;
+		/* background-color: rgba(0, 0, 0, 0); */
+		left: 0;
+		top: 0;
+	}
+
+	.xPopoverWrap {
+		position: absolute;
+		transition-property: transform, opacity;
+		transition-timing-function: cubic-bezier(0.07, 0.82, 0.17, 1.20);
+		transform: scale(1);
+		transition-duration: 300ms;
+		opacity: 0;
+		/* box-shadow: 0 3px 12px rgba(0, 0, 0, 0.06); */
+		/* overflow: hidden; */
+	}
+	
+	/* #ifdef MP-WEIXIN */
+	.xoverflayShow{
+		animation:showAniMation 300ms cubic-bezier(0.07, 0.82, 0.17, 1.20) forwards ;
+		transform: scale(1);
+		opacity: 1;
+	}
+	.xoverflayHide{
+		animation:hideAniMation 300ms cubic-bezier(0.07, 0.82, 0.17, 1.20) forwards ;
+		transform: scale(0.6);
+		opacity: 0;
+	}
+	
+	@keyframes showAniMation {
+		0%{
+			transform: scale(0.6);
+			opacity: 0;
+		}
+		100%{
+			transform: scale(1);
+			opacity: 1;
+		}
+	}
+	@keyframes hideAniMation {
+		0%{
+			transform: scale(1);
+			opacity: 1;
+		}
+		100%{
+			transform: scale(0.6);
+			opacity: 0;
+		}
+	}
+	
+	/* #endif */
+</style>

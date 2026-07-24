@@ -1,0 +1,45 @@
+import { HighlightConfig } from "../heightlight.uts"
+
+export function getObjectiveCConfig(): HighlightConfig {
+	const config = new HighlightConfig()
+	
+	// Objective-C 关键字
+	config.keywords = [
+		'@interface', '@implementation', '@protocol', '@property', '@synthesize',
+		'@dynamic', '@selector', '@encode', '@synchronized', '@try', '@catch',
+		'@finally', '@throw', '@class', '@public', '@private', '@protected',
+		'@package', '@end', '@optional', '@required',
+		'auto', 'break', 'case', 'char', 'const', 'continue', 'default', 'do',
+		'double', 'else', 'enum', 'extern', 'float', 'for', 'goto', 'if',
+		'inline', 'int', 'long', 'register', 'restrict', 'return', 'short',
+		'signed', 'sizeof', 'static', 'struct', 'switch', 'typedef', 'union',
+		'unsigned', 'void', 'volatile', 'while',
+		'id', 'instancetype', 'Class', 'SEL', 'IMP', 'BOOL', 'YES', 'NO',
+		'nil', 'Nil', 'NULL', 'self', 'super', 'in', 'out', 'inout', 'bycopy',
+		'byref', 'oneway', 'nonatomic', 'atomic', 'strong', 'weak', 'copy',
+		'assign', 'retain', 'readonly', 'readwrite', 'getter', 'setter'
+	]
+	
+	// Objective-C 内置类和函数
+	config.builtins = [
+		'NSObject', 'NSString', 'NSMutableString', 'NSArray', 'NSMutableArray',
+		'NSDictionary', 'NSMutableDictionary', 'NSSet', 'NSMutableSet',
+		'NSNumber', 'NSInteger', 'NSUInteger', 'CGFloat', 'NSData', 'NSDate',
+		'NSError', 'NSException', 'NSURL', 'NSBundle', 'NSLog',
+		'NSNotificationCenter', 'NSUserDefaults', 'NSFileManager',
+		'UIView', 'UIViewController', 'UIButton', 'UILabel', 'UIImage',
+		'UIColor', 'UIFont', 'UITableView', 'UICollectionView',
+		'alloc', 'init', 'dealloc', 'retain', 'release', 'autorelease'
+	]
+	
+	// Objective-C 操作符
+	config.operators = [
+		'+', '-', '*', '/', '%', '=', '==', '!=', '<', '>', '<=', '>=',
+		'&&', '||', '!', '&', '|', '^', '~', '<<', '>>',
+		'++', '--', '+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=',
+		'<<=', '>>=', '?', ':', '->'
+	]
+	
+	return config
+}
+

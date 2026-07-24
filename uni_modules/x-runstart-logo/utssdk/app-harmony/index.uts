@@ -1,0 +1,10 @@
+import { XRUN_START_LOGO_OPTS} from "../interface.uts"
+import { x_showRunLogo,x_hideRunLogo } from "x_runstart_logo";
+
+export function hideRunLogo() {
+	x_hideRunLogo(UTSHarmony.getCurrentWindow()!.getUIContext())
+}
+
+export function showRunLogo(opts : XRUN_START_LOGO_OPTS) {
+	x_showRunLogo(UTSHarmony.getCurrentWindow()!.getUIContext(),opts)
+}

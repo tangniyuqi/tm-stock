@@ -1,0 +1,179 @@
+{
+	"tmui4x": {
+		"cancel": "取消",
+		"confirm": "確認",
+		"success": "成功",
+		"fail": "失敗",
+		"warn": "警告",
+		"info": "提醒",
+		"clear":"清空",
+		"pickerTitle":"請選擇",
+		"calendar":{
+			"year": "年",
+			"month": "月",
+			"day": "日",
+			"hour": "時",
+			"minute": "分",
+			"second": "秒",
+			"titleCurrentMonth":"{0}年{1}月",
+			"monthCountSelected":"{count}月",
+			"selectedStatus":"已選擇{count}日 | 未選擇日期 | 已選擇 | 未選擇結束日期",
+			"rangStatus":"開始 | 結束 | 本日",
+			"tips":"最大選擇{count}日",
+			"currentMonthTitle":"本月",
+			"week":"週一 | 週二 | 週三 | 週四 | 週五 | 週六 | 週日"
+		},
+		"betweentTime": {
+			"start": "開始時間",
+			"end": "結束時間",
+			"quiakListTitle":"本日 | 本週 | 本月 | 本年 | 本季度",
+			"quiakListTitle2":"最近{count}天",
+			"quiakListTitle3":"前{count}年",
+			"title":"請選擇時間",
+			"splite":"至"
+		},
+		"uploadFile":{
+			"title":"選擇檔案",
+			"uploadStatus":"待上傳 | 上傳中... | 上傳失敗 | 上傳成功 | 超過大小",
+			"tips1":"上傳中禁止刪除",
+			"tips2":"已上傳檔案禁止刪除"
+		},
+		"pickerSelected":{
+			"placeholder":"請輸入關鍵詞",
+			"search":"搜尋",
+			"selected":"已選擇{count}項",
+			"claer":"清空選擇",
+			"selectedMode":"當前為單選模式",
+			"selectedALl":"選擇所有"
+		},
+		"tree":{
+			"changeTitle":"修改內容",
+			"addTitle":"添加下級",
+			"inputTitle":"標題",
+			"inputId":"標識ID",
+			"inputTips1":"不要重複，空時自動生成"
+		},
+		"input":{
+			"placeholder":"請選擇或者填寫"
+		},
+		"inputTag":{
+			"placeholder":"請輸入並回車",
+			"tips":"不能為空",
+			"tips2":"超過限制最大數:{count}",
+			"btnText":"添加標籤"
+		},
+		"keyboard":{
+			"placeholder":"安全鍵盤放心輸入",
+			"space":"空格",
+			"confirm":"確認"
+		},
+		"pickerTime":{
+			"hour":"小時",
+			"minute":"分鐘",
+			"second":"秒數"
+		},
+		"cascader":{
+			"placeholder":"請選擇",
+			"currentPlaceholder":"選擇本級"
+		},
+		"pickerDate":{
+			"placeholder":"請選擇時間",
+			"year":"年",
+			"month":"月",
+			"day":"日",
+			"hour":"時",
+			"minute":"分",
+			"second":"秒"
+		},
+		"uploadMedia":{
+			"tips1":"上傳中不允许拖動排序",
+			"videoPreview":"視頻預覽",
+			"close":"關閉",
+			"systemError":"系統異常",
+			"limitMaxCount":"已超最大上傳數量",
+			"uploadStatus":"待上傳 | 上傳中... | 上傳失敗 | 上傳成功 | 超過大小"
+		},
+		"checkbox":{
+			"tips":"超過最大選擇"
+		},
+		"weekbar":{
+			"week":"週一 | 週二 | 週三 | 週四 | 週五 | 週六 | 週日"
+		},
+		"pagination":{
+			"prev": "上一頁",
+			"next": "下一頁"
+		},
+		"search":{
+			"placeholder":"請輸入關鍵詞",
+			"cancel":"取消"
+		},
+		"xmore":{
+			"off": "展開更多",
+			"on": "收起更多"
+		},
+		"empty":{
+			"moreLabel": "沒有更多數據啦",
+			"errorLabel": "出錯啦~",
+			"btnLabel": "點擊重試",
+			"title":"當前沒有數據"
+		},
+		"xloading":{
+			"label":"加載中..."
+		},
+		"actionModal":{
+			"title":"提醒",
+			"btnText":"確認"
+		},
+		"actionMenu":{
+			"title":"請選擇",
+			"btnText":"確認"
+		},
+		"pullRefresh":{
+			"status_1":"正在刷新",
+			"status_2":"繼續下拉",
+			"status_3":"鬆開刷新",
+			"status_4":"刷新完成",
+			"status_5":"刷新失敗"
+		},
+		"virtualList":{
+			"status_0":"繼續下拉",
+			"status_1":"鬆開刷新",
+			"status_2":"刷新中",
+			"status_3":"取消刷新",
+			"status_4":"刷新超時,點擊重試",
+			"status_5":"刷新完成"
+		},
+		"imageResize":{
+			"ok":"完成",
+			"cancel":"取消",
+			"reset":"還原"
+		},
+		"colorView":{
+			"rgb":"RGB",
+			"hub":"光譜",
+			"grid":"色卡",
+			"alpha":"透明度",
+			"hex":"HEX",
+			"r": "紅色",
+			"g": "綠色",
+			"b": "藍色"
+		},
+		"modal": {
+			"title": "標題"
+		},
+		"mention": {
+			"placeholder": "請輸入內容，@選擇朋友,按確認完成"
+		},
+		"slideVerify": {
+			"tipsText": "請拖動到指定位置",
+			"tipsTextSuccess": "驗證成功",
+			"tipsTextFail": "驗證失敗"
+		},
+		"xRequest":{
+			"error":"服務器錯誤:",
+			"success":"操作成功",
+			"hostFailEmpty":"未填請求域名",
+			"loading":"加載中"
+		}
+	}
+}

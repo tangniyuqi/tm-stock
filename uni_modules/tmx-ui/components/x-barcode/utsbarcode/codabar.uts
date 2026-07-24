@@ -1,0 +1,76 @@
+/**
+ * Codabar（Rationalized Codabar / NW-7），须以 A/B/C/D 之一起止，中间仅 0-9 与 -$:/.+
+ * 宽窄序列参考 libzint backend/codabar.c（EN 798）
+ */
+class codabar {
+	data = ""
+
+	private static CALCIUM = "0123456789-$:/.+ABCD"
+
+	private static TABLE = [
+		"11111221", "11112211", "11121121", "22111111", "11211211",
+		"21111211", "12111211", "12121111", "12211111", "21121111",
+		"11122111", "11221111", "21112121", "21211211", "21212111",
+		"11212121", "11221211", "12121121", "11121221", "11122211"
+	]
+
+	private static expandPat(s: string, len: number): string {
+		let o = ""
+		let isBar = true
+		for (let i = 0; i < len; i++) {
+			const w = parseInt(s.charAt(i))
+			for (let k = 0; k < w; k++) {
+				o += isBar ? "1" : "0"
+			}
+			isBar = !isBar
+		}
+		return o
+	}
+
+	private static indexOf(ch: string): number {
+		for (let i = 0; i < codabar.CALCIUM.length; i++) {
+			if (codabar.CALCIUM.charAt(i) == ch) {
+				return i
+			}
+		}
+		return -1
+	}
+
+	constructor(text: string) {
+		let u = text.toUpperCase()
+		this.data = u
+	}
+
+	encode(): string {
+		const s = this.data
+		if (s.length < 3) {
+			return ""
+		}
+		const first = s.charAt(0)
+		const last = s.charAt(s.length - 1)
+		if (first != "A" && first != "B" && first != "C" && first != "D") {
+			return ""
+		}
+		if (last != "A" && last != "B" && last != "C" && last != "D") {
+			return ""
+		}
+		let bits = ""
+		for (let i = 0; i < s.length; i++) {
+			const ch = s.charAt(i)
+			const idx = codabar.indexOf(ch)
+			if (idx < 0) {
+				return ""
+			}
+			if (i > 0 && i < s.length - 1) {
+				const inner = ch
+				if (inner == "A" || inner == "B" || inner == "C" || inner == "D") {
+					return ""
+				}
+			}
+			bits += codabar.expandPat(codabar.TABLE[idx], 8)
+		}
+		return bits
+	}
+}
+
+export { codabar }

@@ -1,0 +1,494 @@
+import { Shape } from './shape.uts';
+import { ICanvas } from '@/uni_modules/tmx-ui/core/canvas/ICanvas.uts';
+import {
+	IShapeBoundRect,
+	IShapeOptional,
+	CanvasEventType,
+	ICanvasEvent,
+	ShapeType,
+	GroupChildState,
+	GroupAddOptions,
+	GroupRemoveOptions
+} from '../interface.uts';
+
+
+const DEFAULT_SCALE_SAFE_EPS = 0.00001;
+
+export class IGroup extends Shape {
+	override type = 'IGroup';
+	private static ownerRegistry : Map<string, string> = new Map();
+	private childrenDirty = false;
+	private boundsDirty = true;
+	private cachedBounds : IShapeBoundRect | null = null;
+	private lastHitChildren : Shape[] = [];
+	groupWidth:number = -1;//-1表示不设置，自动取元素累计的高
+	groupHeight:number = -1;//-1表示不设置，自动取元素累计的宽
+	constructor(config : IShapeOptional, canvas : ICanvas) {
+		super(config, canvas);
+	}
+
+	addShape(shape : Shape | Shape[], options : GroupAddOptions = {}) : IGroup {
+		const list = Array.isArray(shape) ? shape : [shape];
+		const preserveWorld = options?.preserveWorldTransform ?? true;
+		const detach = options?.autoRemoveFromStage ?? this.autoManageCanvas;
+		for (let i = 0; i < list.length; i++) {
+			const item = list[i];
+			const ownerId = IGroup.ownerRegistry.get(item.id) ?? '';
+			if (ownerId != '' && ownerId != this.id) {
+				console.warn(`shape:${item.id} 已属于其它分组:${ownerId}，无法重复添加`);
+				continue;
+			}
+			if (detach) {
+				this.canvas?.removeShape(item as ShapeType);
+			}
+			IGroup.ownerRegistry.set(item.id, this.id);
+			const state = this.captureChildState(item, preserveWorld);
+			this.children.push(state);
+			item.needsUpdate = true;
+		}
+		if (list.length > 0) {
+			this.markChildrenDirty();
+		}
+		return this;
+	}
+
+	removeShape(shape : Shape, options : GroupRemoveOptions = {}) : IGroup {
+		const index = this.children.findIndex((el) : boolean => el.shape.id == shape.id);
+		if (index == -1) return this;
+		const state = this.children[index];
+		this.children.splice(index, 1);
+		this.releaseChildState(state, options);
+		this.markChildrenDirty();
+		return this;
+	}
+
+	clear(options : GroupRemoveOptions = {}) : IGroup {
+		for (let i = this.children.length - 1; i >= 0; i--) {
+			const state = this.children[i];
+			this.releaseChildState(state, options);
+		}
+		this.children = [];
+		this.markChildrenDirty();
+		return this;
+	}
+
+	getsChildren() : Shape[] {
+		return this.children.map((el) : Shape => el.shape);
+	}
+
+	eachChild(call : (shape : Shape, index : number) => void) : IGroup {
+		for (let i = 0; i < this.children.length; i++) {
+			call(this.children[i].shape, i);
+		}
+		return this;
+	}
+
+	sortChildren(compareFn? : (a : Shape, b : Shape) => number) : IGroup {
+		if (compareFn != null) {
+			this.children.sort((left, right) : number => compareFn(left.shape, right.shape));
+		} else {
+			this.children.sort((left, right) : number => left.shape.zIndex - right.shape.zIndex);
+		}
+		this.markChildrenDirty();
+		return this;
+	}
+
+	setPivot(x : number, y : number) : IGroup {
+		this.pivotX = x;
+		this.pivotY = y;
+		this.markChildrenDirty();
+		return this;
+	}
+
+	private syncChildLocal(shape : Shape, preserveWorldTransform : boolean = true) : IGroup {
+		const state = this.findChildState(shape.id);
+		if (state == null) return this;
+		const latest = this.captureChildState(shape, preserveWorldTransform);
+		state.localX = latest.localX;
+		state.localY = latest.localY;
+		state.localScaleX = latest.localScaleX;
+		state.localScaleY = latest.localScaleY;
+		state.localRotation = latest.localRotation;
+		state.localOffsetX = latest.localOffsetX;
+		state.localOffsetY = latest.localOffsetY;
+		this.markChildrenDirty();
+		return this;
+	}
+
+	override setX(value : number) : IGroup {
+		super.setX(value);
+		this.markChildrenDirty();
+		return this;
+	}
+
+	override setY(value : number) : IGroup {
+		super.setY(value);
+		this.markChildrenDirty();
+		return this;
+	}
+
+	override setOffsetX(value : number) : IGroup {
+		super.setOffsetX(value);
+		this.markChildrenDirty();
+		return this;
+	}
+
+	override setOffsetY(value : number) : IGroup {
+		super.setOffsetY(value);
+		this.markChildrenDirty();
+		return this;
+	}
+
+	override setScaleX(value : number) : IGroup {
+		super.setScaleX(value);
+		this.markChildrenDirty();
+		return this;
+	}
+
+	override setScaleY(value : number) : IGroup {
+		super.setScaleY(value);
+		this.markChildrenDirty();
+		return this;
+	}
+
+	override setRotation(value : number) : IGroup {
+		super.setRotation(value);
+		this.markChildrenDirty();
+		return this;
+	}
+
+	override setOpacity(value : number) : IGroup {
+		super.setOpacity(value);
+		this.markChildrenDirty();
+		return this;
+	}
+
+	override setVisible(value : boolean) : IGroup {
+		super.setVisible(value);
+		this.markChildrenDirty();
+		return this;
+	}
+
+	override setFill(value : string) : IGroup {
+		super.setFill(value);
+		this.markChildrenDirty();
+		return this;
+	}
+
+	override setStroke(value : string) : IGroup {
+		super.setStroke(value);
+		this.markChildrenDirty();
+		return this;
+	}
+
+	override setStrokeWidth(value : number) : IGroup {
+		super.setStrokeWidth(value);
+		this.markChildrenDirty();
+		return this;
+	}
+
+	override update() : Shape {
+		this.applyChildrenTransforms(true);
+		for (let i = 0; i < this.children.length; i++) {
+			const child = this.children[i].shape;
+			if (child.needsUpdate) {
+				child.update();
+			}
+		}
+		return super.update();
+	}
+
+
+	private _calcScale(ctx : CanvasRenderingContext2D){
+		const bounds = this.cachedBounds;
+		const x = bounds?.x??0
+		const y = bounds?.y??0
+		const width = bounds?.width??0
+		const height = bounds?.height??0
+	
+		ctx.translate(x + this.offsetX, y + this.offsetY);
+		if (this.rotation != 0) {
+			if (this.rotateCenter == 'topLeft') {
+				ctx.rotate(this.rotation * Math.PI / 180);
+			} else if (this.rotateCenter == 'center') {
+				ctx.translate(width / 2, height / 2);
+				ctx.rotate(this.rotation * Math.PI / 180);
+				ctx.translate(-width / 2, - height / 2);
+			} else if (this.rotateCenter == 'topRight') {
+				ctx.translate(width, 0);
+				ctx.rotate(this.rotation * Math.PI / 180);
+				ctx.translate(-width, 0);
+			} else if (this.rotateCenter == 'bottomLeft') {
+				ctx.translate(0, height);
+				ctx.rotate(this.rotation * Math.PI / 180);
+				ctx.translate(0, - height);
+			} else if (this.rotateCenter == 'bottomRight') {
+				ctx.translate(width, height);
+				ctx.rotate(this.rotation * Math.PI / 180);
+				ctx.translate(-width, -height);
+			}
+		}
+		if (this.scaleX != 1 || this.scaleY != 1) {
+		
+			if (this.rotateCenter == 'topLeft') {
+				ctx.scale(this.scaleX, this.scaleY);
+			} else if (this.rotateCenter == 'center') {
+				ctx.translate(width / 2, height / 2);
+				ctx.scale(this.scaleX, this.scaleY);
+				ctx.translate(- width / 2, - height / 2);
+			} else if (this.rotateCenter == 'topRight') {
+				ctx.translate(width, 0);
+				ctx.scale(this.scaleX, this.scaleY);
+				ctx.translate(- width, 0);
+			} else if (this.rotateCenter == 'bottomLeft') {
+				ctx.translate(0, height);
+				ctx.scale(this.scaleX, this.scaleY);
+				ctx.translate(0, - height);
+			} else if (this.rotateCenter == 'bottomRight') {
+				ctx.translate(width, height);
+				ctx.scale(this.scaleX, this.scaleY);
+				ctx.translate(- width, - height);
+			}
+		
+		}
+		ctx.translate(- x, - y);
+	}
+	override draw(ctx : CanvasRenderingContext2D) : void {
+		if (!this.visible) return;
+		// super.draw(ctx);
+		ctx.save()
+		this.applyChildrenTransforms(false);
+		this.recomputeBounds();
+		const bounds = this.cachedBounds;
+		// ctx.translate(this.x, this.y);
+		
+		if (bounds != null && bounds.width > 0 && bounds.height > 0 && this.clip) {
+			ctx.beginPath();
+			ctx.rect(this.x, this.y, this.width, this.height);
+			ctx.clip();
+			ctx.closePath()
+		}
+		
+		if (bounds != null && bounds.width > 0 && bounds.height > 0) {
+			if (this.fill != '') {
+				ctx.fillStyle = this.fill;
+				ctx.fillRect(this.x, this.y, this.width, this.height);
+			}
+			if (this.stroke != '') {
+				ctx.strokeStyle = this.stroke;
+				ctx.lineWidth = this.strokeWidth;
+				ctx.strokeRect(this.x, this.y, this.width, this.height);
+			}
+		}
+		
+		
+		this._calcScale(ctx)
+		ctx.translate(this.x+this.offsetX, this.y+this.offsetY);
+		for (let i = 0; i < this.children.length; i++) {
+			this.children[i].shape.draw(ctx);
+		}
+		
+		ctx.restore();
+	}
+
+	override getBoundRect() : IShapeBoundRect {
+		this.applyChildrenTransforms(false);
+		this.recomputeBounds();
+		if (this.cachedBounds == null) {
+			return {
+				x: this.x,
+				y: this.y,
+				width: this.width,
+				height: this.height
+			};
+		}
+		return {
+			x: this.cachedBounds.x,
+			y: this.cachedBounds.y,
+			width: this.cachedBounds.width,
+			height: this.cachedBounds.height
+		};
+	}
+
+	override isPointInPath(x : number, y : number, shapeId : string) : boolean {
+		if (!this.visible || (shapeId !== '' && shapeId !== this.id)) {
+			return false;
+		}
+		this.applyChildrenTransforms(false);
+		const hits = this.collectHitChildren(x, y);
+		this.lastHitChildren = hits;
+		return hits.length > 0;
+	}
+
+	override buildEvents(eventName : CanvasEventType, parentEventDetail : ICanvasEvent) : void {
+		super.buildEvents(eventName, parentEventDetail);
+		const hits = this.lastHitChildren.length > 0
+			? this.lastHitChildren
+			: this.collectHitChildren(parentEventDetail.x, parentEventDetail.y);
+		if (hits.length == 0) {
+			return;
+		}
+		for (let i = 0; i < hits.length; i++) {
+			hits[i].buildEvents(eventName, parentEventDetail);
+		}
+		this.lastHitChildren = [];
+	}
+
+	private captureChildState(shape : Shape, preserveWorld : boolean) : GroupChildState {
+		let localX = shape.x;
+		let localY = shape.y;
+		let localScaleX = shape.scaleX;
+		let localScaleY = shape.scaleY;
+		let localRotation = shape.rotation;
+		const translationX = this.x + this.offsetX;
+		const translationY = this.y + this.offsetY;
+		const originalPivotX = this.pivotX;
+		const originalPivotY = this.pivotY;
+		if (preserveWorld) {
+			let dx = shape.x - translationX - originalPivotX;
+			let dy = shape.y - translationY - originalPivotY;
+			if (this.rotation !== 0) {
+				const radians = -this.rotation * Math.PI / 180;
+				const cos = Math.cos(radians);
+				const sin = Math.sin(radians);
+				const rotatedX = dx * cos - dy * sin;
+				const rotatedY = dx * sin + dy * cos;
+				dx = rotatedX;
+				dy = rotatedY;
+			}
+			const safeScaleX = Math.abs(this.scaleX) <= DEFAULT_SCALE_SAFE_EPS ? 1 : this.scaleX;
+			const safeScaleY = Math.abs(this.scaleY) <= DEFAULT_SCALE_SAFE_EPS ? 1 : this.scaleY;
+			localX = dx / safeScaleX + originalPivotX;
+			localY = dy / safeScaleY + originalPivotY;
+			localScaleX = shape.scaleX / safeScaleX;
+			localScaleY = shape.scaleY / safeScaleY;
+			localRotation = shape.rotation - this.rotation;
+		}
+		return {
+			shape: shape,
+			localX: localX,
+			localY: localY,
+			localScaleX: localScaleX,
+			localScaleY: localScaleY,
+			localRotation: localRotation,
+			localOffsetX: shape.offsetX,
+			localOffsetY: shape.offsetY
+		};
+	}
+
+	private releaseChildState(state : GroupChildState, options : GroupRemoveOptions) : void {
+		IGroup.ownerRegistry.delete(state.shape.id);
+		const reAdd = options.reAddToStage ?? this.autoManageCanvas;
+		if (reAdd) {
+			this.canvas?.addShape(state.shape as ShapeType);
+		}
+		state.shape.needsUpdate = true;
+	}
+
+	private findChildState(id : string) : GroupChildState | null {
+		for (let i = 0; i < this.children.length; i++) {
+			if (this.children[i].shape.id == id) {
+				return this.children[i];
+			}
+		}
+		return null;
+	}
+
+	private hasChild(id : string) : boolean {
+		return this.children.findIndex((el) : boolean => el.shape.id == id) != -1;
+	}
+
+	private markChildrenDirty() : void {
+		this.childrenDirty = true;
+		this.boundsDirty = true;
+		this.needsUpdate = true;
+	}
+
+	private applyChildrenTransforms(force : boolean) : void {
+		if (!force && !this.childrenDirty) {
+			return;
+		}
+		for (let i = 0; i < this.children.length; i++) {
+			this.applyStateToChild(this.children[i]);
+		}
+		this.childrenDirty = false;
+		this.boundsDirty = true;
+	}
+
+	private applyStateToChild(state : GroupChildState) : void {
+		const child = state.shape;
+		const x = state.shape.x;
+		child.canvas = this.canvas;
+		child.opacity = this.opacity;
+	
+		// child.x += 10
+		// child.y += this.y
+		
+	}
+
+	private recomputeBounds() : void {
+		if (!this.boundsDirty) {
+			return;
+		}
+		if (this.children.length === 0) {
+			this.cachedBounds = {
+				x: this.x,
+				y: this.y,
+				width: this.width,
+				height: this.height
+			};
+			this.boundsDirty = false;
+			return;
+		}
+		let minX = Number.POSITIVE_INFINITY;
+		let minY = Number.POSITIVE_INFINITY;
+		let maxX = Number.NEGATIVE_INFINITY;
+		let maxY = Number.NEGATIVE_INFINITY;
+		for (let i = 0; i < this.children.length; i++) {
+			const rect = this.children[i].shape.getBoundRect();
+			minX = Math.min(minX, rect.x);
+			minY = Math.min(minY, rect.y);
+			maxX = Math.max(maxX, rect.x + rect.width);
+			maxY = Math.max(maxY, rect.y + rect.height);
+		}
+		if (!isFinite(minX) || !isFinite(minY) || !isFinite(maxX) || !isFinite(maxY)) {
+			this.cachedBounds = {
+				x: this.x,
+				y: this.y,
+				width: 0,
+				height: 0
+			};
+			this.boundsDirty = false;
+			return;
+		}
+		this.cachedBounds = {
+			x: minX,
+			y: minY,
+			width: Math.max(0, maxX - minX),
+			height: Math.max(0, maxY - minY)
+		};
+		this.boundsDirty = false;
+	}
+
+	private collectHitChildren(x : number, y : number) : Shape[] {
+		const hits : Shape[] = [];
+		for (let i = this.children.length - 1; i >= 0; i--) {
+			const child = this.children[i].shape;
+			if (!child.visible) {
+				continue;
+			}
+			if (child.isPointInPath(x, y, child.id)) {
+				hits.push(child);
+				if (!child.bubbleEvent) {
+					break;
+				}
+			}
+		}
+		return hits;
+	}
+
+	private nearlyEqual(valueA : number, valueB : number, epsilon : number = 0.0001) : boolean {
+		return Math.abs(valueA - valueB) <= epsilon;
+	}
+}
+

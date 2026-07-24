@@ -1,0 +1,408 @@
+<script lang="ts" setup>
+	import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue"
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	import { checkIsCssUnit } from "../../core/util/xCoreUtil.uts"
+
+	/**
+	 * @name 数字键盘 xKeyboardNumber
+	 * @description 数字键盘,如果你要密码键盘见x-keyboard
+	 * @page /pages/index/keyboard
+	 * @category 表单组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({name:"xKeyboardNumber"})
+
+	const i18n = xConfig.i18n
+
+	defineSlots<{
+		default(props:{show:boolean}): any
+	}>()
+
+	const emits = defineEmits([
+		/**
+		 * 值变化时触发
+		 * @param {string} value - 当前值
+		 */
+		'change',
+		/**
+		 * 变量控制打开状态
+		 * 等同v-model:model-show
+		 */
+		'update:modelShow',
+		/**
+		 * 确认时触发
+		 * @param {string} value - 当前值
+		 */
+		'confirm',
+		/**
+		 * 关闭取消时触发
+		 * @param {string} value - 当前值
+		 */
+		'cancel',
+		'update:modelValue'
+	])
+
+	type xKeyboardNumberPropsType = {
+		/**
+		 * 当前输入的值
+		 */
+		modelValue: string,
+		/**
+		 * 最大长度
+		 */
+		maxLen: number,
+		/**
+		 * 当前打开的状态。
+		 * 等同v-model:model-show
+		 */
+		modelShow: boolean,
+		/**
+		 * 顶部标题，默认：安全键盘请放心输入
+		 */
+		title: string,
+		/**
+		 * 主按钮色，空值取全局主题
+		 */
+		color: string,
+		/**
+		 * 按钮背景,暗黑时会取二级inputDarkbg灰
+		 */
+		btnColor: string,
+		/**
+		 * 键盘背景
+		 */
+		bgColor: string,
+		/**
+		 * 文字颜色,暗黑是会取白。
+		 */
+		fontColor: string,
+		/**
+		 * 输入的最大值
+		 * 默认0表示不限制。
+		 */
+		max: number,
+		/**
+		 * 是否显示小数及00填充
+		 */
+		digit: boolean,
+		/**
+		 * 模式
+		 * number 数字键盘
+		 * password 密码键盘,作为密码用，那就不会限制数字模式就当字符串使用。
+		 */
+		mode: string,
+		/**
+		 * 点击确认是否保持键盘不收起
+		 */
+		hold: boolean
+	}
+
+	const props = withDefaults(defineProps<xKeyboardNumberPropsType>(), {
+		modelValue: "",
+		maxLen: 9,
+		modelShow: false,
+		title: "",
+		color: "",
+		btnColor: 'transparent',
+		bgColor: 'info',
+		fontColor: '#3b3b3b',
+		max: 0,
+		digit: true,
+		mode: "number",
+		hold: false
+	})
+
+	// 响应式数据
+	const show = ref(false)
+	const nowValue = ref("")
+	const numbList = ref([
+		['1', '2', '3'],
+		['4', '5', '6'],
+		['7', '8', '9'],
+		["00", "0", "."]
+	])
+	const numbList2 = ref([
+		['1', '2', '3'],
+		['4', '5', '6'],
+		['7', '8', '9']
+	])
+	const tid = ref(0)
+
+	// 计算属性
+	const _color = computed((): string => {
+		if (props.color == '') return getDefaultColor(xConfig.color)
+		return getDefaultColor(props.color)
+	})
+	const _btnColor = computed((): string => {
+		if (xConfig.dark == 'dark') return xConfig.inputDarkColor
+		return getDefaultColor(props.btnColor)
+	})
+	const _bgColor = computed((): string => {
+		return getDefaultColor(props.bgColor)
+	})
+	const _fontColor = computed((): string => {
+		if (xConfig.dark == 'dark') return "#ffffff"
+		return getDefaultColor(props.fontColor)
+	})
+	const _title = computed((): string => {
+		if(props.title=='') return i18n.t('tmui4x.keyboard.placeholder')
+		return props.title
+	})
+
+	// 方法
+	function getFontSize(k: string): string {
+		return checkIsCssUnit(k, xConfig.unit)
+	}
+
+	function openShow(): void {
+		show.value = true;
+		/**
+		 * 变量控制打开状态
+		 * 等同v-model:model-show
+		 */
+		emits('update:modelShow', true)
+	}
+
+	function onCancel(): void {
+		/**
+		 * 关闭取消时触发
+		 */
+		emits('cancel', nowValue.value);
+	}
+
+	function onClose(): void {
+		emits('update:modelShow', false)
+	}
+	
+	function ok(): void {
+		/**
+		 * 点击确认时触发
+		 */
+		emits('confirm', nowValue.value);
+		if(!props.hold){
+			show.value = false;
+			emits('update:modelShow', false)
+		}
+	}
+	
+	function del(): void {
+		if (nowValue.value.split('').length == 0) return;
+		let stp = nowValue.value.split('');
+		stp = stp.slice(0, stp.length - 1)
+		nowValue.value = stp.join("")
+		/**
+		 * 等同v-model
+		 */
+		emits('update:modelValue', nowValue.value);
+		/**
+		 * 值变化时触发
+		 * @paramt {string} value
+		 */
+		emits('change', nowValue.value);
+	}
+
+	function itemClick(value: string): void {
+		let isDem = nowValue.value.lastIndexOf('.') > -1;
+		let isMaxvalu = nowValue.value.split('').length >= props.maxLen;
+		if (isMaxvalu) {
+			uni.showToast({ title: '最多输入' + props.maxLen.toString() + '位数', icon: 'error' })
+			return;
+		}
+		if(props.mode=='number'){
+			if (isDem && value == '.') return;
+			
+			if ((nowValue.value.split('').length == 0 && value == '00') || (nowValue.value.split('').length == 0 && value == '.')) return
+			if (nowValue.value.substring(0, 1) == '0' && nowValue.value.split('').length == 1 && value != '.') return;
+			let totalvalue = parseFloat(nowValue.value + value);
+			if(totalvalue>props.max&&props.max!=0){
+				uni.showToast({ title: '应该小于' + props.max.toString(), icon: 'error' })
+				return;
+			}
+		}
+		
+		nowValue.value = nowValue.value + value;
+		/**
+		 * 等同v-model
+		 */
+		emits('update:modelValue', nowValue.value);
+		/**
+		 * 值变化时触发
+		 * @paramt {string} value
+		 */
+		emits('change', nowValue.value);
+	}
+
+	
+
+	// 监听器
+	watch((): string => props.modelValue, (newvalue: string) => {
+		if (newvalue == nowValue.value) return;
+		nowValue.value = newvalue
+	})
+
+	watch((): boolean => props.modelShow, (newValue: boolean) => {
+		if (newValue == show.value) return;
+		show.value = newValue
+	})
+
+	// 生命周期
+	onMounted(() => {
+		nowValue.value = props.modelValue
+		if (props.modelShow) {
+			tid.value = setTimeout(function () {
+				show.value = props.modelShow
+			}, 200);
+		}
+	})
+
+	onBeforeUnmount(() => {
+		clearTimeout(tid.value)
+	})
+</script>
+<template>
+	<view @click="openShow">
+		<!--
+		 @slot 插槽,默认触发打开选择器。你的默认布局可以放置在这里。
+		 @prop {boolean} show - 控制打开关闭状态
+		 -->
+		<slot :show="show"></slot>
+	</view>
+	<x-drawer @close="onClose" :widthCoverCenter="true" :disabled-scroll="true" :bgColor="_bgColor" size="auto" overflayBgColor="rgba(0,0,0,0)" :title="_title"
+		@cancel="onCancel" v-model:show="show" :show-close="true">
+		<template v-slot:title>
+			<view style="height: 44px;display: flex;justify-content: center;align-items: center;flex-direction: row;">
+			<text
+				:style="{fontSize:nowValue.split('').length>0?getFontSize('16'):getFontSize('12'),color:_fontColor}">{{nowValue.split('').length>0?nowValue:_title}}</text>
+			</view>
+		</template>
+		<template v-slot:default>
+			<view v-if="digit" class="xKeyboardNumber">
+				<view class="xKeyboardLeft">
+					<view v-for="(item,index) in numbList" :key="index" class="xKeyboardLeftLine">
+						<view @click="itemClick(item2)" v-for="(item2,index2) in item" :key="index2"
+							class="xKeyboardItem" :hover-start-time="20" :hover-stay-time="250"
+							hover-class="xKeyboardHover" :style="{backgroundColor:_btnColor}">
+							<text :style="{color:_fontColor}" class="xKeyboardText">{{item2}}</text>
+
+						</view>
+					</view>
+				</view>
+				<view class="xKeyboardRight">
+					<view :style="{backgroundColor:_btnColor,height:'50px'}" @click="del" class="xKeyboardItemDel xKeyboardItemNoright"
+						hover-class="xKeyboardHover" :hover-start-time="10" :hover-stay-time="250">
+						<x-icon :color="_fontColor" name="delete-back-2-line" font-size="24"></x-icon>
+					</view>
+					<view @click="ok" :style="{backgroundColor:_color}" class="xKeyboardItem xKeyboardItemNoright"
+						hover-class="xKeyboardHover" :hover-start-time="10" :hover-stay-time="250">
+						<!-- <x-icon name="check-line" font-size="38" color="white"></x-icon> -->
+						<text style="color: white;font-size: 16px;">
+							<!-- 确认 -->
+							{{i18n.t('tmui4x.keyboard.confirm')}}
+						</text>
+					</view>
+				</view>
+
+			</view>
+			<view v-if="!digit" class="xKeyboardNumber">
+				<view class="xKeyboardLeft">
+					<view v-for="(item,index) in numbList2" :key="index" class="xKeyboardLeftLine">
+						<view @click="itemClick(item2)" v-for="(item2,index2) in item" :key="index2"
+							class="xKeyboardItem" :hover-start-time="20" :hover-stay-time="250"
+							hover-class="xKeyboardHover" :style="{backgroundColor:_btnColor}">
+							<text :style="{color:_fontColor}" class="xKeyboardText">{{item2}}</text>
+						</view>
+					</view>
+					<view class="xKeyboardLeftLine">
+						<view @click="itemClick('0')"
+							class="xKeyboardItem" :hover-start-time="20" :hover-stay-time="250"
+							hover-class="xKeyboardHover" :style="{backgroundColor:_btnColor}">
+							<text :style="{color:_fontColor}" class="xKeyboardText">0</text>
+						</view>
+						<view @click="del" 
+							class="xKeyboardItem" :hover-start-time="20" :hover-stay-time="250"
+							hover-class="xKeyboardHover" :style="{backgroundColor:_btnColor}">
+							<x-icon :color="_fontColor" name="delete-back-2-line" font-size="24"></x-icon>
+						</view>
+						
+						<view @click="ok" :style="{backgroundColor:_color,'margin-right': '5px'}" class="xKeyboardItem xKeyboardItemNoright"
+							hover-class="xKeyboardHover" :hover-start-time="10" :hover-stay-time="250">
+							<!-- <x-icon name="check-line" font-size="38" color="white"></x-icon> -->
+							<text style="color: white;font-size: 16px;">
+								<!-- 确认 -->
+								{{i18n.t('tmui4x.keyboard.confirm')}}
+							</text>
+						</view>
+					</view>
+					
+				</view>
+			
+			</view>
+			<view style="height:12px"></view>
+		</template>
+
+	</x-drawer>
+</template>
+<style scoped>
+	.xKeyboardText {
+		font-weight: bold;
+		font-size: 20px;
+	}
+
+	.xKeyboardHover {
+		opacity: 0.6;
+	}
+
+	.xKeyboardLeftLine {
+		display: flex;
+		flex-direction: row;
+	}
+
+	.xKeyboardNumber {
+		display: flex;
+		flex-direction: row;
+	}
+
+	.xKeyboardLeft {
+		flex: 1;
+	}
+
+	.xKeyboardItem {
+		flex: 1;
+		height: 50px;
+		/* background-color: white; */
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: center;
+		margin-right: 5px;
+		margin-bottom: 5px;
+		border-radius: 6px;
+	}
+	
+	.xKeyboardItemDel {
+		
+		height: 50px;
+		/* background-color: white; */
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: center;
+		margin-right: 5px;
+		margin-bottom: 5px;
+		border-radius: 6px;
+	}
+
+	.xKeyboardItemNoright {
+		margin-right: 0px;
+	}
+
+	.xKeyboardRight {
+		width: 140rpx;
+		display: flex;
+		flex-direction: column;
+	}
+</style>

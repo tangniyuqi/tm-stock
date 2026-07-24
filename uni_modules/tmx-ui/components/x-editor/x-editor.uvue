@@ -1,0 +1,669 @@
+﻿<script lang="ts" setup>
+	import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick, getCurrentInstance } from "vue"
+	import { getUid } from "../../core/util/xCoreUtil.uts"
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { checkIsCssUnit } from "../../core/util/xCoreUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	// #ifdef MP
+	import { Marked } from "./marked.uts"
+	// #endif
+
+	type xEditeListType = "ordered" | "bullet" | "unchecked" | "checked" | ""
+	type xEditeAlign = "center" | "left" | "right" | ""
+	type xEditeOptsType = {
+		img : string,
+		link : string,
+		b : boolean,
+		i : boolean,
+		s : boolean,
+		u : boolean,
+		align : xEditeAlign,
+		list : xEditeListType,
+		indent : number,
+		header : number,
+		color : string,
+		background : string,
+		size : string
+	}
+	type xEditeListItemType = {
+		name : xEditeListType,
+		icon : string
+	}
+
+	/**
+	 * @name 富文本编辑器 xEditor
+	 * @description 传递正常markdown或者html内容即可,传递markdown时会自动转换为html,如果直接传递html不会转换直接赋值.
+	 * 值得注意的是:在微信小程序端它是没有样式高亮显示的.其它平台有样式指示,这是因为受限于微信官方本身就不支持.
+	 * 另外我测试发现HBX4.53 sdk ios端的输入框焦点有问题，导致无法设置样式，待官方修复。
+	 * @page /pages/biaodan/editor
+	 * @category 表单组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({ name: "xEditor" })
+
+	type xEditorPropsType = {
+		/** 窗口宽 */
+		width : string,
+		/** 窗口高,可以传递所支持的任意单位高. */
+		height : string,
+		/** 需要渲染的markdow或者html内容。 */
+		value : string,
+		/**
+		 * 是否启用纯html渲染。如果你的内容含有特殊字符比如:%,^&%这种不要出现在里面
+		 * 此时你启用isHtml会经过数据处理直接跳过插件,直接赋值内容到html.就不要启用Markdown了.
+		 */
+		isHtml : boolean,
+		/** 富文本的style样式,不可以动态更改. */
+		nodeStyle : string,
+		/** 同上，暗黑时的样式. */
+		nodeDarkStyle : string,
+		/** 默认的按钮背景色 */
+		color : string,
+		/** 激活时的选中背景色，空值取全局 */
+		activeColor : string,
+		/** 自定义默认的文字/背景颜色 */
+		customColos : string[]
+	}
+
+	const props = withDefaults(defineProps<xEditorPropsType>(), {
+		width: 'auto',
+		height: '350',
+		value: '',
+		isHtml: false,
+		nodeStyle: 'line-height:1.6;color:#000',
+		nodeDarkStyle: 'line-height:1.6;color:#fff',
+		color: '#f5f5f5',
+		activeColor: '',
+		customColos: () : string[] => ['#ff0000', '#ff00ff', '#00ff00', '#00ffff', '#ffff00', '#ffffff', '#000000'] as string[]
+	})
+
+	const emits = defineEmits([
+		/**
+		 * 特定的a,img标签被点击触发,小程序不支持,其它平台支持.
+		 * @return {Object<{text,tag,attr}>}
+		 */
+		'tagClick',
+		/**
+		 * 是否初始化成功
+		 */
+		'init',
+		/**
+		 * 需要通过ref函数调用getHtml才会触发此函数
+		 */
+		'getValue'
+	])
+
+	const proxy = getCurrentInstance()?.proxy ?? null
+
+	const id = ("xEdte-" + getUid()) as string
+	let webviewContext = null as WebviewContext | null
+	const isLoaded = ref<boolean>(false)
+	let tid = 0
+	let tid2 = 0
+	const realLoaded = ref<boolean>(false)
+
+	const optsStatus = ref<xEditeOptsType>({
+		img: '', link: '', b: false, i: false, s: false, u: false,
+		align: '' as xEditeAlign, list: '' as xEditeListType, indent: 0, header: 0, color: '', background: '', size: ''
+	} as xEditeOptsType)
+
+	const listDataItems = [
+		{ icon: 'list-ordered', name: 'ordered' },
+		{ icon: 'list-unordered', name: 'bullet' },
+		{ icon: 'list-check-2', name: 'unchecked' },
+		{ icon: 'list-check-3', name: 'checked' },
+	] as xEditeListItemType[]
+
+	// #ifdef MP
+	const markdownObj = new Marked()
+	const htmlMpContent = ref<string>("")
+	let editorCtx = null as null | EditorContext
+	// #endif
+
+	const _isDark = computed((): boolean => xConfig.dark == 'dark')
+
+	const _color = computed((): string => {
+		if (_isDark.value) return "#222222"
+		return getDefaultColor(props.color)
+	})
+
+	const _activeColor = computed((): string => {
+		return getDefaultColor(props.activeColor == '' ? 'primary' : props.activeColor)
+	})
+
+	const _width = computed((): string => checkIsCssUnit(props.width, xConfig.unit))
+	const _height = computed((): string => checkIsCssUnit(props.height, xConfig.unit))
+
+	const _nodeStyle = computed((): string => {
+		return xConfig.dark == 'dark' ? props.nodeDarkStyle : props.nodeStyle
+	})
+
+	function eventJsCall(callfun : string, str : string) {
+		// #ifdef WEB
+		var iframe = document.getElementById(id);
+		if (!iframe) return;
+		if ((iframe.contentWindow[callfun] || null)) {
+			iframe.contentWindow[callfun](str, props.isHtml);
+		}
+		// #endif
+		// #ifdef APP
+		webviewContext?.evalJS(`${callfun}(${str},${props.isHtml})`)
+		// #endif
+	}
+
+	function drawer(value : string, isHtml : boolean) {
+		if (!realLoaded.value) {
+			uni.showToast({ title: "未初始化完成", icon: 'none' })
+			return;
+		}
+		// #ifdef WEB
+		eventJsCall('markdown', JSON.stringify({ value: encodeURIComponent(value), render: true }))
+		// #endif
+		// #ifdef APP-IOS || APP-HARMONY
+		eventJsCall('markdown', JSON.stringify({ value: encodeURIComponent(value), render: true }))
+		// #endif
+		// #ifdef APP-ANDROID
+		eventJsCall('markdown', JSON.stringify({ value: isHtml ? btoa(encodeURIComponent(value)!) : value, render: isHtml ? 'android' : '' }))
+		// #endif
+	}
+
+	function setEventContent(callanem : string, value : string, ishtml : boolean) {
+		if (!realLoaded.value) {
+			uni.showToast({ title: "未初始化完成", icon: 'none' })
+			return;
+		}
+		function evenjscall(callfun : string, str : string, isHtml : boolean) {
+			// #ifdef WEB
+			var iframe = document.getElementById(id);
+			if (!iframe) return;
+			if ((iframe.contentWindow[callfun] || null)) {
+				iframe.contentWindow[callfun](str, isHtml);
+			}
+			// #endif
+			// #ifdef APP
+			webviewContext?.evalJS(`${callfun}(${str},${isHtml})`)
+			// #endif
+		}
+
+		// #ifdef WEB
+		evenjscall(callanem, JSON.stringify({ value: encodeURIComponent(value), render: true }), ishtml)
+		// #endif
+		// #ifdef APP-IOS || APP-HARMONY
+		evenjscall(callanem, JSON.stringify({ value: encodeURIComponent(value), render: true }), ishtml)
+		// #endif
+		// #ifdef APP-ANDROID
+		let rendervalue = (ishtml ? 'android' : '') as string
+		let cvalue = (ishtml ? btoa(encodeURIComponent(value)!) : value) as any
+		let resultValue = JSON.stringify({ value: cvalue, render: rendervalue })! as string
+		evenjscall(callanem, resultValue, ishtml)
+		// #endif
+	}
+
+	function appWebViewLoaded() {
+		realLoaded.value = true;
+		drawer(props.value, props.isHtml)
+		emits("init")
+		eventJsCall('setBodyStyle', _nodeStyle.value)
+		console.log(111)
+	}
+
+	// #ifdef MP
+	function mpOnInit() {
+		uni.createSelectorQuery()
+			.in(proxy)
+			.select('#editor').context((res) => {
+				console.log(res)
+				editorCtx = res.context
+				realLoaded.value = true;
+				setContent(props.value);
+				emits("init")
+			}).exec()
+	}
+
+	function setContent(str : string) {
+		if (!realLoaded.value) {
+			uni.showToast({ title: "未初始化完成", icon: 'none' })
+			return;
+		}
+		if (props.isHtml) {
+			htmlMpContent.value = str
+		} else {
+			htmlMpContent.value = markdownObj.parse(str)
+		}
+		editorCtx?.setContents({ html: htmlMpContent.value })
+	}
+
+	function onItemClick(event : any) {
+		console.log(event)
+	}
+
+	function onfocus(event : any) {
+	}
+
+	function onstatuschange(event : any) {
+		const detail = event.detail || {}
+		let value = ''
+
+		if (Object(detail).hasOwnProperty('bold')) {
+			optsStatus.value.b = value as boolean;
+		} else if (Object(detail).hasOwnProperty('underline')) {
+			optsStatus.value.u = value as boolean;
+		} else if (Object(detail).hasOwnProperty('italic')) {
+			optsStatus.value.i = value as boolean;
+		} else if (Object(detail).hasOwnProperty('header')) {
+			optsStatus.value.header = value as number;
+			console.log(detail)
+		} else if (Object(detail).hasOwnProperty('align')) {
+			optsStatus.value.align = value;
+		} else if (Object(detail).hasOwnProperty('list')) {
+			optsStatus.value.list = value as xEditeListType;
+		} else if (Object(detail).hasOwnProperty('background')) {
+			optsStatus.value.background = value as string;
+		} else if (Object(detail).hasOwnProperty('size')) {
+			optsStatus.value.size = value as string;
+		}
+	}
+
+	function setFormart(key : string, value : boolean | number | string) {
+		const eobj = {
+			'b': 'bold',
+			'i': 'italic',
+			's': 'strike',
+			'u': 'underline',
+			'link': 'link',
+			'img': 'image',
+			'video': 'video',
+			'align': 'align',
+			'list': 'list',
+			'blockquote': 'blockquote',
+			'indent': 'indent',
+			'color': 'color',
+			'background': 'backgroundColor',
+			'size': 'fontSize',
+			'script': 'script',
+			'header': 'header',
+		}
+		console.log(eobj[key], value)
+		editorCtx?.format(eobj[key], value)
+	}
+	// #endif
+
+	function onAddlisentMesage() {
+		// #ifdef WEB
+		window.addEventListener('message', function (event) {
+			if (event.data.iframeId == id && event.data.action == 'onJSBridgeReady') {
+				clearTimeout(tid2)
+				tid2 = setTimeout(function () {
+					realLoaded.value = true;
+					drawer(props.value, props.isHtml)
+					emits("init")
+					eventJsCall('setBodyStyle', _nodeStyle.value)
+				}, 50);
+			}
+
+			if (event.data.iframeId == id && event.data.action == 'offsetHeight') {
+				// boxHeight not used
+
+			} else if (event.data.iframeId == id && event.data.action == 'toValue') {
+				emits('getValue', event.data.data)
+			} else if (event.data.iframeId == id && event.data.action == 'click') {
+				let dataStr = JSON.stringify(event.data.data);
+				let dataJson = JSON.parseObject(dataStr)!
+				emits('tagClick', dataJson)
+			} else if (event.data.iframeId == id && event.data.action == 'fontStyleOpts') {
+				let localOptsNow = event.data.data as xEditeOptsType;
+				optsStatus.value = localOptsNow;
+			}
+		});
+		// #endif
+	}
+
+	function onMessage(event : WebViewMessageEvent) {
+		let msgdatas = event.detail.data
+
+		if (msgdatas.length == 0) return;
+		// #ifdef APP-ANDROID || APP-HARMONY || APP-IOS
+		if (msgdatas.length > 0) {
+			let dataStr = JSON.stringify(event.detail);
+			let dataJson = JSON.parseObject(dataStr)!
+			let msgeAr = dataJson.getArray<UTSJSONObject>('data')!
+
+			let msg = msgeAr[0]!
+
+			let ac = msg["action"] as string;
+			if (ac == 'onJSBridgeReady') {
+				appWebViewLoaded()
+			} else if (ac == 'offsetHeight') {
+			} else if (ac == 'toValue') {
+				emits('getValue', msg["data"]! as string)
+			} else if (ac == 'click') {
+				emits('tagClick', msg['data']! as UTSJSONObject)
+			} else if (ac == 'fontStyleOpts') {
+				let datamsg = JSON.stringify(msg['data']!)!;
+				let localOptsNow = JSON.parseObject<xEditeOptsType>(datamsg! as string)! as xEditeOptsType;
+				optsStatus.value = localOptsNow;
+			}
+		}
+		// #endif
+
+	}
+
+	/**
+	 * 获取html内容。注意本函数不会返回内容，你要通过事件getValue得到html内容.
+	 */
+	function getHtml() {
+		// #ifdef WEB
+		var iframe = document.getElementById(id);
+		if (!iframe) return;
+		iframe.contentWindow['getHtml']()
+		// #endif
+		// #ifdef APP
+		webviewContext?.evalJS(`getHtml()`)
+		// #endif
+		// #ifdef MP
+		editorCtx?.getContents({
+			success(res) {
+				emits('getValue', res.html)
+			},
+			fail(e) {
+				console.error("TMUI ERROR:获取失败", e)
+			}
+		})
+		// #endif
+	}
+
+	function getSelected() {
+	}
+
+	function setFontStyle(key : string, value : boolean | number | string) {
+		// #ifndef MP
+		setEventContent('setSelectedStyle', JSON.stringify({ key: key, value: value }), true)
+		nextTick(() => {
+			if (key == 'b') {
+				optsStatus.value.b = value as boolean;
+			} else if (key == 'u') {
+				optsStatus.value.u = value as boolean;
+			} else if (key == 'i') {
+				optsStatus.value.i = value as boolean;
+			} else if (key == 's') {
+				optsStatus.value.s = value as boolean;
+			} else if (key == 'header') {
+				optsStatus.value.header = value as number;
+			} else if (key == 'align') {
+				optsStatus.value.align = value as xEditeAlign;
+			} else if (key == 'list') {
+				optsStatus.value.list = value as xEditeListType;
+			} else if (key == 'background') {
+				optsStatus.value.background = value as string;
+			} else if (key == 'size') {
+				optsStatus.value.size = value as string;
+			}
+		})
+		// #endif
+		// #ifdef MP
+		setFormart(key, value)
+		console.log(key)
+		// #endif
+	}
+
+	function getBgColor(isActive : boolean) : string {
+		if (isActive) return _activeColor.value;
+		return _color.value
+	}
+
+	function getFontColor(isActive : boolean) : string {
+		if (isActive || _isDark.value) return "#ffffff";
+		return "#333333"
+	}
+
+	watch((): string => props.value, () => {
+		// #ifdef APP||WEB
+		drawer(props.value, props.isHtml)
+		// #endif
+		// #ifdef MP
+		setContent(props.value);
+		// #endif
+	})
+
+	onMounted(() => {
+		isLoaded.value = true;
+		let ol = 50;
+		// #ifdef APP-IOS
+		ol = 120
+		// #endif
+		tid = setTimeout(function () {
+			// #ifdef APP
+			webviewContext = uni.createWebviewContext(id, proxy);
+			
+			// #endif
+			// #ifdef WEB
+			webviewContext = document.getElementById(id) as HTMLElement;
+			// #endif
+			// #ifdef MP
+			mpOnInit()
+			// #endif
+		}, ol);
+		onAddlisentMesage();
+	})
+
+	onBeforeUnmount(() => {
+		clearTimeout(tid)
+		clearTimeout(tid2)
+	})
+
+	defineExpose({
+		/** 获取html内容 **/
+		getHtml,
+		/** 获取选区 **/
+		getSelected
+	})
+</script>
+<template>
+	<view class="xEdite" :style="{width:_width,height:_height}">
+		<view v-if="!isLoaded"
+			style="width:100%;height:100%;display: flex;justify-content: center;align-items: center;flex-direction: row;">
+			<x-icon color="primary" :spin="true" name="loader-4-line"></x-icon>
+		</view>
+
+		<view class="FontTabsGroup">
+			<view class="fontTabs" style="flex:1;margin-right: 2px;">
+				<view @click="setFontStyle('b',!optsStatus.b)" class="xEditorBtns"
+					:style="{backgroundColor:getBgColor(optsStatus.b)}">
+					<x-icon :color="getFontColor(optsStatus.b)" name="bold"></x-icon>
+				</view>
+				<view @click="setFontStyle('i',!optsStatus.i)" class="xEditorBtns"
+					:style="{backgroundColor:getBgColor(optsStatus.i)}">
+					<x-icon :color="getFontColor(optsStatus.i)" name="italic"></x-icon>
+				</view>
+				<view @click="setFontStyle('u',!optsStatus.u)" class="xEditorBtns"
+					:style="{backgroundColor:getBgColor(optsStatus.u)}">
+					<x-icon :color="getFontColor(optsStatus.u)" name="underline"></x-icon>
+				</view>
+				<view @click="setFontStyle('s',!optsStatus.s)" class="xEditorBtns"
+					:style="{backgroundColor:getBgColor(optsStatus.s)}">
+					<x-icon :color="getFontColor(optsStatus.s)" name="strikethrough"></x-icon>
+				</view>
+
+			</view>
+			<view class="fontTabs" style="width: 36px;align-self: stretch;margin-right: 2px;">
+				<x-popover position="bc" style="flex:1;align-self: stretch;">
+					<view class="xEditorBtns" :style="{backgroundColor:getBgColor(optsStatus.size!='')}">
+						<x-icon :color="getFontColor(optsStatus.size!='')" name="font-size"></x-icon>
+					</view>
+					<template #menu>
+						<view style="width:110px">
+							<view v-for="item in ['12px', '14px', '16px', '18px', '24px']" :key="item"
+								@click="setFontStyle('size',optsStatus.size==item?'':item)" class="fontTabsCirlItem"
+								:style="{backgroundColor:getBgColor(optsStatus.size==item)}">
+								<x-text :color="getFontColor(optsStatus.size==item)">{{item}}</x-text>
+							</view>
+						</view>
+
+					</template>
+				</x-popover>
+			</view>
+			
+			<view class="fontTabs" style="width: 120px;align-self: stretch;">
+
+				<x-popover position="bc" style="flex:1;align-self: stretch;">
+					<view class="xEditorBtns" :style="{backgroundColor:getBgColor(optsStatus.background!='')}">
+						<view class="fontTabsCirl"
+							:style="{backgroundColor:optsStatus.background==''?'transparent':optsStatus.background}">
+						</view>
+						<x-icon :color="getFontColor(optsStatus.background!='')" name="drop-fill"></x-icon>
+					</view>
+					<template #menu>
+						<view style="width:110px">
+							<view @click="setFontStyle('background',item)" v-for="(item,index) in customColos"
+								:key="index" class="fontTabsCirlItem"
+								:style="{backgroundColor:_isDark?'#222222':'#ffffff'}">
+								<view class="fontTabsCirl2" :style="{backgroundColor:item}"></view>
+							</view>
+						</view>
+
+					</template>
+				</x-popover>
+
+				<x-popover position="br" style="flex:1;align-self: stretch;">
+					<view class="xEditorBtns" :style="{backgroundColor:getBgColor(optsStatus.color!='')}">
+						<view class="fontTabsCirl"
+							:style="{backgroundColor:optsStatus.color==''?'transparent':optsStatus.color}"></view>
+						<x-icon :color="getFontColor(optsStatus.color!='')" name="font-color"></x-icon>
+					</view>
+					<template #menu>
+						<view style="width:110px">
+							<view @click="setFontStyle('color',item)" v-for="(item,index) in customColos" :key="index"
+								class="fontTabsCirlItem" :style="{backgroundColor:_isDark?'#222222':'#ffffff'}">
+								<view class="fontTabsCirl2" :style="{backgroundColor:item}"></view>
+							</view>
+						</view>
+
+					</template>
+				</x-popover>
+
+			</view>
+		</view>
+		<view class="FontTabsGroup">
+			
+			<view class="fontTabs" style="width: 36px;align-self: stretch;margin-right: 2px;">
+				<x-popover position="bl" style="flex:1;align-self: stretch;">
+					<view class="xEditorBtns" :style="{backgroundColor:getBgColor(optsStatus.header!=0)}">
+						<x-icon :color="getFontColor(optsStatus.header!=0)" name="heading"></x-icon>
+					</view>
+					<template #menu>
+						<view style="width:110px">
+							<view v-for="item in 6" :key="item"
+								@click="setFontStyle('header',optsStatus.header==item?0:item)" class="fontTabsCirlItem"
+								:style="{backgroundColor:getBgColor(optsStatus.header==item)}">
+								<x-icon :color="getFontColor(optsStatus.s)" :name="`h-${item}`"></x-icon>
+							</view>
+						</view>
+			
+					</template>
+				</x-popover>
+			
+			</view>
+			<view class="fontTabs" style="flex:1;margin-right: 2px;">
+				<view v-for="(item,index) in ['left','center','right']" :key="index"
+					@click="setFontStyle('align',optsStatus.align==item?'':item)" class="xEditorBtns"
+					:style="{backgroundColor:getBgColor(optsStatus.align==item)}">
+					<x-icon :color="getFontColor(optsStatus.align==item)" :name="`align-${item}`"></x-icon>
+				</view>
+			</view>
+			<view class="fontTabs" style="align-self: stretch;flex:1">
+				<view v-for="(item,index) in listDataItems" :key="index"
+					@click="setFontStyle('list',optsStatus.list==item.name?'':item.name)" class="xEditorBtns"
+					:style="{backgroundColor:getBgColor(optsStatus.list==item.name)}">
+					<x-icon :color="getFontColor(optsStatus.list==item.name)" :name="item.icon"></x-icon>
+				</view>
+		
+			</view>
+		</view>
+		<view style="height: 8px;"></view>
+		
+		<view style="flex:1;">
+		
+			<!-- #ifdef APP||WEB -->
+			<web-view v-if="isLoaded" :horizontalScrollBarAccess="true" :verticalScrollBarAccess="false"
+				class="xMarkdownNoevents" :id="id" src="/hybrid/html/edite.html"
+				:style="{width:'100%',height:'100%',opacity:isLoaded?1:0}" @message="onMessage"></web-view>
+
+			<!-- #endif -->
+			<!-- #ifdef MP -->
+			<editor class="xMarkdownNoevents" id="editor" @ready="mpOnInit" @itemclick="onItemClick" @focus="onfocus"
+				@statuschange="onstatuschange" :selectable="true" placeholder="请输入"
+				:style="[{width:'100%',height:'100%'},_nodeStyle]"></editor>
+			<!-- #endif -->
+		</view>
+	</view>
+</template>
+<style scoped>
+	.xEdite{
+		display: flex;
+		flex-direction: column;
+	}
+	.xEditorBtns {
+		height: 40px;
+		flex: 1;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		flex-direction: row;
+	}
+
+	.fontTabsCirl {
+		width: 12px;
+		height: 12px;
+		border-radius: 10px;
+		border: 1px solid #b2b2b2;
+		margin-right: 5px;
+	}
+
+	.fontTabsCirl2 {
+		width: 20px;
+		height: 20px;
+		border-radius: 20px;
+		border: 1px solid #b2b2b2;
+	}
+
+	.fontTabsCirlItem {
+		height: 36px;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		flex-direction: row;
+	}
+
+	.fontTabs {
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 2px;
+		border-radius: 4px;
+		overflow: hidden;
+	}
+
+	.FontTabsGroup {
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: center;
+	}
+
+	.xMarkdownAndrod {
+		position: absolute;
+		left: 0;
+		top: 0;
+		width: 100%;
+		height: 100%;
+		z-index: 10;
+	}
+
+	.xMarkdownNoevents {
+		width: 100%;
+	}
+</style>

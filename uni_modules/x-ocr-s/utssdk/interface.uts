@@ -1,0 +1,26 @@
+
+export type XOcrResult = {
+  /** 文本块，含定位 */
+  textBlock : string[],
+  /** 文本不含定位 */
+  text : string[]
+}
+
+export interface XOcrFail extends IUniError {
+  errCode : number
+};
+
+export type XOcrOpts = {
+  /** 图片路径 */
+  path : string,
+  /** zh,ja */
+  langs : 'zh'|'ja',
+  /** 仅安卓支持0-1,默认为0.5，即识别的可信度大于0.5时就为正确识别文本。 */
+  zhixingdu ?:number,
+  success ?: (res : XOcrResult) => void
+  fail ?: (res : XOcrFail) => void
+  complete ?: (res : XOcrResult|null) => void
+}
+
+
+

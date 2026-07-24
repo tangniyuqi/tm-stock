@@ -1,0 +1,14 @@
+import { XLOADINGS_TYPE, XLOADINGS_TYPE_PRIVATE } from "../interface.uts"
+import { defaultConfig, configCover } from "../libs/config.uts"
+import { hexToRgb } from "../libs/color.uts"
+import { xshowLoadings,xhidesloadings } from "x_loading_s";
+
+
+
+export const hideXloading = () => {
+	xhidesloadings(UTSHarmony.getCurrentWindow()!.getUIContext())
+}
+export function showLoading(opts : XLOADINGS_TYPE|null)  {
+	let config = configCover(opts==null ? ({} as XLOADINGS_TYPE) : (opts!))
+	xshowLoadings(UTSHarmony.getCurrentWindow()!.getUIContext(),config)
+}

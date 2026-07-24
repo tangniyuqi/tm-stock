@@ -1,0 +1,399 @@
+<script lang="ts" setup>
+	import { getUid } from "../../core/util/xCoreUtil.uts"
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { checkIsCssUnit,getUnit } from "../../core/util/xCoreUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	import { CHIDREN_ITEM } from "../x-collapse/interface.uts"
+	import {useTool} from "@/uni_modules/tmx-ui/core/util/useTool.uts";
+	import {ComputedRef} from "vue"
+	/**
+	 * @name 折叠面板子组件 xCollapseItem
+	 * @description 可单，可多开,只可放置在x-collapse直接子节点组件,为了避免重复计算和性能x-collapse-item不能通过响应式修改内容。如果确实需要请通过刷新key解决
+	 * @page /pages/index/collapse-item
+	 * @category 展示组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({ name: "xCollapseItem" })
+	defineSlots<{
+		 default(props: {  }): any,
+		 right(props: { status: boolean }): any,
+		 left(props: { status: boolean }): any,
+		 title(props: { status: boolean }): any,
+		 custom(props: { status: boolean }): any
+	}>()
+	const emits = defineEmits([
+		/**
+		 * 点击组件标题时触发
+		 * @param {string} name 当前标识 
+		 * @param {boolean} opened 当前项目打开状态 
+		 */
+		'click'
+	])
+	const props = defineProps({
+		/**
+		 * 唯一标识
+		 */
+		name: {
+			type: String,
+			default: "",
+			required: true
+		},
+		/**
+		 * 是否显示底部边线
+		 */
+		showBottomLine: {
+			type: Boolean,
+			default: true
+		},
+		/**
+		 * 是否禁用
+		 */
+		disabled: {
+			type: Boolean,
+			default: false
+		},
+		/**
+		 * 标题大小
+		 */
+		titleFontSize: {
+			type: String,
+			default: '16px'
+		},
+		/**
+		 * 标题颜色
+		 */
+		titleColor: {
+			type: String,
+			default: '#333333'
+		},
+		/**
+		 *暗黑时的标题颜色，如果不填写取白
+		 */
+		darkTitleColor: {
+			type: String,
+			default: ''
+		},
+		/**
+		 * 激活时的颜色，空值读取全局值。
+		 */
+		activeColor: {
+			type: String,
+			default: ''
+		},
+		/**
+		 * 背景
+		 */
+		color: {
+			type: String,
+			default: 'white'
+		},
+		/**
+		 * 暗黑时的背景，如果不填写默认取sheetDarkColor
+		 */
+		darkColor: {
+			type: String,
+			default: ''
+		},
+		/**
+		 * 左边图标
+		 */
+		leftIcon: {
+			type: String,
+			default: ''
+		},
+		/**
+		 * 标题
+		 */
+		title: {
+			type: String,
+			default: ''
+		},
+		/**
+		 * 标题高度
+		 */
+		titleHeight: {
+			type: String,
+			default: '55'
+		},
+		/**
+		 * 标题最多显示几行出现省略号
+		 */
+		titleLines: {
+			type: Number,
+			default: 1
+		},
+		/**
+		 * 是否开启自定整个cell内容，如果你的整个内容要自定义实现，且复杂，请
+		 * 设置为true后并在插槽内#custom写你的布局内容。
+		 */
+		custom:{
+			type:Boolean,
+			default:false
+		}
+	})
+	const xCollapseDefaultName = inject<ComputedRef<string[]>>('xCollapseDefaultName',computed(():string[]=>[]))
+	const proxy = getCurrentInstance()?.proxy ?? null
+	const id = 'xCollapseItem-' + getUid()
+	const itemHeight = ref<number>(0)
+	const opened = computed(():boolean=> xCollapseDefaultName.value.includes(props.name))
+	const resizeObserver = ref<UniResizeObserver|null>(null)
+	const _disabled =  computed(():boolean=>props.disabled)
+	const _titleFontSize =  computed(():string=>{
+		let fontSize = checkIsCssUnit(props.titleFontSize, xConfig.unit);
+		if(xConfig.fontScale==1) return fontSize;
+		let sizeNumber = parseInt(fontSize)
+		if(isNaN(sizeNumber)){
+			sizeNumber = 16
+		}
+		return (sizeNumber*xConfig.fontScale).toString() + getUnit(fontSize)
+	})
+	const _titleHeight =  computed(():string=> checkIsCssUnit(props.titleHeight, xConfig.unit))
+	const _titleColor =  computed(():string=>{
+		if(xConfig.dark=='dark'){
+			if(props.darkTitleColor!='') return getDefaultColor(props.darkTitleColor)
+			return '#ffffff'
+		}
+		return getDefaultColor(props.titleColor);
+	})
+	const _activeColor =  computed(():string=>{
+		if (props.activeColor == "") return getDefaultColor(xConfig.color)
+		return getDefaultColor(props.activeColor);
+	})
+	const _color =  computed(():string=>{
+		if(xConfig.dark=='dark'){
+			if(props.darkColor!='') return getDefaultColor(props.darkColor)
+			return xConfig.sheetDarkColor
+		}
+		return getDefaultColor(props.color);
+	})
+	const _leftIcon =  computed(():string=>props.leftIcon)
+	const _title =  computed(():string=>props.title)
+	const _textMap =  computed(():Map<string, string>=>{
+		let styleMap = new Map<string, string>()
+		styleMap.set("fontSize", _titleFontSize.value)
+		styleMap.set("color", opened.value ? _activeColor.value : _titleColor.value)
+		// #ifdef APP
+		styleMap.set("lines", props.titleLines.toString())
+		// #endif
+		// #ifndef APP
+		styleMap.set("-webkit-line-clamp", props.titleLines.toString())
+		// #endif
+		
+		return styleMap;
+	})
+	const xCollapseItemContentRef = ref<UniElement|null>(null)
+
+	const itemClick = () => {
+		
+		let isOpenid = opened.value
+		
+		if (!_disabled.value) {
+			let pelement = useTool.findParentVueComponent(proxy,'xCollapse')
+			let parent = pelement as XCollapseComponentPublicInstance|null;
+		
+			if(parent!=null){
+				parent!.addChange(props.name)
+			}
+			isOpenid = !isOpenid
+		}
+		
+		/**
+		 * 项目被点击时触发。
+		 * @param name {string} 当前name值
+		 */
+		emits('click', props.name,isOpenid);
+	
+	}
+	const getNodes = () => {
+		// #ifndef MP
+		let ele = xCollapseItemContentRef.value
+		if(ele==null) return;
+		ele.getBoundingClientRectAsync()
+		?.then((rect:DOMRect)=>{
+			itemHeight.value = rect.height;
+			
+		})
+		// #endif
+		// #ifdef MP
+		uni.createSelectorQuery().in(proxy)
+			.select(".xCollapseItemContent")
+			.boundingClientRect().exec((ret) => {
+				let nodeinfo = ret[0] as NodeInfo;
+				itemHeight.value = nodeinfo.height!;
+			})
+		// #endif
+	}
+	
+	
+	watch(():boolean => opened.value,(newval:boolean)=>{
+		if(newval){
+			nextTick(()=>{
+				getNodes()
+			})
+		}
+	})
+	onMounted(()=>{
+		let pelement = useTool.findParentVueComponent(proxy,'xCollapse')
+		let parent = pelement as XCollapseComponentPublicInstance|null;
+		if(parent!=null){
+			parent!.addItem(props.name)
+		}
+		
+		if (opened.value) {
+			getNodes()
+		}
+		// #ifdef APP || WEB
+		let ele = xCollapseItemContentRef.value
+		if(ele==null) return;
+		if (resizeObserver.value == null) {
+			resizeObserver.value = new UniResizeObserver((entries : Array<UniResizeObserverEntry>) => {
+			  entries.forEach(entry => {
+				if (entry.target == ele) {
+					if (opened.value) {
+						getNodes()
+					}
+				}
+			  })
+			})
+		}
+		resizeObserver.value!.observe(ele!)
+		// #endif
+		// #ifdef MP
+		setTimeout(function() {
+			getNodes()
+		}, 300);
+		// #endif
+	})
+
+	onBeforeMount(()=>{
+		let pelement = useTool.findParentVueComponent(proxy,'xCollapse')
+		let parent = pelement as XCollapseComponentPublicInstance|null;
+		if(parent!=null){
+			parent!.delItem(props.name)
+		}
+		
+		resizeObserver.value?.disconnect()
+	})
+	onUpdated(()=>{
+		// #ifdef MP-WEIXIN
+		getNodes()
+		// #endif
+	})
+	
+</script>
+<template>
+	<view class="xCollapseItemBox" :style="{background:_color}">
+		<view @click="itemClick" class="xCollapseItem" :style="{opacity:_disabled?0.5:1}">
+			<view v-if="!props.custom" class="xCollapseItemBoxLeft">
+				<x-icon :font-size="_titleFontSize" v-if="_leftIcon" :name="_leftIcon"
+					:color="opened?_activeColor:_titleColor" style="margin-right: 12px;"></x-icon>
+				<!--
+				 @slot 左边插槽
+				 @prop {boolean} status - 当前展开状态
+				 -->
+				<slot name="left" :status="opened"></slot>
+				
+				
+				<view class="xCollapseItemBoxTextBox" :style="{height:_titleHeight}">
+					<view style="flex:1">
+						<!--
+						 @slot 标题插槽，如果你要完全自定标题样式请在此插槽内布局
+						 @prop {boolean} status - 当前展开状态
+						 -->
+						<slot name="title" :status="opened">
+							<text class="xCollapseItemBoxText" :style="_textMap">
+								{{_title}}
+							</text>
+						</slot>
+					</view>
+				</view>
+
+			</view>
+			<view v-if="!props.custom" class="xCollapseItemBoxRight">
+				<!--
+				 @slot 右边插槽
+				 @prop {boolean} status - 当前展开状态
+				 -->
+				<slot name="right" :status="opened"></slot>
+				<x-icon :color="opened?_activeColor:'#bfbfbf'" style="margin-left: 12px;"
+					:name="opened?'arrow-down-s-line':'arrow-right-s-line'"></x-icon>
+			</view>
+			<!--
+			@slot 自定义内容
+			-->
+			<slot name="custom" :status="opened"></slot>
+		</view>
+		<view class="xCollapseItemWrap" :style="{height:opened?(itemHeight+'px'):'0rpx'}">
+			<view class="xCollapseItemContent" ref="xCollapseItemContentRef">
+				<!-- 
+				@slot 默认内容插槽。 
+				 -->
+				<slot></slot>
+			</view>
+		</view>
+		<x-divider v-if="showBottomLine"></x-divider>
+	</view>
+</template>
+<style scoped>
+	.xCollapseItemBoxTextBox {
+		flex: 1;
+		display: flex;
+		flex-direction: row;
+		justify-content: flex-start;
+		align-items: center;
+	}
+
+	.xCollapseItemBoxText {
+		text-overflow: ellipsis;
+		/* #ifndef APP */
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
+		word-break: break-all;
+		/* #endif */
+	}
+
+	.xCollapseItemContent {
+		padding: 12px 0rpx;
+	}
+
+	.xCollapseItemBoxLeft {
+		display: flex;
+		flex-direction: row;
+		justify-content: flex-start;
+		align-items: center;
+		flex: 1;
+	}
+
+	.xCollapseItemBoxRight {
+		display: flex;
+		flex-direction: row;
+		justify-content: flex-end;
+		align-items: center;
+	}
+
+	.xCollapseItemBox {
+		/* background-color: white; */
+		padding: 0px 12px;
+	}
+
+	.xCollapseItem {
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: center;
+
+	}
+
+	.xCollapseItemWrap {
+		display: flex;
+		flex-direction: column;
+		transition-property: height;
+		transition-duration: 350ms;
+		transition-timing-function: cubic-bezier(.18, .89, .32, 1);
+		overflow: hidden;
+	}
+</style>

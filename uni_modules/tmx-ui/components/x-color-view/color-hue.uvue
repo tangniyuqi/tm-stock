@@ -1,0 +1,389 @@
+<template>
+
+	<view class="colorViewGridBox" 
+	@touchstart.stop="mStart" 
+	@touchmove.stop="mMove" @touchend="mEnd" @touchcancel="mEnd"
+		:style="{minHeight:boxHeight+'px'}"
+		<!-- #ifdef WEB -->
+		@mousedown="mmStart"
+		<!-- #endif -->
+		>
+		<!-- #ifndef APP -->
+		<view class="colorViewGridHueBox" 
+			:style="{width:boxWidth+'px',height:boxHeight+'px',margin:`${(btnSize/2)}px`,borderRadius:'10px'}">
+			<view class="colorViewGridHueBoxMask">
+
+			</view>
+		</view>
+		<!-- #endif -->
+
+		<!-- #ifdef APP -->
+		<canvas v-if="isInitDom" ref="canvas"
+			:style="{width:boxWidth+'px',height:boxHeight+'px',margin:`${(btnSize/2)}px`,borderRadius:'10px'}"></canvas>
+		<!-- #endif -->
+		<view class="colorViewGridBoxGridBar"
+			:style="{width:btnSize+'px',height:btnSize+'px',top:barTop+'px',left:barLeft+'px',backgroundColor:valuestr,opacity:isShowBar?'1':'0'}">
+		</view>
+	</view>
+</template>
+
+<script lang="ts" setup>
+	import { ref, getCurrentInstance, watch, onMounted, onBeforeMount, onBeforeUnmount } from "vue"
+	import { hexToRgb, rgbToHexNoAlpha } from "../../core/util/xCoreColorUtil.uts";
+	const props = defineProps({
+		hexValue: {
+			type: String,
+			default: ""
+		}
+	})
+	const emits = defineEmits<{
+		/**
+		 * 值变化时触发。
+		 * @param {string} hexstr - 当前的颜色值
+		 */
+		(e : 'change', hexstr : string) : void,
+	}>()
+	const proxy = getCurrentInstance()?.proxy
+	let boxWidth = ref(0)
+	let boxHeight = ref(300)
+	let tid = 0;
+	const btnSize = ref(24)
+	let barLeft = ref(0)
+	let barTop = ref(0)
+	let isMoving = false
+	let windTop = uni.getWindowInfo().windowTop
+	const canvas = ref<UniCanvasElement | null>(null)
+	let isInitDom = ref(false)
+	const valuestr = ref(`rgba(255,255,255,1)`)
+	const isShowBar = ref(false)
+	let gridBox : NodeInfo | null = null;
+	const setPostion = (x : number, y : number) => {
+		let node = gridBox! as NodeInfo;
+		let bsize = btnSize.value
+		
+		// 计算相对于容器的坐标
+		let _x = x - node.left!;
+		let _y = y - node.top! - windTop;
+		
+		// 容器的margin
+		let margin = bsize / 2
+		
+		// 计算按钮中心点相对于颜色区域的位置
+		let center_x = _x - margin
+		let center_y = _y - margin
+		
+		// 限制按钮中心点在颜色区域内（确保按钮不会超出容器）
+		// 按钮中心点的有效范围：从 0 到 boxWidth/boxHeight（因为颜色区域就是boxWidth x boxHeight）
+		center_x = Math.max(0, Math.min(boxWidth.value, center_x))
+		center_y = Math.max(0, Math.min(boxHeight.value, center_y))
+		
+		// 设置按钮位置（按钮左上角坐标，相对于整个容器）
+		barLeft.value = center_x
+		barTop.value = center_y 
+		
+		// 采样位置比例 (0~1)
+		let xRatio = Math.max(0, Math.min(1, center_x / boxWidth.value))
+		let yRatio = Math.max(0, Math.min(1, center_y / boxHeight.value))
+
+		// Y轴 → 色相 H (0~360)
+		let h = yRatio * 360
+		if (h >= 360) h = 0
+
+		// X轴 → HSV 饱和度 S 和明度 V
+		// 左半区 (0~0.5)：S 从 0→1，V 恒为 1（白色→纯色）
+		// 右半区 (0.5~1)：S 恒为 1，V 从 1→0（纯色→黑色）
+		let s_hsv = 0.0
+		let v_hsv = 0.0
+		if (xRatio <= 0.5) {
+			s_hsv = xRatio * 2
+			v_hsv = 1.0
+		} else {
+			s_hsv = 1.0
+			v_hsv = (1 - xRatio) * 2
+		}
+
+		// HSV → RGB
+		let c = v_hsv * s_hsv
+		let hSector = h / 60.0
+		let xx = c * (1 - Math.abs(hSector % 2 - 1))
+		let m = v_hsv - c
+		let r1 = 0.0
+		let g1 = 0.0
+		let b1 = 0.0
+		if (hSector < 1) {
+			r1 = c; g1 = xx; b1 = 0
+		} else if (hSector < 2) {
+			r1 = xx; g1 = c; b1 = 0
+		} else if (hSector < 3) {
+			r1 = 0; g1 = c; b1 = xx
+		} else if (hSector < 4) {
+			r1 = 0; g1 = xx; b1 = c
+		} else if (hSector < 5) {
+			r1 = xx; g1 = 0; b1 = c
+		} else {
+			r1 = c; g1 = 0; b1 = xx
+		}
+		let rr = Math.round((r1 + m) * 255)
+		let gg = Math.round((g1 + m) * 255)
+		let bb = Math.round((b1 + m) * 255)
+
+		let color = rgbToHexNoAlpha({ r: rr, g: gg, b: bb, a: 1 } as UTSJSONObject)
+		if (valuestr.value == color) return;
+
+		valuestr.value = color
+		emits('change', color)
+	}
+	const mStart = (evt : UniTouchEvent) => {
+		if(!isInitDom.value) return;
+		evt.preventDefault()
+		// #ifdef MP-WEIXIN||WEB
+		evt.stopPropagation()
+		// #endif
+		isMoving = true
+		isShowBar.value = true;
+		
+		uni.createSelectorQuery()
+			.in(proxy)
+			.select('.colorViewGridBox')
+			.boundingClientRect()
+			.exec(nodes => {
+				gridBox = nodes[0] as NodeInfo;
+				setPostion(evt.changedTouches[0].clientX, evt.changedTouches[0].clientY)
+			})
+	}
+
+	
+	const mMove = (evt : UniTouchEvent) => {
+		if (!isMoving) return;
+		evt.preventDefault()
+		// #ifdef MP-WEIXIN||WEB
+		evt.stopPropagation()
+		// #endif
+		setPostion(evt.changedTouches[0].clientX, evt.changedTouches[0].clientY)
+	}
+	const mEnd = (evt : UniTouchEvent) => {
+		if (!isMoving) return;
+		isMoving = false
+	}
+	
+	// #ifdef WEB
+	const mmStart = (evt:UniMouseEvent)=>{
+		isMoving = true;
+		isShowBar.value = true;
+		
+		uni.createSelectorQuery()
+			.in(proxy)
+			.select('.colorViewGridBox')
+			.boundingClientRect()
+			.exec(nodes => {
+				gridBox = nodes[0] as NodeInfo;
+				setPostion(evt.clientX, evt.clientY)
+			})
+	}
+	const mmMove = (evt:UniMouseEvent)=>{
+		if (!isMoving) return
+		// #ifdef MP-WEIXIN||WEB
+		evt.stopPropagation()
+		evt.preventDefault()
+		// #endif
+		setPostion(evt.clientX, evt.clientY)
+	}
+	const mmEnd = (evt:UniMouseEvent)=>{
+		if (!isMoving) return
+		isMoving = false;
+	}
+	
+	document.body.addEventListener('mousemove',mmMove)
+	document.body.addEventListener('mouseup',mmEnd)
+	document.body.addEventListener('mouseleave',mmEnd)
+	// #endif
+	
+
+	const drawBgHsla = (ctx : CanvasRenderingContext2D) => {
+		let w = boxWidth.value
+		let h = boxHeight.value
+
+		// 上半段色相：红→黄→绿→青
+		let liner = ctx.createLinearGradient(w / 2, 0, w / 2, h / 2)
+		liner.addColorStop(0, '#ff0000')
+		liner.addColorStop(0.3333, '#ffff00')
+		liner.addColorStop(0.6666, '#00ff00')
+		liner.addColorStop(1, '#00ffff')
+		ctx.fillStyle = liner
+		ctx.fillRect(0, 0, w, h)
+
+		// 下半段色相：青→蓝→紫→红
+		let liner2 = ctx.createLinearGradient(w / 2, h / 2, w / 2, h)
+		liner2.addColorStop(0, '#00ffff')
+		liner2.addColorStop(0.3333, '#0000ff')
+		liner2.addColorStop(0.6666, '#ff00ff')
+		liner2.addColorStop(1, '#ff0000')
+		ctx.fillStyle = liner2
+		ctx.fillRect(0, h / 2, w, h / 2)
+
+		// 水平遮罩：白→透明→黑
+		let overlayGrad = ctx.createLinearGradient(0, h / 2, w, h / 2)
+		overlayGrad.addColorStop(0, '#ffffff')
+		overlayGrad.addColorStop(0.5, 'rgba(0,0,0,0)')
+		overlayGrad.addColorStop(1, '#000000')
+		ctx.fillStyle = overlayGrad
+		ctx.fillRect(0, 0, w, h)
+	}
+	const getInitDraw = () => {
+		if (canvas.value == null) return;
+		let dom = canvas.value as UniCanvasElement;
+		let dpr = uni.getWindowInfo().pixelRatio
+		dom.width = dom.offsetWidth * dpr;
+		dom.height = dom.offsetHeight * dpr;
+		let ctx = dom.getContext('2d')!
+		ctx.scale(dpr, dpr)
+
+		drawBgHsla(ctx)
+	}
+	const valueStrToPosition = () => {
+		if (valuestr.value == '') return;
+		uni.createSelectorQuery()
+			.in(proxy)
+			.select('.colorViewGridBox')
+			.boundingClientRect()
+			.exec(nodes => {
+				let node = nodes[0] as NodeInfo;
+				let rgb = hexToRgb(valuestr.value)
+
+				let r = (rgb.getNumber('r')!) / 255
+				let g = (rgb.getNumber('g')!) / 255
+				let b = (rgb.getNumber('b')!) / 255
+
+				let cmax = Math.max(r, Math.max(g, b))
+				let cmin = Math.min(r, Math.min(g, b))
+				let delta = cmax - cmin
+
+				// RGB → HSV
+				let h = 0.0
+				if (delta > 0.001) {
+					if (cmax == r) {
+						h = 60.0 * ((g - b) / delta)
+						if (h < 0) h += 360
+					} else if (cmax == g) {
+						h = 60.0 * ((b - r) / delta + 2)
+					} else {
+						h = 60.0 * ((r - g) / delta + 4)
+					}
+				}
+
+				let s_hsv = (cmax < 0.001) ? 0.0 : delta / cmax
+				let v_hsv = cmax
+
+				// 无彩色（灰/白/黑）无法在色谱上定位
+				if (s_hsv < 0.01) {
+					isShowBar.value = false;
+					return;
+				}
+
+				// HSV → X轴位置
+				// 偏亮色(V高) → 左半区（饱和度轴）
+				// 偏暗色(V低) → 右半区（明度轴）
+				let xRatio = 0.0
+				if (v_hsv >= s_hsv) {
+					xRatio = s_hsv * 0.5
+				} else {
+					xRatio = 1.0 - v_hsv * 0.5
+				}
+
+				// H → Y轴位置
+				let yRatio = h / 360.0
+
+				barLeft.value = xRatio * boxWidth.value
+				barTop.value = yRatio * boxHeight.value
+
+				isShowBar.value = true;
+			})
+	}
+
+	watch(() : string => props.hexValue, (newval : string) => {
+		if (newval == '' || valuestr.value == newval) return;
+		valuestr.value = newval
+		valueStrToPosition()
+	})
+	onBeforeUnmount(() => {
+		clearTimeout(tid)
+		
+		// #ifdef WEB
+		document.body.removeEventListener('mousemove',mmMove)
+		document.body.removeEventListener('mouseup',mmEnd)
+		document.body.removeEventListener('mouseleave',mmEnd)
+		// #endif
+		
+	})
+	onBeforeMount(() => {
+		valuestr.value = props.hexValue
+	})
+	onMounted(() => {
+		clearTimeout(tid)
+		uni.createSelectorQuery()
+			.in(proxy)
+			.select('.colorViewGridBox')
+			.boundingClientRect()
+			.exec(nodes => {
+				let node = nodes[0] as NodeInfo;
+				boxHeight.value = Math.max(Math.min(270, node.width!), 270)
+				boxWidth.value = Math.max(node.width!, 270) - btnSize.value
+				isInitDom.value = true
+				gridBox = node
+				tid = setTimeout(function () {
+					valueStrToPosition()
+					getInitDraw()
+
+				}, 80);
+			})
+
+	})
+</script>
+
+<style scoped>
+	.colorViewGridHueBox {
+		background-image: linear-gradient(to bottom, red 0, #ff0 16.66666%, #0f0 33.333333%, #0ff 50%, #00f 66.66666%, #f0f 83.333333%, red 100%);
+		position: relative;
+		pointer-events: none;
+		/* border-radius: 6px;
+		overflow: hidden; */
+		/* #ifdef  MP-WEIXIN||WEB  */
+		box-sizing: border-box;
+		/* #endif */
+
+	}
+
+	.colorViewGridBox {
+	
+		/* #ifdef MP-WEIXIN||WEB */
+		position: relative;
+		box-sizing: border-box;
+		cursor: cell;
+		/* #endif */
+	}
+
+	.colorViewGridHueBoxMask {
+		background-image: linear-gradient(to right, rgba(255, 255, 255, 1) 0%, rgba(0, 0, 0, 0), #000000 100%);
+		position: absolute;
+		width: 100%;
+		height: 100%;
+		pointer-events: none;
+		top: 0px;
+		left: 0px;
+	}
+
+	.colorViewGridBoxGridBar {
+		position: absolute;
+		width: 24px;
+		height: 24px;
+		border: 3px solid white;
+		box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+		border-radius: 24px;
+		background-color: rgba(0, 0, 0, 0.1);
+		pointer-events: none;
+		/* #ifdef MP-WEIXIN||WEB */
+		box-sizing: border-box;
+		/* #endif */
+
+	}
+</style>

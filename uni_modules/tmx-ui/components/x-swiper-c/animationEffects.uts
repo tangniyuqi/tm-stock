@@ -1,0 +1,1492 @@
+/**
+ * 轮播图动画效果模块
+ */
+
+/** 轮播项配置 */
+export type SwiperItem = {
+	/** 轮播项颜色 */
+	color: string;
+	/** 图片URL */
+	image?: string | null;
+	/** 其他扩展数据 */
+	data?: any | null;
+}
+
+/** 动画帧状态 */
+export type AnimationFrameState = {
+	/** 当前索引 */
+	currentIndex: number;
+	/** 上一个索引（无可用值时为-1） */
+	prevIndex: number;
+	/** 下一个索引 */
+	nextIndex: number;
+	/** 动画进度 0-1 */
+	progress: number;
+	/** 容器宽度 */
+	width: number;
+	/** 容器高度 */
+	height: number;
+	/** 是否垂直方向 */
+	vertical: boolean;
+	/** 切换方向 1=向前/向下, -1=向后/向上 */
+	direction: number;
+	/** 是否首尾衔接 */
+	circular: boolean;
+}
+
+/** 静态状态配置 */
+export type AnimationStaticState = {
+	/** 当前索引 */
+	currentIndex: number;
+	/** 上一个索引（无可用值时为-1） */
+	prevIndex: number;
+	/** 下一个索引（无可用值时为-1） */
+	nextIndex: number;
+	/** 容器宽度 */
+	width: number;
+	/** 容器高度 */
+	height: number;
+	/** 切换方向 */
+	direction: number;
+	/** 是否首尾衔接 */
+	circular: boolean;
+	/** 总数 */
+	total: number;
+}
+
+/** 锚点预设 */
+export type AnchorPreset =
+	'center'
+	| 'left-center'
+	| 'right-center'
+	| 'top-center'
+	| 'bottom-center'
+	| 'top-left'
+	| 'top-right'
+	| 'bottom-left'
+	| 'bottom-right';
+
+/** 锚点配置 */
+export type AnchorConfig = {
+	/**
+	 * 锚点预设位置
+	 */
+	preset?: AnchorPreset;
+	/**
+	 * 锚点X坐标
+	 * - 当 relative 为 true 时，取值0-1表示相对比例
+	 * - 当 relative 为 false 或未设置时，表示绝对像素
+	 */
+	x?: number;
+	/**
+	 * 锚点Y坐标
+	 * - 当 relative 为 true 时，取值0-1表示相对比例
+	 * - 当 relative 为 false 或未设置时，表示绝对像素
+	 */
+	y?: number;
+	/**
+	 * 是否使用相对比例坐标
+	 */
+	relative?: boolean;
+}
+
+/** 渲染项配置 */
+export type RenderItemConfig = {
+	/** x坐标 */
+	x: number;
+	/** y坐标 */
+	y: number;
+	/** 宽度 */
+	width: number;
+	/** 高度 */
+	height: number;
+	/** 透明度 */
+	opacity: number;
+	/** X轴缩放比例 */
+	scaleX: number;
+	/** Y轴缩放比例 */
+	scaleY: number;
+	/** 颜色 */
+	color: string;
+	/** 轮播项索引 */
+	index: number;
+	/** 锚点配置 */
+	anchor?: AnchorConfig;
+	/** 圆角半径 */
+	cornerRadius?: number;
+	/** 自定义层级（可选，数值越大越靠上） */
+	zIndex?: number;
+}
+
+type CardState = { x: number; width: number; z: number; height: number; y: number };
+type StackingCardStates = {
+	left: CardState;
+	center: CardState;
+	right: CardState;
+	hiddenLeft: CardState;
+	hiddenRight: CardState;
+};
+type tempCardsItems = { index: number; state: CardState }
+/** 动画效果接口 */
+export interface IAnimationEffect {
+	/**
+	 * 计算动画帧
+	 * @param state 动画状态
+	 * @param items 轮播项列表
+	 * @returns 返回需要渲染的项配置列表
+	 */
+	calculate(state: AnimationFrameState, items: SwiperItem[]): RenderItemConfig[];
+	
+	/**
+	 * 计算静态状态（非动画时的展示状态）
+	 * @param state 静态状态信息
+	 * @param items 轮播项列表
+	 */
+	getStaticState(state: AnimationStaticState, items: SwiperItem[]): RenderItemConfig[];
+}
+
+/**
+ * 缩放平移动画效果
+ * 向左平移，当前项从大到小消失，下一项从小到大显示
+ */
+export class ScaleSlideEffect implements IAnimationEffect {
+	/** 最小缩放比例 */
+	private minScale: number = 0.8;
+	
+	constructor(minScale: number = 0) {
+		this.minScale = minScale;
+	}
+	
+	calculate(state: AnimationFrameState, items: SwiperItem[]): RenderItemConfig[] {
+		const { currentIndex, nextIndex, progress, width, height, direction } = state;
+		const result: RenderItemConfig[] = [];
+		
+		if (items.length === 0) return result;
+		
+		const currentItem = items[currentIndex];
+		const nextItem = items[nextIndex];
+		
+		// 计算当前项的缩放和位置
+		const currentScale = 1 - (1 - this.minScale) * progress;
+		const currentX = -width * progress * direction;
+		
+		result.push({
+		
+			x: currentX,
+			y: 0,
+			width: width,
+			height: height,
+			opacity: 1,
+			scaleX: currentScale,
+			scaleY: currentScale,
+			color: currentItem.color,
+			index: currentIndex
+		});
+		
+		// 计算下一项的缩放和位置
+		const nextScale = this.minScale + (1 - this.minScale) * progress;
+		const nextX = width * (1 - progress) * direction;
+		
+		result.push({
+	
+			x: nextX,
+			y: 0,
+			width: width,
+			height: height,
+			opacity: 1,
+			scaleX: nextScale,
+			scaleY: nextScale,
+			color: nextItem.color,
+			index: nextIndex
+		});
+		
+		return result;
+	}
+	
+	getStaticState(state: AnimationStaticState, items: SwiperItem[]): RenderItemConfig[] {
+		const { currentIndex, width, height } = state;
+		const result: RenderItemConfig[] = [];
+		
+		if (items.length === 0) return result;
+		
+		const currentItem = items[currentIndex];
+		
+		result.push({
+			x: 0,
+			y: 0,
+			width: width,
+			height: height,
+			opacity: 1,
+			scaleX: 1,
+			scaleY: 1,
+			color: currentItem.color,
+			index: currentIndex
+		});
+		
+		return result;
+	}
+}
+
+/**
+ * 简单滑动效果
+ * 水平滑动，无缩放效果，支持正反向
+ */
+export class SimpleSlideEffect implements IAnimationEffect {
+	calculate(state: AnimationFrameState, items: SwiperItem[]): RenderItemConfig[] {
+		const { currentIndex, nextIndex, progress, width, height, direction } = state;
+		const result: RenderItemConfig[] = [];
+		
+		if (items.length == 0) return result;
+		
+		const currentItem = items[currentIndex];
+		const nextItem = items[nextIndex];
+
+		// 当前项滑出（根据方向决定向左或向右）
+		result.push({
+			x: -width * progress * direction,
+			y: 0,
+			width: width,
+			height: height,
+			opacity: 1,
+			scaleX: 1,
+			scaleY: 1,
+			color: currentItem.color,
+			index: currentIndex,
+			zIndex:1
+		});
+		
+		result.push({
+			x: width * (1 - progress) * direction ,
+			y: 0,
+			width: width,
+			height: height,
+			opacity: 1,
+			scaleX: 1,
+			scaleY: 1,
+			color: nextItem.color,
+			index: nextIndex,
+			zIndex:0
+		});
+		
+		return result;
+	}
+	
+	getStaticState(state: AnimationStaticState, items: SwiperItem[]): RenderItemConfig[] {
+		const { currentIndex, width, height } = state;
+		const result: RenderItemConfig[] = [];
+		
+		if (items.length == 0) return result;
+		
+		const currentItem = items[currentIndex];
+		
+		result.push({
+			x: 0,
+			y: 0,
+			width: width,
+			height: height,
+			opacity: 1,
+			scaleX: 1,
+			scaleY: 1,
+			color: currentItem.color,
+			index: currentIndex
+		});
+		
+		return result;
+	}
+}
+/**
+ * 简单滑动效果
+ * 垂直滑动，无缩放效果，支持正反向
+ */
+export class SimpleSlideYEffect implements IAnimationEffect {
+	calculate(state: AnimationFrameState, items: SwiperItem[]): RenderItemConfig[] {
+		const { currentIndex, nextIndex, progress, width, height, direction } = state;
+		const result: RenderItemConfig[] = [];
+		
+		if (items.length == 0) return result;
+		
+		const currentItem = items[currentIndex];
+		const nextItem = items[nextIndex];
+
+		// 当前项滑出（根据方向决定向左或向右）
+		result.push({
+			x: 0,
+			y: -height * progress * direction,
+			width: width,
+			height: height,
+			opacity: 1,
+			scaleX: 1,
+			scaleY: 1,
+			color: currentItem.color,
+			index: currentIndex
+		});
+		
+		// 下一项滑入（根据方向从右侧或左侧）
+		result.push({
+			x: 0,
+			y: height * (1 - progress) * direction,
+			width: width,
+			height: height,
+			opacity: 1,
+			scaleX: 1,
+			scaleY: 1,
+			color: nextItem.color,
+			index: nextIndex
+		});
+		
+		return result;
+	}
+	
+	getStaticState(state: AnimationStaticState, items: SwiperItem[]): RenderItemConfig[] {
+		const { currentIndex, width, height } = state;
+		const result: RenderItemConfig[] = [];
+		
+		if (items.length == 0) return result;
+		
+		const currentItem = items[currentIndex];
+		
+		result.push({
+			x: 0,
+			y: 0,
+			width: width,
+			height: height,
+			opacity: 1,
+			scaleX: 1,
+			scaleY: 1,
+			color: currentItem.color,
+			index: currentIndex
+		});
+		
+		return result;
+	}
+}
+/**
+ * 淡入淡出效果（无方向性）
+ */
+export class FadeEffect implements IAnimationEffect {
+	calculate(state: AnimationFrameState, items: SwiperItem[]): RenderItemConfig[] {
+		const { currentIndex, nextIndex, progress, width, height, direction } = state;
+		const result: RenderItemConfig[] = [];
+		
+		if (items.length == 0) return result;
+		
+		const currentItem = items[currentIndex];
+		const nextItem = items[nextIndex];
+
+		// 下一项淡入（先绘制，作为底层）
+		result.push({
+			x: 0,
+			y: 0,
+			width: width,
+			height: height,
+			opacity: progress,
+			scaleX: 1,
+			scaleY: 1,
+			color: nextItem.color,
+			index: nextIndex
+		});
+		// #ifndef APP-ANDROID
+		// 当前项淡出（后绘制，作为上层）
+		result.push({
+			x: 0,
+			y: 0,
+			width: width,
+			height: height,
+			opacity: 1-progress,
+			scaleX: 1,
+			scaleY: 1,
+			color: currentItem.color,
+			index: currentIndex
+		});
+		// #endif
+		return result;
+	}
+	
+	getStaticState(state: AnimationStaticState, items: SwiperItem[]): RenderItemConfig[] {
+		const { currentIndex, width, height } = state;
+		const result: RenderItemConfig[] = [];
+		
+		if (items.length == 0) return result;
+		
+		const currentItem = items[currentIndex];
+		
+		result.push({
+			x: 0,
+			y: 0,
+			width: width,
+			height: height,
+			opacity: 1,
+			scaleX: 1,
+			scaleY: 1,
+			color: currentItem.color,
+			index: currentIndex
+		});
+		
+		return result;
+	}
+}
+
+/**
+ * 水平翻转效果（无方向性）
+ * 当前项水平压缩消失，下一项从水平压缩展开
+ */
+export class FlipXEffect implements IAnimationEffect {
+	calculate(state: AnimationFrameState, items: SwiperItem[]): RenderItemConfig[] {
+		const { currentIndex, nextIndex, progress, width, height, direction } = state;
+		const result: RenderItemConfig[] = [];
+		
+		if (items.length === 0) return result;
+		
+		const currentItem = items[currentIndex];
+		const nextItem = items[nextIndex];
+		
+		// 使用progress判断翻转阶段
+		if (progress < 0.5) {
+			// 前半段：当前项水平压缩
+			const scaleX = 1 - progress * 2;
+			result.push({
+				x: 0,
+				y: 0,
+				cornerRadius:16,
+				width: width,
+				height: height,
+				opacity: 1,
+				scaleX: scaleX,
+				scaleY: 1,
+				color: currentItem.color,
+				index: currentIndex
+			});
+		} else {
+			// 后半段：下一项水平展开
+			const scaleX = (progress - 0.5) * 2;
+			result.push({
+				x: 0,
+				y: 0,
+				cornerRadius:16,
+				width: width,
+				height: height,
+				opacity: 1,
+				scaleX: scaleX,
+				scaleY: 1,
+				color: nextItem.color,
+				index: nextIndex
+			});
+		}
+		
+		return result;
+	}
+	
+	getStaticState(state: AnimationStaticState, items: SwiperItem[]): RenderItemConfig[] {
+		const { currentIndex, width, height } = state;
+		const result: RenderItemConfig[] = [];
+		
+		if (items.length === 0) return result;
+		
+		const currentItem = items[currentIndex];
+		
+		result.push({
+			x: 0,
+			y: 0,
+			width: width,
+			height: height,
+			opacity: 1,
+			scaleX: 1,
+			scaleY: 1,
+			color: currentItem.color,
+			index: currentIndex
+		});
+		
+		return result;
+	}
+}
+
+/**
+ * 垂直翻转效果（无方向性）
+ * 当前项垂直压缩消失，下一项从垂直压缩展开
+ */
+export class FlipYEffect implements IAnimationEffect {
+	calculate(state: AnimationFrameState, items: SwiperItem[]): RenderItemConfig[] {
+		const { currentIndex, nextIndex, progress, width, height, direction } = state;
+		const result: RenderItemConfig[] = [];
+		
+		if (items.length === 0) return result;
+		
+		const currentItem = items[currentIndex];
+		const nextItem = items[nextIndex];
+		
+		// 使用progress判断翻转阶段
+		if (progress < 0.5) {
+			// 前半段：当前项垂直压缩
+			const scaleY = 1 - progress * 2;
+			result.push({
+				x: 0,
+				y: 0,
+				width: width,
+				height: height,
+				opacity: 1,
+				scaleX: 1,
+				scaleY: scaleY,
+				color: currentItem.color,
+				index: currentIndex
+			});
+		} else {
+			// 后半段：下一项垂直展开
+			const scaleY = (progress - 0.5) * 2;
+			result.push({
+				x: 0,
+				y: 0,
+				width: width,
+				height: height,
+				opacity: 1,
+				scaleX: 1,
+				scaleY: scaleY,
+				color: nextItem.color,
+				index: nextIndex
+			});
+		}
+		
+		return result;
+	}
+	
+	getStaticState(state: AnimationStaticState, items: SwiperItem[]): RenderItemConfig[] {
+		const { currentIndex, width, height } = state;
+		const result: RenderItemConfig[] = [];
+		
+		if (items.length === 0) return result;
+		
+		const currentItem = items[currentIndex];
+		
+		result.push({
+			x: 0,
+			y: 0,
+			width: width,
+			height: height,
+			opacity: 1,
+			scaleX: 1,
+			scaleY: 1,
+			color: currentItem.color,
+			index: currentIndex
+		});
+		
+		return result;
+	}
+}
+
+/**
+ * 缩放淡入淡出效果（无方向性）
+ * 当前项缩小淡出，下一项从小到大淡入
+ */
+export class ZoomFadeEffect implements IAnimationEffect {
+	/** 最小缩放比例 */
+	private minScale: number = 0;
+	
+	constructor(minScale: number = 0) {
+		this.minScale = minScale;
+	}
+	
+	calculate(state: AnimationFrameState, items: SwiperItem[]): RenderItemConfig[] {
+		const { currentIndex, nextIndex, progress, width, height } = state;
+		const result: RenderItemConfig[] = [];
+		
+		if (items.length <= 1) {
+			const item = items[currentIndex] ?? items[0];
+			if (item != null) {
+				result.push({
+					x: 0,
+					y: 0,
+					width: width,
+					height: height,
+					opacity: 1,
+					scaleX: 1,
+					scaleY: 1,
+					color: item.color,
+					index: currentIndex
+				});
+			}
+			return result;
+		}
+		
+		const currentItem = items[currentIndex];
+		const nextItem = items[nextIndex];
+		
+		// 当前项缩小淡出
+		const currentScale = 1 - (1 - this.minScale) * progress;
+		// #ifndef APP-ANDROID
+		result.push({
+			x: 0,
+			y: 0,
+			width: width,
+			height: height,
+			opacity: 1-progress,
+			scaleX: progress*2,
+			scaleY: progress*2,
+			color: currentItem.color,
+			index: currentIndex
+		});
+		// #endif
+		// 下一项从小到大淡入
+		const nextScale = this.minScale + (1 - this.minScale) * progress;
+		result.push({
+			x: 0,
+			y: 0,
+			width: width,
+			height: height,
+			opacity: progress,
+			scaleX: nextScale,
+			scaleY: nextScale,
+			color: nextItem.color,
+			index: nextIndex
+		});
+		
+		return result;
+	}
+	
+	getStaticState(state: AnimationStaticState, items: SwiperItem[]): RenderItemConfig[] {
+		const { currentIndex, width, height } = state;
+		const result: RenderItemConfig[] = [];
+		
+		if (items.length <= 1) {
+			const item = items[currentIndex] ?? items[0];
+			if (item != null) {
+				result.push({
+					x: 0,
+					y: 0,
+					width: width,
+					height: height,
+					opacity: 1,
+					scaleX: 1,
+					scaleY: 1,
+					color: item.color,
+					index: currentIndex
+				});
+			}
+			return result;
+		}
+		
+		const currentItem = items[currentIndex];
+		
+		result.push({
+			x: 0,
+			y: 0,
+			width: width,
+			height: height,
+			opacity: 1,
+			scaleX: 1,
+			scaleY: 1,
+			color: currentItem.color,
+			index: currentIndex
+		});
+		
+		return result;
+	}
+}
+
+/**
+ * 推拉门效果
+ * 当前项水平压缩并移动，下一项从另一侧展开，支持正反向
+ */
+export class PushPullEffect implements IAnimationEffect {
+	calculate(state: AnimationFrameState, items: SwiperItem[]): RenderItemConfig[] {
+		const { currentIndex, nextIndex, progress, width, height, direction } = state;
+		const result: RenderItemConfig[] = [];
+		
+		if (items.length === 0) return result;
+		
+		const currentItem = items[currentIndex];
+		const nextItem = items[nextIndex];
+		
+		const slideProgress = Math.min(Math.max(progress, 0), 1);
+		const isForward = direction == 1;
+		const currentX = isForward ? -width * slideProgress : width * slideProgress;
+		const nextX = isForward
+			? (-width) + width * slideProgress
+			: width - width * slideProgress;
+		
+		// 下一项先绘制，位于底层，从相反方向滑入
+		result.push({
+			x: nextX,
+			y: 0,
+			width: width,
+			height: height,
+			opacity: 1,
+			scaleX: 1,
+			scaleY: 1,
+			color: nextItem.color,
+			index: nextIndex
+		});
+		
+		// 当前项位于上层，按拖动方向滑出
+		result.push({
+			x: currentX,
+			y: 0,
+			width: width,
+			height: height,
+			opacity: 1,
+			scaleX: 1,
+			scaleY: 1,
+			color: currentItem.color,
+			index: currentIndex
+		});
+		
+		return result;
+	}
+	
+	getStaticState(state: AnimationStaticState, items: SwiperItem[]): RenderItemConfig[] {
+		const { currentIndex, width, height } = state;
+		const result: RenderItemConfig[] = [];
+		
+		if (items.length === 0) return result;
+		
+		const currentItem = items[currentIndex];
+		
+		result.push({
+			x: 0,
+			y: 0,
+			width: width,
+			height: height,
+			opacity: 1,
+			scaleX: 1,
+			scaleY: 1,
+			color: currentItem.color,
+			index: currentIndex
+		});
+		
+		return result;
+	}
+}
+
+/**
+ * 垂直拉伸效果
+ * 当前项移动并Y轴压缩，下一项从另一侧Y轴展开，支持正反向
+ */
+export class StretchYEffect implements IAnimationEffect {
+	calculate(state: AnimationFrameState, items: SwiperItem[]): RenderItemConfig[] {
+		const { currentIndex, nextIndex, progress, width, height, direction } = state;
+		const result: RenderItemConfig[] = [];
+		
+		if (items.length == 0) return result;
+		
+		const currentItem = items[currentIndex];
+		const nextItem = items[nextIndex];
+		
+		// 当前项移动并Y轴压缩（根据方向决定向上或向下）
+		const currentScaleY = 1 - progress;
+		const currentY = -height * progress * direction;
+		result.push({
+			anchor:{
+				preset:direction==1?'bottom-center':'top-center'
+			},
+			x: 0,
+			y: currentY,
+			width: width,
+			height: height,
+			opacity: 1,
+			scaleX: 1,
+			scaleY: currentScaleY,
+			color: currentItem.color,
+			index: currentIndex
+		});
+		
+		// 下一项从另一侧Y轴展开（根据方向从下方或上方）
+		const nextScaleY = progress;
+		const nextY = height * (1 - progress) * direction;
+		result.push({
+			anchor:{
+				preset:direction==1?'top-center':'bottom-center'
+			},
+			x: 0,
+			y: nextY,
+			width: width,
+			height: height,
+			opacity: 1,
+			scaleX: 1,
+			scaleY: nextScaleY,
+			color: nextItem.color,
+			index: nextIndex
+		});
+		
+		return result;
+	}
+	
+	getStaticState(state: AnimationStaticState, items: SwiperItem[]): RenderItemConfig[] {
+		const { currentIndex, width, height } = state;
+		const result: RenderItemConfig[] = [];
+		
+		if (items.length == 0) return result;
+		
+		const currentItem = items[currentIndex];
+		
+		result.push({
+			x: 0,
+			y: 0,
+			width: width,
+			height: height,
+			opacity: 1,
+			scaleX: 1,
+			scaleY: 1,
+			color: currentItem.color,
+			index: currentIndex
+		});
+		
+		return result;
+	}
+}
+
+
+/**
+ * 水平拉伸效果
+ * 当前项移动并X轴压缩，下一项从另一侧X轴展开，支持正反向
+ */
+export class StretchXEffect implements IAnimationEffect {
+	calculate(state: AnimationFrameState, items: SwiperItem[]): RenderItemConfig[] {
+		const { currentIndex, nextIndex, progress, width, height, direction } = state;
+		const result: RenderItemConfig[] = [];
+		
+		if (items.length == 0) return result;
+		
+		const currentItem = items[currentIndex];
+		const nextItem = items[nextIndex];
+		
+		// 当前项移动并Y轴压缩（根据方向决定向上或向下）
+		const currentScaleX = 1 - progress;
+		const currentX = - width * progress * direction;
+		result.push({
+			anchor:{
+				preset:direction==1?'right-center':'left-center'
+			},
+			x: currentX,
+			y: 0,
+			width: width,
+			height: height,
+			opacity: 1,
+			scaleX: currentScaleX,
+			scaleY: 1,
+			color: currentItem.color,
+			index: currentIndex
+		});
+		
+		// 下一项从另一侧Y轴展开（根据方向从下方或上方）
+		const nextScaleX = progress;
+		const nextX = width * (1 - progress) * direction;
+		result.push({
+			anchor:{
+				preset:direction==1?'left-center':'right-center'
+			},
+			x: nextX,
+			y: 0,
+			width: width,
+			height: height,
+			opacity: 1,
+			scaleX: nextScaleX,
+			scaleY: 1,
+			color: nextItem.color,
+			index: nextIndex
+		});
+		
+		return result;
+	}
+	
+	getStaticState(state: AnimationStaticState, items: SwiperItem[]): RenderItemConfig[] {
+		const { currentIndex, width, height } = state;
+		const result: RenderItemConfig[] = [];
+		
+		if (items.length == 0) return result;
+		
+		const currentItem = items[currentIndex];
+		
+		result.push({
+			x: 0,
+			y: 0,
+			width: width,
+			height: height,
+			opacity: 1,
+			scaleX: 1,
+			scaleY: 1,
+			color: currentItem.color,
+			index: currentIndex
+		});
+		
+		return result;
+	}
+}
+
+/**
+ * 纸牌堆叠效果
+ */
+export class StackingEffect implements IAnimationEffect  {
+	calculate(state: AnimationFrameState, items: SwiperItem[]): RenderItemConfig[] {
+		const { currentIndex, nextIndex, progress, width, height, direction, circular } = state;
+		return this.composeStack(
+			16,
+			currentIndex,
+			nextIndex,
+			this.resolveIndex(nextIndex, direction, items.length, circular),
+			progress,
+			width,
+			height,
+			direction,
+			items
+		);
+	}
+	
+	getStaticState(state: AnimationStaticState, items: SwiperItem[]): RenderItemConfig[] {
+		const { currentIndex, nextIndex, width, height, direction, circular } = state;
+		return this.composeStack(
+			16,
+			currentIndex,
+			nextIndex,
+			this.resolveIndex(nextIndex, direction, items.length, circular),
+			0,
+			width,
+			height,
+			direction,
+			items
+		);
+	}
+	
+	private composeStack(
+		cornerRadius: number,
+		currentIndex: number,
+		nextIndex: number,
+		thirdIndex: number,
+		progress: number,
+		width: number,
+		height: number,
+		direction: number,
+		items: SwiperItem[]
+	): RenderItemConfig[] {
+		const result: RenderItemConfig[] = [];
+		const count = items.length;
+		if (count == 0) {
+			return result;
+		}
+		const clampProgress = Math.min(Math.max(progress, 0), 1);
+		const layerOffset = 20;
+		
+		const revealWidths = [
+			width - layerOffset*2,
+			width - layerOffset*2,
+			width
+		];
+		
+		const baseX = 0;
+		
+		const firstWidth = revealWidths[0];
+		const secondWidth = revealWidths[1];
+		const thirdWidth = revealWidths[2];
+		
+		if (thirdIndex != -1 && thirdIndex < count) {
+			const thirdItem = items[thirdIndex];
+			const thirdW = thirdWidth;
+			const thirdReveal = baseX;
+			result.push({
+				cornerRadius:10,
+				x: thirdReveal,
+				y: 0,
+				width: width,
+				height: height,
+				opacity: 1,
+				scaleX: 1,
+				scaleY: 1,
+				color: thirdItem.color,
+				index: thirdIndex,
+				anchor: { preset: 'center' }
+			});
+		}
+		
+		if (nextIndex != -1 && nextIndex < count) {
+			const nextItem = items[nextIndex];
+			const nextStartX = baseX + layerOffset;
+			const nextEndX = baseX;
+			const nextX = this.lerp(nextStartX, nextEndX, clampProgress);
+			const nextW = this.lerp(secondWidth, firstWidth, clampProgress);
+			result.push({
+				cornerRadius:10,
+				x: nextX,
+				y: 0,
+				width: nextW,
+				height: height,
+				opacity: 1,
+				scaleX: 1,
+				scaleY: 1,
+				color: nextItem.color,
+				index: nextIndex,
+				anchor: { preset: 'center' }
+			});
+		}
+		
+		const currentItem = items[currentIndex];
+		const slideOutDistance = width + layerOffset;
+		const currentX = baseX - slideOutDistance * clampProgress;
+		const currentW = this.lerp(firstWidth, firstWidth, clampProgress);
+		
+		result.push({
+			cornerRadius:10,
+			x: currentX,
+			y: 0,
+			width: currentW,
+			height: height,
+			opacity: 1,
+			scaleX: 1,
+			scaleY: 1,
+			color: currentItem.color,
+			index: currentIndex,
+			anchor: { preset: 'center' }
+		});
+		
+		return result;
+	}
+	
+	private lerp(start: number, end: number, t: number): number {
+		return start + (end - start) * t;
+	}
+	
+	private resolveIndex(base: number, direction: number, length: number, circular: boolean): number {
+		if (length == 0 || base == -1) return -1;
+		let next = base + direction;
+		if (circular) {
+			next = (next % length + length) % length;
+		}
+		if (next < 0 || next >= length) {
+			return -1;
+		}
+		return next;
+	}
+}
+
+/**
+ * 当前堆叠效果，其它在下层，两边露出。
+ */
+export class InStackingEffect implements IAnimationEffect  {
+	private readonly cornerRadius: number;
+
+	constructor(cornerRadius: number = 16) {
+		this.cornerRadius = cornerRadius;
+	}
+
+	calculate(state: AnimationFrameState, items: SwiperItem[]): RenderItemConfig[] {
+		const { prevIndex, currentIndex, nextIndex, progress, width, height, direction, circular } = state;
+		const safeDirection = direction == 0 ? 1 : direction;
+		const incomingIndex = this.resolveIndex(nextIndex, safeDirection, items.length, circular);
+
+		return this.composeStack(
+			this.cornerRadius,
+			prevIndex,
+			currentIndex,
+			nextIndex,
+			incomingIndex,
+			progress,
+			width,
+			height,
+			safeDirection,
+			items,
+			circular
+		);
+	}
+	
+	getStaticState(state: AnimationStaticState, items: SwiperItem[]): RenderItemConfig[] {
+		const { prevIndex, currentIndex, nextIndex, width, height, direction, circular } = state;
+		const safeDirection = direction == 0 ? 1 : direction;
+		const incomingIndex = this.resolveIndex(nextIndex, safeDirection, items.length, circular);
+		return this.composeStack(
+			this.cornerRadius,
+			prevIndex,
+			currentIndex,
+			nextIndex,
+			incomingIndex,
+			0,
+			width,
+			height,
+			safeDirection,
+			items,
+			circular
+		);
+	}
+	
+	private composeStack(
+		cornerRadius: number,
+		prevIndex: number,
+		currentIndex: number,
+		nextIndex: number,
+		incomingIndex: number,
+		progress: number,
+		width: number,
+		height: number,
+		direction: number,
+		items: SwiperItem[],
+		circular: boolean
+	): RenderItemConfig[] {
+		const result: RenderItemConfig[] = [];
+		const count = items.length;
+		if (count == 0) {
+			return result;
+		}
+
+		if (count == 1) {
+			const item = items[currentIndex] ?? items[0];
+			if (item != null) {
+				result.push({
+					cornerRadius,
+					x: 0,
+					y: 0,
+					width,
+					height,
+					opacity: 1,
+					scaleX: 1,
+					scaleY: 1,
+					color: item.color,
+					index: currentIndex
+				});
+			}
+			return result;
+		}
+
+		let t = Math.min(Math.max(progress, 0), 1);
+		const directionSign = direction >= 0 ? 1 : -1;
+
+		const prevIdx = prevIndex;
+		const currIdx = currentIndex;
+		const nextIdxLocal = nextIndex;
+		const incomingIdx = incomingIndex;
+
+		const expose = Math.min(width * 0.14, Math.max(width * 0.04, 56));
+		const centerWidth = Math.max(width - expose * 2, width * 0.5);
+		const sideWidth = Math.max(width - expose, centerWidth);
+		const centerX = (width - centerWidth) / 2;
+		const leftX = -(sideWidth - expose*2);
+		const rightX = width - expose*2;
+		const sideHeightReduce = Math.min(height * 0.12, Math.max(height * 0.05, 36));
+		const sideHeight = Math.max(height - sideHeightReduce, height * 0.6);
+		const sideY = (height - sideHeight) / 2;
+ 
+ 		const states: StackingCardStates = {
+			left: { x: leftX, width: sideWidth, z: 0, height: sideHeight, y: sideY },
+			center: { x: centerX, width: centerWidth, z: 3, height: height, y: 0 },
+			right: { x: rightX, width: sideWidth, z: 0, height: sideHeight, y: sideY },
+			hiddenLeft: { x: leftX - sideWidth, width: sideWidth, z: -1, height: sideHeight, y: sideY },
+			hiddenRight: { x: rightX + sideWidth, width: sideWidth, z: -1, height: sideHeight, y: sideY }
+		};
+
+		const lerpState = (start: CardState, end: CardState, progress: number): CardState => ({
+			x: this.lerp(start.x, end.x, progress),
+			width: this.lerp(start.width, end.width, progress),
+			z: this.lerp(start.z, end.z, progress),
+			height: this.lerp(start.height, end.height, progress),
+			y: this.lerp(start.y, end.y, progress)
+		});
+
+		const tempCards: tempCardsItems[] = [];
+		const collectCard = (index: number, state: CardState) => {
+			if (index == -1 || index >= count) return;
+			if (index>items.length-1) return;
+			tempCards.push({ index, state });
+		};
+
+		if (directionSign >= 0) {
+			collectCard(prevIdx, lerpState(states.left, states.hiddenLeft, t));
+			collectCard(currIdx, lerpState(states.center, states.left, t));
+			collectCard(nextIdxLocal, lerpState(states.right, states.center, t));
+			collectCard(incomingIdx, lerpState(states.hiddenRight, states.right, t));
+		} else {
+			collectCard(prevIdx, lerpState(states.right, states.hiddenRight, t));
+			collectCard(currIdx, lerpState(states.center, states.right, t));
+			collectCard(nextIdxLocal, lerpState(states.left, states.center, t));
+			collectCard(incomingIdx, lerpState(states.hiddenLeft, states.left, t));
+		}
+
+		tempCards.sort((a, b) => a.state.z - b.state.z);
+		for (let i=0;i<tempCards.length;i++) {
+			const card = tempCards[i]
+			const item = items[card.index];
+			result.push({
+				cornerRadius,
+				x: card.state.x ,
+				y: card.state.y,
+				width: card.state.width,
+				height: card.state.height,
+				opacity: 1,
+				scaleX: 1,
+				scaleY: 1,
+				color: item.color,
+				index: card.index,
+				zIndex:i
+			});
+		}
+	
+		return result;
+	}
+	
+	private lerp(start: number, end: number, t: number): number {
+		return start + (end - start) * t;
+	}
+	
+	private resolveIndex(base: number, direction: number, length: number, circular: boolean): number {
+		if (length == 0 || base == -1) return -1;
+		let next = base + direction;
+		if (circular) {
+			next = (next % length + length) % length;
+		}
+		if (next < 0 || next >= length) {
+			return -1;
+		}
+		return next;
+	}
+}
+
+/**
+ * 中间显示，两边露出一点的效果。
+ */
+export class OutStackingEffect implements IAnimationEffect  {
+	private readonly cornerRadius: number;
+
+	constructor(cornerRadius: number = 16) {
+		this.cornerRadius = cornerRadius;
+	}
+
+	calculate(state: AnimationFrameState, items: SwiperItem[]): RenderItemConfig[] {
+		const { prevIndex, currentIndex, nextIndex, progress, width, height, direction, circular } = state;
+		const safeDirection = direction == 0 ? 1 : direction;
+		const incomingIndex = this.resolveIndex(nextIndex, safeDirection, items.length, circular);
+
+		return this.composeStack(
+			this.cornerRadius,
+			prevIndex,
+			currentIndex,
+			nextIndex,
+			incomingIndex,
+			progress,
+			width,
+			height,
+			safeDirection,
+			items,
+			circular
+		);
+	}
+	
+	getStaticState(state: AnimationStaticState, items: SwiperItem[]): RenderItemConfig[] {
+		const { prevIndex, currentIndex, nextIndex, width, height, direction, circular } = state;
+		const safeDirection = direction == 0 ? 1 : direction;
+		const incomingIndex = this.resolveIndex(nextIndex, safeDirection, items.length, circular);
+		return this.composeStack(
+			this.cornerRadius,
+			prevIndex,
+			currentIndex,
+			nextIndex,
+			incomingIndex,
+			0,
+			width,
+			height,
+			safeDirection,
+			items,
+			circular
+		);
+	}
+	
+	private composeStack(
+		cornerRadius: number,
+		prevIndex: number,
+		currentIndex: number,
+		nextIndex: number,
+		incomingIndex: number,
+		progress: number,
+		width: number,
+		height: number,
+		direction: number,
+		items: SwiperItem[],
+		circular: boolean
+	): RenderItemConfig[] {
+		const result: RenderItemConfig[] = [];
+		const count = items.length;
+		if (count == 0) {
+			return result;
+		}
+
+		if (count == 1) {
+			const item = items[currentIndex] ?? items[0];
+			if (item != null) {
+				result.push({
+					cornerRadius,
+					x: 0,
+					y: 0,
+					width,
+					height,
+					opacity: 1,
+					scaleX: 1,
+					scaleY: 1,
+					color: item.color,
+					index: currentIndex
+				});
+			}
+			return result;
+		}
+
+		let t = Math.min(Math.max(progress, 0), 1);
+		const directionSign = direction >= 0 ? 1 : -1;
+
+		const prevIdx = prevIndex;
+		const currIdx = currentIndex;
+		const nextIdxLocal = nextIndex;
+		const incomingIdx = incomingIndex;
+
+		const expose = 40
+		const exposeSpace = 10
+		const centerWidth = Math.max(width - expose * 2, width * 0.5);
+		const sideWidth = centerWidth;
+		const centerX = (width - centerWidth) / 2;
+		const leftX = -sideWidth + (expose-exposeSpace);
+		const rightX = width - (expose-exposeSpace);
+		const sideHeightReduce = Math.min(height * 0.12, Math.max(height * 0.05, 36));
+		const sideHeight = Math.max(height - sideHeightReduce, height * 0.6);
+		const sideY = (height - sideHeight) / 2;
+ 
+ 		const states: StackingCardStates = {
+			left: { x: leftX, width: sideWidth, z: 0, height: height, y: 0 },
+			center: { x: centerX, width: centerWidth, z: 3, height: height, y: 0 },
+			right: { x: rightX, width: sideWidth, z: 0, height: height, y: 0 },
+			hiddenLeft: { x: leftX - sideWidth, width: sideWidth, z: -1, height: height, y: 0 },
+			hiddenRight: { x: rightX + sideWidth, width: sideWidth, z: -1, height: height, y: 0 }
+		};
+
+		const lerpState = (start: CardState, end: CardState, progress: number): CardState => ({
+			x: this.lerp(start.x, end.x, progress),
+			width: this.lerp(start.width, end.width, progress),
+			z: this.lerp(start.z, end.z, progress),
+			height: this.lerp(start.height, end.height, progress),
+			y: this.lerp(start.y, end.y, progress)
+		});
+
+		const tempCards: tempCardsItems[] = [];
+		const collectCard = (index: number, state: CardState) => {
+			if (index == -1 || index >= count) return;
+			if (index>items.length-1) return;
+			tempCards.push({ index, state });
+		};
+
+		if (directionSign >= 0) {
+			collectCard(prevIdx, lerpState(states.left, states.hiddenLeft, t));
+			collectCard(currIdx, lerpState(states.center, states.left, t));
+			collectCard(nextIdxLocal, lerpState(states.right, states.center, t));
+			collectCard(incomingIdx, lerpState(states.hiddenRight, states.right, t));
+		} else {
+			collectCard(prevIdx, lerpState(states.right, states.hiddenRight, t));
+			collectCard(currIdx, lerpState(states.center, states.right, t));
+			collectCard(nextIdxLocal, lerpState(states.left, states.center, t));
+			collectCard(incomingIdx, lerpState(states.hiddenLeft, states.left, t));
+		}
+
+		tempCards.sort((a, b) => a.state.z - b.state.z);
+		for (let i=0;i<tempCards.length;i++) {
+			const card = tempCards[i]
+			const item = items[card.index];
+		
+			result.push({
+				cornerRadius,
+				x: card.state.x ,
+				y: card.state.y,
+				width: card.state.width,
+				height: card.state.height,
+				opacity: 1,
+				scaleX: 1,
+				scaleY: 1,
+				color: item.color,
+				index: card.index
+			});
+		}
+	
+		return result;
+	}
+	
+	private lerp(start: number, end: number, t: number): number {
+		return start + (end - start) * t;
+	}
+	
+	private resolveIndex(base: number, direction: number, length: number, circular: boolean): number {
+		if (length == 0 || base == -1) return -1;
+		let next = base + direction;
+		if (circular) {
+			next = (next % length + length) % length;
+		}
+		if (next < 0 || next >= length) {
+			return -1;
+		}
+		return next;
+	}
+}
+
+
+/**
+ * 左右滑，上层左右消失移出，底部从滑动的方向返向出来。
+ */
+export class StackingSlideEffect implements IAnimationEffect {
+	calculate(state: AnimationFrameState, items: SwiperItem[]): RenderItemConfig[] {
+		const { currentIndex, nextIndex, progress, width, height, direction } = state;
+		const result: RenderItemConfig[] = [];
+		
+		if (items.length == 0) return result;
+		
+		const currentItem = items[currentIndex];
+		const nextItem = items[nextIndex];
+		
+		const layers: RenderItemConfig[] = [
+			{
+				x: (width * (1 - progress) * direction),
+				y: 0,
+				width: width,
+				height: height,
+				opacity: 1,
+				scaleX: 1 ,
+				scaleY: 1 ,
+				color: nextItem.color,
+				index: nextIndex,
+				zIndex: 1,
+				cornerRadius:16
+			},
+			{
+				x: 0,
+				y: 0,
+				width: width,
+				height: height,
+				opacity: 1,
+				scaleX: 1 - (progress * 0.2),
+				scaleY: 1 - (progress * 0.2),
+				color: currentItem.color,
+				index: currentIndex,
+				zIndex: 0,
+				cornerRadius:16,
+				anchor:{
+					preset:direction==1?'right-center':'left-center'
+				}
+			}
+		];
+		
+		layers.sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
+		layers.forEach((layer:RenderItemConfig) => {
+			result.push(layer)
+		});
+		
+		return result;
+	}
+	
+	getStaticState(state: AnimationStaticState, items: SwiperItem[]): RenderItemConfig[] {
+		const { currentIndex, width, height } = state;
+		const result: RenderItemConfig[] = [];
+		
+		if (items.length == 0) return result;
+		
+		const currentItem = items[currentIndex];
+		
+		result.push({
+			x: 0,
+			y: 0,
+			width: width,
+			height: height,
+			opacity: 1,
+			scaleX: 1,
+			scaleY: 1,
+			color: currentItem.color,
+			index: currentIndex
+		});
+		
+		return result;
+	}
+}

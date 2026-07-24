@@ -1,0 +1,532 @@
+<script lang="ts" setup>
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { checkIsCssUnit, getUnit } from "../../core/util/xCoreUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	import { CASCADER_ITEM_INFO } from "../../interface.uts"
+	type findNodePathType = (nodes : CASCADER_ITEM_INFO[], targetId : string, currentPath : CASCADER_ITEM_INFO[]) => CASCADER_ITEM_INFO[]|null;
+	type findNodeLayersType = (nodes : CASCADER_ITEM_INFO[], targetId : string, currentLayers : CASCADER_ITEM_INFO[][]) => CASCADER_ITEM_INFO[][]|null
+	
+	/**
+	 * @name 极联器 xCascader
+	 * @page /pages/index/cascader
+	 * @category 表单组件
+	 * @description 极联选择器，单选模式。
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({ name: "xCascader" })
+	type menuTypeCascaderType = {
+		selected : boolean,
+		item : CASCADER_ITEM_INFO
+	}
+	type xCascaderTreeProps = {
+		/**
+		 * 宽,可以为auto
+		 */
+		width : string,
+		/**
+		 * 高，不可为auto。
+		 */
+		height : string,
+		/**
+		 * 数据结构
+		 */
+		list : CASCADER_ITEM_INFO[],
+		/**
+		 * 当前选中项的id
+		 */
+		modelValue : string,
+		/**
+		 * 项目文字大小id
+		 */
+		fontSize : string,
+		/**
+		 * 选项项目未选中的文字颜色
+		 */
+		itemTextColor : string,
+		/**
+		 * 选项项目未选中的暗黑文字颜色，空值是取白色
+		 */
+		darkItemTextColor : string,
+		/**
+		 * 选项项目选中的文字颜色，空值取全局主题
+		 */
+		itemActiveColor : string,
+		/**
+		 * 内容区域背景颜色
+		 */
+		sliderContentBgColor : string,
+		/**
+		 * 是否在有下级的项目上显示选择本级按钮.
+		 * 当用户选中了本级时就同选择最后一项一样会触发confirm及同步vmodel值
+		 */
+		showCurrentBtn : boolean,
+	}
+	const props = withDefaults(defineProps<xCascaderTreeProps>(), {
+		width: 'auto',
+		height: '150',
+		list:():CASCADER_ITEM_INFO[] => [] as CASCADER_ITEM_INFO[],
+		fontSize: "16",
+		itemTextColor: "#333333",
+		darkItemTextColor: "",
+		itemActiveColor: "",
+		sliderContentBgColor: 'rgba(0,0,0,0)'
+	})
+	const emit = defineEmits([
+		/**
+		 * 选中触发时变化，只要路径变化了就会触发
+		 * @param {String[]} ids - 当前id路径值
+		 */
+		'change',
+		/**
+		 * 点击项目时触发
+		 * @param {CASCADER_TREE_ITEM} item - 项目数据
+		 * @param {number} parentIndex - 父index
+		 * @param {number} childrenIndex - 当前子index
+		 */
+		'cellClick',
+		/**
+		 * 最后一项时触发,或者选择本级时触发
+		 * @param {String}  id - 最后一级选中的值
+		 * @param {String[]}  ids - 完整的路径id值
+		 */
+		'confirm',
+		/**
+		 * 等同v-model,或者选择本级时触发
+		 * @param {String}  id - 当前id
+		 */
+		'update:modelValue'
+	])
+	const _width = computed(() : string => checkIsCssUnit(props.width, xConfig.unit));
+	const _height = computed(() : string => checkIsCssUnit(props.height, xConfig.unit));
+	const _fontSize = computed(() : string => {
+		let fontSize = checkIsCssUnit(props.fontSize, xConfig.unit);
+		if (xConfig.fontScale == 1) return fontSize;
+		let sizeNumber = parseInt(fontSize)
+		if (isNaN(sizeNumber)) {
+			sizeNumber = 15
+		}
+		return (sizeNumber * xConfig.fontScale).toString() + getUnit(fontSize)
+	});
+
+	const _itemActiveColor = computed(() : string => {
+		return props.itemActiveColor != "" ? getDefaultColor(props.itemActiveColor) : getDefaultColor(xConfig.color);
+	});
+	const _itemTextColor = computed(() : string => {
+		let color = props.itemTextColor;
+		if (xConfig.dark == 'dark') {
+			color = props.darkItemTextColor != "" ? props.darkItemTextColor : "#ffffff"
+		}
+		return getDefaultColor(color);
+	});
+
+	const _borderColor = computed(() : string => {
+		if (xConfig.dark == 'dark') return xConfig.borderDarkColor
+		return '#f5f5f5'
+	});
+
+	const nowVal = ref('')
+
+	function getNodeArrayPaths(list : CASCADER_ITEM_INFO[], id : string = '') : menuTypeCascaderType[] {
+		if (list.length == 0) {
+			return [] as menuTypeCascaderType[]
+		}
+		// 如果id为空，从第一级第一个节点开始
+		if (id == '') {
+			const firstNode = list[0]
+			const path : CASCADER_ITEM_INFO[] = [firstNode]
+			// 如果第一个节点有子级，继续向下找到最后一级
+			let currentNode = firstNode
+			let children = currentNode?.children ?? ([] as CASCADER_ITEM_INFO[])
+			while (children.length > 0) {
+				currentNode = children[0]
+				path.push(currentNode)
+				children = currentNode?.children ?? ([] as CASCADER_ITEM_INFO[])
+			}
+			// 转换为menuTypeCascaderType数组，所有节点都设为未选中
+			return path.map((item, index) : menuTypeCascaderType => ({
+				selected: false,
+				item: item
+			} as menuTypeCascaderType))
+		}
+		let findNodePath :  findNodePathType| null = null;
+		// 根据id查找节点路径
+		findNodePath = (nodes : CASCADER_ITEM_INFO[], targetId : string, currentPath : CASCADER_ITEM_INFO[]) : CASCADER_ITEM_INFO[] | null => {
+			for (let i = 0; i < nodes.length; i++) {
+				const node = nodes[i]
+				const newPath : CASCADER_ITEM_INFO[] = [...currentPath, node]
+				if (node.id == targetId) {
+					// 找到目标节点，如果有子级则继续向下找到最后一级
+					let currentNode = node
+					let finalPath : CASCADER_ITEM_INFO[] = [...newPath]
+					let children = currentNode?.children ?? ([] as CASCADER_ITEM_INFO[])
+					while (children.length > 0) {
+						currentNode = children[0]
+						finalPath.push(currentNode)
+						children = currentNode?.children ?? ([] as CASCADER_ITEM_INFO[])
+					}
+					return finalPath
+				}
+				// 在子节点中继续查找
+				let children = node?.children ?? ([] as CASCADER_ITEM_INFO[])
+				if (children.length > 0) {
+					let fph = findNodePath!;
+					const result = fph(children, targetId, newPath)
+					if (result != null) {
+						return result
+					}
+				}
+			}
+			return null
+		}
+		const result = findNodePath(list, id, [] as CASCADER_ITEM_INFO[])
+		if (result != null) {
+			// 转换为menuTypeCascaderType数组，提供的id及之前的节点设为selected，之后的为未选中
+			let targetIndex = -1
+			for (let i = 0; i < result.length; i++) {
+				if (result[i].id == id) {
+					targetIndex = i
+					break
+				}
+			}
+			return result.map((item, index) : menuTypeCascaderType => ({
+				selected: targetIndex >= 0 && index <= targetIndex,
+				item: item
+			} as menuTypeCascaderType))
+		}
+		return [] as menuTypeCascaderType[]
+	}
+
+	/**
+	 * 同getNodeArrayPaths类似，但不同的是，它是返回 id所在层级的数组，形成一个平铺的列表组供用户选择当前组的某一项。
+	 * 返回格式是CASCADER_ITEM_INFO[][]
+	 */
+	function getNodeArraySlier(list : CASCADER_ITEM_INFO[], id : string = '') : CASCADER_ITEM_INFO[][]{
+		if (list.length == 0) {
+			return [] as CASCADER_ITEM_INFO[][]
+		}
+
+		// 如果id为空，从第一级开始，继续向下找到最后一级
+		if (id == '') {
+			const layers : CASCADER_ITEM_INFO[][] = [list]
+			let currentNodes = list
+			while (currentNodes.length > 0 && (currentNodes[0]?.children??([] as CASCADER_ITEM_INFO[])).length > 0) {
+				currentNodes = (currentNodes[0]?.children??([] as CASCADER_ITEM_INFO[]))
+				layers.push(currentNodes)
+			}
+			return layers
+		}
+		let findNodeLayers :  findNodeLayersType | null = null;
+		// 查找id所在的路径
+		findNodeLayers = (nodes : CASCADER_ITEM_INFO[], targetId : string, currentLayers : CASCADER_ITEM_INFO[][]) : CASCADER_ITEM_INFO[][] | null => {
+			// 当前层级添加到结果中
+			const newLayers : CASCADER_ITEM_INFO[][] = [...currentLayers, nodes]
+
+			for (let i = 0; i < nodes.length; i++) {
+				const node = nodes[i]
+				if (node.id == targetId) {
+					// 找到目标节点，继续向下找到最后一级
+					let finalLayers : CASCADER_ITEM_INFO[][] = [...newLayers]
+					let currentNode = node
+					let children = currentNode?.children ?? ([] as CASCADER_ITEM_INFO[])
+					while (children.length > 0) {
+						finalLayers.push(children)
+						currentNode = children[0]
+						children = currentNode?.children ?? ([] as CASCADER_ITEM_INFO[])
+					}
+					return finalLayers
+				}
+
+				// 在子节点中继续查找
+				let children = node?.children ?? ([] as CASCADER_ITEM_INFO[])
+				if (children.length > 0) {
+					const result = findNodeLayers!(children, targetId, newLayers)
+					if (result != null) {
+						return result
+					}
+				}
+			}
+			return null
+		}
+
+		const result = findNodeLayers(list, id, [] as CASCADER_ITEM_INFO[][])
+
+		return result != null ? result : [list] as CASCADER_ITEM_INFO[][]
+	}
+	const currentIndex = ref(0)
+	const _list = computed(() : CASCADER_ITEM_INFO[][] => getNodeArraySlier(props.list, nowVal.value))
+	const _menus = computed(() : menuTypeCascaderType[] => getNodeArrayPaths(props.list, nowVal.value))
+	// 缓存已选中ID的Set，isSelected从O(n)的findIndex降为O(1)的has
+	const _selectedIds = computed(() : Set<string> => {
+		let set = new Set<string>()
+		for (let i = 0; i < _menus.value.length; i++) {
+			let m = _menus.value[i]
+			if (m.selected) {
+				set.add(m.item.id)
+			}
+		}
+		return set
+	})
+	const _menusList = computed(() : CASCADER_ITEM_INFO[] => {
+		return _menus.value.map((el : menuTypeCascaderType) : CASCADER_ITEM_INFO => el.item)
+	})
+
+	const getIds = () : string[] => {
+		let ids : string[] = []
+		for (let i = 0; i < _menus.value.length; i++) {
+			let item = _menus.value[i]
+
+			if (!item.selected) {
+				break;
+			}
+			ids.push(item.item.id)
+		}
+		return ids;
+	}
+	const elitext = (text : string) : string => {
+		let len = text.length;
+		return len <= 7 ? text : (text.substring(0, 7) + '..')
+	}
+	const isSelected = (item : CASCADER_ITEM_INFO) : boolean => {
+		return _selectedIds.value.has(item.id)
+	}
+	const isCurrentNext = computed(() : boolean => {
+		return _menus.value.some((el : menuTypeCascaderType) : boolean => el.selected == false)
+	})
+	const getNowvalIndex = () : number => {
+		let index = 0
+		for (let i = 0; i < _menus.value.length; i++) {
+			let item = _menus.value[i]
+	
+			if (!item.selected) {
+				break;
+			}
+			index += 1;
+		}
+		index = Math.min(_menus.value.length - 1, index)
+		return index;
+	}
+	const menuBarClick = (item : menuTypeCascaderType, index : number) => {
+		let cindex = index
+		if (item.selected) {
+			if (index == 0) {
+				nowVal.value = '';
+			} else {
+				let cureentindex = index - 1;
+				cureentindex = Math.max(0, Math.min(cureentindex, _menus.value.length - 1))
+				nowVal.value = _menus.value[cureentindex].item.id
+			}
+
+		} else {
+			nowVal.value = item.item.id;
+		}
+		nextTick(() => {
+			currentIndex.value = getNowvalIndex();
+			emit('change', getIds())
+			emit('update:modelValue', nowVal.value)
+		})
+	}
+	const selectedCurrentChildren = (item : CASCADER_ITEM_INFO, index : number) => {
+		let disabled = item?.disabled ?? false
+		if (item.id == nowVal.value || disabled) {
+			return;
+		}
+		nowVal.value = item.id;
+		// currentIndex.value = index;
+		emit('change', getIds())
+	}
+	
+	const nextCellClick = (item : CASCADER_ITEM_INFO, index : number, childrenIndex : number) => {
+		let disabled = item?.disabled ?? false
+		if (disabled) {
+			return;
+		}
+
+		if (nowVal.value != item.id) {
+			emit('change', getIds())
+		}
+		nowVal.value = item.id;
+
+		nextTick(() => {
+			currentIndex.value = getNowvalIndex();
+			emit('update:modelValue', nowVal.value)
+			emit('cellClick', item, index, childrenIndex)
+			if ((item?.children?.length ?? 0) == 0) {
+				emit('confirm', nowVal.value, getIds())
+			}
+		})
+	}
+
+	watch(() : any => props.modelValue, () => {
+		nowVal.value = props.modelValue;
+		nextTick(() => {
+			currentIndex.value = getNowvalIndex();
+		})
+	})
+	onMounted(() => {
+		nowVal.value = props.modelValue;
+		nextTick(() => {
+			currentIndex.value = getNowvalIndex();
+		})
+	})
+</script>
+<template>
+	<view class="xCascaderTree" :style="{width:_width,height:_height}">
+		<!-- 导航 -->
+		<scroll-view direction="horizontal" class="xCascaderTreeBar">
+
+			<!--
+			@slot 顶部头菜单导航插槽,你可以完全写自己的导航样式
+			@prop {CASCADER_ITEM_INFO[]} menus - 菜单导航,注意,可能为空
+			 -->
+			<slot name="header" :menus="_menusList">
+				<view v-if="_menus.length>0" class="xCascaderBarTreeItem" v-for="(item,index) in _menus" :key="index">
+					<text @click="menuBarClick(item,index)" v-if="item.selected" class="xCascaderTreeItemBarText"
+						:style="{
+							color:_itemActiveColor,
+							fontSize:_fontSize,
+							whiteSpace:'nowrap',
+							border:`1px solid ${_itemActiveColor}`
+							}
+						">
+						{{elitext(item.item.title)}}
+					</text>
+					<x-icon v-if="(item.item?.children??[]).length>0&&item.selected" class="xCascaderBarTreeItemRight"
+						:font-size="_fontSize" name="arrow-right-s-line" :color="_itemActiveColor"></x-icon>
+				</view>
+				<view v-if="isCurrentNext" class="xCascaderBarTreeItem">
+					<text :style="{color:_itemTextColor,fontSize:_fontSize,whiteSpace:'nowrap'}">
+						<!-- 请选择 -->
+						{{i18n!.t('tmui4x.cascader.placeholder')}}
+					</text>
+					<x-icon class="xCascaderBarTreeItemRight" font-size="14" name="arrow-right-s-line"
+						:color="_itemActiveColor"></x-icon>
+				</view>
+
+			</slot>
+		</scroll-view>
+		<view :style="{height:'1px',borderBottom:`1px solid ${_borderColor}`}"></view>
+		<!-- 内容区域 -->
+		<view style="flex: 1;">
+			<swiper :duration="0" :current="currentIndex" class="xCascaderTreeSwiper" :disable-touch="true">
+				<swiper-item v-for="(item,index) in _list" :key="index" class="xCascaderTreeSwiperItem">
+					<list-view class="xCascaderScoll" direction="vertical">
+						<list-item v-for="(item2,index2) in item" :key="item2.id">
+							<view @click="nextCellClick(item2,index,index2)"
+								:class="[(item2?.disabled??false)?'xCascaderItemDisabled':'']" class="xCascaderItem">
+								<text class="xCascaderItemLeft" :style="{
+									fontSize:_fontSize,
+									color:isSelected(item2)?_itemActiveColor : _itemTextColor
+								}">{{item2.title}}{{item2.id}}</text>
+								<view class="xCascaderItemRight">
+									<text class="xCascaderTreeItemRightTextBtns"
+										:style="{color:_itemActiveColor,border:`1px solid ${_itemActiveColor}`}"
+										v-if="(item2?.children??[]).length>0&&showCurrentBtn"
+										@click.stop="selectedCurrentChildren(item2,index)">
+										<!-- 选择本级 -->
+										{{i18n!.t('tmui4x.cascader.currentPlaceholder')}}
+									</text>
+									<x-icon v-if="(item2?.children??[]).length>0" :color="_itemTextColor"
+									name="arrow-right-s-line"></x-icon>
+									<x-icon v-if="isSelected(item2)&&(((item2?.children??[]).length>0&&!showCurrentBtn)||(item2?.children??[]).length==0)" :color="_itemActiveColor"
+									name="check-line"></x-icon>
+								</view>
+							</view>
+						</list-item>
+			
+					</list-view>
+				</swiper-item>
+			</swiper>
+		</view>
+	</view>
+</template>
+<style scoped>
+	.xCascaderItemDisabled {
+		opacity: 0.6;
+	}
+
+	.xCascaderTreeBar {
+		display: flex;
+		flex-direction: row;
+		position: relative;
+		height: 50px;
+
+	}
+
+	.xCascaderBarTreeItem {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: center;
+		height: 100%;
+	}
+
+	.xCascaderBarTreeItemRight {
+		margin: 0px 0px;
+	}
+
+	.xCascaderTreeItemBarText {
+		text-overflow: ellipsis;
+		lines: 1;
+		border-radius: 3px;
+		/* #ifdef APP */
+		padding: 0px 8px;
+		line-height: 1.5;
+		/* #endif */
+		/* #ifndef APP */
+		padding: 4px 8px;
+		line-height: 1;
+		/* #endif */
+
+		/* #ifndef APP */
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 1;
+		/* 限定为3行 */
+		overflow: hidden;
+		text-overflow: ellipsis;
+		/* #endif */
+	}
+
+	.xCascaderItem {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: space-between;
+		height: 44px;
+	}
+
+	.xCascaderItemLeft {
+		lines: 1;
+		margin-right: 24px;
+	}
+
+	.xCascaderItemRight {
+		display: flex;
+		flex-direction: row;
+	}
+
+	.xCascaderTreeItemRightTextBtns {
+		font-size: 11px;
+		padding: 1px 3px;
+		border-radius: 3px;
+	}
+
+	.xCascaderTree {
+		display: flex;
+		flex-direction: column;
+
+	}
+
+	.xCascaderTreeSwiper,
+	.xCascaderTreeSwiperItem {
+		height: 100%;
+	}
+
+	.xCascaderScoll {
+		height: 100%;
+
+	}
+</style>

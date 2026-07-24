@@ -1,0 +1,164 @@
+<script lang="ts" setup>
+	import { computed, provide } from "vue"
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { checkIsCssUnit } from "../../core/util/xCoreUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	import { XGRID_ITEM_INFO } from "../../interface.uts"
+
+	/**
+	 * @name 宫格 xGrid
+	 * @description 内部只可放置x-grid-item。
+	 * @page /pages/index/grid
+	 * @category 导航组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({name:"xGrid"})
+
+	type xGridPropsType = {
+		/**
+		 * 显示几列
+		 */
+		col: number,
+		/**
+		 * 项目高度
+		 */
+		itemHeight: string,
+		/**
+		 * 统一设置子组件的背景
+		 */
+		itemBgColor: string,
+		/**
+		 * 整体宫格的背景
+		 */
+		bgColor: string,
+		/**
+		 * 整体宫格的背景暗黑，如果为空，读取全局sheetDark
+		 */
+		darkBgColor: string,
+		/**
+		 * 整体宽度
+		 */
+		width: string,
+		/**
+		 * 图标颜色
+		 */
+		iconColor: string,
+		/**
+		 * 暗黑时图标颜色
+		 */
+		darkIconColor: string,
+		/**
+		 * 文字颜色
+		 */
+		textColor: string,
+		/**
+		 * 文字暗黑颜色
+		 */
+		textDarkColor: string,
+		/**
+		 * 文字大小
+		 */
+		fontSize: string,
+		/**
+		 * 图标大小
+		 */
+		iconSize: string,
+		/**
+		 * 是否显示边框。请务必为每个项目配置order
+		 */
+		showBorder: boolean,
+		borderColor: string,
+		borderDarkColor: string,
+		/**
+		 * 圆角
+		 */
+		round: string,
+	}
+
+	const props = withDefaults(defineProps<xGridPropsType>(), {
+		col: 3,
+		itemHeight: '70',
+		itemBgColor: 'white',
+		bgColor: 'transparent',
+		darkBgColor: 'transparent',
+		width: 'auto',
+		iconColor: '#333333',
+		darkIconColor: '#FFFFFF',
+		textColor: '#888888',
+		textDarkColor: '',
+		fontSize: '13',
+		iconSize: '25',
+		showBorder: true,
+		borderColor: '#f5f5f5',
+		borderDarkColor: '#333333',
+		round: '0',
+	})
+	
+	const _itemHeight = computed(() : string => {
+		return checkIsCssUnit(props.itemHeight, xConfig.unit)
+	})
+	const _width = computed(() : string => {
+		return checkIsCssUnit(props.width, xConfig.unit)
+	})
+	const _itemBgColor = computed(() : string => {
+		return getDefaultColor(props.itemBgColor)
+	})
+	const _bgColor = computed(() : string => {
+		if (xConfig.dark == 'dark') {
+			if (props.darkBgColor != "") return getDefaultColor(props.darkBgColor)
+			return getDefaultColor(xConfig.sheetDarkColor)
+		}
+		return getDefaultColor(props.bgColor)
+	})
+	const _itemGloablStyle = computed(() : XGRID_ITEM_INFO =>{
+		return {
+			iconColor: getDefaultColor(props.iconColor),
+			iconSize: checkIsCssUnit(props.iconSize, xConfig.unit),
+			fontColor: getDefaultColor(props.textColor),
+			fontDarkColor: getDefaultColor(props.textDarkColor),
+			fontSize: checkIsCssUnit(props.fontSize, xConfig.unit),
+			darkIconColor: getDefaultColor(props.darkIconColor),
+			
+		} as XGRID_ITEM_INFO
+	})
+	const _round = computed(():string => checkIsCssUnit(props.round,xConfig.unit))
+	provide("xGridCol", computed(() : number => props.col))
+	provide("xGridHeight",_itemHeight)
+	provide("xGridItemBgColor",_itemBgColor)
+	provide("xGridItemGlobalProptype",_itemGloablStyle)
+	const _borderColor = computed(():string => {
+		if (xConfig.dark == 'dark') {
+			if (props.borderDarkColor != "") return getDefaultColor(props.borderDarkColor)
+			return getDefaultColor(xConfig.inputDarkColor)
+		}
+		return getDefaultColor(props.borderColor)
+	})
+	provide("showBorder", computed(():boolean => props.showBorder))
+	provide("borderColor",_borderColor)
+
+</script>
+<template>
+	<view class="xGrid" :style="{
+		width:_width,
+		backgroundColor:_bgColor,
+		border:`${showBorder?('1px solid '+_borderColor):'none'}`,
+		borderRadius:_round
+	}">
+		<!-- 
+		 @slot 插槽内只可放置x-grid-item
+		 -->
+		<slot></slot>
+	</view>
+</template>
+<style scoped>
+	.xGrid {
+		display: flex;
+		flex-direction: row;
+		align-items: flex-start;
+		justify-content: flex-start;
+		flex-wrap: wrap;
+	}
+</style>

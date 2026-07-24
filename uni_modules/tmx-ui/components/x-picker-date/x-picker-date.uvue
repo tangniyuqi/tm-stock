@@ -1,0 +1,298 @@
+<script setup lang="ts">
+	import { computed, ref, watch } from "vue"
+	import { setPagePullRefresh } from "../../core/util/xCoreUtil.uts"
+	import { xDate } from "../../core/util/xDate.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	const i18n = xConfig.i18n
+	type ModelType = "year" | "month" | "day" | "hour" | "minute" | "second";
+
+	/**
+	 * Props 类型定义
+	 */
+	type XPickerDateProps = {
+		/**
+		 * 当前时间,与modelStr不同，此提供的值必须是正常的时间格式
+		 * 否则报错，无法运行。可以提供以下合法格式：
+		 * YYYY,YYYY-MM,YYYY-MM-DD,YYYY-MM-DD HH,YYYY-MM-DD HH:mm,YYYY-MM-DD HH:mm:ss
+		 */
+		modelValue?: string
+		/**
+		 * 当前时间经过format格式化后输出的值。
+		 * 此值不会处理输入，只输出显示。
+		 */
+		modelStr?: string
+		/**41
+				 * 当前打开的状态。
+		 * 等同v-model:model-show
+		 */
+		modelShow?: boolean
+		/**
+		 * 顶部标题
+		 */
+		title?: string
+		/**
+		 * 取消按钮的文本
+		 */
+		cancelText?: string
+		/**
+		 * 确认按钮的文本
+		 */
+		confirmText?: string
+		/**
+		 * 开始时间，请提供正确的时间格式
+		 */
+		start?: string
+		/**
+		 * 结束时间，请提供正确的时间格式
+		 */
+		end?: string
+		/**
+		 * 精确到的级别
+		 * year:年
+		 * month:年月
+		 * day:年月日
+		 * hour:年月日小时
+		 * minute:年月日小时分钟
+		 * second:年月日小时分钟秒
+		 */
+		type?: ModelType
+		/**
+		 * 输出时间格式，只对v-model:modelStr有效
+		 * 如果桢同步对vmodel:modelValue有效需要设置formatSyncValue为true
+		 * 有效格式：
+		 * YYYY年
+		 * MM月
+		 * DD日
+		 * hh小时
+		 * mm分钟
+		 * ss秒
+		 */
+		format?: string
+		/**
+		 * 是否将format格式化的v-model:modelStr同步到v-model:modelValue
+		 * 默认false,注意：如果开启了同步，你要确保format的值是正常的时间值
+		 * 正常兼容以下时间格式：
+		 * YYYY,YYYY-MM,YYYY-MM-DD,YYYY-MM-DD HH,YYYY-MM-DD HH:mm,YYYY-MM-DD HH:mm:ss
+		 */
+		formatSyncValue?: boolean
+		/**
+		 * 上方的单位名称，'年', '月', '日', '时', '分', '秒'
+		 */
+		cellUnits?: string[]
+		/**
+		 * 是否懒加载内部内容。
+		 * 当前你的列表内容非常多，且影响打开的动画性能时，请务必
+		 * 设置此项为true，以获得流畅视觉效果。如果选择数据较少可以设置为false，获得更好的视觉效果。
+		 */
+		lazyContent?: boolean
+		/**
+		 * 层级
+		 */
+		zIndex?: number
+		/**
+		 * 是否显示关闭按钮
+		 */
+		showClose?: boolean
+		/**
+		 * 是否禁用弹出
+		 */
+		disabled?: boolean
+		/**
+		 * 宽屏时是否让内容剧中显示
+		 * 并限制其宽为屏幕宽，只展示中间内容以适应宽屏。
+		 */
+		widthCoverCenter?: boolean
+	}
+
+	/**
+	 * @name 日期选择器 xPickerDate
+	 * @description 日期选择，可以控制显示精确到秒。默认的开始时间为当前时间的上一年，结束时间为默认当前时间
+	 * 使用时，建议不要显示过多年份以防卡太多数据。
+	 * @page /pages/index/picker-date
+	 * @category 表单组件
+	 * @constant 平台兼容
+	 * 	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({ name: "xPickerDate" })
+
+	const emit = defineEmits([
+		/**
+		 * 取消时触发
+		 */
+		'cancel',
+		/**
+		 * 确认触发
+		 * @param {string} date 当前选中时间id值
+		 */
+		'confirm',
+		/**
+		 * 滑动变换时触发
+		 * @param {string} date - 当前选中时间
+		 */
+		'change',
+		/**
+		 * 变量控制打开状态
+		 * 等同v-model:model-show
+		 */
+		'update:modelShow',
+		/**
+		 * 经格式化后的值。等同v-model:model-str
+		 */
+		'update:modelStr',
+		'update:modelValue'
+	])
+
+	const props = withDefaults(defineProps<XPickerDateProps>(), {
+		modelValue: "",
+		modelStr: "",
+		modelShow: false,
+		title: "",
+		cancelText: "",
+		confirmText: "",
+		start: "",
+		end: "",
+		type: "day",
+		format: "YYYY-MM-DD",
+		formatSyncValue: false,
+		cellUnits: () => [] as string[],
+		lazyContent: true,
+		zIndex: 1100,
+		showClose: true,
+		disabled: false,
+		widthCoverCenter: false
+	})
+
+	const show = ref(false)
+	const currentVal = ref(new xDate(props.modelValue).format("YYYY-MM-DD hh:mm:ss"))
+	const currentStr = ref('')
+
+	const _cellUnits = computed((): string[] => {
+		if (props.cellUnits.length == 0) {
+			return [
+				i18n.t("tmui4x.pickerDate.year"),
+				i18n.t("tmui4x.pickerDate.month"),
+				i18n.t("tmui4x.pickerDate.day"),
+				i18n.t("tmui4x.pickerDate.hour"),
+				i18n.t("tmui4x.pickerDate.minute"),
+				i18n.t("tmui4x.pickerDate.second"),
+			]
+		}
+		return props.cellUnits;
+	})
+
+	const _cancelText = computed((): string => {
+		if (props.cancelText == '') {
+			return i18n.t("tmui4x.cancel")
+		}
+		return props.cancelText;
+	})
+
+	const _confirmText = computed((): string => {
+		if (props.confirmText == '') {
+			return i18n.t("tmui4x.confirm")
+		}
+		return props.confirmText;
+	})
+
+	const _title = computed((): string => {
+		if (props.title == '') {
+			return i18n.t("tmui4x.pickerTitle")
+		}
+		return props.title;
+	})
+    
+
+	const openShow = () => {
+		if (props.disabled) return;
+		show.value = true;
+		/**
+		 * 变量控制打开状态
+		 * 等同v-model:model-show
+		 */
+		emit('update:modelShow', true)
+		setPagePullRefresh(false)
+	}
+
+	const onClose = () => {
+		/**
+		 * 变量控制打开状态
+		 * 等同v-model:model-show
+		 */
+		emit('update:modelShow', false)
+	}
+
+	const onOpen = () => {
+		openShow()
+	}
+	const mchange = (nowValueStr: string) => {
+		emit('change',nowValueStr)
+	}
+	const onCancel = () => {
+		emit('cancel')
+		currentVal.value = new xDate(props.modelValue).format("YYYY-MM-DD hh:mm:ss")
+	}
+	const onConfirm = () => {
+		emit('confirm',currentVal.value);
+		emit('update:modelValue',currentVal.value);
+		emit('update:modelStr',currentStr.value)
+	}
+	watch(():string => props.modelValue, (newvalue: string) => {
+		currentVal.value = props.modelValue;
+	})
+	watch(():boolean => props.modelShow, (newValue: boolean) => {
+		if (newValue == show.value) return;
+		openShow()
+	})
+
+</script>
+<template>
+	<view @click="openShow">
+		<!--
+		 @slot 插槽,默认触发打开选择器。你的默认布局可以放置在这里。
+		 @prop {string} label - 当前选中的字符串
+		 -->
+		<slot :label="currentStr"></slot>
+	</view>
+	<x-drawer
+		:lazy="props.lazyContent"
+		:cancel-text="_cancelText"
+		:confirm-text="_confirmText"
+		:zIndex="props.zIndex"
+		@open="onOpen"
+		:widthCoverCenter="props.widthCoverCenter"
+		:disabledScroll="true"
+		:title="_title"
+		@close="onClose"
+		@confirm="onConfirm"
+		@cancel="onCancel"
+		:showFooter="true"
+		v-model:show="show"
+		:show-close="props.showClose"
+		size="410">
+		<view class="xPickerDateWrap" >
+	
+				<x-date-view 
+				@change="mchange"
+				style="flex: 1;"
+				:start="props.start"
+				:end="props.end"
+				:title="_title"
+				:format="props.format"
+				v-model="currentVal"
+				v-model:model-str="currentStr"
+				:type="props.type"
+				:cellUnits="_cellUnits"
+				
+				></x-date-view>
+		</view>
+	</x-drawer>
+</template>
+<style scoped>
+	.xPickerDateWrap {
+		display: flex;
+		flex-direction: row;
+		justify-content: flex-start;
+	}
+</style>

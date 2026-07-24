@@ -1,0 +1,39 @@
+import { HighlightConfig } from "../heightlight.uts"
+
+export function getJavaConfig(): HighlightConfig {
+	const config = new HighlightConfig()
+	
+	// Java 关键字
+	config.keywords = [
+		'abstract', 'assert', 'boolean', 'break', 'byte', 'case', 'catch',
+		'char', 'class', 'const', 'continue', 'default', 'do', 'double',
+		'else', 'enum', 'extends', 'final', 'finally', 'float', 'for',
+		'goto', 'if', 'implements', 'import', 'instanceof', 'int', 'interface',
+		'long', 'native', 'new', 'package', 'private', 'protected', 'public',
+		'return', 'short', 'static', 'strictfp', 'super', 'switch',
+		'synchronized', 'this', 'throw', 'throws', 'transient', 'try',
+		'void', 'volatile', 'while'
+	]
+	
+	// Java 内置对象和值
+	config.builtins = [
+		'true', 'false', 'null',
+		'String', 'Integer', 'Double', 'Float', 'Long', 'Boolean', 'Character',
+		'Byte', 'Short', 'Object', 'Class', 'System', 'Math', 'Thread',
+		'Runnable', 'Exception', 'Error', 'ArrayList', 'HashMap', 'HashSet',
+		'LinkedList', 'TreeMap', 'TreeSet', 'Vector', 'Stack', 'Queue',
+		'List', 'Map', 'Set', 'Collection', 'Iterator', 'Comparable',
+		'StringBuilder', 'StringBuffer', 'File', 'InputStream', 'OutputStream'
+	]
+	
+	// Java 操作符
+	config.operators = [
+		'+', '-', '*', '/', '%', '=', '==', '!=', '<', '>', '<=', '>=',
+		'&&', '||', '!', '&', '|', '^', '~', '<<', '>>', '>>>',
+		'++', '--', '+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=',
+		'<<=', '>>=', '>>>=', '?', ':', '->', '::'
+	]
+	
+	return config
+}
+

@@ -1,0 +1,5 @@
+{
+	"dependencies": {
+		"x_crypto_s": "./lib/x_crypto_s.har"
+	}
+}

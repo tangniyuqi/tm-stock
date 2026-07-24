@@ -1,0 +1,92 @@
+import { x_xFileSNameTYpe, x_xFileSystem } from "x_file_s"
+import { fileListType, xFileSListType } from "../interface"
+
+let HxFilesSytem : x_xFileSystem | null = null;
+export class xFileSystem {
+	mimeTypeFilter : string[] = []
+	filelist = [] as fileListType[]
+	multiple : boolean = true;
+	maxFileSize = 30 * 1024 * 1024;
+	constructor(typeFilter : string[] | null, tempmultiple : boolean | null, maxSize : number | null) {
+		if (typeFilter != null) {
+			let tms = typeFilter! as string[];
+			this.mimeTypeFilter = tms;
+		}
+		if (tempmultiple != null) {
+			let tm = tempmultiple as boolean;
+			this.multiple = tm
+		}
+		if (maxSize != null) {
+			this.maxFileSize = maxSize!
+		}
+
+		if (HxFilesSytem == null) {
+			HxFilesSytem = new x_xFileSystem(UTSHarmony.getCurrentWindow()!.getUIContext(), this.mimeTypeFilter, this.multiple, this.maxFileSize)
+		} else {
+			HxFilesSytem!.clear();
+		}
+	}
+	destory() {
+		HxFilesSytem = null;
+		this.filelist = [] as fileListType[]
+	}
+	openDocument(callfun : (list : fileListType[]) => void) {
+		if (HxFilesSytem != null) {
+			HxFilesSytem!.openDocument((templist : x_xFileSNameTYpe[]) => {
+				let listfile = templist.map((el) : fileListType => {
+					return {
+						name: el.name,
+						type: el.type,
+						id: el.id,
+						uri: el.uri,
+						realFilePath: el.realFilePath,
+						cacheFilePath: el.cacheFilePath,
+						status: el.status,
+						size: el.fileSize
+					} as fileListType
+				});
+				this.filelist = listfile
+				callfun(listfile)
+			})
+		}
+	}
+
+	/**
+	 * 删除一个文件条目
+	 * @param {string} id - 文件id
+	 * @returns {fileListType[]} 最新的文件列表
+	 */
+	remove(id : string) : fileListType[] {
+
+		const templist = HxFilesSytem!.remove(id)
+
+		let listfile = templist.map((el) : fileListType => {
+			return {
+				name: el.name,
+				type: el.type,
+				id: el.id,
+				uri: el.uri,
+				realFilePath: el.realFilePath,
+				cacheFilePath: el.cacheFilePath,
+				status: el.status,
+				size: el.fileSize
+			} as fileListType
+		});
+		this.filelist = listfile
+
+		return listfile
+	}
+
+	/**
+	 * 返回一个空文件列表数组
+	 */
+	clear() : fileListType[] {
+		this.filelist = [] as fileListType[];
+		HxFilesSytem!.clear();
+		return [] as fileListType[]
+	}
+
+	copyFileToPath(item : xFileSListType, path : string) : Promise<xFileSListType | null> {
+		return Promise.resolve(item);
+	}
+}

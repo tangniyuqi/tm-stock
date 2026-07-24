@@ -1,0 +1,116 @@
+import { x_getElementShotImage, x_getRootShotImage } from "x_screenshot_s";
+import { XScreenshotOpts, XScreenshotResult, XScreenshotFormat } from "../interface.uts"
+import { XScreenshotImpl } from "../unierror.uts"
+
+function resolveFormat(opts : XScreenshotOpts) : XScreenshotFormat | null {
+	let format = opts.format ?? 'png'
+	if (format != 'png' && format != 'jpg') {
+		return null
+	}
+	return format
+}
+
+function callbackSuccess(opts : XScreenshotOpts, path : string) {
+	const resultJg : XScreenshotResult = {
+		path: path
+	}
+	opts.success?.(resultJg)
+	opts.complete?.(resultJg)
+}
+
+function callbackFail(opts : XScreenshotOpts, errCode : number) {
+	opts.fail?.(new XScreenshotImpl(errCode))
+	opts.complete?.(null)
+}
+
+function onNativeShotComplete(opts : XScreenshotOpts, path : string) {
+	if (path == '') {
+		callbackFail(opts, 1001)
+		return
+	}
+	callbackSuccess(opts, path)
+}
+
+/**
+ * 获取窗口截图
+ */
+export function getRootShotImage(opts : XScreenshotOpts) {
+	if (resolveFormat(opts) == null) {
+		callbackFail(opts, 1007)
+		return
+	}
+	try {
+		x_getRootShotImage(UTSHarmony.getCurrentWindow()!.getUIContext(), (path : string) => {
+			onNativeShotComplete(opts, path)
+		})
+	} catch (e) {
+		console.error("X-Screenshot Error:", e)
+		callbackFail(opts, 1002)
+	}
+}
+
+/**
+ * 获取指定元素截图
+ */
+export function getElementShotImage(opts : XScreenshotOpts) {
+	if (resolveFormat(opts) == null) {
+		callbackFail(opts, 1007)
+		return
+	}
+	if (opts.ele == null) {
+		callbackFail(opts, 1003)
+		return
+	}
+	try {
+		x_getElementShotImage(UTSHarmony.getCurrentWindow()!.getUIContext(), opts.ele?.getAttribute("id"), (path : string) => {
+			onNativeShotComplete(opts, path)
+		})
+	} catch (e) {
+		console.error("X-Screenshot Error:", e)
+		callbackFail(opts, 1002)
+	}
+}
+
+/**
+ * 递归查询
+ */
+function iterateElement(homeElement : UniElement) : UniNativeViewElement | null {
+	if ("NATIVE-VIEW" == homeElement.nodeName) {
+		return homeElement as UniNativeViewElement
+	}
+	for (const perChildEle of homeElement.children) {
+		let findEle = iterateElement(perChildEle)
+		if (findEle != null) {
+			return findEle
+		}
+	}
+
+	return null
+}
+
+function getPageRootView(id : string, ins : ComponentPublicInstance | null = null) : FrameNode | null {
+	if (ins == null) {
+		const pages = getCurrentPages()
+		if (pages.length > 0) {
+			const page = pages[pages.length - 1]
+			const rootViewElement = page.getElementById(id)
+			if (rootViewElement != null) {
+				const nativeViewElement = iterateElement(rootViewElement)
+
+				if (nativeViewElement != null) {
+					return nativeViewElement.getHarmonyFrameNode()
+				}
+			}
+		}
+	} else {
+		if (ins.$el != null) {
+			const nativeViewElement = iterateElement(ins.$el as UniElement)
+			if (nativeViewElement != null) {
+
+				return nativeViewElement.getHarmonyFrameNode()
+			}
+		}
+	}
+
+	return null
+}

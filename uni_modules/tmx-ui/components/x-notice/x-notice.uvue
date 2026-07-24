@@ -1,0 +1,316 @@
+<script lang="ts" setup>
+	import { ref, computed, watch, onMounted, onBeforeUnmount, onActivated, onDeactivated, nextTick } from "vue"
+	import { getUid } from '../../core/util/xCoreUtil.uts';
+	import { checkIsCssUnit, getUnit } from "../../core/util/xCoreUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	import { colors, getDefaultColor, getDefaultColorObj, getTextColorObj, getThinColorObj, setBgColorLightByDark } from "../../core/util/xCoreColorUtil.uts"
+
+	/**
+	 * @name 通知栏 xNotice
+	 * @description 速度可控，样式比较方便的调整。如果想要竖向的，请使用官方的轮播实现。
+	 * @page /pages/index/notice
+	 * @category 展示组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({name:"xNotice"})
+
+	const emits = defineEmits([
+		/**
+		 * 项目被点击
+		 * @param {number} index - 项目索引
+		 */
+		'click'
+	])
+
+	type xNoticePropsType = {
+		/**
+		 * 速率
+		 */
+		speed: number,
+		/**
+		 * 背景色
+		 */
+		color: string,
+		/**
+		 * 暗黑时的背景色，如果不填写，取color暗黑浅背景。
+		 */
+		darkColor: string,
+		/**
+		 * 文字和图标色
+		 */
+		fontColor: string,
+		/**
+		 * 文字大小和图标大小
+		 */
+		fontSize: string,
+		/**
+		 * 图标，如果为空将不显示 。
+		 */
+		icon: string,
+		/**
+		 * 不填写的话取fontColor
+		 */
+		iconColor: string,
+		/**
+		 * 不填写的话取fontSize
+		 */
+		iconSize: string,
+		/**
+		 * 通知文本。
+		 */
+		label: string[]
+	}
+
+	const props = withDefaults(defineProps<xNoticePropsType>(), {
+		speed: 50,
+		color: "#ebf4ff",
+		darkColor: "",
+		fontColor: "primary",
+		fontSize: "14",
+		icon: "megaphone-line",
+		iconColor: "",
+		iconSize: "",
+		label: ():string[] =>[] as string[]
+	})
+
+	// 响应式数据
+	const realWidth = ref<number>(0)
+	const boxWidth = ref<number>(20000)
+	const parentBoxwidth = ref<number>(0)
+	const isOk = ref<boolean>(false)
+	const status = ref<string>('play')
+	const id = ref<string>("xNoticeLengWrap" + getUid())
+	const xNoticeLengBoxRef = ref<UniElement|null>(null)
+	const xNoticeLengWrapRef = ref<UniElement|null>(null)
+	const totalDur = ref<number>(0)
+	const tid = ref<number>(54)
+	const proxy = getCurrentInstance()?.proxy
+	// 计算属性
+	const _fontSize = computed((): string => {
+		let fontSize = checkIsCssUnit(props.fontSize, xConfig.unit);
+		if (xConfig.fontScale == 1) return fontSize;
+		let sizeNumber = parseInt(fontSize)
+		if (isNaN(sizeNumber)) {
+			sizeNumber = 14
+		}
+		return (sizeNumber * xConfig.fontScale).toString() + getUnit(fontSize)
+	})
+
+	const _iconSize = computed((): string => {
+		if(props.iconSize=='') return _fontSize.value;
+		return props.iconSize
+	})
+	
+	const _fontColor = computed((): string => {
+		return getDefaultColor(props.fontColor)
+	})
+	
+
+	const _iconColor = computed((): string => {
+		if(props.iconColor=='') return _fontColor.value;
+		return props.iconColor
+	})
+
+	const _bgColor = computed((): string => {
+		if (xConfig.dark == 'dark') {
+			if (props.darkColor != '') return getDefaultColor(props.darkColor)
+			let defaultObj : UTSJSONObject = getThinColorObj(setBgColorLightByDark(props.color), props.color, true).getJSON("default")!
+			return defaultObj.getString("background")!
+		}
+		return getDefaultColor(props.color)
+	})
+
+	
+	const _icon = computed((): string => {
+		return props.icon
+	})
+
+	const _label = computed((): string[] => {
+		return props.label
+	})
+
+	// 方法
+
+	function itemClick(index: number): void {
+		/**
+		 * 项目被点击
+		 * @param {number} index 项目索引
+		 */
+		emits("click", index)
+	}
+
+	function getNodes(): void {
+		if (_label.value.length == 0) return;
+		uni.createSelectorQuery().in(proxy)
+			.selectAll(".xNoticeLengText")
+			.boundingClientRect().exec((ret) => {
+				let nodeinfo = ret[0] as NodeInfo[];
+				
+				if (ret.length > 0) {
+					let arw = 0
+					for (let i = 0; i < nodeinfo.length; i++) {
+						let item = nodeinfo[i]
+						arw += item.width!;
+					}
+					let elewrap = xNoticeLengWrapRef.value
+					let boxEle = xNoticeLengBoxRef.value
+					if (elewrap == null||boxEle==null) return;
+					// let boxwidth = elewrap!.parentElement!.getBoundingClientRect().width
+					boxEle!.getBoundingClientRectAsync()!.then((rect)=>{
+						let boxwidth = rect.width
+						parentBoxwidth.value = boxwidth
+						// 如果内容宽度不超过容器，则不滚动
+						if (arw <= boxwidth) {
+							realWidth.value = arw;
+							isOk.value = true;
+							status.value = 'idle'
+							elewrap!.style.setProperty("transition-duration", '0ms')
+							elewrap!.style.setProperty("transform", `translateX(0px)`)
+							return;
+						}
+						realWidth.value = arw;
+						let pxPerSec = Math.max(10, props.speed)
+						let duration = Math.ceil((arw + boxwidth) / pxPerSec) * 1000
+						totalDur.value = duration
+						elewrap!.style.setProperty("transition-duration", `${totalDur.value}ms`)
+						elewrap!.style.setProperty("transition-delay", `1000ms`)
+						elewrap!.style.setProperty("transform", `translateX(-${arw}px)`)
+						isOk.value = true;
+						status.value = 'play'
+					})
+				}
+			})
+	}
+
+	function onEnd(): void {
+		clearTimeout(tid.value)
+		isOk.value = false;
+		let elewrap = xNoticeLengWrapRef.value
+		if (elewrap == null) return;
+		// 内容不满一屏时，不做循环滚动
+		if (status.value == 'idle') {
+			isOk.value = true;
+			return;
+		}
+		if (status.value == 'play') {
+			isOk.value = false;
+			elewrap!.style.setProperty("transition-delay", `0ms`)
+			elewrap.style.setProperty("transition-duration", "50ms")
+			elewrap.style.setProperty("transform", `translateX(${parentBoxwidth.value}px)`)
+			status.value = 'reset'
+		} else {
+			isOk.value = true;
+			if (_label.value.length == 0) return;
+			elewrap!.style.setProperty("transition-delay", `0ms`)
+			elewrap.style.setProperty("transition-duration", totalDur.value.toString() + 'ms')
+			elewrap.style.setProperty("transform", `translateX(-${realWidth.value}px)`)
+			status.value = 'play'
+		}
+	}
+	function onInit(): void {
+		// #ifdef APP
+		tid.value = setTimeout(function () {
+			getNodes();
+			// 部分机型 老旧点的要加大延长时间。
+		}, 350);
+		// #endif
+		// #ifdef WEB || MP-WEIXIN
+		getNodes();
+		// #endif
+	}
+	
+	// 监听器
+	watch((): string[] => props.label, () => {
+		nextTick(() => {
+			getNodes();
+		})
+	},{deep:true})
+
+	// 生命周期
+	onMounted(() => {
+		onInit()
+	})
+
+	onBeforeUnmount(() => {
+		clearTimeout(tid.value)
+	})
+
+	onActivated(() => {
+		// #ifdef WEB
+		isOk.value = true;
+		let elewrap = uni.getElementById(id.value) as UniElement;
+		if (elewrap == null) return;
+		if (_label.value.length == 0) return;
+		if (status.value == 'idle') {
+			// 不滚动，保持原位
+			elewrap.style.setProperty("transition-duration", '0ms')
+			elewrap.style.setProperty("transform", `translateX(0px)`)
+			return;
+		}
+		elewrap.style.setProperty("transition-duration", totalDur.value.toString() + 'ms')
+		elewrap.style.setProperty("transform", `translateX(0px)`)
+		status.value = 'play'
+		tid.value = setTimeout(function() {
+			elewrap.style.setProperty("transform", `translateX(-${realWidth.value}px)`)
+		}, 150);
+		// #endif
+	})
+
+	onDeactivated(() => {
+		// #ifdef WEB
+		clearTimeout(tid.value)
+		// #endif
+	})
+</script>
+<template>
+	<view class="xNoticeLeng" :style="{backgroundColor:_bgColor}">
+		<x-icon v-if="_icon!=''" :name="_icon" :color="_iconColor" :fontSize="_iconSize"
+			style="margin-right: 8px;"></x-icon>
+		<view class="xNoticeLengBox" id="xNoticeLengBox" ref="xNoticeLengBoxRef">
+			<view @transitionend="onEnd" :id="id" ref="xNoticeLengWrapRef" class="xNoticeLengWrap"
+				:style="{visibility:isOk?'visible':'hidden',width:(isOk?realWidth:boxWidth)+'px'}">
+				<text @click="itemClick(index)" v-for="(item,index) in _label" :key="index" class="xNoticeLengText"
+					:style="{fontSize:_fontSize,color:_fontColor}">{{item}}</text>
+			</view>
+		</view>
+	</view>
+</template>
+<style scoped>
+	.xNoticeLeng {
+		display: flex;
+		flex-wrap: nowrap;
+		flex-direction: row;
+		align-items: center;
+		padding: 0px 12px;
+		border-radius: 6px;
+	}
+
+	.xNoticeLengBox {
+		flex: 1;
+		overflow: hidden;
+
+	}
+
+	.xNoticeLengText {
+		padding: 12px 0;
+		/* #ifdef MP-WEIXIN */
+		display:inline-flex;
+		white-space:nowrap;
+		/* #endif */
+	}
+
+	.xNoticeLengWrap {
+
+		flex-direction: row;
+		flex-wrap: nowrap;
+		transition-property: transform;
+		transition-timing-function: linear;
+		transition-duration: 0ms;
+		/* #ifndef APP */
+		will-change: transform;
+		/* #endif */
+	}
+</style>

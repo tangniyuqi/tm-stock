@@ -1,0 +1,261 @@
+<script lang="ts" setup>
+	import { ref, computed, watch, onMounted, onBeforeUnmount, getCurrentInstance } from "vue"
+	import { getUid, rpx2px } from "../../core/util/xCoreUtil.uts"
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { drawQrcode } from "./drawQrcoder.uts"
+	import { XQrcoderProps } from "./interface.uts"
+	import { toPngFile } from "@/uni_modules/x-base642file-s"
+
+	/**
+	 * @name 二维码 xQrcoder
+	 * @description 本组件使用UTS原生代码绘制，性能非常高，如果你是在1.1.9之前版本请使用x-qrcoder-s原生插件获得高性能。从1.1.9版本后请
+	 * 使用组件绘制QR码来获得更高性能和更多样式配置。
+	 * @page /pages/index/qrcoder
+	 * @category 其它组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({ name: "xQrcoder" })
+
+	type xQrcoderPropsType = {
+		/** 窗口宽 */
+		width : string,
+		/** 窗口高 */
+		height : string,
+		/** 码颜色 */
+		color : string,
+		/** 码背景颜色 */
+		bgColor : string,
+		/** 码的定位点颜色，不填写和前景一致 */
+		posColor : string,
+		/** 条码内容 */
+		text : string,
+		/** 是否绘制Logo到qr上 */
+		logo : string,
+		/** Logo背景色 */
+		logoBgColor : string,
+		/** logo大小 */
+		logoSize : string,
+		/** 边距 */
+		padding : number,
+		/** 绘制样式：rect/circular/line/rectSmall/xing/vertical */
+		mode : string,
+		/** 定位位点是否使用圆角 */
+		pdRounded : boolean,
+		/** 生成wifi码 */
+		wifi : UTSJSONObject,
+	}
+
+	const props = withDefaults(defineProps<xQrcoderPropsType>(), {
+		width: '250px',
+		height: '250px',
+		color: "primary",
+		bgColor: "white",
+		posColor: "",
+		text: "https://xui.tmui.design",
+		logo: "",
+		logoBgColor: "#fff",
+		logoSize: "50px",
+		padding: 2,
+		mode: "rect",
+		pdRounded: false,
+		wifi: () : UTSJSONObject => ({} as UTSJSONObject),
+	})
+
+	const proxy = getCurrentInstance()?.proxy
+	const instans = getCurrentInstance()
+
+	const id2 = ("xQrcode1" + getUid()) as string
+	let tid2 = 0
+	const canvasRef = ref<UniCanvasElement | null>(null)
+	const xQrcodeEleRef = ref<UniElement | null>(null)
+
+	const _width = computed(() : number => {
+		let p = parseInt(props.width);
+		if (props.width.lastIndexOf('rpx') > -1 || props.width.lastIndexOf('px') == -1) {
+			p = rpx2px(p);
+		}
+		return Math.floor(p)
+	})
+
+	const _height = computed(() : number => {
+		let p = parseInt(props.height);
+		if (props.height.lastIndexOf('rpx') > -1 || props.height.lastIndexOf('px') == -1) {
+			p = rpx2px(p);
+		}
+		return Math.floor(p)
+	})
+
+	const _color = computed(() : string => getDefaultColor(props.color))
+	const _bgColor = computed(() : string => getDefaultColor(props.bgColor))
+
+	const _posColor = computed(() : string => {
+		if (props.posColor == '') return _color.value
+		return getDefaultColor(props.posColor)
+	})
+
+	const _text = computed(() : string => {
+		let wifisize = props.wifi.toMap().size
+		if (wifisize > 0) {
+			return `WIFI:T:${props.wifi['auth'] ?? ''};S:${props.wifi['ssid'] ?? ''};P:${props.wifi['password'] ?? ''};H:${props.wifi['hidden'] ?? 'true'};`
+		}
+		return props.text;
+	})
+
+	const _logoSize = computed(() : number => {
+		let p = parseInt(props.logoSize);
+		if (props.logoSize.lastIndexOf('rpx') > -1 || props.logoSize.lastIndexOf('px') == -1) {
+			p = rpx2px(p);
+		}
+		return Math.floor(p)
+	})
+
+	function drawer() {
+		// #ifdef APP || MP
+		uni.createCanvasContextAsync({
+			id: id2,
+			component: instans?.proxy,
+			success(context) {
+				let ctx = context.getContext('2d')!;
+				let canvas = ctx.canvas
+				if (ctx == null) return;
+				let ratio = uni.getWindowInfo()?.pixelRatio ?? 1
+				ctx!.clearRect(0, 0, canvas.offsetWidth, canvas.offsetHeight)
+				canvas.width = canvas.offsetWidth * ratio
+				canvas.height = canvas.offsetHeight * ratio
+				// #ifdef APP
+				ctx.reset();
+				// #endif
+				ctx.scale(ratio, ratio);
+				let img = null as null | any
+				// #ifdef MP-WEIXIN||APP-HARMONY
+				img = context.createImage()
+				// #endif
+				drawQrcode({
+					ctx: ctx,
+					text: _text.value,
+					size: _width.value,
+					foreground: _color.value,
+					background: _bgColor.value,
+					padding: props.padding,
+					logo: props.logo,
+					logoSize: _logoSize.value,
+					logoBgColor: props.logoBgColor,
+					ecc: "H",
+					mode: props.mode,
+					pdColor: _posColor.value,
+					pdRounded: props.pdRounded,
+				} as XQrcoderProps, img)
+			},
+			fail() {
+				uni.showToast({ title: '错误', icon: 'none' })
+			}
+		})
+		// #endif
+
+		// #ifdef WEB
+		let canvas = canvasRef.value as UniCanvasElement
+		if (canvas == null) return;
+		let ratio = window.devicePixelRatio;
+		canvas.width = canvas.offsetWidth * ratio
+		canvas.height = canvas.offsetHeight * ratio
+		let ctx = canvas.getContext('2d')!
+		ctx.scale(ratio, ratio);
+		drawQrcode({
+			ctx: ctx,
+			text: _text.value,
+			size: _width.value,
+			foreground: _color.value,
+			background: _bgColor.value,
+			padding: props.padding,
+			logoBgColor: props.logoBgColor,
+			logo: props.logo,
+			logoSize: _logoSize.value,
+			ecc: "H",
+			mode: props.mode,
+			pdColor: _posColor.value,
+			pdRounded: props.pdRounded
+		} as XQrcoderProps)
+		// #endif
+	}
+
+	/**
+	 * 返回一个上传图片的临时文件地址
+	 */
+	function getQrImg(call : (imgstr : string) => void) {
+		// #ifdef APP
+		let ele = xQrcodeEleRef.value as UniElement;
+		if (ele == null) { call(''); return; }
+		ele.takeSnapshot({
+			success(res) {
+				call(res.tempFilePath)
+			},
+			fail() {
+				call('')
+			}
+		})
+		// #endif
+
+		// #ifdef WEB
+		let ele2 = canvasRef.value as HTMLCanvasElement;
+		if (ele2 == null) { call(''); return; }
+		toPngFile(ele2.toDataURL('image/png', 1)).then(furl => call(furl)).catch(call(''))
+		// #endif
+		// #ifdef MP-WEIXIN
+		uni.createCanvasContextAsync({
+			id: id2,
+			component: instans,
+			success(context) {
+				let ctx = context.getContext('2d')!;
+				let canvas = ctx.canvas
+				var imageData = canvas.toDataURL('image/png', 1);
+				toPngFile(imageData).then(furl => call(furl)).catch(call(''))
+			},
+			fail(err) {
+				console.error(err)
+				call('')
+			}
+		})
+		// #endif
+	}
+
+	watch([
+		() : string => props.text,
+		() : any => props.wifi,
+		() : string => props.mode,
+		() : string => props.logo,
+		() : string => props.color,
+		() : string => props.bgColor,
+		() : string => props.logoSize,
+		() : number => props.padding,
+		() : string => props.width,
+		() : string => props.height,
+	], () => {
+		drawer();
+	}, { deep: true })
+
+	onMounted(() => {
+		clearTimeout(tid2)
+		tid2 = setTimeout(function () {
+			drawer()
+		}, 120);
+	})
+
+	onBeforeUnmount(() => {
+		clearTimeout(tid2)
+	})
+
+	defineExpose({
+		/** 返回二维码图片路径 **/
+		getQrImg,
+	})
+</script>
+<template>
+	<view ref="xQrcodeEleRef" :style="{width:_width+'px',height:_height+'px'}">
+		<canvas ref="canvasRef" :canvas-id="id2" type="2d" :id="id2" :style="{width:_width+'px',height:_height+'px'}"></canvas>
+	</view>
+</template>
+<style scoped>
+</style>

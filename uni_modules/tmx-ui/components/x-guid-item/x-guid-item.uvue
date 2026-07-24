@@ -1,0 +1,361 @@
+<template>
+	<!-- _shouldRender = 当前项 或 预备切换项；预备切换时 opacity 为 0，在旧项下方"静默测量" -->
+	<view class="xGuidItem"
+	v-if="_showRender&&_shouldRender"
+	:style="{ opacity: isActive ? '1' : '0.2' }">
+
+		
+		<!-- 内容容器 -->
+		<view ref="xGuidItemCnRef" class="xGuidItemCn"
+		:style="{
+			left:`${contentBounds.left}px`,
+			top:`${contentBounds.top}px`,
+			opacity:_ready?'1':'0'
+		}">
+			<view class="xGuidItemContent">
+				<slot name="title">
+					<view>
+						<x-text color="#fff" font-size="18">{{props.title}}</x-text>
+						<x-text color="#fff" font-size="14">{{props.content}}</x-text>
+					</view>
+				</slot>
+			</view>
+			<view class="xGuidItemFooter">
+				<view class="xGuidItemFooterActionsLeft">
+					<x-text color="primary" style="padding-right: 8px;" font-size="13" @click="onSkip">跳过</x-text>
+					<x-text style="opacity: 0.6;" color="#fff" font-size="12">{{_currentStep}}/{{_totalSteps}}</x-text>
+				</view>
+				<view class="xGuidItemFooterActions">
+					<x-button v-if="!_isFirst" skin="thin" @click="onPrev">上一步</x-button>
+					<x-button v-if="!_isLast" style="margin-left: 5px;" @click="onNext">下一步</x-button>
+					<x-button v-if="_isLast" style="margin-left: 5px;" @click="onFinish">完成</x-button>
+				</view>
+			</view>
+		</view>
+	</view>
+</template>
+
+<script setup lang="ts">
+	import { computed, inject,ComputedRef } from "vue"
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	import {XGuidItems,MaskIitemStyle} from "../x-guid/interface.uts"
+	
+	/**
+	 * @name 引导子组件 xGuidItem
+	 * @description 内部只可放置在x-guid内。
+	 * @page /pages/daohang/guid
+	 * @category 导航组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.87+ | 1.1.21 |
+	 */
+	defineOptions({name:"xGuidItem"})
+	
+	type xGuidItemPropsType = {
+		/**
+		 * 必填；唯一标识;且不可以动态变更;可以通过重新渲染变更id;这个是目标元素上的id,
+		 * 且是唯一，必须在页面中，不可以封装在子组件内，也不可以隐藏中的元素id，
+		 * 必须是明确且可见的元素id 
+		 */
+		targetId:string,
+		/** 必填；顺序索引，一般循环的index即可。 */
+		order:number,
+		/** 标题 */
+		title:string,
+		/** 内容描述 */
+		content:string
+	}
+
+	const xGuidItemCnRef  =ref<UniElement|null>(null);
+	const _showRender = ref(false);
+	const props = withDefaults(defineProps<xGuidItemPropsType>(),{
+		targetId:"",
+		order:0,
+		title:"",
+		content:""
+	})
+	
+	const _ids = inject<ComputedRef<XGuidItems[]>>('xGuidIds',computed(():XGuidItems[] => [] as XGuidItems[]))
+	const _currentId = inject<ComputedRef<string>>('xGuidCurrentId',computed(():string => ''))
+	const addId = inject("addId",(id:string,order:number)=>{})
+	const removeId = inject("removeId",(id:string)=>{})
+	const setCurrentId = inject("setCurrentId",(id:string)=>{})
+	const setMaskList = inject("setMaskList",(listMst:MaskIitemStyle[])=>{})
+	const complete = inject("complete",()=>{})
+	
+	const borderWidth = ref(0)
+	let tid = 0
+	const isActive = computed(():boolean => {
+		return _currentId.value == props.targetId;
+	})
+
+	// 是否需要渲染 DOM（当前项或预备项都需要）
+	const _shouldRender = computed(():boolean => isActive.value)
+	// maskList
+	const maskList = ref<MaskIitemStyle[]>([])
+	// 内容位置，要贴在焦点边上。
+	const contentBounds = ref<MaskIitemStyle>({
+		width:0,
+		height:0,
+		left:0,
+		top:0
+	} as MaskIitemStyle)
+	const _ready = ref<boolean>(false)
+	
+	// 按 order 升序排序的所有步骤列表
+	const _sortedIds = computed(():XGuidItems[] => {
+		const list = _ids.value.slice()
+		list.sort((a:XGuidItems,b:XGuidItems):number => a.order - b.order)
+		return list
+	})
+	// 当前步骤在排序后列表中的索引（0 基；未找到时为 -1）
+	const _currentIndex = computed(():number => {
+		return _sortedIds.value.findIndex((el:XGuidItems,i:number):boolean => el.id == props.targetId)
+	})
+	// 总步数
+	const _totalSteps = computed(():number => _sortedIds.value.length)
+	// 当前步（1 基，用于显示）
+	const _currentStep = computed(():number => _currentIndex.value + 1)
+	// 是否第一步：未找到（-1）或索引为 0
+	const _isFirst = computed(():boolean => _currentIndex.value <= 0)
+	// 是否最后一步：索引等于总数-1（且至少有一步）
+	const _isLast = computed(():boolean => {
+		const total = _totalSteps.value
+		return total > 0 && _currentIndex.value == total - 1
+	})
+	
+	// 切换到指定 id；空字符串表示关闭引导
+	const _setCurrentId = (id:string) => {
+		setCurrentId(id)
+	}
+	const onSkip = () => {
+		_setCurrentId('')
+	}
+	const onPrev = () => {
+		if (_isFirst.value) return
+		const prev = _sortedIds.value[_currentIndex.value - 1]
+		_setCurrentId(prev.id)
+	}
+	const onNext = () => {
+		if (_isLast.value) return
+		const next = _sortedIds.value[_currentIndex.value + 1]
+		_setCurrentId(next.id)
+	}
+	const onFinish = () => {
+		_setCurrentId('')
+		complete()
+	}
+	
+	// 计算四向遮罩：分别位于目标元素的上/下/左/右，形成"挖洞"效果
+	const calcMasks = (targetRect:DOMRect, sw:number, sh:number):MaskIitemStyle[] => {
+		let windowtop = uni.getWindowInfo().windowTop
+	
+		// #ifndef WEB
+		windowtop = 0
+		// #endif
+		const tLeft = targetRect.left
+		const tTop = targetRect.top - windowtop
+		const tW = targetRect.width
+		const tH = targetRect.height
+		const tRight = tLeft + tW
+		const tBottom = tTop + tH
+		const maskTop:MaskIitemStyle = {
+			width:sw,
+			height:Math.max(0,tTop),
+			left:0,
+			top:0
+		}
+		const maskBottom:MaskIitemStyle = {
+			width:sw,
+			height:Math.max(0,sh-tBottom),
+			left:0,
+			top:tBottom
+		}
+		const maskLeft:MaskIitemStyle = {
+			width:Math.max(0,tLeft),
+			height:tH,
+			left:0,
+			top:tTop
+		}
+		const maskRight:MaskIitemStyle = {
+			width:Math.max(0,sw-tRight),
+			height:tH,
+			left:tRight,
+			top:tTop
+		}
+		return [maskTop,maskBottom,maskLeft,maskRight] as MaskIitemStyle[]
+	}
+	
+	// 计算内容提示框的位置：优先显示在目标下方，空间不足则显示在上方
+	// 水平方向：使内容框中心与目标中心对齐，并限制在屏幕内
+	const calcContentBounds = (targetRect:DOMRect, contentRect:DOMRect, sw:number, sh:number):MaskIitemStyle => {
+		let windowtop = uni.getWindowInfo().windowTop
+		// #ifndef WEB
+		windowtop = 0
+		// #endif
+		const gap = 12
+		const edge = 12
+		const tLeft = targetRect.left
+		const tTop = targetRect.top - windowtop
+		const tW = targetRect.width
+		const tH = targetRect.height
+		const tBottom = tTop + tH
+		const cW = contentRect.width
+		const cH = contentRect.height
+		
+		// 垂直方向：优先下方，不够则上方，都不够则垂直居中
+		let cTop = tBottom + gap
+		if (cTop + cH > sh - edge) {
+			const above = tTop - gap - cH
+			if (above >= edge) {
+				cTop = above
+			} else {
+				cTop = Math.max(edge, (sh - cH) / 2)
+			}
+		}
+		
+		// 水平方向：与目标中心对齐，并限制在屏幕边界内
+		let cLeft = tLeft + tW / 2 - cW / 2
+		if (cLeft < edge) cLeft = edge
+		if (cLeft + cW > sw - edge) cLeft = sw - edge - cW
+		if (cLeft < edge) cLeft = edge
+		
+		return {
+			width:cW,
+			height:cH,
+			left:cLeft,
+			top:cTop
+		} as MaskIitemStyle
+	}
+	
+
+	const getDomBounds = ():Promise<any|null> => {
+		
+		return new Promise<any|null>((res)=>{
+			_showRender.value = true;
+			clearTimeout(tid)
+			_ready.value = false
+			tid = setTimeout(function() {
+				const ele = uni.getElementById(`${props.targetId}`);
+				if(ele==null){
+					res(null)
+					return
+				}
+				// 聚焦的目标元素Bounds
+				let el = ele as UniElement;
+				
+				try{
+					// 聚焦处的节点坐标宽和高
+					el.getBoundingClientRectAsync()?.then((targetRectFirst:DOMRect)=>{
+						let windowtop =  Math.max(0,targetRectFirst.top)
+						// #ifdef WEB
+						windowtop = targetRectFirst.top
+						// #endif
+						tid = setTimeout(function() {
+							el.getBoundingClientRectAsync()?.then((targetRect:DOMRect)=>{
+								// 获取内容区域的坐标和宽度高度。
+								xGuidItemCnRef.value?.getBoundingClientRectAsync()?.then((contentRect:DOMRect)=>{
+									const sys = uni.getWindowInfo()
+									const sw = sys.windowWidth
+									const sh = sys.windowHeight
+									// 计算四个庶罩的位置大小。maskList[]
+									maskList.value = calcMasks(targetRect,sw,sh)
+									setMaskList(maskList.value)
+									// 计算内容的坐标和显示位置。contentBounds
+									contentBounds.value = calcContentBounds(targetRect,contentRect,sw,sh)
+									_ready.value = true
+									res(null)
+								})
+								.catch(()=>{
+									res(null)
+								})
+							}).catch(()=>{
+									res(null)
+								})
+						}, 100);
+						
+						
+						
+					}).catch(()=>{
+						res(null)
+					})
+				}catch(e){
+					console.error('el Error',e)
+				}
+			}, 100);
+		})
+	}
+	
+	const pushAddParent = ()=>{
+		addId(props.targetId,props.order)
+	
+	}
+	const romveSelf = ()=>{
+		removeId(props.targetId)
+	}
+	watch([():any=>props.order,():any=>props.targetId],()=>{
+		pushAddParent()
+	})
+	// _shouldRender 从 false→true 时启动测量；从 true→false 时清理，避免切走后旧计时器还在跑
+	watch(():boolean => _shouldRender.value,(val:boolean)=>{
+		if(!val) return;
+		_showRender.value = false
+		getDomBounds().then(()=>{})
+		
+	})
+	onMounted(()=>{
+		const sys = uni.getWindowInfo()
+		borderWidth.value = Math.max(sys.windowWidth,sys.windowHeight)
+		pushAddParent()
+		
+	})
+	onBeforeUnmount(()=>{
+		clearTimeout(tid)
+		romveSelf()
+	})
+</script>
+
+<style scoped>
+.xGuidItem{
+	position: fixed;
+	z-index: 888;
+	left: 0;
+	width: 100%;
+	/* #ifdef WEB */
+	top: var(--uni-safe-area-inset-top);
+	height: 100%;
+	/* #endif */
+	/* #ifndef WEB */
+	top: 0;
+	height: 100%;
+	/* #endif */
+}
+.xGuidItemCn{
+	position: absolute;
+	padding:16px 24px;
+	background-color: #000;
+	border-radius: 12px;
+	max-width: 350px;
+}
+
+.xGuidItemFooter{
+	margin-top: 12px;
+	display: flex;
+	flex-direction: row;
+	justify-content: space-between;
+	align-items: center;
+}
+.xGuidItemFooterActionsLeft{
+	display: flex;
+	flex-direction: row;
+	justify-content: flex-start;
+}
+.xGuidItemFooterActions{
+	margin-left: 20px;
+	display: flex;
+	flex-direction: row;
+	justify-content: flex-end;
+}
+</style>

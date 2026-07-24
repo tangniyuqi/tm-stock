@@ -1,0 +1,133 @@
+/**
+ * APP 端函数不能用真实 lambda，必须写成字符串值，编码器会自动识别并以原始 JS 输出。
+ * WEB 端 typeof == 'function' 时会调用 toString() 取源码，可以用真实函数。
+ *
+ * 函数字符串写法示例（单引号无需手动转义，编码器自动处理）：
+ *   formatter: "function(params){return params.name+'<b>'+params.value+'</b>';}"
+ *   formatter: "(params)=>{return params.name;}"
+ *   formatter: "params=>params.name+' items'"
+ *
+ * 如果字符串内容可能被误判为函数（含 => 但不是函数），可加 __STR__ 前缀强制按普通字符串处理。
+ *
+ * 跨平台兼容（通过 #ifdef 条件编译）：
+ *   - APP: 函数体中的 ' 转义为 \'，确保 evalJS 单引号包裹传输时不截断；evalJS 解码后 \' → '，new Function 正常解析
+ *   - WEB: 函数体原样输出（\' 在 new Function 源码上下文中不合法），直接通过 iframe 引用传递无需转义
+ *   - 字符串值（"..."内）：两端统一转义 ' 为 \'，因为 \' 在双引号内是合法的 JS 转义
+ */
+
+function escapeStr(s : string) : string {
+	let result = ''
+	for (let i = 0; i < s.length; i++) {
+		let c = s.charAt(i)
+		if (c == '\\') {
+			result += '\\\\'
+		} else if (c == '"') {
+			result += '\\"'
+		} else if (c == "'") {
+			result += "\\'"
+		} else if (c == '\n') {
+			result += '\\n'
+		} else if (c == '\r') {
+			result += '\\r'
+		} else if (c == '\t') {
+			result += '\\t'
+		} else {
+			result += c
+		}
+	}
+	return result
+}
+
+// 转义函数体中的单引号，保留已有的转义序列不做二次转义
+function escapeFuncBody(s : string) : string {
+	let result = ''
+	let i = 0
+	while (i < s.length) {
+		let c = s.charAt(i)
+		if (c == '\\') {
+			result += c
+			i++
+			if (i < s.length) {
+				result += s.charAt(i)
+			}
+		} else if (c == "'") {
+			result += "\\'"
+		} else {
+			result += c
+		}
+		i++
+	}
+	return result
+}
+
+function isFuncLike(s : string) : boolean {
+	let t = s.trim()
+	if (t.startsWith('__STR__')) return false
+	if (t.startsWith('function')) return true
+	let arrowIdx = t.indexOf('=>')
+	if (arrowIdx > 0) {
+		let afterArrow = t.substring(arrowIdx + 2).trim()
+		if (afterArrow.startsWith('{') || afterArrow.startsWith('(') ||
+			afterArrow.startsWith('[') || afterArrow.indexOf('.') > -1 ||
+			afterArrow.indexOf('+') > -1 || afterArrow.indexOf('return') > -1) {
+			return true
+		}
+	}
+	return false
+}
+
+function serializeValue(val : any | null) : string {
+	if (val == null) return 'null'
+	let t = typeof val
+	if (t == 'number') return (val as number).toString()
+	if (t == 'boolean') {
+		if (val as boolean) return 'true'
+		return 'false'
+	}
+	if (t == 'function') {
+		// #ifdef APP
+		return escapeFuncBody(val!.toString())
+		// #endif
+		// #ifndef APP
+		return val!.toString()
+		// #endif
+	}
+	if (t == 'string') {
+		let sv = val as string
+		if (sv.trim().startsWith('__STR__')) {
+			return '"' + escapeStr(sv.trim().substring(7)) + '"'
+		}
+		if (isFuncLike(sv)) {
+			// #ifdef APP
+			return escapeFuncBody(sv)
+			// #endif
+			// #ifndef APP
+			return sv
+			// #endif
+		}
+		return '"' + escapeStr(sv) + '"'
+	}
+	if (Array.isArray(val)) {
+		let arr = val as Array<any | null>
+		let parts : string[] = []
+		for (let i = 0; i < arr.length; i++) {
+			parts.push(serializeValue(arr[i]))
+		}
+		return '[' + parts.join(',') + ']'
+	}
+	if (t == 'object') {
+		let obj = val as UTSJSONObject
+		let entries = obj.toMap()
+		let parts : string[] = []
+		entries.forEach((v : any | null, k : string) => {
+			parts.push(k + ':' + serializeValue(v))
+		})
+		return '{' + parts.join(',') + '}'
+	}
+	return '"' + escapeStr(val!.toString()) + '"'
+}
+
+export function optsJsonToStr(ops : UTSJSONObject | string) : string {
+	if (typeof ops == 'string') return ops as string
+	return serializeValue(ops)
+}

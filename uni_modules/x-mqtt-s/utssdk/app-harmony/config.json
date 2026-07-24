@@ -1,0 +1,5 @@
+{
+	"dependencies": {
+		"x_mqtt_s": "./lib/x_mqtt_s.har"
+	}
+}

@@ -1,0 +1,407 @@
+﻿<script lang="ts" setup>
+	import { PropType } from "vue"
+	import { getUid, rpx2px } from "../../core/util/xCoreUtil.uts"
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { checkIsCssUnit } from "../../core/util/xCoreUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	import { SwiperManger } from "./swiperManger";
+	import { SwiperItem } from "./animationEffects.uts";
+	
+	/**
+	 * @name 动效轮播 xSwiperC
+	 * @description 此轮播专注于动效效果，不支持子组件，与x-swiper不同。丰富的插件数据及丰富的动效及缓动函数均可自定义，动画相对平缓流畅，动画酷炫。
+	 * @page /pages/zhanshi/swiper-c
+	 * @category 展示组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.81+ | 1.1.19 |
+	 */
+	defineOptions({ name: 'xSwiperC' })
+	
+	type xSwiperProps = {
+		/** 轮播的高 */
+		height:string|number,
+		/** 缓动动画函数 */
+		easing:'tmuiAni'|'linear'|'easeInQuad'|'easeInOutQuad'|'easeInCubic'|'easeOutCubic'|'easeInOutCubic'|'easeInElastic'|'easeOutElastic'|'easeInOutElastic',
+		/** 动画效果，如果你是竖向播放设置了vertical，你要根据下面的效果来配合，比如你向上下拉竖的时候配合SimpleSlideYEffect等效果就体验好 */
+		effect:'ScaleSlideEffect'|'SimpleSlideEffect'|'SimpleSlideYEffect'|'FadeEffect'|'StretchYEffect'|'StretchXEffect'|'PushPullEffect'|'ZoomFadeEffect'|'FlipYEffect'|'FlipXEffect',
+		/** 是否自动播放 */
+		autoPlay: boolean,
+		/** 动画播放时间 */
+		duration: number,
+		/** 间隔时间 */
+		interval: number,
+		/** 是否首尾衔接 */
+		circular: boolean,
+		/** 是否竖向播放,需要配合动效effect达到视觉上的上下效果 */
+		vertical: boolean,
+		/** 图片填充模式：'fill'=拉伸填充, 'cover'=裁剪居中显示 */
+		imageFit: 'fill' | 'cover',
+		/** 滑动切换的最小距离阈值（像素） */
+		swipeThreshold: number,
+		/** 当前索引值。 */
+		current: number,
+		/** 当前项目数据,如果你想要轮播图片，里面必须要有image字段，如果想要纯背景色或者带背景色必须要有color字段，其它值可以放在data内。 */
+		list:UTSJSONObject[],
+		/** dot默认颜色 */
+		dotColor:string,
+		/** dot激活项的颜色,空值时取全局值。 */
+		dotActiveColor:string,
+		/** px单位，dot大小。 */
+		dotSize:number,
+		/** px单位距离底部距离 */
+		dotBottom:number
+	}
+	const props = withDefaults(defineProps<xSwiperProps>(), {
+		height: 200,
+		easing:'easeOutQuad',
+		effect:'StretchXEffect',
+		autoPlay:true,
+		duration:600,
+		interval:3500,
+		circular:true,
+		vertical:false,
+		imageFit:'cover',
+		swipeThreshold:60,
+		current:0,
+		list:():UTSJSONObject[] => [] as UTSJSONObject[],
+		dotColor:'rgba(255,255,255,0.5)',
+		dotActiveColor:'',
+		dotSize:8,
+		dotBottom:16
+	})
+	const emits = defineEmits([
+		/**
+		 * 切换时触发。
+		 * @param {number} current - 当前项
+		 */
+		'change',
+		/**
+		 * 组件被点击时触发。
+		 * @param {number} current - 当前项
+		 */
+		'click'
+	])
+	defineSlots<{
+		dot(props:{
+			progress: number,
+			count: number,
+			current: number,
+			totalProgress: number
+		}):any,
+		default(props:{
+			progress: number,
+			count: number,
+			current: number,
+			totalProgress: number
+		}):any
+	}>()
+	
+
+	
+	const _height = computed(():string => {
+		return checkIsCssUnit(props.height,xConfig.unit)
+	})
+	const _dotColor = computed(():string => getDefaultColor(props.dotColor))
+	const _dotActiveColor = computed(():string => getDefaultColor(props.dotActiveColor==''?xConfig.color:props.dotActiveColor))
+	const _current = ref(props.current)
+	const _progress = ref(1)
+	const _totalProgress = ref(0)
+	const xSwiperCCanvasRef = ref<UniCanvasElement|null>(null)
+	const xSwiperCRef = ref<UniElement|null>(null)
+	const canvsId =  'xSwiperC-'+Math.random().toString(16).substring(4)
+	const proxy = getCurrentInstance()?.proxy;
+	const swiper = new SwiperManger()
+	const tid = ref(512)
+	const resizeObserver = ref<UniResizeObserver|null>(null)
+	const isMobile = ref(true)
+	const _list = computed(():UTSJSONObject[] => props.list)
+	const _totalCount = computed(():number => props.list.length)
+	function resetSwiperConfig(){
+		swiper.autoPlay = props.autoPlay;
+		swiper.transitionDuration = props.duration;
+		swiper.autoPlayInterval = props.interval;
+		swiper.imageFit = props.imageFit;
+		swiper.setEasing(props.easing)
+		swiper.setEffect(props.effect)
+		swiper.circular = props.circular;
+		swiper.vertical = props.vertical;
+		swiper.swipeThreshold = props.swipeThreshold;
+		swiper.switchToIndex(props.current);
+		_totalProgress.value = swiper.getItemCount()> 0 ? props.current / (swiper.getItemCount()-1): 0
+		swiper.setChange((current:number,progress:number,totalProgress) => {
+			_current.value = current;
+			_progress.value = progress;
+			_totalProgress.value = totalProgress;
+			emits('change',current)
+		})
+		swiper.setProcess((_a:number,progress:number,_b) => {
+			_progress.value = progress;
+		})
+	}
+	function getCanvas(){
+		uni.createCanvasContextAsync({
+		  id: canvsId,
+		  component: proxy,
+		  fail(er){
+			console.error('TMUI SwipertC Error:',er)
+		  },
+		  success(context : CanvasContext){
+			  swiper.setsCanvas(context)
+			  xSwiperCCanvasRef.value?.getBoundingClientRectAsync()
+			  ?.then((dorect:DOMRect)=>{
+				  swiper.setDomRect(dorect)
+				 
+				  let items:SwiperItem[] = [];
+				  props.list.forEach((el:UTSJSONObject)=>{
+					  items.push({
+						  color:el.getString('color')??'rgba(0,0,0,0)',
+						  data:el.getAny('data'),
+						  image:el.getString('image')
+					  } as SwiperItem)
+				  })
+				   resetSwiperConfig()
+				  swiper.setItems(items);
+				  swiper.start();
+			  })
+		  }
+		})
+	}
+	function changeCanvas(){
+		xSwiperCCanvasRef.value?.getBoundingClientRectAsync()
+		?.then((dorect:DOMRect)=>{
+		  swiper.setDomRect(dorect)
+		})
+	}
+	
+	// #ifdef WEB
+	function getIsMobile() {
+	    const userAgent = navigator.userAgent.toLowerCase();
+	    const mobileKeywords = [
+	        "android", "iphone", "ipad", "ipod", "blackberry", "windows phone", "opera mini", "mobile"
+	    ];
+	    return mobileKeywords.some(keyword => userAgent.includes(keyword));
+	}
+	// #endif
+	
+	function createObrResize(){
+		if (resizeObserver.value == null) {
+			resizeObserver.value = new UniResizeObserver((entries : Array<UniResizeObserverEntry>) => {
+			  entries.forEach(entry => {
+				if (entry.target == xSwiperCRef.value) {
+					// #ifdef WEB
+					isMobile.value = getIsMobile()
+					// #endif
+					
+					changeCanvas()
+				}
+			  })
+			})
+			if(xSwiperCRef.value!=null){
+				resizeObserver.value!.observe(xSwiperCRef.value!)
+			}
+		}
+			
+	}
+	let x = 0;
+	let y = 0;
+	function mStart(evt:UniTouchEvent){
+		if(!isMobile.value) return;
+		x = evt.changedTouches[0].clientX
+		y = evt.changedTouches[0].clientY
+		swiper.onTouchStart(evt)
+	}
+	function mMove(evt:UniTouchEvent){
+		if(!isMobile.value) return;
+		swiper.onTouchMove(evt)
+	}
+	function mEnd(evt:UniTouchEvent){
+		if(!isMobile.value) return;
+		const diffx = Math.abs(evt.changedTouches[0].clientX - x)
+		const diffy = Math.abs(evt.changedTouches[0].clientY - y)
+		if(diffx == diffy && diffx<1){
+			emits('click',_current)
+		}
+		swiper.onTouchEnd(evt)
+	}
+	
+	function pmStart(evt:UniPointerEvent){
+		if(isMobile.value) return;
+		x = evt.clientX
+		y = evt.clientY
+		swiper.onTouchStart(evt)
+	}
+	function pmMove(evt:UniPointerEvent){
+		if(isMobile.value) return;
+		swiper.onTouchMove(evt)
+	}
+	function pmEnd(evt:UniPointerEvent){
+		if(isMobile.value) return;
+		
+		const diffx = Math.abs(evt.clientX - x)
+		const diffy = Math.abs(evt.clientY - y)
+		if(diffx == diffy && diffx<1){
+			emits('click',_current.value)
+		}
+		swiper.onTouchEnd(evt)
+	}
+	
+	watch([
+		():any=>props.autoPlay,
+		():any=>props.duration,
+		():any=>props.interval,
+		():any=>props.imageFit,
+		():any=>props.easing,
+		():any=>props.effect,
+		():any=>props.circular,
+		():any=>props.vertical,
+		():any=>props.swipeThreshold,
+		():any=>props.current,
+	],()=>{
+		resetSwiperConfig()
+	})
+	watch(():any=>props.list,()=>{
+		let items:SwiperItem[] = [];
+		props.list.forEach((el:UTSJSONObject)=>{
+		  items.push({
+			  color:el.getString('color')??'rgba(0,0,0,0)',
+			  data:el.getAny('data'),
+			  image:el.getString('image')
+		  } as SwiperItem)
+		})
+		swiper.setItems(items);
+		// swiper.stop()
+		// swiper.start()
+		_totalProgress.value = swiper.getItemCount()> 0 ? props.current / (swiper.getItemCount()-1): 0;
+		_progress.value = 1;
+		_current.value = swiper.getCurrentIndex()
+		
+	},{deep:true})
+	watch(():any => props.current,()=>{
+		swiper.switchToIndex(props.current);
+	})
+	onMounted(()=>{
+		clearTimeout(tid.value)
+		tid.value = setTimeout(function() {
+			// #ifdef MP
+			getCanvas()
+			// #endif
+			// #ifndef MP
+			getCanvas()
+			createObrResize()
+			// #endif
+		}, 250);
+	})
+	onBeforeUnmount(()=>{
+		clearTimeout(tid.value)
+		swiper.destory()
+		if (resizeObserver.value != null && xSwiperCRef.value!=null) {
+			resizeObserver.value.unobserve(xSwiperCRef.value!)
+			resizeObserver.value = null;
+		}
+	})
+	
+	defineExpose({
+		/** 上一项 */
+		prev:()=>{
+			swiper.prev()
+		},
+		/** 下一项 */
+		next:()=>{
+			swiper.next()
+		},
+		/** 播放到指定项 */
+		switchToIndex:(index:number)=>{
+			swiper.switchToIndex(index)
+		},
+		/** 开始自动播放 */
+		start:()=>{
+			swiper.start()
+		},
+		/** 停止自动播放,并将进度，索引等重置为起始位置 */
+		stop:()=>{
+			swiper.stop()
+		},
+		/** 暂停播放 */
+		pause:()=>{
+			swiper.pause()
+		},
+		/** 恢复上一次暂停位置处，并继续播放 */
+		resume:()=>{
+			swiper.resume()
+		}
+	})
+</script>
+<template>
+	<view ref="xSwiperCRef" class="xSwiperC" :style="{height:_height}"
+	
+	@touchstart="mStart"
+	@touchmove="mMove"
+	@touchend="mEnd"
+	@touchcancel="mEnd"
+	
+	
+	@mousedown="pmStart"
+	@mousemove="pmMove"
+	@mouseup="pmEnd"
+	@mouseleave="pmEnd"
+	
+	>
+		<canvas ref="xSwiperCCanvasRef" :style="{height:_height}" class="xSwiperCCanvasDom" :id="canvsId" :canvas-id="canvsId"></canvas>
+		<view class="xSwiperCdefault">
+			<slot name="default" :progress="_progress" :totalProgress="_totalProgress" :count="_totalCount" :current="_current">
+			</slot>
+		</view>
+		<slot name="dot" :progress="_progress" :totalProgress="_totalProgress" :count="_totalCount" :current="_current">
+			<view class="xSwiperCDot" :style="{bottom:`${props.dotBottom}px`,left:`0px`}">
+				<view class="xSwiperCDotDotItem" 
+				:style="{
+					width:_current == index ?`${dotSize*2}px`:`${dotSize}px`,
+					height:`${dotSize}px`,
+					borderRadius:`${dotSize}px`,
+					backgroundColor:_current == index ? _dotActiveColor:_dotColor
+				}"
+				:class="[{'xSwiperCDotDotItemOn':_current == index}]"
+				v-for="(item,index) in _list" :key="index"></view>
+			</view>
+		</slot>
+		
+	</view>
+	
+</template>
+<style scoped>
+	.xSwiperC{
+		position: relative;
+	}
+	.xSwiperCdefault{
+		position: absolute;
+		width: 100%;
+		height: 100%;
+	}
+	.xSwiperCDot{
+		position: absolute;
+		pointer-events: none;
+		width: 100%;
+		/* bottom: 24px; */
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+	}
+	.xSwiperCDotDotItem{
+		/* width: 8px;
+		height: 8px; */
+		/* border-radius: 8px; */
+		/* background-color: rgba(255, 255, 255, 0.5); */
+		margin: 0 3px;
+		transition-duration: 400ms;
+		transition-property: width,background-color;
+		transition-timing-function: linear;
+	}
+	.xSwiperCDotDotItemOn{
+		/* background-color: rgba(255, 0, 0, 1); */
+	}
+	.xSwiperCCanvasDom{
+		width:100%;
+	}
+</style>

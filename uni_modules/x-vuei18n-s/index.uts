@@ -1,0 +1,46 @@
+// #ifdef APP
+import * as i18n from './instans/i18n'
+import { I18nOptions,I18nOptionsReally, Tmui4xI18n,Tmui4xI18nTml } from './interface'
+
+export function createI18n(args : I18nOptions | null = null) : Tmui4xI18n {
+	return new i18n.Tmui4xI18n(args)
+}
+// #endif
+
+// #ifdef WEB || MP
+import * as i18n from './instans/i18n'
+import { I18nOptions,I18nOptionsReally,Tmui4xI18n,Tmui4xI18nTml } from './interface'
+export * from './interface'
+
+export function createI18n(args : I18nOptions | null = null) : i18n.Tmui4xI18n {
+	return new i18n.Tmui4xI18n(args)
+}
+// #endif
+
+
+let globalI18nInstans : Tmui4xI18n = createI18n();
+export const tmxI18n = definePlugin({
+	install(app : VueApp, config : any | null) {
+		globalI18nInstans = createI18n(config as I18nOptions | null)
+		/**
+		 * 组合式代码中使用
+		 */
+		app.config.globalProperties.$i18n = () : Tmui4xI18n => globalI18nInstans
+		// @ts-ignore
+		app.mixin({
+			data() {
+				return {
+					/**
+					 * 模板vue内及选项式this.i18n可调用使用
+					 */
+					i18n: globalI18nInstans as Tmui4xI18n
+				}
+			},
+			onLaunch(){
+			}
+		})
+	}
+})
+export const $i18n = () : Tmui4xI18n => createI18n()
+export const mergeI18nOpts = (args : I18nOptions|null) : I18nOptionsReally => i18n.mergeI18nOpts(args)
+

@@ -1,0 +1,437 @@
+import { ICanvas } from '@/uni_modules/tmx-ui/core/canvas/ICanvas.uts';
+import { Shape } from '@/uni_modules/tmx-ui/core/canvas/lib/shape.uts';
+import { ISector } from '@/uni_modules/tmx-ui/core/canvas/lib/sector.uts';
+import { IArc } from '@/uni_modules/tmx-ui/core/canvas/lib/arc.uts';
+import { ICircle } from '@/uni_modules/tmx-ui/core/canvas/lib/circle.uts';
+import { ILine } from '@/uni_modules/tmx-ui/core/canvas/lib/line.uts';
+import { IText } from '@/uni_modules/tmx-ui/core/canvas/lib/text.uts';
+import { getDatumNumber, getDatumString, measureTextW } from '../scale.uts';
+import { PlotRect } from '../map.uts';
+import { getChartColor } from '../palette.uts';
+import { ChartDatum, ChartSeriesOptions, ChartLabelOptions, ResolvedActiveStyle } from '../types.uts';
+import { animateHighlight } from '../animate.uts';
+
+export type PieSeriesContext = {
+	activeType : string,
+	activeIndex : number,
+	activeStyle : ResolvedActiveStyle,
+	isLegendHidden : (key : string) => boolean,
+	onClickPoint : (seriesType : string, index : number, x : number, y : number, title : string, value : string, color : string) => void,
+	onHoverPoint : (seriesType : string, index : number, x : number, y : number, title : string, value : string, color : string) => void
+}
+
+type PieSlice = {
+	index : number,
+	label : string,
+	value : number,
+	percent : number,
+	color : string,
+	startAngle : number,
+	endAngle : number,
+	midRad : number,
+	radius : number
+}
+
+type PieLabelEntry = {
+	sliceIdx : number,
+	midRad : number,
+	edgeX : number,
+	edgeY : number,
+	elbowX : number,
+	elbowY : number,
+	labelText : string,
+	color : string,
+	isRight : boolean,
+	finalY : number
+}
+
+const sAngleField = (s : ChartSeriesOptions) : string => (s.angleField ?? '') != '' ? (s.angleField ?? '') : (s.yField ?? '')
+const sColorField = (s : ChartSeriesOptions) : string => (s.colorField ?? '') != '' ? (s.colorField ?? '') : (s.xField ?? '')
+const sPieInnerRadius = (s : ChartSeriesOptions) : number => Math.max(0, s.pieInnerRadius ?? 0)
+const sPieRadiusScale = (s : ChartSeriesOptions) : number => Math.max(0.4, Math.min(1, s.pieRadiusScale ?? 0.9))
+
+const formatPieLabel = (fmt : string, name : string, value : number, percent : number) : string => {
+	if (fmt == '') return `${name} ${percent.toFixed(1)}%`
+	return fmt.replace('{name}', name).replace('{value}', `${value}`).replace('{percent}', `${percent.toFixed(1)}%`)
+}
+
+const isProgressMode = (series : ChartSeriesOptions, data : ChartDatum[]) : boolean => {
+	if (data.length != 1) return false
+	return sPieInnerRadius(series) > 0
+}
+
+const drawCenterText = (canvas : ICanvas, shapes : Shape[], centerX : number, centerY : number, mainText : string, subText : string, innerRadius : number, mainColor : string, subColor : string) => {
+	const ctx = canvas.ctx
+	const hasCtx = ctx != null
+	if (mainText != '') {
+		const mainFontSize = Math.min(18, Math.max(12, innerRadius * 0.35))
+		const textW = measureTextW(mainText, mainFontSize, ctx)
+		shapes.push(new IText({
+			x: centerX - textW / 2,
+			y: subText != '' ? centerY - mainFontSize / 2 - 6 : centerY - mainFontSize / 2,
+			text: mainText,
+			fill: mainColor,
+			fontSize: mainFontSize,
+			lineHeight: 1.1
+		}, canvas))
+	}
+	if (subText != '') {
+		const subFontSize = Math.min(12, Math.max(10, innerRadius * 0.2))
+		const textW = measureTextW(subText, subFontSize, ctx)
+		shapes.push(new IText({
+			x: centerX - textW / 2,
+			y: mainText != '' ? centerY + subFontSize / 2 + 2 : centerY - subFontSize / 2,
+			text: subText,
+			fill: subColor,
+			fontSize: subFontSize,
+			lineHeight: 1.1
+		}, canvas))
+	}
+}
+
+export const renderPieSeries = (
+	canvas : ICanvas,
+	series : ChartSeriesOptions,
+	data : ChartDatum[],
+	rect : PlotRect,
+	ctx : PieSeriesContext
+) : Shape[] => {
+	const shapes = [] as Shape[]
+	const af = sAngleField(series)
+	const lf = sColorField(series)
+	const gap = Math.max(0, series.pieGap ?? 0)
+	const roundCap = series.pieRoundCap ?? false
+	const centerText = series.pieCenterText ?? ''
+	const centerSubText = series.pieCenterSubText ?? ''
+
+	const centerX = (rect.left + rect.right) / 2
+	const centerY = (rect.top + rect.bottom) / 2
+	const maxHalf = Math.min(rect.right - rect.left, rect.bottom - rect.top) / 2
+	const innerRadius = sPieInnerRadius(series)
+
+	let outerRadius = 0 as number
+	if ((series.pieOuterRadius ?? 0) > 0) {
+		outerRadius = Math.min(maxHalf - 4, series.pieOuterRadius ?? 0)
+	} else {
+		const labelOpts = series.label
+		const showLabel = labelOpts?.show ?? true
+		const isOutside = (labelOpts?.position ?? 'outside') == 'outside' || (labelOpts?.position ?? 'outside') == 'spider'
+		const labelPad = isOutside && showLabel ? 28 : 8
+		outerRadius = Math.max(20, maxHalf * sPieRadiusScale(series) - labelPad)
+	}
+
+	if (isProgressMode(series, data)) {
+		return renderProgress(canvas, series, data, rect, centerX, centerY, innerRadius, outerRadius, af, centerText, centerSubText, gap, roundCap, ctx)
+	}
+
+	let total = 0
+	for (let i = 0; i < data.length; i++) {
+		const label = getDatumString(data[i], lf, `${i}`)
+		if (ctx.isLegendHidden(`pie:${label}`)) continue
+		total += Math.max(0, getDatumNumber(data[i], af, 0))
+	}
+	if (total <= 0) return shapes
+
+	const roseType = series.pieRoseType ?? ''
+	const isRose = roseType == 'radius' || roseType == 'area'
+
+	let maxValue = 0
+	if (isRose) {
+		for (let i = 0; i < data.length; i++) {
+			const label = getDatumString(data[i], lf, `${i}`)
+			if (ctx.isLegendHidden(`pie:${label}`)) continue
+			const v = Math.max(0, getDatumNumber(data[i], af, 0))
+			if (v > maxValue) maxValue = v
+		}
+		if (maxValue <= 0) maxValue = 1
+	}
+
+	let visibleCount = 0
+	for (let i = 0; i < data.length; i++) {
+		const label = getDatumString(data[i], lf, `${i}`)
+		if (ctx.isLegendHidden(`pie:${label}`)) continue
+		const v = Math.max(0, getDatumNumber(data[i], af, 0))
+		if (v > 0) visibleCount++
+	}
+
+	const slices = [] as PieSlice[]
+	let currentAngle = -90
+	for (let i = 0; i < data.length; i++) {
+		const value = Math.max(0, getDatumNumber(data[i], af, 0))
+		if (value <= 0) continue
+		const label = getDatumString(data[i], lf, `${i}`)
+		if (ctx.isLegendHidden(`pie:${label}`)) continue
+		const sweep = isRose ? (360 / Math.max(1, visibleCount)) : (value / total * 360)
+		const midDeg = currentAngle + sweep / 2
+		slices.push({
+			index: i, label: label, value: value, percent: value / total * 100,
+			color: getChartColor(i), startAngle: currentAngle, endAngle: currentAngle + sweep,
+			midRad: midDeg * Math.PI / 180, radius: outerRadius
+		} as PieSlice)
+		currentAngle += sweep
+	}
+
+	const useRoundCap = roundCap && innerRadius > 0 && gap > 0
+
+	for (let si = 0; si < slices.length; si++) {
+		const sl = slices[si]
+		const isActive = ctx.activeType == 'pie' && ctx.activeIndex == sl.index
+		const activeScale = ctx.activeStyle.pieScale
+		const sa = sl.startAngle + gap / 2
+		const ea = sl.endAngle - gap / 2
+		if (ea <= sa) continue
+
+		let sliceRadius = outerRadius
+		if (isRose) {
+			const ratio = sl.value / maxValue
+			const minR = innerRadius > 0 ? innerRadius + 8 : outerRadius * 0.42
+			sliceRadius = roseType == 'area'
+				? Math.sqrt(ratio) * (outerRadius - minR) + minR
+				: ratio * (outerRadius - minR) + minR
+		}
+		sl.radius = sliceRadius
+
+		const sector = new ISector({
+			x: centerX, y: centerY,
+			radius: sliceRadius,
+			innerRadius: innerRadius,
+			startAngle: sa, endAngle: ea,
+			fill: sl.color
+		}, canvas)
+		shapes.push(sector)
+
+		if (isActive) {
+			sector.radius = sliceRadius + activeScale
+			sector.needsUpdate = true
+		}
+
+		if (useRoundCap) {
+			const capR = (sliceRadius - innerRadius) / 2
+			const midR = (sliceRadius + innerRadius) / 2
+			const saRad = sa * Math.PI / 180
+			const eaRad = ea * Math.PI / 180
+			shapes.push(new ICircle({ x: centerX + Math.cos(saRad) * midR, y: centerY + Math.sin(saRad) * midR, radius: capR, fill: sl.color }, canvas))
+			shapes.push(new ICircle({ x: centerX + Math.cos(eaRad) * midR, y: centerY + Math.sin(eaRad) * midR, radius: capR, fill: sl.color }, canvas))
+		}
+
+		shapes.push(createHitArea(canvas, centerX, centerY, outerRadius, sl.startAngle, sl.endAngle, sl, af, ctx))
+	}
+
+	if (centerText != '' || centerSubText != '') {
+		drawCenterText(canvas, shapes, centerX, centerY, centerText, centerSubText, innerRadius, ctx.activeStyle.textColor, ctx.activeStyle.textSubColor)
+	}
+
+	const labelOpts = series.label
+	if (labelOpts?.show ?? true) {
+		drawPieLabels(canvas, shapes, slices, centerX, centerY, outerRadius, labelOpts)
+	}
+
+	return shapes
+}
+
+const createHitArea = (canvas : ICanvas, cx : number, cy : number, r : number, sa : number, ea : number, sl : PieSlice, af : string, ctx : PieSeriesContext) : Shape => {
+	const tipX = cx + Math.cos(sl.midRad) * r * 0.6
+	const tipY = cy + Math.sin(sl.midRad) * r * 0.6
+	const hit = new ISector({
+		x: cx, y: cy, radius: r,
+		startAngle: sa, endAngle: ea,
+		fill: 'rgba(0,0,0,0)', opacity: 0
+	}, canvas)
+	hit.addEventListener('click', () => {
+		ctx.onClickPoint('pie', sl.index, tipX, tipY, sl.label, `${af}: ${sl.value}`, sl.color)
+	})
+	hit.addEventListener('move', () => {
+		ctx.onHoverPoint('pie', sl.index, tipX, tipY, sl.label, `${af}: ${sl.value}`, sl.color)
+	})
+	return hit as Shape
+}
+
+const renderProgress = (
+	canvas : ICanvas,
+	series : ChartSeriesOptions,
+	data : ChartDatum[],
+	rect : PlotRect,
+	centerX : number,
+	centerY : number,
+	innerRadius : number,
+	outerRadius : number,
+	af : string,
+	centerText : string,
+	centerSubText : string,
+	gap : number,
+	roundCap : boolean,
+	ctx : PieSeriesContext
+) : Shape[] => {
+	const shapes = [] as Shape[]
+	const value = Math.max(0, Math.min(100, getDatumNumber(data[0], af, 0)))
+	const color = series.color ?? getChartColor(0)
+	const trackColor = '#e5e7eb'
+	const arcR = (outerRadius + innerRadius) / 2
+	const sw = outerRadius - innerRadius
+	const cap = roundCap ? 'round' : 'butt'
+
+	shapes.push(new IArc({
+		x: centerX, y: centerY, radius: arcR,
+		startAngle: -90, endAngle: 270,
+		stroke: trackColor, strokeWidth: sw, lineCap: cap
+	}, canvas))
+
+	if (value > 0) {
+		const endAngle = -90 + value / 100 * 360
+		shapes.push(new IArc({
+			x: centerX, y: centerY, radius: arcR,
+			startAngle: -90, endAngle: endAngle,
+			stroke: color, strokeWidth: sw, lineCap: cap
+		}, canvas))
+	}
+
+	const displayText = centerText != '' ? centerText : `${value}%`
+	drawCenterText(canvas, shapes, centerX, centerY, displayText, centerSubText, innerRadius, ctx.activeStyle.textColor, ctx.activeStyle.textSubColor)
+
+	return shapes
+}
+
+const sortLabelsByY = (entries : PieLabelEntry[]) => {
+	for (let i = 1; i < entries.length; i++) {
+		const key = entries[i]
+		let j = i - 1
+		while (j >= 0 && entries[j].finalY > key.finalY) {
+			entries[j + 1] = entries[j]
+			j--
+		}
+		entries[j + 1] = key
+	}
+}
+
+const resolveLabelCollisions = (entries : PieLabelEntry[], minGap : number, topBound : number, bottomBound : number) => {
+	if (entries.length <= 1) return
+	sortLabelsByY(entries)
+	for (let i = 1; i < entries.length; i++) {
+		if (entries[i].finalY - entries[i - 1].finalY < minGap) {
+			entries[i].finalY = entries[i - 1].finalY + minGap
+		}
+	}
+	const last = entries[entries.length - 1]
+	if (last.finalY > bottomBound) {
+		const shift = last.finalY - bottomBound
+		for (let i = 0; i < entries.length; i++) entries[i].finalY -= shift
+		for (let i = 1; i < entries.length; i++) {
+			if (entries[i].finalY - entries[i - 1].finalY < minGap) {
+				entries[i].finalY = entries[i - 1].finalY + minGap
+			}
+		}
+	}
+	if (entries[0].finalY < topBound) {
+		const shift = topBound - entries[0].finalY
+		for (let i = 0; i < entries.length; i++) entries[i].finalY += shift
+	}
+}
+
+const drawPieLabels = (canvas : ICanvas, shapes : Shape[], slices : PieSlice[], centerX : number, centerY : number, maxRadius : number, labelOpts : ChartLabelOptions | null) => {
+	const labelPosition = labelOpts?.position ?? 'outside'
+	const showLine = labelOpts?.line ?? true
+	const labelFontSize = labelOpts?.fontSize ?? 10
+	const labelColor = labelOpts?.color ?? '#9ca3af'
+	const labelFormatter = labelOpts?.formatter ?? ''
+	const isOutside = labelPosition == 'outside' || labelPosition == 'spider'
+
+	if (!isOutside) {
+		for (let si = 0; si < slices.length; si++) {
+			const sl = slices[si]
+			const sweep = sl.endAngle - sl.startAngle
+			if (sweep < 3) continue
+			const r = sl.radius > 0 ? sl.radius : maxRadius
+			const labelR = r * 0.65
+			const lx = centerX + Math.cos(sl.midRad) * labelR
+			const ly = centerY + Math.sin(sl.midRad) * labelR
+			const text = formatPieLabel(labelFormatter, sl.label, sl.value, sl.percent)
+			shapes.push(new IText({
+				x: lx - measureTextW(text, labelFontSize, canvas.ctx) / 2, y: ly - labelFontSize / 2,
+				text: text, fill: '#ffffff', fontSize: labelFontSize, lineHeight: 1.1
+			}, canvas))
+		}
+		return
+	}
+
+	const elbowGap = 10
+	const horizontalLen = 18
+	const minGap = labelFontSize + 4
+	const canvasCtx = canvas.ctx
+	const rightEntries = [] as PieLabelEntry[]
+	const leftEntries = [] as PieLabelEntry[]
+
+	for (let si = 0; si < slices.length; si++) {
+		const sl = slices[si]
+		const sweep = sl.endAngle - sl.startAngle
+		if (sweep < 3) continue
+		const r = sl.radius > 0 ? sl.radius : maxRadius
+		const edgeX = centerX + Math.cos(sl.midRad) * r
+		const edgeY = centerY + Math.sin(sl.midRad) * r
+		const elbowR = r + elbowGap
+		const elbowX = centerX + Math.cos(sl.midRad) * elbowR
+		const elbowY = centerY + Math.sin(sl.midRad) * elbowR
+		const isRight = Math.cos(sl.midRad) >= 0
+		const text = formatPieLabel(labelFormatter, sl.label, sl.value, sl.percent)
+
+		const entry = {
+			sliceIdx: si, midRad: sl.midRad,
+			edgeX: edgeX, edgeY: edgeY,
+			elbowX: elbowX, elbowY: elbowY,
+			labelText: text, color: sl.color,
+			isRight: isRight, finalY: elbowY
+		} as PieLabelEntry
+
+		if (isRight) rightEntries.push(entry)
+		else leftEntries.push(entry)
+	}
+
+	const topBound = centerY - maxRadius - 10
+	const bottomBound = centerY + maxRadius + 10
+	resolveLabelCollisions(rightEntries, minGap, topBound, bottomBound)
+	resolveLabelCollisions(leftEntries, minGap, topBound, bottomBound)
+
+	for (let i = 0; i < rightEntries.length; i++) {
+		const e = rightEntries[i]
+		const endX = e.elbowX + horizontalLen
+		if (showLine) {
+			shapes.push(new ILine({
+				pointStart: { x: e.edgeX, y: e.edgeY },
+				pointEnd: { x: e.elbowX, y: e.finalY },
+				stroke: e.color, strokeWidth: 1
+			}, canvas))
+			shapes.push(new ILine({
+				pointStart: { x: e.elbowX, y: e.finalY },
+				pointEnd: { x: endX, y: e.finalY },
+				stroke: e.color, strokeWidth: 1
+			}, canvas))
+		}
+		shapes.push(new IText({
+			x: endX + 3, y: e.finalY - labelFontSize / 2,
+			text: e.labelText, fill: labelColor,
+			fontSize: labelFontSize, lineHeight: 1.1
+		}, canvas))
+	}
+
+	for (let i = 0; i < leftEntries.length; i++) {
+		const e = leftEntries[i]
+		const endX = e.elbowX - horizontalLen
+		if (showLine) {
+			shapes.push(new ILine({
+				pointStart: { x: e.edgeX, y: e.edgeY },
+				pointEnd: { x: e.elbowX, y: e.finalY },
+				stroke: e.color, strokeWidth: 1
+			}, canvas))
+			shapes.push(new ILine({
+				pointStart: { x: e.elbowX, y: e.finalY },
+				pointEnd: { x: endX, y: e.finalY },
+				stroke: e.color, strokeWidth: 1
+			}, canvas))
+		}
+		const textW = measureTextW(e.labelText, labelFontSize, canvasCtx)
+		shapes.push(new IText({
+			x: endX - textW - 3, y: e.finalY - labelFontSize / 2,
+			text: e.labelText, fill: labelColor,
+			fontSize: labelFontSize, lineHeight: 1.1
+		}, canvas))
+	}
+}

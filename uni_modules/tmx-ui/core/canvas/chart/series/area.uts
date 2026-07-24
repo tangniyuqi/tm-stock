@@ -1,0 +1,164 @@
+import { ICanvas } from '@/uni_modules/tmx-ui/core/canvas/ICanvas.uts';
+import { Shape } from '@/uni_modules/tmx-ui/core/canvas/lib/shape.uts';
+import { ILinePolygon } from '@/uni_modules/tmx-ui/core/canvas/lib/linePolygon.uts';
+import { ICircle } from '@/uni_modules/tmx-ui/core/canvas/lib/circle.uts';
+import { getDatumNumber, getDatumString, getBandWidth } from '../scale.uts';
+import { mapLineOrBarPoints, PlotRect, XYPoint } from '../map.uts';
+import { ChartDatum, ChartSeriesOptions, ChartSeriesContext, sXField, sYField, sColor, sSmooth, sShowPoint, sLineWidth, sSmoothStrength, sPointSize, POINT_BORDER_WIDTH } from '../types.uts';
+import { buildSmoothLinePoints, LineMapResult } from './line.uts';
+import { IRect } from '@/uni_modules/tmx-ui/core/canvas/lib/rect.uts';
+import { resolveLinearAxisRange } from '../axis.uts';
+
+const sAreaOpacity = (s : ChartSeriesOptions) : number => Math.max(0.01, Math.min(1, s.areaOpacity ?? 0.1))
+
+export function renderAreaSeries(
+	canvas : ICanvas,
+	series : ChartSeriesOptions,
+	data : ChartDatum[],
+	rect : PlotRect,
+	seriesIdx : number,
+	ctx : ChartSeriesContext,
+	forcedMinY : number | null = null,
+	forcedMaxY : number | null = null
+) : Shape[]{
+	const shapes = [] as Shape[]
+	const xf = sXField(series)
+	const yf = sYField(series)
+	const mapped = mapLineOrBarPoints(data, xf, yf, rect, forcedMinY, forcedMaxY)
+	const color = sColor(series, seriesIdx)
+	const lineWidth = sLineWidth(series, 2)
+	const pointSize = sPointSize(series)
+	const smoothStrength = sSmoothStrength(series)
+
+	const topPoints = sSmooth(series) ? buildSmoothLinePoints(mapped.points, smoothStrength) : (() : number[] => {
+		const raw = [] as number[]
+		for (let i = 0; i < mapped.points.length; i++) {
+			raw.push(mapped.points[i].x)
+			raw.push(mapped.points[i].y)
+		}
+		return raw
+	})()
+
+	const fillPoints = [] as number[]
+	for (let i = 0; i < topPoints.length; i++) {
+		fillPoints.push(topPoints[i])
+	}
+	if (mapped.points.length > 0) {
+		fillPoints.push(mapped.points[mapped.points.length - 1].x)
+		fillPoints.push(rect.bottom)
+		fillPoints.push(mapped.points[0].x)
+		fillPoints.push(rect.bottom)
+	}
+
+	const gradient = series.gradient
+	const hasGradient = gradient != null && gradient!.length >= 2
+	let fillGrad = [] as string[]
+	if (hasGradient) {
+		const gColors = [] as string[]
+		for (let gi = 0; gi < gradient!.length; gi++) {
+			const gItem = gradient![gi]
+			if (gItem.includes('deg') || gItem.startsWith('to ')) continue
+			gColors.push(gItem.split(' ')[0])
+		}
+		let areaMinY = rect.bottom
+		for (let pi = 0; pi < mapped.points.length; pi++) {
+			if (mapped.points[pi].y < areaMinY) areaMinY = mapped.points[pi].y
+		}
+		const startPct = rect.bottom > 0 ? Math.round(areaMinY / rect.bottom * 100) : 0
+		fillGrad.push('to bottom')
+		for (let ci = 0; ci < gColors.length; ci++) {
+			const pct = startPct + Math.round(ci / Math.max(1, gColors.length - 1) * (100 - startPct))
+			fillGrad.push(`${gColors[ci]} ${pct}`)
+		}
+	}
+
+	shapes.push(new ILinePolygon({
+		points: fillPoints,
+		height: rect.bottom,
+		fill: hasGradient ? '' : color,
+		fillGradient: hasGradient ? fillGrad : [] as string[],
+		opacity: sAreaOpacity(series),
+		closed: true,
+		tension: 0
+	}, canvas))
+
+	let strokeGrad = [] as string[]
+	if (hasGradient) {
+		const sColors = [] as string[]
+		for (let gi = 0; gi < gradient!.length; gi++) {
+			const gItem = gradient![gi]
+			if (gItem.includes('deg') || gItem.startsWith('to ')) continue
+			sColors.push(gItem.split(' ')[0])
+		}
+		const sPct0 = rect.right > 0 ? Math.round(rect.left / rect.right * 100) : 0
+		strokeGrad.push('to right')
+		for (let ci = 0; ci < sColors.length; ci++) {
+			const pct = sPct0 + Math.round(ci / Math.max(1, sColors.length - 1) * (100 - sPct0))
+			strokeGrad.push(`${sColors[ci]} ${pct}`)
+		}
+	}
+
+	shapes.push(new ILinePolygon({
+		points: topPoints,
+		width: rect.right,
+		stroke: hasGradient ? '' : color,
+		strokeGradient: hasGradient ? strokeGrad : [] as string[],
+		strokeWidth: lineWidth,
+		lineCap: 'round',
+		lineJoin: 'round',
+		closed: false,
+		tension: 0
+	}, canvas))
+
+	const areaBand = getBandWidth(mapped.domain, rect.left, rect.right)
+	let _ci : number = 0
+	for (let i = 0; i < mapped.points.length; i++) {
+		_ci = i
+		const idx = _ci
+		const isActive = ctx.activeType == 'area' && ctx.activeIndex == idx
+		const xLabel = getDatumString(data[i], xf, `${i}`)
+		const yValue = getDatumNumber(data[i], yf, 0)
+		const px = mapped.points[i].x
+		const py = mapped.points[i].y
+
+		const areaHit = new IRect({
+			x: px - areaBand / 2,
+			y: rect.top,
+			width: areaBand,
+			height: rect.bottom - rect.top,
+			fill: 'rgba(0,0,0,0)', opacity: 0
+		}, canvas)
+		areaHit.addEventListener('click', () => {
+			ctx.onClickPoint('area', idx, px, py, xLabel, `${yf}: ${yValue}`, color)
+		})
+		shapes.push(areaHit)
+
+		if (!sShowPoint(series, false) && !isActive) continue
+		const dot = new ICircle({
+			x: px,
+			y: py,
+			radius: isActive ? pointSize / 2 + ctx.activeStyle.pointScale : pointSize / 2,
+			fill: isActive ? ctx.activeStyle.pointColor : '#ffffff',
+			stroke: color,
+			strokeWidth: isActive ? ctx.activeStyle.pointBorderWidth : POINT_BORDER_WIDTH
+		}, canvas)
+		shapes.push(dot)
+	}
+	return shapes
+}
+
+export type AreaMapResult = {
+	domain : string[],
+	minY : number,
+	maxY : number
+}
+
+export const getAreaSeriesRange = (data : ChartDatum[], series : ChartSeriesOptions, rect : PlotRect) : AreaMapResult => {
+	const mapped = mapLineOrBarPoints(data, sXField(series), sYField(series), rect, null, null)
+	const yRange = resolveLinearAxisRange(mapped.yScale.min, mapped.yScale.max, 5)
+	return {
+		domain: mapped.domain,
+		minY: yRange.min,
+		maxY: yRange.max
+	} as AreaMapResult
+}

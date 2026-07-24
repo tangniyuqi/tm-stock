@@ -1,0 +1,21 @@
+/* 此规范为 uni 规范，可以按照自己的需要选择是否实现 */
+import { XOcrFail } from "./interface.uts"
+
+export const XuiErrors : Map<number, string> = new Map([
+	[1001, '函数内部错误,参数langs:zh,ja,图片是否有问题，路径等'],
+	[1002, '未知错误，请查阅日志error日志了解详情'],
+	[1003, '图片读取为Null'],
+	[1004, '参数langs允许的值为:zh,ja'],
+]);
+
+export class XOcrImpl extends UniError implements XOcrFail {
+	/**
+	 * 错误对象构造函数
+	 */
+	constructor(errCode : number) {
+		super();
+		this.errSubject = "x-ocr-s";
+		this.errCode = errCode;
+		this.errMsg = XuiErrors.get(errCode) ?? "";
+	}
+}

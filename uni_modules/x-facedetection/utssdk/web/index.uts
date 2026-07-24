@@ -1,0 +1,2 @@
+export function checkFaceByImage(){}
+export function checkFaceByImageFromFilePath(){}

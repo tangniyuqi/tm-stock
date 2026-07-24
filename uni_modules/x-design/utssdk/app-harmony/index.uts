@@ -1,0 +1,38 @@
+import { BuilderNode, ComponentContent } from "@kit.ArkUI"
+import { image } from '@kit.ImageKit';
+import * from '@ohos.multimedia.image';
+import {buildXdBlurView,buildXdParentBlurView} from "./builder.ets"
+// 定义 buildButton 的参数类型
+interface NativeXdblurOptions {
+    blur:number
+}
+export class xdBlur {
+	$element : UniNativeViewElement;
+	targetView : BuilderNode<[NativeXdblurOptions]> | null = null;
+	// 初始化 buildButton 默认参数
+	private params : NativeXdblurOptions = {
+	    blur: 30,
+	}
+	constructor(element : UniNativeViewElement) {
+		// 绑定 wrapBuilder 函数
+		this.targetView = element.bindHarmonyWrappedBuilder(wrapBuilder<[NativeXdblurOptions]>(buildXdBlurView), this.params)
+		this.$element = element
+		// 绑定当前实例为自定义的controller，方便其他地方通过 element 获取使用
+		this.$element.bindHarmonyController(this)
+		// this.targetView.
+	}
+	setFilterBg(blur : number, bgcolor : string,ele:UniElement|null = null) {
+		this.params.blur = blur;
+		this.targetView?.update(this.params)
+	}
+	setFilterSelfBg(ele : UniElement,bg:UniElement, blur : number, bgcolor : string) {
+		// this.params.blur = blur;
+		// const parent = this.targetView?.getFrameNode()?.getParent();
+		// const uiContext = UTSHarmony.getCurrentWindow()!.getUIContext();
+		// let component = new ComponentContent<ESObject>(uiContext, wrapBuilder<[NativeXdblurOptions]>(buildXdParentBlurView), this.params)
+		// parent?.addComponentContent(component)
+		// const px = uiContext.getComponentSnapshot().getSyncWithUniqueId(parent?.getUniqueId()!)
+		// let pos = image.PositionArea
+		// ele.getDrawableContext()?.fill(px.readPixelsSync())
+	}
+}

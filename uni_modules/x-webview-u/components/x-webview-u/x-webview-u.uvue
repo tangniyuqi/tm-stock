@@ -1,0 +1,446 @@
+<template>
+	<view class="XwebviewU" :style="{width:_width,height:_height}">
+		<view class="progressBar" v-if="showLoadProgress&&_showLoadProgress"
+			:style="{width:loadProgress+'%',backgroundColor:_loadProgressColor}"></view>
+		<!-- #ifdef APP -->
+		<native-view @init="onviewinit" style="width:100%;height:100%;"></native-view>
+		<!-- #endif -->
+
+		<!-- #ifdef WEB -->
+		<iframe :name="iframeId" ref="ifremaeRef" class="XwebviewUWeb"
+		 :style="[
+			getAppTheme(true)
+		 ]"
+		 ></iframe>
+		<!-- #endif -->
+	</view>
+</template>
+<script lang="uts" setup>
+	// #ifdef APP
+	import  { xWebviewU, xWebviewUOpts,xWebviewUCallMethodType,uniAppDownLoadMessageType, uniAppEvaJsTypeCallBackFun,uniAppPostmessageType, uniAppEvaJsTypeOnUpdate,TmuiSchemaType } from '@/uni_modules/x-webview-u';
+	// #endif
+	// #ifdef WEB
+	import {xWebviewU} from "@/uni_modules/x-webview-u"
+	type uniAppEvaJsTypeCallBackFun = any
+	type xWebviewUOpts = any
+	type xWebviewUCallMethodType = any
+	type uniAppDownLoadMessageType = any
+	type uniAppPostmessageType = any
+	type uniAppEvaJsTypeOnUpdate = any
+	type TmuiSchemaType  = any
+	const iframeId = 'xWebviewU'+Math.random().toString(16).substring('4')
+	const ifremaeRef = ref(null)
+	// #endif
+	import { xStore,getDefaultColor } from "@/uni_modules/tmx-ui/index.uts"
+	import { callMehodAppFun } from "./appLibsFun.uts"
+	import {xMiniPrograms} from "./miniProgram.uts"
+	type xWebviewUActionsFunNameType = (arg ?: string) => string | null;
+	type xWebviewUTypeProps = {
+		width : number | string,
+		/**
+		 * 容器的宽和高
+		 */
+		height : number | string,
+		/** app唤起协议白名单，在此协议内允许跳转并拉起app，当然你也可以自行在allowLoadUrl判断并再次拦截,此时的协议内部通过后主动拉起 */
+		schema:TmuiSchemaType[], 
+		/** web url连接跳转时是否允许访问返回false禁止，true放行(ios不支持) */
+		allowLoadUrl: (url : string | null) => boolean,
+		// ios安卓鸿蒙支持。
+		allowLoadUrlWhite:string[],
+		/** 执行宿主的任何方法都会先经过本函数验证返回true放行，false禁止执行 */
+		addInterceptor: (url : string | null,name:string) => boolean,
+		/** 页面加载时，进度百分比回调函数 */
+		progressChanged: (current:number) => void,
+		/** 页面发起下载链接时触发此函数(ios14.5+) */
+		// donwload:(url:string , userAgent:string , contentDisposition:string , mimeType:string , contentLength:number) => void,
+		/** 是否显示加载进度条 */
+		showLoadProgress : boolean
+		/** 加载进度条颜色 */
+		loadProgressColor : string,
+		/** 默认加载的url */
+		src : string,
+		/**
+		 * web执行tmuijJssdk.js中的特定方法callMethod,会触发此方法，
+		 * 本函数中得到的参数：message
+		 * message.data js向宿主发送的数据
+		 * message.success(返回值数据)
+		 * message.fail(出错信息字符串)
+		 * 其中usccess,fail函数必须执行一个，在收到本消息后。
+		 */
+		callMethod:(message:xWebviewUCallMethodType)=>void,
+		/**
+		 * 用于在所有打开的页面中注入的一个数据，
+		 * 任何页面可以在web中执行：tmuiJssdk.getConfig()得到这个数据，
+		 * 用于在web通过数据校验等是否允许访问或者你的其它场景所使用。
+		 */
+		webConfig:UTSJSONObject
+	}
+	const emits = defineEmits([
+		/** webview创建初始成功。 */
+		'init',
+		/**
+		 * 页面加载时触发
+		 * @param {string|null} url  
+		 */
+		'pageStart',
+		/**
+		 * 页面加载完成时触发
+		 * @param {string|null} url  
+		 */
+		'pageFinish',
+		/**
+		 * 页面加载错误时触发
+		 * @param {string|null} url  
+		 */
+		'pageError',
+		/**
+		 * body高变化时触发
+		 * @param {number} height  
+		 */
+		'contentheightchange',
+		/**
+		 * web向webview发来的消息触本事件。
+		 * @param {uniAppPostmessageType} event
+		 */
+		"postMessage",
+		/**
+		 * 点击下载链接时触发。
+		 * @param {uniAppDownLoadMessageType} event
+		 */
+		"donwload"
+	])
+	const props = withDefaults(defineProps<xWebviewUTypeProps>(), {
+		width: '100%',
+		height: '100%',
+		loadProgressColor: '',
+		allowLoadUrl: (url : string | null) => true,
+		showLoadProgress: false,
+		src: "https://x-ui.design",
+		schema:():TmuiSchemaType[] => [] as TmuiSchemaType[],
+		allowLoadUrlWhite:():string[] => [] as string[],
+		callMethod:(message:xWebviewUCallMethodType)=>{
+			message.success(null)
+		},
+		addInterceptor:(url : string | null,name:string) : boolean => true,
+		progressChanged:(n:number)=>{},
+		webConfig:{sign:'tmuiJssdk'}
+	})
+	const checkUnit = (val : string | number, defaultUnit : string) : string => {
+		if (typeof val == 'number') return `${val}${defaultUnit}`;
+		const isInUnit = val.lastIndexOf('px') > -1 || val.lastIndexOf('%') > -1;
+		if (isInUnit) return val;
+		return parseFloat(val) + defaultUnit;
+	}
+	const _width = computed(() : string => checkUnit(props.width, 'px'))
+	const _height = computed(() : string => checkUnit(props.height, 'px'))
+	const _showLoadProgress = computed(() : boolean => props.showLoadProgress)
+	const _loadProgressColor = computed(() : string => getDefaultColor(props.loadProgressColor==''?xStore.xConfig.color:props.loadProgressColor))
+	const loadProgress = ref(0)
+	const showLoadProgress = ref(false)
+	const loadProgressTid = ref(45)
+	let xWebview : xWebviewU | null = null
+	const first = ref(false)
+	
+	const getAppTheme = (isAddPx:boolean):UTSJSONObject =>{
+		let sys = uni.getWindowInfo()
+		let statusHeight = sys.statusBarHeight;
+		let bottomHeight = sys.windowBottom;
+		let topHeight = sys.windowTop;
+		const unit = isAddPx?'px':''
+		const jscodeStyleMap = {
+			'--status-bar-height': isAddPx?`${statusHeight}${unit}`:statusHeight,
+			'--window-bottom': isAddPx?`${bottomHeight}${unit}`:bottomHeight,
+			'--window-top': isAddPx?`${topHeight}${unit}`:topHeight,
+			'--window-height': isAddPx?`${sys.windowHeight}${unit}`:sys.windowHeight,
+			'--window-width': isAddPx?`${sys.windowWidth}${unit}`:sys.windowWidth,
+			'--screen-height': isAddPx?`${sys.screenHeight}${unit}`:sys.screenHeight,
+			'--screen-width': isAddPx?`${sys.screenWidth}${unit}`:sys.screenWidth,
+			'--screen-pixelRatio': isAddPx?`${sys.pixelRatio}${unit}`:sys.pixelRatio,
+			'--tmui-primary': `${getDefaultColor(xStore.xConfig.color)}`,
+			'--tmui-dark': `${xStore.xConfig.dark == 'dark' ? 'dark' : 'light'}`,
+		}
+		return jscodeStyleMap;
+	}
+	
+	// 向页面注入app主题 参数 数据。
+	const setWebviewBodyTheme = () => {
+		const jscodeStyleMap = getAppTheme(true) 
+		xWebview?.evaJs(`if(styleRootStyleByTmuiNativeMethod) styleRootStyleByTmuiNativeMethod('${JSON.stringify(jscodeStyleMap)}');`)
+		// #ifdef WEB
+		xWebview?.evaJs(`window.tmuiAppTheme = ${JSON.stringify(getAppTheme(false))};`)
+		// #endif
+	}
+	// 安卓兼容，已废弃。
+	const uniAppEvaJs = (url:string|null,methodName : string, callbackId ?: string, params ?: UTSJSONObject, onUpdate ?: uniAppEvaJsTypeOnUpdate) : Promise<UTSJSONObject|null> => {
+		return Promise.resolve(null)
+	}
+	const uniAppEvaJsIos = (url:string|null,methodName : string, callbackId ?: string, params ?: UTSJSONObject, onUpdate ?: uniAppEvaJsTypeOnUpdate,callback?:uniAppEvaJsTypeCallBackFun)=> {
+		if(methodName == 'callMethod'){
+			let arg = (params ?? {}) as UTSJSONObject
+			const data:any|null = (arg['data'] as any|null)??null
+			props.callMethod({
+				data,
+				success(data:any|null) {
+					const result = {
+						data:data,
+						errorMessage:null,
+						success:true,
+						callbackId:callbackId,
+					} as UTSJSONObject
+				
+					xWebview?.evaJs(`__handleTmuiResponse('${JSON.stringify(result)}')`)
+				},
+				fail(errorMessage:string) {
+					const result = {
+						data:null,
+						errorMessage:errorMessage,
+						success:false,
+						callbackId:callbackId,
+					} as UTSJSONObject
+					xWebview?.evaJs(`__handleTmuiResponse('${JSON.stringify(result)}')`)
+				}
+			} as xWebviewUCallMethodType)
+			return;
+		}
+		
+		if(!props.addInterceptor(url,methodName)){
+			const result = {
+				type:'disabled',
+				data:null,
+				errorMessage:"被禁止调用 "+`[来自页面 ${url}]`,
+				success:false,
+				callbackId:callbackId,
+			} as UTSJSONObject
+			xWebview?.evaJs(`__handleTmuiResponse('${JSON.stringify(result)}')`)
+			return;
+		}
+		
+		callMehodAppFun(methodName, callbackId, params, xWebview,(result?:UTSJSONObject)=>{
+			xWebview?.evaJs(`__handleTmuiResponse('${JSON.stringify(result==null?({}):result!)}')`)
+		})
+	}
+	
+	const onviewinit = (e : UniNativeViewInitEvent) => {
+		// #ifdef APP
+		xWebview = new xWebviewU(e.detail.element);
+		// #endif
+		// #ifdef WEB
+		xWebview = new xWebviewU(e);
+		// #endif
+		const config = {
+			url: props.src,
+			uniAppEvaJs,
+			uniAppEvaJsIos,
+			onPageStart(url) {
+				clearTimeout(loadProgressTid.value)
+				showLoadProgress.value = true
+				emits('pageStart', url)
+				
+				// #ifdef APP-ANDROID
+				xWebview?.evaJs(`(function(){window.tmuiAppTheme=${JSON.stringify(getAppTheme(false))};})();`)
+				// #endif
+				xWebview?.evaJs(`if(typeof tmuiAppEmiter == 'function') tmuiAppEmiter.emit('pageLoad','${JSON.stringify(xStore.xProvitae.onLoadOpts)}');`)
+				if (first.value) {
+					xWebview?.evaJs(`if(typeof tmuiAppEmiter == 'function') tmuiAppEmiter.emit('pageShow','');`)
+				}
+				if (!first.value) {
+					first.value = true;
+				}
+				
+			},
+			onPageFinish(url) {
+				loadProgressTid.value = setTimeout(function () {
+					showLoadProgress.value = false
+				}, 500);
+				emits('pageFinish', url)
+				xWebview?.evaJs(`tmuiAppEmiter.emit('load','${JSON.stringify(xStore.xProvitae.onLoadOpts)}')`)
+				xWebview?.evaJs(`tmuiAppEmiter.emit('pageLoad','${JSON.stringify(xStore.xProvitae.onLoadOpts)}')`)
+				setWebviewBodyTheme()
+				
+			},
+			onPageError(url) {
+				emits('pageError', url)
+			},
+			allowLoadUrl(url) {
+				const disabled = props.allowLoadUrl(url);
+				return disabled
+			},
+			uniActions(name : string, arg : any | null) : string | null {
+				// #ifdef APP-ANDROID
+				if (name == 'contentHeightChange' && typeof arg == 'number') {
+					emits('contentheightchange', arg)
+				}
+				// #endif
+		
+				return null
+			}
+		
+		} as xWebviewUOpts
+		// #ifdef APP-IOS||APP-HARMONY
+		xWebview.setAppthemeVar(`${JSON.stringify(getAppTheme(false))}`,`'${JSON.stringify(getAppTheme(true))}'`)
+		// #endif
+		
+		xWebview!.setWebviewLoadUrlProgress((progress:number)=>{
+			loadProgress.value = progress
+			props.progressChanged(progress)
+		})
+		xWebview.setwebConfigData(props.webConfig)
+		xWebview.setWebviewDownload((url:string , userAgent:string , contentDisposition:string , mimeType:string , contentLength:number)=>{
+			const msg = {
+				url,
+				userAgent,
+				contentDisposition,
+				mimeType,
+				contentLength
+			} as uniAppDownLoadMessageType
+		
+			emits('donwload',msg)
+		})
+		xWebview.setSchema(props.schema)
+		xWebview.setAllowLoadUrlWhites(props.allowLoadUrlWhite)
+		xWebview.setPostMessage((msg:uniAppPostmessageType)=>{
+			emits('postMessage',msg)
+		})
+		// 创建完成。
+		emits('init')
+		xWebview.setBaseConfig(config)
+	}
+	
+	watch([() : any => xStore.xConfig.color, () : any => xStore.xConfig.dark, () : any => props.schema], () => {
+		setWebviewBodyTheme()
+		xWebview?.setSchema(props.schema)
+	},{deep:true})
+
+	defineExpose({
+		navback() { 
+			// #ifdef APP
+			xWebview?.webInterface?.navback() 
+			// #endif
+			// #ifdef WEB
+			xWebview?.navback()
+			// #endif
+		},
+		refresh() { 
+			// #ifdef APP
+			xWebview?.webInterface?.refresh()
+			// #endif
+			// #ifdef WEB
+			xWebview?.refresh()
+			// #endif
+		},
+		clearCache(){
+			// #ifdef APP
+			xWebview?.webInterface?.clearCache()
+			// #endif
+			// #ifdef WEB
+			xWebview?.clearCache()
+			// #endif
+		},
+		forward() { 
+			// #ifdef APP
+			xWebview?.webInterface?.forward()
+			// #endif
+			// #ifdef WEB
+			xWebview?.forward()
+			// #endif
+		},
+		setUserAgent(agent ?: string) { 
+			xWebview?.setUserAgent(agent)
+		},
+		getUserAgent():Promise<string> { 
+			return new Promise((res)=>{
+				xWebview?.getUserAgent((arg:string)=>{
+					res(arg)
+				})
+			})
+		},
+		loadUrl(url : string) { 
+			xWebview?.loadUrl(url)
+		},
+		/**
+		 * ios不会返回web的结果值始终为null，安卓会返回
+		 * 宿主执行web函数或者代码片断，如果反过来web执行宿主app方法见属性webCallMethod 
+		 */
+		evaJs(jsCode : string) : Promise<string | null> {
+			if (xWebview == null) return Promise.resolve(null)
+			// #ifdef APP-ANDROID
+			return xWebview.webInterface?.evaJs(jsCode) ?? Promise.resolve(null)
+			// #endif
+			// #ifdef APP-IOS||APP-HARMONY
+			xWebview?.evaJs(jsCode)
+			return Promise.resolve(null)
+			// #endif
+			// #ifdef WEB
+			xWebview?.evaJs(jsCode)
+			return Promise.resolve(null)
+			// #endif
+		},
+		
+		//小程序方法。
+		getManager():xMiniPrograms {
+			return new xMiniPrograms(xWebview!);
+		}
+		
+	})
+
+
+	const pageShow = () => {
+		xWebview?.evaJs(`tmuiAppEmiter.emit('pageShow','')`)
+	}
+	const pageHide = () => {
+		xWebview?.evaJs(`tmuiAppEmiter.emit('pageHide','')`)
+	}
+	
+	watch(():string=>props.src,()=>{
+		if(props.src==''||xWebview==null) return;
+		first.value = false;
+		xWebview?.loadUrl(props.src)
+	})
+	watch(():UTSJSONObject=>props.webConfig,()=>{
+		if(xWebview==null) return;
+		xWebview!.setwebConfigData(props.webConfig)
+	},{deep:true})
+	
+	onBeforeMount(() => {
+		uni.$on('onShow', pageShow)
+		uni.$on('onHide', pageHide)
+	})
+	onBeforeUnmount(() => {
+		
+		xWebview?.evaJs(`tmuiAppEmiter.emit('beforeUnmounted','')`)
+		uni.$off('onShow', pageShow)
+		uni.$off('onHide', pageHide)
+		// #ifdef APP-ANDROID||APP-IOS||WEB
+		xWebview?.destory()
+		// #endif
+	})
+	
+	onMounted(()=>{
+		// #ifdef WEB
+		nextTick(()=>{
+			onviewinit(ifremaeRef.value!)
+		})
+		// #endif
+	})
+</script>
+<style>
+	.XwebviewUWeb{
+		width:100%;height:100%;border: none;margin: 0;padding: 0;
+	}
+	.XwebviewU {
+		position: relative;
+	}
+
+	.progressBar {
+		position: absolute;
+		left: 0;
+		top: 0;
+		height: 3px;
+		background-color: #00ca6c;
+		width: 100%;
+		z-index: 88;
+		transition-duration: 1s;
+		transition-timing-function: ease-in-out;
+		transition-property: width;
+	}
+</style>

@@ -1,0 +1,58 @@
+import { XuiTextToVoiceOpts, XuiTextToVoiceResult, XTTSImpl } from "../interface.uts"
+import { XuiTextToVoiceFailImpl } from "../unierror.uts"
+let tts:SpeechSynthesisUtterance|null = null;
+class TtsObj implements XTTSImpl {
+	config : XuiTextToVoiceOpts;
+	constructor(opts : XuiTextToVoiceOpts) {
+		this.config = opts;
+	}
+	isPlaying() : boolean {
+		return speechSynthesis.speaking;
+	}
+	play(c : string) {
+		tts!.text = c;
+		tts!.pitch = 0.5
+		speechSynthesis.speak(tts!);
+	}
+	
+	stop() {
+		speechSynthesis.pause()
+		this.config.onStop?.()
+	}
+}
+
+let TtsObjIml:TtsObj|null = null;
+export class xTtsImplIns {
+	public static play(c:string){
+		TtsObjIml?.play(c)
+	}
+	public static isPlaying() : boolean {
+		return TtsObjIml?.isPlaying()??false
+	}
+	public static stop(){
+		TtsObjIml?.stop()
+	}
+}
+export function XTtsSpeek(opts : XuiTextToVoiceOpts) {
+	tts = null;
+	// 检查浏览器支持
+	if ('speechSynthesis' in window) {
+	    tts = new SpeechSynthesisUtterance();
+		tts!.onend = ()=>{
+			opts.onDone?.()
+		}
+		tts!.onerror = ()=>{
+			opts.onError?.(new XuiTextToVoiceFailImpl(1004))
+		}
+		tts!.onstart = ()=>{
+			opts.onStart?.()
+		}
+		TtsObjIml = new TtsObj(opts)
+		opts.success?.(TtsObjIml!)
+		opts.complete?.(null)
+	} else {
+		console.error("TMUI Error:",'浏览器不支持语音合成')
+		opts.fail?.(new XuiTextToVoiceFailImpl(1001))
+		opts.complete?.(null)
+	}
+}

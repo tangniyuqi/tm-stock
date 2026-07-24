@@ -1,0 +1,129 @@
+import { xDateArrayItemType, xCalendarMode } from "../x-calendar-view/interface.uts"
+import { getDefaultColor, hexToRgb } from "../../core/util/xCoreColorUtil.uts"
+import { checkIsCssUnit } from "../../core/util/xCoreUtil.uts"
+import { xConfig } from "../../config/xConfig.uts"
+export class calendarDraw {
+	ele : UniElement | null = null
+	proxy : any | null = null
+	cellHeight = 50;
+	sapce = 5
+	model : xCalendarMode = 'day'
+	_fontSize : string = checkIsCssUnit('16', xConfig.unit)
+	dateCnStrs:string[] = ["开始","结束","本日"]
+	constructor(target : UniElement | null, proxyx : any | null,dateCn:string[]) {
+		this.ele = target
+		this.proxy = proxyx
+		this.dateCnStrs = dateCn
+	}
+	showLabel(item : xDateArrayItemType) : string {
+		if (item.isInstart && item.isInEnd && this.model == 'range') return this.dateCnStrs[2]
+		if (item.isInstart && !item.isInEnd && this.model == 'range') return this.dateCnStrs[0]
+		if (!item.isInstart && item.isInEnd && this.model == 'range') return this.dateCnStrs[1]
+		return ""
+	}
+	getColor(color : string, alpha : number) : string {
+		if (alpha == 1) return color;
+		let rgba = hexToRgb(getDefaultColor(color));
+		return `rgba(${rgba.getNumber('r')},${rgba.getNumber('g')},${rgba.getNumber('b')},${alpha})`
+	}
+	_draw(element : UniElement, Grect : DOMRect, list : xDateArrayItemType[][]) {
+		const ctx = element.getDrawableContext()!;
+		ctx.reset()
+		ctx.fillStyle = 'rgba(0,0,0,0)'
+		ctx.fillRect(0, 0, Grect.width, Grect.height)
+		ctx.textAlign = 'center'
+		const _realCellWidth = Grect.width / 7
+		const _halfCellWidth = _realCellWidth / 2
+		const _halfCellHeight = this.cellHeight / 2
+		const _h = Math.min(_realCellWidth, 50) - this.sapce * 2
+		const _halfH = _h / 2
+		const _twoPi = Math.PI * 2
+		for (let i = 0; i < list.length; i++) {
+			const children = list[i]
+			const rowY = this.cellHeight * i
+			for (let col = 0; col < children.length; col++) {
+				let item = children[col];
+				let dstyle = item.style
+				let xy_x = _realCellWidth * col + _halfCellWidth;
+				let xy_y = rowY + _halfCellHeight;
+
+				ctx.fillStyle = this.getColor(dstyle.dstyle.backgroundColor, (item.disabled || !item.inCurrentMonth) && !item.isInstart && !item.isInEnd ? 0.3 : 1);
+				if (dstyle.dstyle.backgroundColor != 'transparent') {
+					ctx.beginPath()
+					ctx.arc(xy_x, xy_y, _halfH, 0, _twoPi)
+					ctx.closePath()
+					ctx.fill()
+				}
+
+				if (dstyle.dot.dot) {
+					if (dstyle.dot.dotLabel == '') {
+						let lastx = xy_x + _halfCellHeight - 10;
+						let lasty = _realCellWidth * i + 10
+						ctx.fillStyle = dstyle.dot.dotColor
+						ctx.beginPath()
+						ctx.arc(lastx, lasty, 4, 0, _twoPi)
+						ctx.closePath()
+						ctx.fill()
+					} else {
+						let lastx = xy_x + _halfCellHeight - 5;
+						let lasty = _realCellWidth * i + 10
+						ctx.fillStyle = dstyle.dot.dotColor;
+						ctx.beginPath()
+						ctx.arc(lastx, lasty, 10, 0, _twoPi)
+						ctx.closePath()
+						ctx.fill()
+						ctx.font = "10px"
+						ctx.fillStyle = dstyle.dot.dotLabelColor
+						// #ifdef APP-ANDROID || APP-HARMONY
+						ctx.fillText(dstyle.dot.dotLabel, lastx, lasty + 3);
+						// #endif
+						// #ifdef APP-IOS
+						ctx.fillText(dstyle.dot.dotLabel, lastx, lasty + 5);
+						// #endif
+					}
+				}
+
+				const text = item.date.day.toString();
+				ctx.fillStyle = this.getColor(dstyle.dstyle.fontColor, (item.disabled || !item.inCurrentMonth) ? 0.7 : 1);
+				ctx.font = this._fontSize
+				let _t_y = xy_y + 2;
+				// #ifdef APP-IOS
+				_t_y = xy_y + 6;
+				// #endif
+				ctx.fillText(text, xy_x, _t_y);
+				let label = this.showLabel(item)
+				label = label == '' ? dstyle.dstyle.label : label
+
+				if (label != '') {
+					let labely = rowY + this.cellHeight - 9;
+					// #ifdef APP-ANDROID || APP-HARMONY
+					labely = rowY + this.cellHeight - 12;
+					// #endif
+					ctx.font = "8px"
+					ctx.fillText(label, xy_x, labely);
+				}
+				
+				let statusColor = item.statusColor;
+				if(statusColor!=''){
+					ctx.fillStyle = statusColor
+					ctx.beginPath()
+					ctx.arc(xy_x, rowY + this.cellHeight - this.sapce - 3, 2, 0, _twoPi)
+					ctx.closePath()
+					ctx.fill()
+				}
+			}
+		}
+		ctx.update()
+	}
+	draw(list : xDateArrayItemType[][], modelv : xCalendarMode = 'day') {
+		let _this = this;
+		_this.model = modelv;
+		this.ele?.getBoundingClientRectAsync()
+			?.then((rect : DOMRect) => {
+				_this._draw(_this.ele!, rect, list)
+			})
+			.catch((er) => {
+				console.error(er)
+			})
+	}
+}

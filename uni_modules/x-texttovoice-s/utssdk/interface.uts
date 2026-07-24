@@ -1,0 +1,30 @@
+
+export type XuiTextToVoiceResult = {
+
+}
+
+export interface XuiTextToVoiceFail extends IUniError {
+  errCode : number
+};
+
+export type XuiTextToVoiceOpts = {
+  onStart ?:() => void
+  onStop ?:() => void
+  onError ?:(res : XuiTextToVoiceFail) => void
+  /** 播放完成 */
+  onDone ?:() => void
+  /** 函数执行初始化成功，然后就可以播放，停止等操作了。 */
+  success ?: (res : XTTSImpl) => void
+  /** 函数初始化失败 */
+  fail ?: (res : XuiTextToVoiceFail) => void
+  /** 不管初始失败还是成功都执行。 */
+  complete ?: (res : XuiTextToVoiceResult|null) => void
+}
+
+export  interface XTTSImpl {
+	isPlaying(): boolean;
+	play(c:string):void
+	stop():void
+}
+
+

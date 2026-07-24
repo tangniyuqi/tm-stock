@@ -1,0 +1,19 @@
+/* 此规范为 uni 规范，可以按照自己的需要选择是否实现 */
+import { XuiChineseToPinYinFail } from "./interface.uts"
+
+export const XuiErrors : Map<number, string> = new Map([
+	[1001, '函数内部错误'],
+	[1002, '参数错误,缺少char参数或者char为空'],
+]);
+
+export class XuiChineseToPinYinFailImpl extends UniError implements XuiChineseToPinYinFail {
+	/**
+	 * 错误对象构造函数
+	 */
+	constructor(errCode : number) {
+		super();
+		this.errSubject = "x-chinesetopinyin-s";
+		this.errCode = errCode;
+		this.errMsg = XuiErrors.get(errCode) ?? "";
+	}
+}

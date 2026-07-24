@@ -1,0 +1,5 @@
+{
+	"dependencies": {
+		"x_mlkit_scannig_s": "./lib/x_mlkit_scannig_s.har"
+	}
+}

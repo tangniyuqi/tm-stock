@@ -1,0 +1,5 @@
+{
+	"dependencies": {
+		"x_camrea_u": "./lib/x_camrea_u.har"
+	}
+}

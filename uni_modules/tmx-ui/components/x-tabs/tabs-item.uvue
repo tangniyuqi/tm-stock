@@ -1,0 +1,72 @@
+<script lang="uts" setup>
+	/**
+	 * @name 标签导航子组件 tabsItem
+	 * @description 标签导航子组件，只能放置在父组件x-tabs中
+	 * @page /pages/index/tabs
+	 * @category 导航组件
+	 * @constant 平台兼容
+	 * 	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({ name: "tabsItem" })
+	
+	const emit = defineEmits([
+		/**
+		 * 节点信息变化时触发
+		 * @param {NodeInfo} rect - 节点信息
+		 * @param {string} id - 节点id
+		 */
+		'change',
+		/**
+		 * 组件销毁时触发
+		 * @param {string} id - 节点id
+		 */
+		'destory'
+	])
+	
+	const props = defineProps({
+		/**
+		 * 节点id
+		 */
+		id:{
+			type:String,
+			default:''
+		}
+	})
+	
+	const proxy = getCurrentInstance()?.proxy
+	
+	const getNodeinfo = () => {
+		let t  = proxy;
+		uni.createSelectorQuery()
+		.in(t)
+		.select('.xTabsItemChildren')
+		.boundingClientRect((rect:any)=>{
+			emit('change',rect as NodeInfo,props.id)
+		}).exec()
+	}
+	
+	onMounted(() => {
+		getNodeinfo()
+	})
+
+	onBeforeUnmount(() => {
+		emit('destory',props.id)
+	})
+</script>
+<template>
+	<view class="xTabsItemChildren">
+		<slot></slot>
+	</view>
+</template>
+<style>
+.xTabsItemChildren{
+	display: flex;
+	flex-direction: row;
+	flex-wrap: nowrap;
+	justify-content: center;
+	align-items: center;
+	flex: 1;
+}
+</style>

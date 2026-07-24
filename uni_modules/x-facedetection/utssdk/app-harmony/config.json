@@ -1,0 +1,5 @@
+{
+	"dependencies": {
+		"x_facedetection": "./lib/x_facedetection.har"
+	}
+}

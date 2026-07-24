@@ -1,0 +1,413 @@
+import { ValueType, ValuesBucket, relationalStore } from '@kit.ArkData';
+import { featureAbility } from '@kit.AbilityKit';
+import { BusinessError } from '@ohos.base';
+interface SQLiteConfig {
+	password ?: string;
+	encryption ?: boolean;
+	locateFile ?: (filename : string) => string;
+	defaultDirectory ?: string;
+}
+
+interface SQLiteResult {
+	rows ?: any[][]|null;
+	columns ?: string[]|null;
+	changes ?: number|null;
+	lastInsertRowid ?: number|null;
+	error ?: string|null;
+	maps ?: Map<string, any>[]|null
+}
+interface SQLiteExecuteBatchParams {
+	sql : string,
+	params ?: any[]|null
+}
+interface SQLiteDbFileInfo {
+	path : string | null,
+	size : number | null
+}
+
+export class xSqlite {
+	/** 数据库配置信息 */
+	config : relationalStore.StoreConfig = {
+		name: "sqlite.db",
+		securityLevel: relationalStore.SecurityLevel.S3,
+		customDir: 'tmui4x'
+	};
+	
+	private isInTransaction:boolean = false;
+	private db : relationalStore.RdbStore | null = null;
+
+	constructor(config ?: SQLiteConfig) {
+
+	}
+	private converFormat(result?:SQLiteResult):SQLiteResult{
+		if(result==null){
+			return {
+				rows: [] ,
+				columns: [] ,
+				changes: null,
+				lastInsertRowid: null,
+				error: null,
+			};
+		}
+		
+		return {
+			rows: (result?.rows==null?[]:result?.rows),
+			columns: (result?.columns==null?[]:result?.columns),
+			changes: (result?.changes==null?null:result?.changes),
+			maps: (result?.maps==null?null:result?.maps),
+			lastInsertRowid: (result?.lastInsertRowid==null?null:result?.lastInsertRowid),
+			error: (result?.error==null?null:result?.error),
+		};
+	}
+	/**
+	 * 创建数据库
+	 * @param fileName 数据库文件名，如果为null则使用默认名称'sqlite'
+	 * @returns 创建成功返回true，失败返回false
+	 */
+	async createDb(fileName : string | null = null) : Promise<boolean> {
+		if (this.db != null) {
+			return Promise.resolve(true);
+		}
+		this.config.name = fileName ? (fileName + '.db') : this.config.name
+		const context = UTSHarmony.getUIAbilityContext()
+		return new Promise<boolean>((res, rej) => {
+			relationalStore.getRdbStore(context, this.config).then(async (rdbStore : relationalStore.RdbStore) => {
+				this.db = rdbStore;
+				console.info('Get RdbStore successfully.');
+				res(true)
+			}).catch((err : BusinessError) => {
+				console.error(`Get RdbStore failed, code is ${err.code},message is ${err.message}`);
+				rej(false)
+			});
+		})
+	}
+	/**
+	 * 关闭数据库连接
+	 * 释放数据库资源，关闭后需要重新创建才能使用
+	 */
+	async close(): Promise<boolean> {
+		if (this.db!=null) {
+			this.db = null;
+			try{
+				await this.db!.close();
+				return Promise.resolve(true)
+			}catch(e){
+				return Promise.resolve(false)
+			}
+		}
+		return Promise.resolve(true)
+	}
+	/**
+	 * 鸿蒙不支持，此函数仅为兼容用，执行没有任反应。
+	 * @param filename 保存的文件名，可选，默认为'sqlite'
+	 * @returns SQLiteResult 保存结果
+	 */
+	saveLocal(filename?: string): SQLiteResult {
+		const context = UTSHarmony.getCurrentWindow()!.getUIContext();
+		console.warn('harmoney不支持本函数')
+		return this.converFormat()
+	}
+	
+	/**
+	 * 从本地文件加载数据库,它同createDb是一样的效果，有就加载，没有就创建。不能含有.db后缀，鸿蒙不能有自定路径，只能是文件名。
+	 * @param filename 要加载的数据库文件名
+	 * @returns SQLiteResult 加载结果
+	 */
+	async loadLocal(filename:string): Promise<SQLiteResult>{
+		let fname = filename;
+		if(filename.lastIndexOf('/')>-1){
+			console.warn('harmoney不支持带路径的文件名，仅安卓和Ios支持自定路径。')
+			fname = filename.split('/')[1]
+		}
+		if(filename.lastIndexOf('.db')>-1){
+			console.warn('不要携带.db后缀文件名称及路径')
+		}
+		try{
+			if(this.db){
+				await this.db.close();
+			}
+			this.config.name = fname+'.db'
+			await this.createDb(this.config.name)
+			return Promise.resolve(this.converFormat())
+			
+		}catch(e){
+	
+			return Promise.resolve(this.converFormat({error:"错误"} as SQLiteResult))
+		}
+		
+	}
+	
+	/**
+	 * 执行SQL语句
+	 * @param sql SQL语句
+	 * @param params SQL参数数组
+	 * @returns SQLiteResult 执行结果，包含changes(影响行数)和lastInsertRowid(最后插入行ID)
+	 */
+	run(sql: string, params: any[] = []): SQLiteResult {
+		try {
+			if (!this.db) return {error:'Database not initialized'}
+			const result = this.db.executeSync(sql,params as relationalStore.ValueType[])
+			console.log('TMUI',`Sqlite:${result}`)
+			return {};
+		} catch (error) {
+			let er = error as BusinessError
+			console.error("TMUI",`Sqlite:${er.message}`)
+			return { error: er.message };
+		}
+	}
+	
+	/**
+	 * 开始事务
+	 * 开始一个新的事务，在提交或回滚之前，所有操作都在事务内
+	 * @returns SQLiteResult 事务开始结果
+	 */
+	beginTransaction(): SQLiteResult{
+		if (!this.db) return {error:'Database not initialized'}
+		if (this.isInTransaction) {
+			return { error: 'Transaction already in progress' };
+		}
+		this.db.beginTransaction()
+		this.isInTransaction = true;
+		return {};
+	}
+	/**
+	 * 提交事务
+	 * 提交当前事务的所有操作
+	 * @returns SQLiteResult 事务提交结果
+	 */
+	commit(): SQLiteResult {
+		if (!this.db) return {error:'Database not initialized'}
+		if (!this.isInTransaction) {
+			return { error: 'No transaction in progress' };
+		}
+		this.db.commit()
+		this.isInTransaction = false;
+		return {};
+	}
+	
+	/**
+	 * 回滚事务
+	 * 撤销当前事务中的所有操作
+	 * @returns SQLiteResult 事务回滚结果
+	 */
+	rollback(): SQLiteResult {
+		if (!this.db) return {error:'Database not initialized'}
+		if (!this.isInTransaction) {
+			return { error: 'No transaction in progress' };
+		}
+		this.db.rollBack()
+		this.isInTransaction = false;
+		return {};
+	}
+	
+	/**
+	 * 批量执行SQL语句
+	 * @param statements SQL语句数组，每个元素包含sql和params
+	 * @returns SQLiteResult[] 每个语句的执行结果数组
+	 */
+	executeBatch(statements: SQLiteExecuteBatchParams[]): SQLiteResult[] {
+		if (this.isInTransaction) {
+			return [];
+		}
+		const results: SQLiteResult[] = [];
+		let hasError = false;
+	
+		// 自动使用事务包装批量操作
+		const wasInTransaction = this.isInTransaction;
+		if (!wasInTransaction) {
+			this.beginTransaction();
+		}
+	
+		try {
+			for (const stmt of statements) {
+				const result = this.run(stmt.sql, stmt?.params??[]);
+				results.push(result);
+				if (result.error) {
+					hasError = true;
+					break;
+				}
+			}
+	
+			// 如果有错误并且是我们开始的事务，则回滚
+			if (hasError && !wasInTransaction) {
+				this.rollback();
+			} else if (!wasInTransaction) {
+				// 如果是我们开始的事务且没有错误，则提交
+				this.commit();
+			}
+		} catch (error) {
+			// 发生异常且是我们开始的事务，则回滚
+			if (!wasInTransaction) {
+				this.rollback();
+			}
+			results.push({ error: error.message } as SQLiteResult);
+		}
+	
+		return results;
+	}
+	
+	/**
+	 * 获取数据库文件路径
+	 * 获取当前数据库文件的完整路径，获取前会备份到缓存目录
+	 * @returns string|null 数据库文件路径，如果数据库未初始化则返回null
+	 */
+	getDatabasePath():string|null{
+		console.warn('harmoney不支持本函数')
+		if (this.db==null){
+			console.error('Database not initialized')
+			return null
+		}
+		
+		return '';
+	}
+	
+	/**
+	 * 当前数据库的目录
+	 */
+	setDefaultDirectory(directory: string){
+		console.warn('harmoney不支持本函数')
+	}
+	/**
+	 * 设置数据库密码
+	 * 空值或者null即删除密码
+	 */
+	setPassword(password: string|null = null){
+		console.warn('harmoney不支持本函数')
+	}
+	
+	/**
+	 * 删除数据表
+	 * @param tableName 要删除的表名
+	 * @returns SQLiteResult 删除结果
+	 */
+	dropTable(tableName: string): SQLiteResult {
+		const sql = `DROP TABLE IF EXISTS ${tableName}`;
+		return this.run(sql)
+	}
+	/**
+	 * 查询数据
+	 * @param sql 查询SQL语句
+	 * @param params 查询参数数组
+	 * @returns SQLiteResult 查询结果，包含rows(数据行)和columns(列名)
+	 */
+	query(sql: string, params: any[] = []): SQLiteResult {
+		if (this.db==null){
+			console.error('Database not initialized')
+			return {error:'Database not initialized'}
+		}
+		try {
+			if (this.isInTransaction) {
+				return { error: 'Transaction already in progress' };
+			}
+			const resultSet = this.db.querySqlSync(sql, params as relationalStore.ValueType[]);
+			let maps = [] as Map<string,any>[];
+			let rows:any[][] = [] ;
+			let columns:string[] =[] ;
+			 while (resultSet.goToNextRow()) {
+				let newmap = new Map<string,any>();
+				let newrows:any[] = []
+				columns = resultSet.columnNames;
+				resultSet.columnNames.forEach((key:string,index:number)=>{
+					newmap.set(key,resultSet.getValue(index) as any)
+					newrows.push(resultSet.getValue(index) as any)
+				})
+				maps.push(newmap)
+				rows.push(newrows)
+			}
+			return { 
+				rows: rows,
+				columns: columns,
+				maps
+			};
+		} catch (error) {
+			return { error: error.message };
+		}
+	}
+	
+	/**
+	 * 插入数据
+	 * @param table 表名
+	 * @param data 要插入的数据对象
+	 * @returns SQLiteResult 插入结果
+	 */
+	insert(table: string, data: UTSJSONObject): SQLiteResult {
+		if (this.db==null){
+			return {error:'Database not initialized'};
+		}
+		let values:ValuesBucket = {};
+		data.toMap().forEach((value:any,key:string)=>{
+			let keyvalue = value as ValueType;
+			values[key as string] = keyvalue
+		})
+		const result = this.db.insertSync(table,values)
+		const re = result==-1?this.converFormat({error:"操作失败"} as SQLiteResult):(this.converFormat({lastInsertRowid:result} as SQLiteResult))
+		console.log(re)
+		return re
+	}
+	
+	/**
+	 * 创建数据表
+	 * @param tableName 表名
+	 * @param columns 列定义对象，key为列名，value为列类型定义
+	 * @returns SQLiteResult 创建结果
+	 */
+	createTable(tableName: string, columns: UTSJSONObject): SQLiteResult {
+		const dataMap:string[] = [];
+		columns.toMap().forEach((value:any,key:string)=>{
+			dataMap.push(`${key} ${value}`)
+		})
+		const columnDefinitions = dataMap.join(',');
+		const sql = `CREATE TABLE IF NOT EXISTS ${tableName} (${columnDefinitions})`;
+		return this.run(sql);
+	}
+	
+	/**
+	 * 更新数据
+	 * @param table 表名
+	 * @param data 要更新的数据对象
+	 * @param where WHERE条件语句
+	 * @param params WHERE条件参数数组
+	 * @returns SQLiteResult 更新结果
+	 */
+	update(table: string, data: UTSJSONObject, where: string, params: any[] = []): SQLiteResult {
+	
+		if (this.db==null){
+			return {error:'Database not initialized'};
+		}
+		let keysold:string[] = []
+		let oldValues:any[] = []
+		data.toMap().forEach((value:any,key:string)=>{
+			keysold.push(key)
+			oldValues.push(value)
+		})
+		
+		const sets = keysold.map(key => `${key} = ?`).join(',');
+		const values = [...oldValues, ...params];
+		const sql = `UPDATE ${table} SET ${sets} WHERE ${where}`;
+		return this.run(sql, values);
+	}
+	
+	/**
+	 * 删除数据
+	 * @param table 表名
+	 * @param where WHERE条件语句
+	 * @param params WHERE条件参数数组
+	 * @returns SQLiteResult 删除结果
+	 */
+	delete(table: string, where: string, params: any[] = []): SQLiteResult {
+		const sql = `DELETE FROM ${table} WHERE ${where}`;
+		return this.run(sql, params);
+	}
+	/**
+	 * 检查表是否存在
+	 * @param tableName 表名
+	 * @returns boolean 表存在返回true，不存在返回false
+	 */
+	tableExists(tableName: string): boolean {
+		const result = this.query("SELECT name FROM sqlite_master WHERE type='table' AND name=?", [tableName]);
+		let rows = result?.rows?.length??0
+		return rows > 0;
+	}
+	
+	
+}

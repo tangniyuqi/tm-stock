@@ -1,0 +1,320 @@
+export type ChartDatum = UTSJSONObject;
+
+export type ChartActiveStyle = {
+	/** 选中点填充色 */
+	pointColor ?: string,
+	/** 选中点描边宽度 */
+	pointBorderWidth ?: number,
+	/** 选中点半径增量(px) */
+	pointScale ?: number,
+	/** 选中列背景遮罩填充色 */
+	backdrop ?: string,
+	/** 选中元素描边色(柱/漏斗/K线) */
+	borderColor ?: string,
+	/** 选中元素描边宽度 */
+	borderWidth ?: number,
+	/** 饼图选中放大半径增量(px) */
+	pieScale ?: number,
+	/** 十字线宽度 */
+	crosshairWidth ?: number,
+	/** 十字线颜色 */
+	crosshairColor ?: string
+}
+
+export type ResolvedActiveStyle = {
+	pointColor : string,
+	pointBorderWidth : number,
+	pointScale : number,
+	backdrop : string,
+	borderColor : string,
+	borderWidth : number,
+	pieScale : number,
+	crosshairWidth : number,
+	crosshairColor : string,
+	textColor : string,
+	textSubColor : string
+}
+
+export type ChartSeriesContext = {
+	activeType : string,
+	activeIndex : number,
+	activeStyle : ResolvedActiveStyle,
+	onClickPoint : (seriesType : string, index : number, x : number, y : number, title : string, value : string, color : string) => void
+}
+
+export type ChartPadding = {
+	top ?: number,
+	right ?: number,
+	bottom ?: number,
+	left ?: number
+}
+
+export type ChartAxisOptions = {
+	show ?: boolean,
+	grid ?: boolean,
+	/** 网格线宽度，默认 1 */
+	gridWidth ?: number,
+	/** 网格线颜色 */
+	gridColor ?: string,
+	/** 轴线宽度，默认 1 */
+	lineWidth ?: number,
+	/** 轴线颜色 */
+	lineColor ?: string,
+	/** 标签文字颜色 */
+	labelColor ?: string,
+	/** 标签字号，默认 11 */
+	labelSize ?: number,
+	tickCount ?: number,
+	labelRotate ?: number,
+	labelFormatter ?: string,
+	/** 轴标题文字（如 "销售额(万元)"） */
+	axisName ?: string,
+	/** 轴标题位置：'start' | 'middle' | 'end'（默认 'end'） */
+	axisNameLocation ?: string,
+	/** 轴标题与轴线的距离(px)，默认 Y 轴 14、X 轴 22 */
+	axisNameGap ?: number,
+	/** 轴标题文字颜色 */
+	axisNameColor ?: string,
+	/** 轴标题字号，默认 12 */
+	axisNameFontSize ?: number,
+	autoInterval ?: boolean,
+	maxLabelLength ?: number
+}
+
+export type ChartSeriesType = 'line' | 'bar' | 'pie' | 'area' | 'scatter' | 'radar' | 'funnel' | 'sunburst' | 'treemap' | 'relation' | 'k' | 'map' | 'gauge' | 'indicator';
+
+/** 金融指标类型：ma 移动平均 / ema 指数移动平均 / boll 布林带 / env 轨道线 */
+export type ChartIndicatorKind = 'ma' | 'ema' | 'boll' | 'env';
+
+export type ChartIndicatorOptions = {
+	/** 指标类型 */
+	kind : ChartIndicatorKind,
+	/** 周期，MA/EMA/BOLL/ENV 通用，默认 20 */
+	period ?: number,
+	/** BOLL 标准差倍数，默认 2 */
+	k ?: number,
+	/** ENV 偏离百分比，如 0.05 表示 ±5%，默认 0.05 */
+	deviation ?: number,
+	/** 指标数据源字段（默认 'end' 收盘价，与 K 线数据保持一致） */
+	field ?: string,
+	/** 线宽，默认 1.5 */
+	lineWidth ?: number,
+	/** 是否使用 monotone 三次平滑（金融指标一般保持 false 直连） */
+	smooth ?: boolean,
+	/** 各线颜色：MA/EMA=1 个；BOLL/ENV=3 个依次对应 中轨/上轨/下轨 */
+	colors ?: string[],
+	/** BOLL/ENV 是否填充上下轨之间，默认 false */
+	fillBand ?: boolean,
+	/** 填充透明度，默认 0.08 */
+	fillOpacity ?: number,
+	/** 虚线样式，如 [4,4] */
+	lineDash ?: number[]
+};
+
+/** 副图指标类型（位于 K 线下方独立区域，有自己的 y 轴） */
+export type IndicatorPanelKind = 'macd' | 'kdj' | 'rsi' | 'vol';
+
+export type IndicatorPanelOptions = {
+	/** 副图类型 */
+	kind : IndicatorPanelKind,
+	/** 副图高度 px，默认 90 */
+	height ?: number,
+	/** MACD 快线周期，默认 12 */
+	short ?: number,
+	/** MACD 慢线周期，默认 26 */
+	long ?: number,
+	/** MACD 信号线周期 / KDJ M1，默认 9 (MACD) / 3 (KDJ) */
+	signal ?: number,
+	/** KDJ N 日最高最低窗口，默认 9 */
+	n ?: number,
+	/** KDJ K 平滑，默认 3 */
+	m1 ?: number,
+	/** KDJ D 平滑，默认 3 */
+	m2 ?: number,
+	/** RSI 多周期数组，默认 [6, 12, 24]；VOL 均量周期，默认 [5, 10] */
+	periods ?: number[],
+	/**
+	 * 各线/柱颜色：
+	 * MACD = [DIF, DEA, 红柱, 绿柱]
+	 * KDJ  = [K, D, J]
+	 * RSI  = [RSI6, RSI12, RSI24]
+	 * VOL  = [涨柱, 跌柱, MA5, MA10]
+	 */
+	colors ?: string[],
+	/** 源字段（MACD/KDJ/RSI 默认 'end' 收盘；VOL 默认 'vol'） */
+	field ?: string,
+	/** 指标线宽，默认 1 */
+	lineWidth ?: number
+};
+
+export type ChartLabelOptions = {
+	show ?: boolean,
+	fontSize ?: number,
+	color ?: string,
+	/** pie 标签位置：'inside' | 'outside' | 'spider' */
+	position ?: string,
+	/** pie 外部标签是否显示引导线 */
+	line ?: boolean,
+	/** 格式化模板，{name} {value} {percent} 可被替换 */
+	formatter ?: string
+}
+
+export type ChartSeriesOptions = {
+	type : ChartSeriesType,
+	xField ?: string,
+	yField ?: string,
+	angleField ?: string,
+	colorField ?: string,
+	color ?: string,
+	smooth ?: boolean,
+	smoothStrength ?: number,
+	showPoint ?: boolean,
+	lineWidth ?: number,
+	pointSize ?: number,
+	barWidthRatio ?: number,
+	barRadius ?: number,
+	/** 柱图多系列模式：'group'(并排) | 'stack'(堆叠) | 'percentStack'(百分比堆叠) */
+	barMode ?: string,
+	pieInnerRadius ?: number,
+	pieRadiusScale ?: number,
+	/** 外半径像素值（嵌套环图每层独立指定，优先于 pieRadiusScale） */
+	pieOuterRadius ?: number,
+	/** 环形图中心主文字 */
+	pieCenterText ?: string,
+	/** 环形图中心副标题 */
+	pieCenterSubText ?: string,
+	/** 扇区间隙角度，默认 0 */
+	pieGap ?: number,
+	/** 扇区端头是否圆角 */
+	pieRoundCap ?: boolean,
+	/** 玫瑰图模式：'radius'(半径按值) | 'area'(面积按值) */
+	pieRoseType ?: string,
+	/** 数据标签配置（gauge：label.show/color/fontSize/format 仅作用于中心数值；formatter 占位 {name}{value}{percent} 同饼图） */
+	label ?: ChartLabelOptions,
+	/** 面积图填充透明度 0~1 */
+	areaOpacity ?: number,
+	/** 渐变色：柱/折/面积等；gauge 时作用于进度弧描边，如 ['#3b82f6','#64f6cf'] 或 ['to bottom','#a','#b'] */
+	gradient ?: string[],
+	/** 仪表盘进度值 0~1 */
+	percent ?: number,
+	/** 仪表盘起始角度（度），默认 -210 */
+	gaugeStartAngle ?: number,
+	/** 仪表盘结束角度（度），默认 30 */
+	gaugeEndAngle ?: number,
+	/** 仪表盘刻度数量，默认 10 */
+	gaugeTickCount ?: number,
+	/** 仪表盘指针颜色 */
+	gaugePointerColor ?: string,
+	/** 仪表盘轨道颜色 */
+	gaugeTrackColor ?: string,
+	/** 仪表盘进度颜色（与 gradient 二选一，gradient 优先描边渐变） */
+	gaugeProgressColor ?: string,
+	/** 地图模式：'fill'(填充，默认) | 'stroke'(线轮廓) */
+	mapMode ?: string,
+	/** 地图区域填充色 */
+	mapFillColor ?: string,
+	/** 地图区域描边色 */
+	mapStrokeColor ?: string,
+	/** 地图选中区域填充色 */
+	mapActiveColor ?: string,
+	/** 地图描边宽度 */
+	mapStrokeWidth ?: number,
+	/** 金融指标配置（type='indicator' 时使用），与 K 线主图共用 y 轴 */
+	indicator ?: ChartIndicatorOptions
+}
+
+export type DataZoomOptions = {
+	enabled ?: boolean,
+	start ?: number,
+	end ?: number,
+	minSpan ?: number
+}
+
+export type ChartTitleOptions = {
+	show ?: boolean,
+	text ?: string
+}
+
+export type ChartLegendOptions = {
+	show ?: boolean
+}
+
+export type ChartTooltipOptions = {
+	show ?: boolean,
+	formatter ?: string,
+	showCrosshairs ?: boolean,
+	crosshairsColor ?: string,
+	/** K 线图十字准星轴标签盒背景色（默认主题色 xConfig 主色） */
+	axisLabelBgColor ?: string,
+	/** K 线图十字准星轴标签盒文字颜色（默认 #ffffff） */
+	axisLabelTextColor ?: string,
+	/** K 线图十字准星轴标签字号（默认 11） */
+	axisLabelFontSize ?: number
+}
+
+export type ChartCoordOptions = {
+	/** 坐标系类型：'rect' | 'polar'，默认 'rect' */
+	type ?: string,
+	/** 是否转置坐标系（柱图变条形图），默认 false */
+	transposed ?: boolean
+}
+
+export type ChartAnimationOptions = {
+	/**
+	 * 几何入场动画（弧/扇区展开、柱形生长等），不含透明度渐入。
+	 * 默认 true；设为 false 则每次直接绘制（如表盘改数也无过渡）。
+	 */
+	entrance ?: boolean,
+	/** 几何入场时长 ms，默认 500 */
+	entranceDuration ?: number
+}
+
+export type ChartOptions = {
+	data : ChartDatum[],
+	series : ChartSeriesOptions[],
+	padding ?: ChartPadding,
+	coord ?: ChartCoordOptions,
+	xAxis ?: ChartAxisOptions,
+	yAxis ?: ChartAxisOptions,
+	dataZoom ?: DataZoomOptions,
+	title ?: ChartTitleOptions,
+	legend ?: ChartLegendOptions,
+	tooltip ?: ChartTooltipOptions,
+	activeStyle ?: ChartActiveStyle,
+	/** 几何入场与时长（高亮等交互动画不受此影响） */
+	animation ?: ChartAnimationOptions,
+	/** K 线副图指标（MACD / KDJ / RSI / VOL 等），纵向堆叠在主图下方，与主图共享 x 轴 */
+	indicatorPanels ?: IndicatorPanelOptions[]
+}
+
+export type ChartClickEvent = {
+	seriesType : string,
+	dataIndex : number,
+	title : string,
+	record : ChartDatum | null,
+	data : ChartDatum[]
+}
+
+export type ChartEdgeEvent = {
+	/** 触发方向：'start' 滑到数据头部，'end' 滑到数据尾部 */
+	direction : string,
+	/** 当前视口起点 0~1 */
+	start : number,
+	/** 当前视口终点 0~1 */
+	end : number,
+	/** 总数据条数 */
+	total : number
+}
+
+import { getChartColor } from './palette.uts';
+
+export const sXField = (s : ChartSeriesOptions) : string => s.xField ?? ''
+export const sYField = (s : ChartSeriesOptions) : string => s.yField ?? ''
+export const sColor = (s : ChartSeriesOptions, idx : number) : string => s.color ?? getChartColor(idx)
+export const sSmooth = (s : ChartSeriesOptions) : boolean => s.smooth ?? false
+export const sShowPoint = (s : ChartSeriesOptions, defaultVal : boolean) : boolean => s.showPoint ?? defaultVal
+export const sLineWidth = (s : ChartSeriesOptions, defaultVal : number) : number => Math.max(1, s.lineWidth ?? defaultVal)
+export const sSmoothStrength = (s : ChartSeriesOptions) : number => Math.max(0.15, Math.min(1, s.smoothStrength ?? 0.6))
+export const sPointSize = (s : ChartSeriesOptions) : number => Math.max(3, s.pointSize ?? 8)
+/** 默认折线的点描边宽度 */
+export const POINT_BORDER_WIDTH = 1.5

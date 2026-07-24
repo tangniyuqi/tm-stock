@@ -1,0 +1,39 @@
+// https://github.com/promeG/TinyPinyin
+import Pinyin  from "com.github.promeg.pinyinhelper.Pinyin";
+import PinyinHelper from "net.sourceforge.pinyin4j.PinyinHelper";
+import HanyuPinyinOutputFormat from 'net.sourceforge.pinyin4j.format.HanyuPinyinOutputFormat';
+import HanyuPinyinToneType from 'net.sourceforge.pinyin4j.format.HanyuPinyinToneType';
+import HanyuPinyinVCharType from 'net.sourceforge.pinyin4j.format.HanyuPinyinVCharType';
+import { XuiChineseToPinYinOpts, XuiChineseToPinYinResult } from "../interface.uts"
+import { XuiChineseToPinYinFailImpl } from "../unierror.uts"
+
+/** 中文转拼音 */
+export function toPinYin(opts : XuiChineseToPinYinOpts){
+	try {
+		let c = opts.char;
+		if (c == '') {
+			let errorIml = new XuiChineseToPinYinFailImpl(1002)
+			opts.fail?.(errorIml)
+			opts.complete?.(null)
+			console.error('TMUI Error:','参数不能为空')
+			return;
+		}
+		let result = Pinyin.toPinyin(c," ",null) as string;
+		const fmt = new HanyuPinyinOutputFormat()
+		fmt.setVCharType(HanyuPinyinVCharType.WITH_U_UNICODE);
+		fmt.setToneType(HanyuPinyinToneType.WITH_TONE_MARK)
+		const ok : XuiChineseToPinYinResult = {
+			detail: result.toLowerCase(),
+			zhuyin: PinyinHelper.toHanyuPinyinString(c,fmt,' ')
+		}
+		opts.success?.(ok)
+		opts.complete?.(ok)
+		
+	} catch (error:Error) {
+		opts.fail?.(new XuiChineseToPinYinFailImpl(1001))
+		opts.complete?.(null)
+		console.error('TMUI Error:',error.message)
+	}
+	
+	
+}

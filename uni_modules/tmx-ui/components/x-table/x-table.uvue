@@ -1,0 +1,1192 @@
+<script lang="ts" setup>
+	import { ref, computed, watch, onMounted, onBeforeUnmount, getCurrentInstance, nextTick } from "vue"
+	import { getUid } from "../../core/util/xCoreUtil.uts"
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { checkIsCssUnit, getUnit } from "../../core/util/xCoreUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	import { xTableColumns } from "../../interface.uts"
+	
+	type RefreshFun = (type:string) => Promise<any|null>
+	type cellStyleTYpe = {
+		bgStyle : string,
+		textStyle : string,
+		align:string
+	}
+
+	type cellMergeType = {
+		colspan: number,
+		rowspan: number,
+		shouldRender: boolean
+	}
+
+	/**
+	 * @name 表格 xTable
+	 * @description 格式与antd一样。可以单独设置样式和整体列设置样式。也可以单独设置列宽，项目列宽虽然 可以auto，但数据多的情况下不要用，还是定义具体的百分比或者数字比较快的渲染。
+	 * 1.具体想控制某一单元格的完全定义，可通过具名指定单元格插槽及行插槽，用于复杂的布局（使用插槽时，不可排序）
+	 * 在单元格数据中 添加 {merge:{'key字段':{colspan:合并的列数}}}可以让当前单格向右合并下列（被合并的列数据将被隐藏不显示）。
+	 * 在单元格数据中 添加 {showCheck:boolean},可以单独控制隐藏某一行不参与行选中(前提需要在x-tabale设置属性 :showCheck="true" 开启表格行选中功能)，**行选中功能仅支持没有浮动置顶的数据表格**。
+	 * 不管是头还是单元格它的style格式是一样的 {style:{key字段:{bgStyle,textStyle,align:'对齐方式:flex-start,center,flex-end'}}}
+	 * 具体的数据格式见demo页面(web,微信是不支持多表头固定悬浮的，web只支持一个悬浮的（多悬浮下只显示最后一个悬浮，此不是bug，是官方的组件就不支持。以前文档写了但现在官方 文档我没找到，但实际是不支持的）)
+	 * @page /pages/index/table
+	 * @category 展示组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({name:"xTable"})
+	
+	const proxy = getCurrentInstance()?.proxy??null;
+	
+	defineSlots<{
+		/**
+		 * 行插槽插槽名称就是列的字段名称name:字段名,sucore:utsobject数据 
+		 */
+		[key: string]: (props: { sucore: UTSJSONObject }) => any
+		/**
+		 * 指定具体单元格插槽，name:字段名+'-'+key的值,sucore:utsobject数据 
+		 */
+		[key: string]: (props: { sucore: UTSJSONObject }) => any
+		/**
+		 * 触底下拉刷新的插槽,你需要提供事件函数refresh才可开启 
+		 */
+		refresh(): any
+	}>()
+	
+	const emits = defineEmits([
+		/**
+		 * 单元格被点击
+		 * @param {UTSJSONObject} item - 行数据
+		 * @param {string} key - 当前点击的列字段名称。如果要获取字段内容可以item.getAny(key)!得到
+		 */
+		'cellClick',
+		/**
+		 * 触底刷新时触发.
+		 */
+		'refresh',
+		/**
+		 * 行被选中时触发
+		 * @param {string[]} ids - 行key集合选中的值
+		 */
+		'checkChange'
+		
+	])
+
+	type xTablePropsType = {
+		/**
+		 * 源数据
+		 */
+		list: UTSJSONObject[],
+		/**
+		 * 列标题及字段定义
+		 */
+		columns: xTableColumns[],
+		/**
+		 * 容器的高，如果不设定，不会有上下滚动
+		 * 而直接从上往下布局。如果数据多建议设置。
+		 */
+		height: string,
+		/**
+		 * 容器的宽,不可以填写auto。
+		 */
+		width: string,
+		/**
+		 * 最大高度
+		 */
+		maxHeight: string,
+		/**
+		 * 单元格的高，不能%
+		 * 从1.1.18起允许为auto，或其它值，已经改为最小值，不再固定高，可以大段落自动断行了（早基sdk有bug实现不了目前经测试已无问题）
+		 */
+		cellHeight: string,
+		/**
+		 * 单元格的宽,不填写自动均分
+		 * 它是允许任意值auto,%，固定值等
+		 * 但我经过我测试auto，会影响原生渲染的速率（不是我影响的是自动布局的速率）
+		 */
+		cellWidth: string,
+		/**
+		 * 单元格的文字大小
+		 * 局部的设置会覆盖这里的
+		 */
+		fontSize: string,
+		/**
+		 * 单元格的文字颜色
+		 * 局部的设置会覆盖这里的
+		 */
+		fontColor: string,
+		/**
+		 * 单元格的暗黑文字颜色
+		 * 局部的设置会覆盖这里的
+		 */
+		fontDarkColor: string,
+		/**
+		 * 头的背景
+		 */
+		headerBgColor: string,
+		/**
+		 * 暗黑时，如果未设置取inputDarkColor
+		 */
+		darkHeaderBgColor: string,
+		/**
+		 * 头的文字颜色,暗黑时取白
+		 */
+		headerFontColor: string,
+		/**
+		 * 是否间隔波纹
+		 */
+		ripple: boolean,
+		/**
+		 * 波纹颜色,
+		 */
+		rippleColor: string,
+		/**
+		 * 波纹的暗黑颜色，不填写用的是sheetDark
+		 */
+		rippleDarkColor: string,
+		/**
+		 * 默认的行背景色，
+		 * 通常你没有在数据中配置背景时，会读取这的颜色。
+		 */
+		rowCellColor: string,
+		/**
+		 * 默认的行暗黑背景色，
+		 * 通常你没有在数据中配置背景时，会读取这的颜色。
+		 */
+		rowCellDarkColor: string,
+		/**
+		 * 是否给文字高防止断行。
+		 * 这是一个兼容性的试验参数，针对部分手机由于uni sdk原生安卓
+		 * 上对文本的测量可能存在精度 问题，导致文本意外的断行。如果为true可以防止这种情况发生
+		 * 可能会产生不能断行或者其它情况发生，请慎重使用。
+		 */
+		safeTextWrap: boolean,
+		/**
+		 * 是否启用多行固定功能
+		 * 数据源中如果某行要滚动固定请添加一个字段float:true
+		 * 默认关闭。微信不支持，web不支持多悬浮（如果设置了行行悬浮只会显示最后一行。）
+		 */
+		multiRowFloat: boolean,
+		/**
+		 * 是否可选并复制文本
+		 */
+		selectable: boolean,
+		/**
+		 * 拉到底部时触发
+		 * 如果返回Promise<any|null> 底部刷新提示不会消失
+		 * 类型null|(type:string)=>Promise<any|null>
+		 * null值时不被执行
+		 */
+		refresh?: RefreshFun | null,
+		/**
+		 * 是否显示滚动条
+		 */
+		showScrollbar: boolean,
+		/**
+		 * 是否隐藏头
+		 */
+		hideHead: boolean,
+		/**
+		 * 是否显示并启用行选中功能。
+		 */
+		showCheck:boolean,
+		/**
+		 * 选中的行数据key(类似于id)，不能重复
+		 */
+		checkValue:Array<string>
+	}
+	const props = withDefaults(defineProps<xTablePropsType>(), {
+		list: ():UTSJSONObject[] => [] as UTSJSONObject[],
+		columns: ():xTableColumns[] => [] as xTableColumns[],
+		checkValue: ():string[] => [] as string[],
+		showCheck: false,
+		height: "auto",
+		width: "100%",
+		maxHeight: "300",
+		cellHeight: "44",
+		cellWidth: "",
+		fontSize: "14",
+		fontColor: "#333333",
+		fontDarkColor:"#dedede",
+		headerBgColor: "#eeeeee",
+		darkHeaderBgColor: "",
+		headerFontColor: "#333333",
+		ripple: true,
+		rippleColor: "#fafafa",
+		rippleDarkColor: "",
+		rowCellColor: "#ffffff",
+		rowCellDarkColor: "",
+		safeTextWrap: false,
+		multiRowFloat: false,
+		selectable: false,
+		refresh: null,
+		showScrollbar: false,
+		hideHead: false
+	})
+
+	// 响应式数据
+	const checkboxWidth = 50
+	const totalWrapWidth = ref("100%")
+	const boxWidth = ref(0)
+	const boxHeight = ref(0)
+	const boxCellHeight = ref(0)
+	const _sourceList = computed(():UTSJSONObject[] => {
+		let clist:UTSJSONObject[] = []
+		for (let row = 0; row < props.list.length; row++) {
+			let el = props.list[row]
+			let id = el.getString('key') ?? row.toString()
+			let ele = {} as UTSJSONObject
+			for (let k in el) { ele.set(k, el[k]) }
+			ele.set('__id', id)
+			clist.push(ele)
+		}
+		return clist;
+	})
+	const _sourceFilterNoChecksList = computed(():UTSJSONObject[] => {
+		return _sourceList.value.filter((el:UTSJSONObject):boolean => {
+			return el.getBoolean('showCheck')!=false
+		})
+	})
+	const _list = ref([] as UTSJSONObject[])
+	const _listHeaderList = ref([] as UTSJSONObject[][])
+	const descKey = ref("")
+	const desc = ref("")
+	const isrefreshing = ref(false)
+
+	// 计算属性
+	const _headerBgColor = computed((): string => {
+		if (xConfig.dark == 'dark') {
+			if (props.darkHeaderBgColor != '') {
+				return getDefaultColor(props.darkHeaderBgColor)
+			} else {
+				return getDefaultColor(xConfig.inputDarkColor)
+			}
+		}
+		return getDefaultColor(props.headerBgColor)
+	})
+
+	const _headerFontColor = computed((): string => {
+		if (xConfig.dark == 'dark') return "#ffffff"
+		return getDefaultColor(props.headerFontColor)
+	})
+
+	const _rippleColor = computed((): string => {
+		let bgcolor = props.rippleColor
+		if (xConfig.dark == 'dark'){
+			bgcolor = props.rippleDarkColor
+			if(bgcolor==''){
+				bgcolor = "#202023"
+			}
+		} 
+		return getDefaultColor(bgcolor)
+	})
+
+	const _rippleColorNot = computed((): string => {
+		let bgcolor = props.rowCellColor
+		if (xConfig.dark == 'dark'){
+			bgcolor = props.rowCellDarkColor
+			if(bgcolor==''){
+				bgcolor = xConfig.sheetDarkColor
+			}
+		} 
+		return getDefaultColor(bgcolor)
+	})
+
+	const _columnMap = computed((): Map<string, number> => {
+		let m = new Map<string, number>()
+		for (let i = 0; i < props.columns.length; i++) {
+			m.set(props.columns[i].key, i)
+		}
+		return m
+	})
+
+	const _cellHeight = computed((): string => {
+		return checkIsCssUnit(props.cellHeight, xConfig.unit)
+	})
+
+	const _width = computed((): string => {
+		return checkIsCssUnit(props.width, xConfig.unit)
+	})
+
+	const _height = computed((): string => {
+		return checkIsCssUnit(props.height, xConfig.unit)
+	})
+
+	const _bodyHeight = computed((): string => {
+		if(boxHeight.value==0) return 'auto'
+		return (boxHeight.value - boxCellHeight.value).toString()+'px'
+	})
+
+	const _columnsLen = computed(():number => {
+		if(props.showCheck){
+			return props.columns.length+1
+		}
+		return  props.columns.length;
+	})
+
+	const _maxHeight = computed((): string => {
+		return checkIsCssUnit(props.maxHeight, xConfig.unit)
+	})
+
+	const _fontSize = computed((): string => {
+		let fontSize = checkIsCssUnit(props.fontSize, xConfig.unit);
+		if (xConfig.fontScale == 1) return fontSize;
+		let sizeNumber = parseInt(fontSize)
+		if (isNaN(sizeNumber)) {
+			sizeNumber = 14
+		}
+		return (sizeNumber * xConfig.fontScale).toString() + getUnit(fontSize)
+	})
+
+	const _fontColor = computed((): string => {
+		
+		if (xConfig.dark == 'dark') {
+			if(props.fontDarkColor!=''){
+				return getDefaultColor(props.fontDarkColor)
+			}
+			return "#dedede"
+		}
+		return getDefaultColor(props.fontColor)
+	})
+
+	
+	const checkBoxListValue = ref<Array<string>>(props.checkValue)
+	const _checkBoxSet = computed((): Set<string> => {
+		let s = new Set<string>()
+		for (let i = 0; i < checkBoxListValue.value.length; i++) {
+			s.add(checkBoxListValue.value[i])
+		}
+		return s
+	})
+	const isCheckBoxAll = computed(():boolean=>{
+		let cset = _checkBoxSet.value
+		let total = _sourceFilterNoChecksList.value.length
+		if (total == 0) return false
+		let checkedCount = 0
+		for (let i = 0; i < total; i++) {
+			if (cset.has(_sourceFilterNoChecksList.value[i].getString('key') ?? '')) {
+				checkedCount++
+			}
+		}
+		return checkedCount == total
+	})
+	
+
+	/** 表格触底触发. */
+	async function onscrollBottom(evt:UniScrollToLowerEvent):Promise<any|null>{
+		/**
+		 * 触底刷新时触发刷新事件.
+		 */
+		emits('refresh')
+		if(props.refresh == null || isrefreshing.value ) return Promise.resolve(null);
+		isrefreshing.value = true;
+		let call =  props.refresh!
+		await call('bottom')
+		isrefreshing.value = false;
+		return Promise.resolve(null)
+	}
+
+	// 处理多固定的需求.
+	function fomartDataList():UTSJSONObject[][]{
+		let result = [] as  UTSJSONObject[][]
+		let currentGroup = [] as UTSJSONObject[];
+		
+		for(let i=0;i<_list.value.length;i++){
+			let obj = _list.value[i] as UTSJSONObject;
+			
+			if (obj.getBoolean('float') == true) {
+				if (currentGroup.length > 0) {
+					result.push(currentGroup.slice(0) as UTSJSONObject[]);
+				}
+				currentGroup = [] as UTSJSONObject[];
+				currentGroup.push(obj);
+				
+			} else {
+				currentGroup.push(obj);
+			}
+		}
+	
+		if (currentGroup.length > 0) {
+			result.push(currentGroup.slice(0) as UTSJSONObject[]);
+		}
+		return result
+	}
+
+	function desckRank(isDesc : boolean, key : string) {
+		if (!isDesc) return
+		if (descKey.value != key) {
+			desc.value = 'asc'
+		} else {
+			if (desc.value == "") {
+				// 降序
+				desc.value = "desc"
+			} else if (desc.value == "desc") {
+				// 升序
+				desc.value = "asc"
+			} else if (desc.value == "asc") {
+				// 正常
+				desc.value = ""
+			}
+		}
+		descKey.value = key;
+		if (desc.value == "") {
+			_list.value = _sourceList.value.slice(0)
+			nextTick(function(){
+				if(props.multiRowFloat){
+					_listHeaderList.value = fomartDataList()
+				}
+			})
+		} else if (desc.value == "desc") {
+			let list = _sourceList.value.slice(0) as UTSJSONObject[]
+			list.sort((a : UTSJSONObject, b : UTSJSONObject) : number => {
+				let fe = a.getString(key)
+				fe = fe == null ? "0" : fe!
+				let ee = b.getString(key)
+				ee = ee == null ? "0" : ee!
+
+				return parseFloat(fe!) - parseFloat(ee!);
+			})
+
+			_list.value = list
+			nextTick(function(){
+				if(props.multiRowFloat){
+					_listHeaderList.value = fomartDataList()
+				}
+			})
+		} else if (desc.value == "asc") {
+			let list = _sourceList.value.slice(0) as UTSJSONObject[]
+			list.sort((a : UTSJSONObject, b : UTSJSONObject) : number => {
+				let fe = a.getString(key)
+				fe = fe == null ? "0" : fe!
+				let ee = b.getString(key)
+				ee = ee == null ? "0" : ee!
+
+				return parseFloat(ee!) - parseFloat(fe!);
+			})
+			
+			_list.value = list
+			nextTick(function(){
+				if(props.multiRowFloat){
+					_listHeaderList.value = fomartDataList()
+				}
+			})
+		}
+	}
+
+	function isDesc(item : xTableColumns) : boolean {
+		if (item?.desc == null) return false
+		// #ifdef WEB
+		if (item?.desc == undefined) return false
+		// #endif
+		let psc = item!.desc!
+
+		return psc;
+	}
+
+	function CellClickEvent(item : UTSJSONObject, key : string) {
+		emits('cellClick', item, key)
+	}
+
+	function getCellStyle(item : UTSJSONObject, key : string) : cellStyleTYpe {
+		let style = item.getJSON('style')
+		let slf = {
+			bgStyle: "background-color:transparent",
+			textStyle: `font-size:${_fontSize.value};color:${_fontColor.value}`,
+			align:'center'
+		} as cellStyleTYpe
+
+		let cell = null as xTableColumns | null;
+		let colIdx = _columnMap.value.get(key)
+		if (colIdx != null) {
+			cell = props.columns[colIdx!]
+		}
+
+		if (cell != null) {
+			let testStyle = null as null | UTSJSONObject;
+
+			// #ifdef WEB || MP-WEIXIN
+			testStyle = cell?.style == undefined ? null : (cell!.style! as UTSJSONObject)
+			// #endif
+			// #ifdef APP
+			testStyle = cell?.style == null ? null : (cell!.style! as UTSJSONObject)
+			// #endif
+
+			if (testStyle != null) {
+				let cellKeyStyle = testStyle!.getJSON(key)
+
+				if (cellKeyStyle != null) {
+					let bgStyle = cellKeyStyle.getString('bgStyle')
+					let textStyle = cellKeyStyle.getString('textStyle')
+					let alignStyle = cellKeyStyle.getString('align')
+					bgStyle = bgStyle == null ? slf.bgStyle : bgStyle;
+					textStyle = textStyle == null ? slf.textStyle : textStyle;
+					alignStyle = alignStyle == null ? slf.align : alignStyle;
+					slf.bgStyle = bgStyle
+					slf.textStyle = textStyle
+					slf.align = alignStyle
+				}
+			}
+		}
+
+		if (style != null) {
+			let cellKeyStyle = style!.getJSON(key)
+			if (cellKeyStyle != null) {
+				let bgStyle = cellKeyStyle.getString('bgStyle')
+				let textStyle = cellKeyStyle.getString('textStyle')
+				let alignStyle = cellKeyStyle.getString('align')
+				bgStyle = bgStyle == null ? slf.bgStyle : bgStyle;
+				textStyle = textStyle == null ? slf.textStyle : textStyle;
+				alignStyle = alignStyle == null ? slf.align : alignStyle;
+				slf.bgStyle = bgStyle
+				slf.textStyle = textStyle
+				slf.align = alignStyle
+			}
+		}
+
+		return slf
+	}
+
+	function getHeaderAlign(item : xTableColumns):string{
+		let style = item.style
+		if(style == null) return "center";
+		let selfstyle = style.getJSON(item.key)
+		if(selfstyle == null) return "center";
+		let alignStyle = selfstyle!.getString('align')
+		alignStyle = alignStyle == null ? "center" : alignStyle;
+		return alignStyle!;
+	}
+
+	function getCellWidth(key : string) : string {
+		let cell = null as xTableColumns | null;
+		let colIdx = _columnMap.value.get(key)
+		if (colIdx != null) {
+			cell = props.columns[colIdx!]
+		}
+		let width = props.cellWidth;
+		if (cell != null) {
+			let tw = cell?.width
+			
+			if(tw==null&&width==''){
+				// 只有在没有设置任何宽度时才等分
+				tw = (100/props.columns.length).toFixed(2)+'%'
+			}
+			if(tw==null&&width!=''){
+				tw = width
+			}
+
+			if (tw != null) {
+				tw = checkIsCssUnit(tw, xConfig.unit);
+
+				if (tw.indexOf('%') > -1) {
+					// 计算可用宽度（减去复选框列宽度）
+					let availableWidth = boxWidth.value;
+					if (props.showCheck) {
+						availableWidth -= checkboxWidth; // 复选框列固定宽度
+					}
+					// 使用可用宽度计算百分比
+					let d = parseFloat(tw) * availableWidth / 100
+					tw = d.toString() + 'px'
+				}
+				if (tw == 'auto') {
+					tw = '0px'
+				}
+				width = tw;
+			}
+		}
+		return width
+	}
+	
+	/**
+	 * 获取单元格合并信息（不检查被合并状态）
+	 * @param item 行数据
+	 * @param key 列字段名
+	 * @param columnIndex 列索引
+	 * @returns 合并信息
+	 */
+	function getCellMergeInfoWithoutCheck(item: UTSJSONObject, key: string, columnIndex: number): cellMergeType {
+		let colspan = 1;
+		let rowspan = 1;
+	
+		let cell = null as xTableColumns | null;
+		let colIdx = _columnMap.value.get(key)
+		if (colIdx != null) {
+			cell = props.columns[colIdx!]
+		}
+	
+		if (cell != null) {
+			colspan = cell?.colspan??1;
+		}
+	
+		// 检查行合并
+		if (cell != null) {
+			rowspan = cell?.rowspan??1;
+		}
+	
+		// 检查数据中的合并配置
+		let mergeConfig = item.getJSON('merge');
+		if (mergeConfig != null) {
+			let cellMerge = mergeConfig.getJSON(key);
+			if (cellMerge != null) {
+				let dataColspan = cellMerge.getNumber('colspan');
+				let dataRowspan = cellMerge.getNumber('rowspan');
+				if (dataColspan != null) colspan = dataColspan;
+				if (dataRowspan != null) rowspan = dataRowspan;
+			}
+		}
+	
+		return {
+			colspan: colspan,
+			rowspan: rowspan,
+			shouldRender: true
+		};
+	}
+	
+	/**
+	 * 检查当前单元格是否被前面的单元格合并了
+	 * @param item 行数据
+	 * @param currentColumnIndex 当前列索引
+	 * @returns 是否被合并
+	 */
+	function isCellMergedByPrevious(item: UTSJSONObject, currentColumnIndex: number): boolean {
+		// 检查前面的列是否有合并到当前列的
+		for (let i = 0; i < currentColumnIndex; i++) {
+			let prevKey = props.columns[i].key;
+			let prevMergeInfo = getCellMergeInfoWithoutCheck(item, prevKey, i);
+			
+			// 如果前面的列有合并，且合并范围包含当前列
+			if (prevMergeInfo.colspan > 1) {
+				let mergeEndIndex = i + prevMergeInfo.colspan - 1;
+				if (currentColumnIndex <= mergeEndIndex) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * 计算单元格合并信息
+	 * @param item 行数据
+	 * @param key 列字段名
+	 * @param rowIndex 行索引
+	 * @param columnIndex 列索引
+	 * @returns 合并信息
+	 */
+	function getCellMergeInfo(item: UTSJSONObject, key: string, rowIndex: number, columnIndex: number): cellMergeType {
+		let colspan = 1;
+		let rowspan = 1;
+		let shouldRender = true;
+
+		let cell = null as xTableColumns | null;
+		let colIdx = _columnMap.value.get(key)
+		if (colIdx != null) {
+			cell = props.columns[colIdx!]
+		}
+
+		if (cell != null) {
+			colspan = cell?.colspan??1;
+		}
+
+		// 检查行合并
+		if (cell != null) {
+			rowspan = cell?.rowspan??1;
+		}
+
+		// 检查数据中的合并配置
+		let mergeConfig = item.getJSON('merge');
+		if (mergeConfig != null) {
+			let cellMerge = mergeConfig.getJSON(key);
+			if (cellMerge != null) {
+				let dataColspan = cellMerge.getNumber('colspan');
+				let dataRowspan = cellMerge.getNumber('rowspan');
+				if (dataColspan != null) colspan = dataColspan;
+				if (dataRowspan != null) rowspan = dataRowspan;
+			}
+		}
+
+		// 检查是否应该渲染（用于处理被合并的单元格）
+		let skipRender = item.getBoolean('skipRender');
+		if (skipRender == true) {
+			shouldRender = false;
+		}
+
+		// 检查是否被前面的单元格合并了
+		if (shouldRender) {
+			shouldRender = !isCellMergedByPrevious(item, columnIndex);
+		}
+
+		return {
+			colspan: colspan,
+			rowspan: rowspan,
+			shouldRender: shouldRender
+		};
+	}
+	
+	
+	
+	/**
+	 * 计算合并单元格的总宽度
+	 * @param item 行数据
+	 * @param key 列字段名
+	 * @param colspan 合并列数
+	 * @returns 总宽度
+	 */
+	function getMergedCellWidth(item: UTSJSONObject, key: string, colspan: number): string {
+		let totalWidth = 0;
+		let cidx = _columnMap.value.get(key)
+		let currentKeyIndex = cidx != null ? cidx! : -1
+
+		if (currentKeyIndex == -1) return getCellWidth(key);
+
+		for (let i = 0; i < colspan && (currentKeyIndex + i) < props.columns.length; i++) {
+			let colKey = props.columns[currentKeyIndex + i].key;
+			let cellWidth = getCellWidth(colKey);
+			
+			// 将宽度转换为像素进行计算
+			if (cellWidth.indexOf('px') > -1) {
+				totalWidth += parseFloat(cellWidth);
+			} else if (cellWidth.indexOf('%') > -1) {
+				// 计算可用宽度（减去复选框列宽度）
+				let availableWidth = boxWidth.value;
+				if (props.showCheck) {
+					availableWidth -= checkboxWidth; // 复选框列固定宽度
+				}
+				totalWidth += parseFloat(cellWidth) * availableWidth / 100;
+			} else {
+				// 如果是auto或其他，使用默认宽度
+				let availableWidth = boxWidth.value;
+				if (props.showCheck) {
+					availableWidth -= checkboxWidth; // 复选框列固定宽度
+				}
+				totalWidth += availableWidth / props.columns.length;
+			}
+		}
+
+		return totalWidth.toString() + 'px';
+	}
+
+	
+
+	function getTotalwidthNodes() {
+		uni.createSelectorQuery()
+			.in(proxy)
+			.select('.xTable')
+			.boundingClientRect()
+			.exec((nodes) => {
+				if(nodes.length==0) return;
+				let infoList = nodes[0] as NodeInfo;
+				let totalBox = infoList.width!
+				boxWidth.value = totalBox
+				
+				setTimeout(function () {
+					if (props.showCheck) {
+						// 当有复选框时，分别计算复选框列和数据列的宽度
+						let checkboxWidth = 0
+						let dataColumnsWidth = 0
+						
+						// 先计算复选框列宽度
+						uni.createSelectorQuery()
+							.in(proxy)
+							.select('.xTabelHozItemContentIndex')
+							.boundingClientRect()
+							.exec((checkboxNodes) => {
+								if (checkboxNodes.length > 0) {
+									let checkboxNodesInfo = checkboxNodes[0] as NodeInfo;
+									checkboxWidth = checkboxNodesInfo.width!
+									boxCellHeight.value = checkboxNodesInfo.height!
+								}
+								
+								// 再计算数据列宽度
+								uni.createSelectorQuery()
+									.in(proxy)
+									.selectAll('.cellItem')
+									.boundingClientRect()
+									.exec((dataNodes) => {
+										
+										if (dataNodes.length > 0) {
+											let nodes = dataNodes[0] as NodeInfo[]
+											nodes.forEach((el:NodeInfo) => {
+												dataColumnsWidth += el.width!
+											})
+										}
+										
+										// 计算总宽度
+										let total = checkboxWidth + dataColumnsWidth
+										if (total > 0) {
+											totalWrapWidth.value = total.toString() + 'px'
+										}
+									})
+							})
+					} else {
+						// 没有复选框时，使用原来的逻辑
+						uni.createSelectorQuery()
+							.in(proxy)
+							.selectAll('.cellItem')
+							.boundingClientRect()
+							.exec((nodes2) => {
+								if(nodes2.length==0) return;
+								let infoList = nodes2[0] as NodeInfo[];
+								let total = 0
+								infoList.forEach(el => {
+									total += el.width!;
+									boxCellHeight.value = el.height!
+								})
+								if (total > 0) {
+									totalWrapWidth.value = total.toString() + 'px'
+								}
+							})
+					}
+				}, 100);
+			});
+	}
+	
+	
+	// 监听器
+	watch((): xTableColumns[] => props.columns, (): void => {
+		getTotalwidthNodes();
+	},{deep:true})
+	
+	watch((): UTSJSONObject[] => props.list, (): void => {
+		_list.value = _sourceList.value;
+		if(props.multiRowFloat){
+			_listHeaderList.value = fomartDataList()
+		}
+	},{deep:true})
+	watch((): string[] => props.checkValue, (newval:string[]): void => {
+		checkBoxListValue.value = [...newval] as string[]
+	},{deep:true})
+	
+	const headerCheckBoxChange = ()=>{
+		if(isCheckBoxAll.value){
+			checkBoxListValue.value = [];
+		}else{
+			let cset = _checkBoxSet.value
+			for (let i = 0; i < _sourceFilterNoChecksList.value.length; i++) {
+				let k = _sourceFilterNoChecksList.value[i].getString('key') ?? ''
+				if (!cset.has(k)) {
+					checkBoxListValue.value.push(k)
+				}
+			}
+		}
+		/**
+		 * 行选中变动
+		 */
+		emits('checkChange',[...checkBoxListValue.value] as string[])
+	}
+	const cellCheckBoxChange = (key:string)=>{
+		let index = -1;
+		for(let i=0;i<checkBoxListValue.value.length;i++){
+			let id = checkBoxListValue.value[i]
+			if(id == key){
+				index = i;
+				break;
+			}
+		}
+		if(index>-1){
+			checkBoxListValue.value.splice(index,1)
+		}else{
+			checkBoxListValue.value.push(key)
+		}
+		
+		/**
+		 * 行选中变动
+		 */
+		emits('checkChange',[...checkBoxListValue.value] as string[])
+	}
+	
+	
+	// 生命周期
+	onMounted(() => {
+		_list.value = _sourceList.value;
+		if(props.multiRowFloat){
+			_listHeaderList.value = fomartDataList()
+		}
+		
+		getTotalwidthNodes();
+		uni.$on("onResize", getTotalwidthNodes)
+	})
+
+	onBeforeUnmount(() => {
+		uni.$off("onResize", getTotalwidthNodes)
+	})
+</script>
+<template>
+	<scroll-view  :show-scrollbar="props.showScrollbar"  v-if="props.multiRowFloat" class="xTable" direction="horizontal" :style="{width:_width,height:_height}">
+		<view  v-if="!props.hideHead" class="xTabelHoz"
+			:style="{height:_cellHeight,width:totalWrapWidth,backgroundColor:_headerBgColor}">
+			<view @click="desckRank(isDesc(item),item.key)" ref="cellItem" v-for="(item,index) in props.columns"
+				:key="index" class="xTabelHozItem cellItem"
+				:style="{width:getCellWidth(item.key),flex:getCellWidth(item.key)=='0px'?'auto':'none',
+				'justify-content':getHeaderAlign(item),
+				height:_cellHeight,backgroundColor:_headerBgColor}">
+				<view class="xTabelHozItemHeaderWrap"
+				
+				>
+					<text class="cellItemText cellItemTextHeader" :style="[{fontSize:_fontSize,color:_headerFontColor}]">
+						{{item.title}}
+					</text>
+				</view>
+				<view v-if="isDesc(item)">
+					<x-icon v-if="desc==''||(descKey!=item.key&&desc!='')" name="expand-up-down-fill"></x-icon>
+					<x-icon v-if="descKey==item.key&&desc=='asc'" name="arrow-up-s-fill"></x-icon>
+					<x-icon v-if="descKey==item.key&&desc=='desc'" name="arrow-down-s-fill"></x-icon>
+				</view>
+			</view>
+		</view>
+		<view :style="{width:totalWrapWidth}">
+			<list-view :show-scrollbar="false" class="xTableWrap" @scrolltolower="onscrollBottom" direction="vertical" :style="{maxHeight:_maxHeight,height:_bodyHeight,width:'100%'}">
+				
+				<sticky-section :push-pinned-header='false' v-for="(itemParent,indexParent) in _listHeaderList" :key="indexParent">
+					<template v-for="(item,index) in itemParent" :key="index">
+						<sticky-header v-if="item.getBoolean('float')==true" >
+							<view class="xTabelHoz" :style="{minHeight:_cellHeight,width:totalWrapWidth,backgroundColor:((index+1)%2)==0&&props.ripple?_rippleColor:_rippleColorNot}">
+								<template v-for="(item2,index2) in props.columns">
+									<view
+										@click="CellClickEvent(item,item2.key)" 
+										ref="cellItem" 
+										:key="index2" 
+										class="xTabelHozItemContent "
+										:style="[{
+											width: getCellMergeInfo(item, item2.key, index, index2).colspan > 1 ? getMergedCellWidth(item, item2.key, getCellMergeInfo(item, item2.key, index, index2).colspan) : getCellWidth(item2.key),
+											flex: getCellWidth(item2.key)=='0px'?'auto':'none',
+											minHeight: _cellHeight
+										}, getCellStyle(item,item2.key).bgStyle]"
+										v-if="getCellMergeInfo(item, item2.key, index, index2).shouldRender"
+										>
+										<text v-if="!props.safeTextWrap" class="cellItemText" :style="getCellStyle(item,item2.key).textStyle">
+											{{item.getAny(item2.key)}}
+										</text>
+										<text v-else class="cellItemText cellItemTextNowrap"
+											:style="[getCellStyle(item,item2.key).textStyle,{minHeight:_cellHeight,lineHeight:'2.5'}]">
+											{{item.getAny(item2.key)}}
+										</text>
+									</view>
+								</template>
+							</view>
+						</sticky-header>
+						<list-item v-else :key="index" type="1"
+							:style="{minHeight:_cellHeight,width:totalWrapWidth}">
+							<view class="xTabelHoz" :style="{backgroundColor:((index+1)%2)==0&&props.ripple?_rippleColor:_rippleColorNot}">
+								<template v-for="(item2,index2) in props.columns">
+									<view @click="CellClickEvent(item,item2.key)" ref="cellItem" 
+										:key="index2" class="xTabelHozItemContent "
+										:style="[{
+											width: getCellMergeInfo(item, item2.key, index, index2).colspan > 1 ? getMergedCellWidth(item, item2.key, getCellMergeInfo(item, item2.key, index, index2).colspan) : getCellWidth(item2.key),
+											flex: getCellWidth(item2.key)=='0px'?'auto':'none',
+											minHeight: _cellHeight,
+											'align-items': getCellStyle(item,item2.key).align
+										}, getCellStyle(item,item2.key).bgStyle]"
+										v-if="getCellMergeInfo(item, item2.key, index, index2).shouldRender">
+										<!--
+										@slot 行插槽插槽名称就是列的字段名称name:字段名,sucore:utsobject数据 
+										 -->
+										<slot :name="item2.key" :sucore="item">
+											<text :selectable="props.selectable" v-if="!props.safeTextWrap" class="cellItemText" :style="[getCellStyle(item,item2.key).textStyle]">
+												{{item.getAny(item2.key)}}
+											</text>
+											<text :selectable="props.selectable" v-else class="cellItemText cellItemTextNowrap"
+												:style="[getCellStyle(item,item2.key).textStyle,{minHeight:_cellHeight,lineHeight:'2.5'}]">
+												{{item.getAny(item2.key)}}
+											</text>
+										</slot>
+										<!--
+										指定具体单元格插槽，name:字段名+'-'+key的值,sucore:utsobject数据 
+										 -->
+										<slot :name="item2.key+'-'+item.getString('key')" :sucore="item2"></slot>
+									</view>
+								</template>
+							</view>
+						</list-item>
+					</template>
+				</sticky-section>
+				
+				<list-item >
+					<view v-if="isrefreshing&&props.refresh!=null">
+						<!--
+						@slot 触底下拉刷新的插槽,你需要提供事件函数refresh才可开启 
+						-->
+						<slot name="refresh">
+							<x-skeleton height="25" style="margin-bottom:5px;margin-top: 5px;" ></x-skeleton>
+							<x-skeleton height="25" ></x-skeleton>
+						</slot>
+					</view>
+				</list-item>
+			
+			</list-view>
+		</view>
+		
+	</scroll-view>
+	
+	
+	<scroll-view v-else :show-scrollbar="props.showScrollbar"   class="xTable" direction="horizontal" :style="{width:_width,height:_height}">
+		<list-view  :show-scrollbar="false"  @scrolltolower="onscrollBottom" class="xTableWrap" direction="vertical" :style="{maxHeight:_maxHeight,height:_height,width:totalWrapWidth}">
+			<sticky-header v-if="!props.hideHead" class="xTabelHozHeader">
+				<view class="xTabelHoz" :style="{minHeight:_cellHeight,width:totalWrapWidth,backgroundColor:_headerBgColor}">
+					<view v-if="props.showCheck" class="xTabelHozItemContent xTabelHozItemContentIndex "
+					:style="{
+						width: `${checkboxWidth}px`,
+						minHeight:_cellHeight,
+						backgroundColor:_headerBgColor
+					}"
+					>
+						<!-- <text class="cellItemText" :style="[{fontSize:_fontSize,color:_headerFontColor}]">序号</text> -->
+						<x-checkbox
+						size="24px"
+						:model-value="isCheckBoxAll"
+						:indeterminate="!isCheckBoxAll&&checkBoxListValue.length>0"
+						:value="true"
+						:unCheckValue="false"
+						@change="headerCheckBoxChange" 
+						labelSpace='0px'></x-checkbox>
+					</view>
+					<view @click="desckRank(isDesc(item),item.key)" ref="cellItem" v-for="(item,index) in props.columns"
+						:key="index" class="xTabelHozItem cellItem"
+						:style="{
+							width:getCellWidth(item.key),
+							flex:getCellWidth(item.key)=='0px'?'auto':'none',
+							minHeight:_cellHeight,
+							'justify-content':getHeaderAlign(item),
+							backgroundColor:_headerBgColor
+						}">
+						<view class="xTabelHozItemHeaderWrap"
+						>
+							<text class="cellItemText cellItemTextHeader" :style="[{fontSize:_fontSize,color:_headerFontColor}]">
+								{{item.title}}
+							</text>
+						</view>
+						<view v-if="isDesc(item)">
+							<x-icon v-if="desc==''||(descKey!=item.key&&desc!='')" name="expand-up-down-fill"></x-icon>
+							<x-icon v-if="descKey==item.key&&desc=='asc'" name="arrow-up-s-fill"></x-icon>
+							<x-icon v-if="descKey==item.key&&desc=='desc'" name="arrow-down-s-fill"></x-icon>
+						</view>
+					</view>
+				</view>
+			</sticky-header>
+	
+			<list-item v-for="(item,index) in _list" :key="index" type="1"
+				:style="{minHeight:_cellHeight,width:totalWrapWidth}">
+				<view class="xTabelHoz" :style="{backgroundColor:((index+1)%2)==0&&props.ripple?_rippleColor:_rippleColorNot}">
+					
+					<template v-for="(item2,index2) in props.columns">
+						<view v-if="index2==0&&props.showCheck" class="xTabelHozItemContent xTabelHozItemContentIndex "
+						ref="cellItem" 
+						:style="{
+							width: `${checkboxWidth}px`,
+							minHeight:_cellHeight,
+						}"
+						>
+							<!-- <text class="cellItemText" :style="[{height:_cellHeight,lineHeight:'2.5',color:'grey'}]">{{item.getAny('key')}}</text> -->
+							<x-checkbox
+							v-if="item.getBoolean('showCheck')!=false"
+							size="24px"
+							:model-value="_checkBoxSet.has(item.getString('__id')??(index2.toString()))?item.getString('__id'):''"
+							:value="item.getString('__id')" 
+							@change="cellCheckBoxChange(item.getString('__id')??(index2.toString()))"  labelSpace='0px'></x-checkbox>
+						</view>
+						<view 
+							@click="CellClickEvent(item,item2.key)" 
+							ref="cellItem" 
+							:key="index2" class="xTabelHozItemContent "
+							:style="[{
+								width: getCellMergeInfo(item, item2.key, index, index2).colspan > 1 ? getMergedCellWidth(item, item2.key, getCellMergeInfo(item, item2.key, index, index2).colspan) : getCellWidth(item2.key),
+								flex: getCellWidth(item2.key)=='0px'?'auto':'none',
+								minHeight: _cellHeight,
+								'align-items': getCellStyle(item,item2.key).align
+							}, getCellStyle(item,item2.key).bgStyle]"
+							v-if="getCellMergeInfo(item, item2.key, index, index2).shouldRender">
+							<!-- 
+							行插槽插槽名称就是列的字段名称name:字段名,sucore:utsobject数据 
+							 -->
+							<slot :name="item2.key" :sucore="item" >
+								<text :selectable="props.selectable" v-if="!props.safeTextWrap" class="cellItemText" :style="getCellStyle(item,item2.key).textStyle">
+									{{item.getAny(item2.key)}}
+								</text>
+								<text :selectable="props.selectable" v-else class="cellItemText cellItemTextNowrap" :style="[getCellStyle(item,item2.key).textStyle,{height:_cellHeight,lineHeight:'2.5'}]">
+									{{item.getAny(item2.key)}}
+								</text>
+							</slot>
+							<!--
+							指定具体单元格插槽，name:字段名+'-'+key的值,sucore:utsobject数据 
+							 -->
+							<slot :name="item2.key+'-'+item.getString('key')" :sucore="item"></slot>
+						</view>
+					</template>
+				</view>
+			</list-item>
+		</list-view>
+	</scroll-view>
+</template>
+
+<style scoped>
+	.xTableCont{
+		display: flex;
+		flex-direction: row;
+	}
+	.xTableContCheck{
+		width:50px;
+	}
+	.xTabelHozItemContentIndex{
+		width:50px;
+		display: flex;
+		align-items: center;
+		flex-direction: row;
+		justify-content: center;
+	}
+	.cellItemTextNowrap {
+		text-align: center;
+	}
+
+	.cellItemText {
+		text-align: center;
+		padding: 8px 8px;
+		/* #ifdef WEB */
+		word-break: break-all;
+		/* #endif */
+	}
+
+	.cellItemTextHeader {
+		font-weight: bold;
+	}
+
+	.xTable {
+		flex:1;
+	}
+
+	.xTableWrap {
+		/* #ifdef WEB */
+		overflow-x: hidden;
+		/* #endif */
+	}
+
+
+	.xTabelHoz {
+		display: flex;
+		flex-direction: row;
+		flex-wrap: nowrap;
+		flex: 1;
+	}
+
+	.xTabelHozItem {
+		/* height: 100%; */
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		/* justify-content: center; */
+	}
+
+	.xTabelHozItemContent {
+		display: flex;
+		flex-direction: column;
+		/* align-items: center; */
+		justify-content: center;
+		align-self: stretch;
+		
+	}
+
+	.xTabelHozItemHeaderWrap {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+	}
+</style>

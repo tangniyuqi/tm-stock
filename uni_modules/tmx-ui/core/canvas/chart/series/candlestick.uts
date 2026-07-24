@@ -1,0 +1,118 @@
+import { ICanvas } from '@/uni_modules/tmx-ui/core/canvas/ICanvas.uts';
+import { Shape } from '@/uni_modules/tmx-ui/core/canvas/lib/shape.uts';
+import { IRect } from '@/uni_modules/tmx-ui/core/canvas/lib/rect.uts';
+import { ILine } from '@/uni_modules/tmx-ui/core/canvas/lib/line.uts';
+import { getDatumNumber, getDatumString, getBandWidth, buildBandDomain, createLinearScale, mapLinear } from '../scale.uts';
+import { PlotRect } from '../map.uts';
+import { ChartDatum, ChartSeriesOptions, ChartSeriesContext } from '../types.uts';
+
+const COLOR_UP = '#F4333C'
+const COLOR_DOWN = '#1CA93D'
+
+export type CandlestickRange = {
+	domain : string[],
+	minY : number,
+	maxY : number
+}
+
+export const getCandlestickRange = (data : ChartDatum[], xField : string) : CandlestickRange => {
+	const domain = buildBandDomain(data, xField)
+	let minY = Infinity as number
+	let maxY = -Infinity as number
+	for (let i = 0; i < data.length; i++) {
+		const hi = getDatumNumber(data[i], 'max', 0)
+		const lo = getDatumNumber(data[i], 'min', 0)
+		const st = getDatumNumber(data[i], 'start', 0)
+		const en = getDatumNumber(data[i], 'end', 0)
+		const top = Math.max(hi, lo, st, en)
+		const bot = Math.min(hi, lo, st, en)
+		if (top > maxY) maxY = top
+		if (bot < minY) minY = bot
+	}
+	if (minY == Infinity) { minY = 0; maxY = 100 }
+	if (maxY == minY) maxY = minY + 1
+	return { domain: domain, minY: minY, maxY: maxY } as CandlestickRange
+}
+
+export const renderCandlestickSeries = (
+	canvas : ICanvas,
+	series : ChartSeriesOptions,
+	data : ChartDatum[],
+	rect : PlotRect,
+	domain : string[],
+	minY : number,
+	maxY : number,
+	ctx : ChartSeriesContext
+) : Shape[] => {
+	const shapes = [] as Shape[]
+	const xf = series.xField ?? ''
+	if (xf == '' || data.length == 0) return shapes
+
+	const band = getBandWidth(domain, rect.left, rect.right)
+	const yScale = createLinearScale(minY, maxY, rect.bottom, rect.top)
+	const candleW = Math.min(12, Math.max(2, band * 0.75))
+	const wickW = 1
+
+	let _ci : number = 0
+	for (let i = 0; i < data.length; i++) {
+		_ci = i
+		const clickIdx = _ci
+		const label = getDatumString(data[i], xf, `${i}`)
+		const idx = domain.indexOf(label)
+		if (idx == -1) continue
+
+		const cx = rect.left + idx * band + band / 2
+		const st = getDatumNumber(data[i], 'start', 0)
+		const en = getDatumNumber(data[i], 'end', 0)
+		const hi = getDatumNumber(data[i], 'max', 0)
+		const lo = getDatumNumber(data[i], 'min', 0)
+
+		const isUp = en >= st
+		const color = isUp ? COLOR_UP : COLOR_DOWN
+		const isActive = ctx.activeType == 'k' && ctx.activeIndex == clickIdx
+
+		if (isActive) {
+			shapes.push(new IRect({
+				x: cx - band / 2, y: rect.top,
+				width: band, height: rect.bottom - rect.top,
+				fill: ctx.activeStyle.backdrop
+			}, canvas))
+		}
+
+		const bodyTop = mapLinear(Math.max(st, en), yScale)
+		const bodyBot = mapLinear(Math.min(st, en), yScale)
+		const wickTop = mapLinear(hi, yScale)
+		const wickBot = mapLinear(lo, yScale)
+
+		shapes.push(new ILine({
+			pointStart: { x: cx, y: wickTop },
+			pointEnd: { x: cx, y: wickBot },
+			stroke: color, strokeWidth: wickW
+		}, canvas))
+
+		const bodyH = Math.max(1, bodyBot - bodyTop)
+		shapes.push(new IRect({
+			x: cx - candleW / 2,
+			y: bodyTop,
+			width: candleW,
+			height: bodyH,
+			fill: color
+		}, canvas))
+
+		if (band >= 2) {
+			const hit = new IRect({
+				x: cx - band / 2,
+				y: rect.top,
+				width: band,
+				height: rect.bottom - rect.top,
+				fill: 'rgba(0,0,0,0)', opacity: 0
+			}, canvas)
+			hit.addEventListener('click', () => {
+				ctx.onClickPoint('k', clickIdx, cx, bodyTop, label, `开:${st} 收:${en} 高:${hi} 低:${lo}`, color)
+			})
+			shapes.push(hit)
+		}
+	}
+
+	return shapes
+}

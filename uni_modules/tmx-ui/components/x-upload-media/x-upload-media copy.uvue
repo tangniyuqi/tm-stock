@@ -1,0 +1,955 @@
+<script lang="ts">
+	import { type PropType,toRaw } from "vue"
+	import { getUid, rpx2px } from "../../core/util/xCoreUtil.uts"
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { checkIsCssUnit } from "../../core/util/xCoreUtil.uts"
+	import { xUploadMedia } from "../../core/util/xUploadFileMedia.uts"
+	import { XUPLOADFILE_INFO, XUPLOADFILE_FILE_INFO, XUPLOADFILE_FILE_VALUE } from "../../interface.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	type funcalldel = (index : number, item : XUPLOADFILE_FILE_INFO) => Promise<boolean>
+	type funbeforeCompelte = (item : XUPLOADFILE_FILE_INFO) => XUPLOADFILE_FILE_INFO
+	type beforeUploadType = (item : XUPLOADFILE_FILE_INFO) => Promise<XUPLOADFILE_FILE_INFO>
+	
+	/**
+	 * @name 图片上传 xUploadMedia
+	 * @description 可以上传视频或者图片,注意不要混搭.要么上传视频,要么上传图片.当用户自行添加默认文件时可以给你的文件对象加status:0表示待上传,要确保你的上传文件路径是正确的
+	 * 否则安卓会引发io错误,并且uni.upload是无法捕捉到fail事件中,会导致整个程序不可用
+	 * @page /pages/index/upload-media
+	 * @category 表单组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	export default {
+		data() {
+			return {
+				nowFileList: [] as XUPLOADFILE_FILE_INFO[],
+				itemWidth: 0,
+				spaceGap: 4,
+				xupload: new xUploadMedia() as xUploadMedia | null,
+				mouse_x: 0,
+				mouse_y: 0,
+				_totalHeight: 0,
+				_nowIndex: -1,
+				// 是否已经长按触发了拖动排序功能。
+				_isLongPressCanDisableMove: false,
+				movexitem_x: 0,
+				movexitem_y: 0,
+				_newIndex: 0,
+				showMoveItem: false,
+				tempMoveIndex: -1,
+				diffY: 0,
+				diffX: 0,
+				tid2: 0,
+				_dragOrder: [] as number[],
+				_isDragging: false,
+				nowshowClickMedioSrc:'',
+				showVideo:false,
+				tid3:66
+			}
+		},
+		emits: [
+			/**
+			 * 每次全部上传完时触发
+			 * @param {XUPLOADFILE_FILE_VALUE[]} 列表数据 
+			 */
+			'complete',
+			/**
+			 * 变化时触发
+			 * @param {XUPLOADFILE_FILE_VALUE[]} 列表数据 
+			 */
+			'change',
+			/**
+			 * 图片被删除时触发
+			 * @param {XUPLOADFILE_FILE_VALUE[]} 列表数据 
+			 */
+			'delete',
+			'update:modelValue'
+		],
+		props: {
+			/**
+			 * 上传的类型,video,photo,默认是上传图片
+			 */
+			mode:{
+				type:String,
+				default:'photo'
+			},
+			/**
+			 * 当mode=video时,选择视频上传的参数,
+			 * 些参数为utsjson,所有字段为可选,具体字段为uni.chooseVideo(options)中的部分有效字段
+			 * pageOrientation,albumMode,compressed,compressed,maxDuration,camera
+			 */
+			videoOps:{
+				type:Object as PropType<UTSJSONObject>,
+				default:():UTSJSONObject =>{
+					return {
+						pageOrientation:'auto',
+						albumMode:'system',
+						sourceType:['album', 'camera'] as string[],
+						compressed:true,
+						maxDuration:60,
+						camera:'back'
+					} as UTSJSONObject
+				}
+			},
+			/**
+			 * 最大的可上传数量
+			 */
+			maxCount: {
+				type: Number,
+				default: 9
+			},
+			/**
+			 * 上传地址
+			 */
+			url: {
+				type: String,
+				default: "https://mockapi.eolink.com/LRViGGZ8e6c1e8b4a636cd82bca1eb15d2635ed8c74e774/admin/upload_pic/"
+			},
+			/**
+			 * 上传到服务器的名称字段
+			 */
+			name: {
+				type: String,
+				default: "file"
+			},
+			/**
+			 * 上传到服务器的头文件
+			 */
+			header: {
+				type: Object as PropType<UTSJSONObject>,
+				default: () : UTSJSONObject => {
+					return {} as UTSJSONObject
+				}
+			},
+			/**
+			 * 额外的表单数据。
+			 */
+			formData: {
+				type: Object as PropType<UTSJSONObject | null>,
+				default: () : UTSJSONObject => {
+					return {} as UTSJSONObject
+				}
+			},
+
+			/**
+			 * 图片高,此处不可使用%单位
+			 */
+			imgHeight: {
+				type: String,
+				default: "80"
+			},
+			/**
+			 * 一行显示几列
+			 */
+			column: {
+				type: Number,
+				default: 5
+			},
+			/**
+			 * 上传成功的文件是否允许删除
+			 */
+			okFileIsDelete: {
+				type: Boolean,
+				default: true
+			},
+			/**
+			 * 上传中的文件是否允许删除
+			 */
+			uploadingFileIsDelete: {
+				type: Boolean,
+				default: true
+			},
+			/**
+			 * 等同v-model
+			 */
+			modelValue: {
+				type: Array as PropType<XUPLOADFILE_FILE_VALUE[]>,
+				default: () : XUPLOADFILE_FILE_VALUE[] => [] as XUPLOADFILE_FILE_VALUE[]
+			},
+			/**
+			 * 图片被删除时触发
+			 * 如果返回Promise<false>删除失败否则成功
+			 * 类型null|(index:number,item:XUPLOADFILE_FILE_INFO)=>Promise<boolean>
+			 */
+			beforeDel: {
+				type: Function as PropType<funcalldel | null>,
+				default: null
+			},
+			/**
+			 * 你需要原路返回参数提供的item
+			 * item可以自行修改响应内容，响应类型这样可以自己根据服务的内容判断
+			 * 是成功还是失败或者没有权限。示例见demo使用。
+			 */
+			beforeComplete:{
+				type:Function as PropType<funbeforeCompelte|null>,
+				default:null
+			},
+			/**
+			 * 上传前的最后一步执行,异步回调,函数返回一个item:XUPLOADFILE_FILE_INFO
+			 * 返回时要原样类型返回Promise<XUPLOADFILE_FILE_INFO>,你可以在这里修改文件参数跳过上传或者
+			 * 进行最后的头参数设置.demo有参考.
+			 */
+			beforeUpload:{
+				type:Function as PropType<beforeUploadType|null>,
+				default:null
+			},
+			/**
+			 * 是否自动上传
+			 */
+			autoStart: {
+				type: Boolean,
+				default: true
+			},
+			/**
+			 * 图片来源同官方的sourceType：
+			 * 'album','camera'
+			 */
+			sourceType: {
+				type: Array as PropType<string[]>,
+				default: () : string[] => ['album', 'camera'] as string[]
+			},
+			/**
+			 * 是否压缩
+			 */
+			compress: {
+				type: Boolean,
+				default: true
+			},
+			/**
+			 * 压缩后的缩放高，0表示不压缩高
+			 */
+			compressedHeight: {
+				type: Number,
+				default: 0
+			},
+			/**
+			 * 压缩后的缩放高，0表示不压缩宽
+			 */
+			compressedWidth: {
+				type: Number,
+				default: 0
+			},
+			/**
+			 * 压缩质量
+			 */
+			quality: {
+				type: Number,
+				default: 80
+			},
+			/**
+			 * 添加图片的位置
+			 * 'before'出现在前面
+			 * 'after'出现在后面
+			 */
+			addPos:{
+				type:String,
+				default:"after"
+			},
+			/**
+			 * 子项对齐方式，left左对齐默认，right:右对齐
+			 */
+			align:{
+				type:String,
+				default:"left"
+			}
+		},
+		computed: {
+			_fileList() : XUPLOADFILE_FILE_INFO[] {
+				return this.nowFileList
+			},
+			_imgHeight() : string {
+				return checkIsCssUnit(this.imgHeight, xConfig.unit)
+			},
+			_okFileIsDelete() : boolean {
+				return this.okFileIsDelete
+			},
+			_uploadingFileIsDelete() : boolean {
+				return this.uploadingFileIsDelete
+			},
+			_itemHeight() : number {
+				let item = this._imgHeight;
+				let h = 0;
+				if (item.lastIndexOf('rpx') > -1) {
+					h = parseFloat(item.replace(/[rpx]/g, ''));
+					h = rpx2px(h)
+				} else {
+					h = parseFloat(item.replace(/[px,%]/g, ''));
+				}
+				return h;
+			},
+			_borderColor() : string {
+				if (xConfig.dark == 'dark') return xConfig.borderDarkColor
+				return '#eeeeee';
+			},
+			_bgColor() : string {
+				if (xConfig.dark == 'dark') return xConfig.inputDarkColor
+				return '#f5f5f5';
+			},
+			_columnRatio() : string {
+				return (100 / this.column).toString() + '%'
+			},
+			_formData() : UTSJSONObject | null {
+				return this.formData
+			}
+		},
+		watch: {
+			modelValue(newValue : XUPLOADFILE_FILE_VALUE[]) {
+				if(this._fileList.length==0&&newValue.length==0) return;
+				
+				if(newValue.length==0){
+					this.xupload!.stop()
+					this.xupload!.clear()
+					this.nowFileList = []
+					return;
+				}
+				this.xupload!.addFile(JSON.parseArray<XUPLOADFILE_FILE_VALUE>(JSON.stringify(newValue)!)!)
+				clearTimeout(this.tid3)
+				let t = this;
+				this.tid3 = setTimeout(()=>{
+					t.getNodeInfo()
+				},200)
+			},
+			header() {
+				this.setConfig()
+			},
+			maxCount() {
+				this.setConfig()
+			},
+			url() {
+				this.setConfig()
+			},
+			name() {
+				this.setConfig()
+			},
+			formData() {
+				this.setConfig()
+			}
+		},
+
+		mounted() {
+			let t = this;
+
+			this.setConfig()
+			
+			this.xupload!.beforeUpload = (res : XUPLOADFILE_FILE_INFO) : Promise<XUPLOADFILE_FILE_INFO> => {
+				let call = this.beforeUpload as beforeUploadType|null
+				if(call==null||res.status==1||res.status==2||res.status==4||res.status==5){
+					return Promise.resolve(toRaw(res) as XUPLOADFILE_FILE_INFO)
+				}
+				let realcall = call! as beforeUploadType
+				
+				return realcall(toRaw(res)  as XUPLOADFILE_FILE_INFO )
+			}
+			this.xupload!.addListenEvent('complete', (res : any) : Promise<any> => {
+				let result = res as XUPLOADFILE_FILE_INFO[];
+
+				let clonelist = t.cloneListData(result)
+				/**
+				 * 全部上传完时触发
+				 * @parsm {XUPLOADFILE_FILE_VALUE[]} result - 列表数据
+				 */
+				t.$emit('complete', clonelist)
+				t.$emit("update:modelValue", clonelist)
+				return Promise.resolve(res)
+			})
+	
+			
+			this.xupload!.beforeComplete = (res : XUPLOADFILE_FILE_INFO) : XUPLOADFILE_FILE_INFO => {
+				let result = res as XUPLOADFILE_FILE_INFO;
+				if(t.beforeComplete!=null){
+					let bef = t.beforeComplete! as funbeforeCompelte
+					result = bef(isProxy(result)?toRaw(result):result )
+				}
+				return result
+			}
+			this.xupload!.setChangeSync(function (res : XUPLOADFILE_FILE_INFO[]) {
+				t.nowFileList = res;
+				t._totalHeight = t.totalHeight()
+				let clonelist = t.cloneListData(res)
+				/**
+				 * 列表操作变化时触发，删除，上传成功并添加到列表中（选择图片，不上传不触发）
+				 * @parsm {XUPLOADFILE_FILE_INFO[]} result - 列表数据
+				 */
+				t.$emit('change', clonelist)
+				t.$emit("update:modelValue", clonelist)
+				
+			})
+			if (this.modelValue.length > 0) {
+				let clonelist = t.cloneListDataByValue(this.modelValue)
+				this.xupload!.addFile(clonelist)
+			}
+			clearTimeout(this.tid3)
+			this.tid3 = setTimeout(()=>{
+				t.getNodeInfo()
+			},200)
+			uni.$on('onResize', this.resetInit)
+			
+			
+		},
+		beforeUnmount() {
+			clearTimeout(this.tid3)
+			uni.$off('onResize', this.resetInit)
+			this.xupload = null;
+		},
+		methods: {
+			cloneListData(listReal:XUPLOADFILE_FILE_INFO[]):XUPLOADFILE_FILE_VALUE[]{
+				let list = listReal.map((el : XUPLOADFILE_FILE_INFO) : XUPLOADFILE_FILE_VALUE => {
+					return {
+						id: el.id,
+						url: el.path,
+						response: el.response
+					} as XUPLOADFILE_FILE_VALUE
+				})
+				return 	JSON.parseArray<XUPLOADFILE_FILE_VALUE>(JSON.stringify(list)!)!
+			},
+			cloneListDataByValue(list:any):XUPLOADFILE_FILE_VALUE[]{
+				return 	JSON.parseArray<XUPLOADFILE_FILE_VALUE>(JSON.stringify(list)!)!
+			},
+			setConfig() {
+				this.xupload!.setConfig({
+					autoUpload: this.autoStart,
+					count: this.maxCount,
+					header: this.header as UTSJSONObject,
+					hostUrl: this.url,
+					name: this.name,
+					formData: this._formData,
+					sourceType: this.sourceType,
+					compress: this.compress,
+					quality:this.quality,
+					compressedWidth: this.compressedWidth == 0 ? null : this.compressedWidth,
+					compressedHeight: this.compressedHeight == 0 ? null : this.compressedHeight
+				} as XUPLOADFILE_INFO)
+			},
+			resetInit() {
+				this.diffY = 0
+				this.diffX = 0
+
+				let t = this;
+				clearTimeout(this.tid3)
+				this.tid3 = setTimeout(()=>{
+					t.getNodeInfo()
+				},200)
+			},
+			totalHeight() : number {
+				let itemCount = this.nowFileList.length;
+				if (itemCount < this.maxCount) itemCount++;
+				let realItemHeight = this._itemHeight + this.spaceGap;
+				let row = Math.ceil(itemCount / this.column);
+				return Math.max(row * realItemHeight, realItemHeight);
+			},
+			getVisualPos(fileIndex : number) : number {
+				if (!this._isDragging || this._dragOrder.length == 0) return fileIndex;
+				let pos = this._dragOrder.indexOf(fileIndex);
+				return pos >= 0 ? pos : fileIndex;
+			},
+			getItemLeft(fileIndex : number) : number {
+				let vi = this.getVisualPos(fileIndex);
+				let col = vi % this.column;
+				return col * (this.itemWidth + this.spaceGap);
+			},
+			getItemTop(fileIndex : number) : number {
+				let vi = this.getVisualPos(fileIndex);
+				let row = Math.floor(vi / this.column);
+				return row * (this._itemHeight + this.spaceGap);
+			},
+			getAddBtnLeft() : number {
+				let pos = this.nowFileList.length;
+				let col = pos % this.column;
+				return col * (this.itemWidth + this.spaceGap);
+			},
+			getAddBtnTop() : number {
+				let pos = this.nowFileList.length;
+				let row = Math.floor(pos / this.column);
+				return row * (this._itemHeight + this.spaceGap);
+			},
+			chooseFile() {
+				this.xupload!.setVideoOps(this.videoOps,this.mode)
+				this.xupload!.chooseMedia()
+			},
+			/**
+			 * 手动上传图片
+			 * @public
+			 */
+			upload() {
+				this.xupload!.start()
+			},
+			getNodeInfo() {
+				uni.createSelectorQuery().in(this)
+					.select(".xUploadMedia")
+					.boundingClientRect().exec((ret) => {
+						let nodeinfo = ret[0] as NodeInfo
+
+						let space = (this.column - 1) * this.spaceGap;
+						// #ifdef APP-IOS
+						this.itemWidth = (nodeinfo.width! - space) / this.column - 0.28
+						// #endif
+						// #ifndef APP-IOS
+						this.itemWidth = (nodeinfo.width! - space) / this.column
+						// #endif
+						this._totalHeight = this.totalHeight()
+					})
+			},
+			getStatusColor(item : XUPLOADFILE_FILE_INFO) : string {
+				if (item.status == 1) return 'rgba(99, 83, 4, 0.5)'
+				if (item.status == 2) return 'rgba(0, 0, 0, 0.5)'
+				if (item.status == 3 || item.status == 4 || item.status == 5) return 'rgba(115, 26, 4, 0.7)'
+				return 'rgba(0, 0, 0, 0.5)'
+			},
+			getTextStatus(status : number) : string {
+			// 0未上传，1上传中，2上传成功，3上传失败（网络错误），4已取消（终止，上到一半取消了）,5超过大小
+				let text = "";
+				if (status == 0) {
+					text = this!.i18n.t("tmui4x.uploadFile.uploadStatus",0);//"待上传"
+				} else if (status == 3) {
+					text = this!.i18n.t("tmui4x.uploadFile.uploadStatus",2);//"上传失败"
+				} else if (status == 2) {
+					text = this!.i18n.t("tmui4x.uploadFile.uploadStatus",3);//"上传成功"
+				} else if (status == 1) {
+					text = this!.i18n.t("tmui4x.uploadFile.uploadStatus",1);//"上传中..."
+				} else if (status == 5) {
+					text = this!.i18n.t("tmui4x.uploadFile.uploadStatus",4);//"超过大小"
+				}
+				
+			
+				return text
+			},
+			delRemove(item : XUPLOADFILE_FILE_INFO, index : number) {
+				let _this = this;
+				if (!this._okFileIsDelete) {
+					// "不允许删除"
+					uni.showToast({ title: this!.i18n.t("tmui4x.uploadFile.tips2"), mask: true, icon: 'none' })
+					return;
+				}
+				if (item.status == 1 && !this._uploadingFileIsDelete) {
+					// "上传中，不允许删除"
+					uni.showToast({ title: this!.i18n.t("tmui4x.uploadFile.tips1"), mask: true, icon: 'none' })
+					return;
+				}
+				
+				if (this.beforeDel == null) {
+					_this.xupload!.delFile(item.id)
+					let clonelist = this.cloneListData(_this.xupload!.fileList)
+					_this.$emit("update:modelValue", clonelist)
+					return;
+				}
+				let call = this.beforeDel! as funcalldel
+				call(index, item).then((res : boolean) => {
+					if (res) {
+						_this.xupload!.delFile(item.id)
+						
+						let recorelist  = _this.xupload!.fileList.slice(0)
+						let clonelist = this.cloneListData(recorelist)
+						_this.$emit('delete',clonelist)
+						_this.$emit("update:modelValue", clonelist)
+						
+					}
+				}).catch(() => { })
+
+			},
+			mStart(index : number) {
+				this._nowIndex = index
+				this._newIndex = index
+				
+			},
+			async mMove(evt : UniTouchEvent):Promise<boolean> {
+		
+				if (!this._isLongPressCanDisableMove) return Promise.resolve(false);
+				
+				evt.stopPropagation()
+				evt.preventDefault()
+				let selfEle = this.$refs['xUploadMedia'] as UniElement
+				let selfEeleBox:DOMRect|null = null;
+				// #ifdef MP-WEIXIN
+				selfEeleBox = await selfEle.getBoundingClientRectAsync()
+				// #endif
+				// #ifndef MP-WEIXIN
+				selfEeleBox = selfEle.getBoundingClientRect()
+				// #endif
+				
+				if(selfEeleBox==null) return Promise.resolve(false);
+				let x = evt.changedTouches[0].clientX - selfEeleBox.left
+				let y = evt.changedTouches[0].clientY - selfEeleBox.top
+
+				let moveItemel = this.$refs['moveItem'] as UniElement
+
+				let offset_x = (x - this.itemWidth / 2) + this.spaceGap / 2
+				let offset_y = (y - this._itemHeight / 2) + this.spaceGap / 2
+
+				this.movexitem_x = offset_x
+				this.movexitem_y = offset_y
+				this.mouse_x = offset_x
+				this.mouse_y = offset_y
+
+				this.tempXy(this.mouse_x, this.mouse_y)
+				
+				return Promise.resolve(false);
+			},
+			mEnd(evt : UniTouchEvent) {
+				if (!this._isLongPressCanDisableMove) return;
+				this._isLongPressCanDisableMove = false;
+				let maxxy = Math.max(Math.abs(evt.changedTouches[0].clientX - this.diffX), Math.abs(evt.changedTouches[0].clientY - this.diffY))
+
+
+				this.movexitem_x = this.mouse_x
+				this.movexitem_y = this.mouse_y
+
+				this.coverXy(maxxy > 10);
+
+			},
+			coverXy(isJiaoHuan : boolean) {
+				if (isJiaoHuan && this._isDragging && this._dragOrder.length > 0) {
+					let reorderedList : XUPLOADFILE_FILE_INFO[] = [];
+					for (let i = 0; i < this._dragOrder.length; i++) {
+						reorderedList.push(this.nowFileList[this._dragOrder[i]]);
+					}
+					this.nowFileList = reorderedList;
+					this._isDragging = false;
+					this._dragOrder = [] as number[];
+					this._nowIndex = -1;
+					this._newIndex = -1;
+					this.showMoveItem = false;
+					this.tempMoveIndex = -1;
+					let _this = this;
+					this.$nextTick(function () {
+						_this.xupload!._addFilesByself(_this.nowFileList);
+						let clonelist = _this.cloneListData(_this.nowFileList);
+						_this.$emit("update:modelValue", clonelist);
+					});
+				} else {
+					this._dragOrder = [] as number[];
+					this._nowIndex = -1;
+					this._newIndex = -1;
+					this.showMoveItem = false;
+					this.tempMoveIndex = -1;
+					let t = this;
+					clearTimeout(this.tid2);
+					this.tid2 = setTimeout(() => {
+						t._isDragging = false;
+					}, 280);
+				}
+			},
+			tempXy(mvx : number, mvy : number) {
+				let stepX = this.itemWidth + this.spaceGap;
+				let stepY = this._itemHeight + this.spaceGap;
+				let maxRow = Math.ceil(this.nowFileList.length / this.column) - 1;
+				let col = Math.floor(mvx / stepX);
+				let row = Math.floor(mvy / stepY);
+				col = Math.min(Math.max(col, 0), this.column - 1);
+				row = Math.min(Math.max(row, 0), maxRow);
+				if (row >= maxRow) {
+					col = Math.min(col, (this.nowFileList.length - 1) % this.column);
+				}
+				let targetIdx = col + row * this.column;
+				targetIdx = Math.min(Math.max(targetIdx, 0), this.nowFileList.length - 1);
+				if (this._isDragging && this._dragOrder.length > 0) {
+					let currentPos = this._dragOrder.indexOf(this._nowIndex);
+					if (currentPos >= 0 && currentPos != targetIdx) {
+						this._dragOrder.splice(currentPos, 1);
+						this._dragOrder.splice(targetIdx, 0, this._nowIndex);
+					}
+				}
+				this.tempMoveIndex = targetIdx;
+			},
+			xyIsInItem(mvx : number, mvy : number) : boolean {
+				let stepX = this.itemWidth + this.spaceGap;
+				let stepY = this._itemHeight + this.spaceGap;
+				let maxRow = Math.ceil(this.nowFileList.length / this.column) - 1;
+				let col = Math.floor(mvx / stepX);
+				let row = Math.floor(mvy / stepY);
+				if (col < 0 || row < 0 || col >= this.column) return false;
+				if (row > maxRow) return false;
+				if (row >= maxRow) {
+					let lastRowMaxCol = (this.nowFileList.length - 1) % this.column;
+					if (col > lastRowMaxCol) return false;
+				}
+				return true;
+			},
+			setItem() {
+				// 新旧项目交换。
+				let newIndexItem = this._fileList.slice(0)[this._newIndex]
+				let oldindexItem = this._fileList.slice(0)[this._nowIndex]
+				this._fileList.splice(this._newIndex, 1, oldindexItem)
+				this._fileList.splice(this._nowIndex, 1, newIndexItem)
+				this.$nextTick(function () {
+					this.xupload!._addFilesByself(this._fileList)
+					// 结束交换后，把索引归-1，即为初始状态值。
+					this._nowIndex = -1
+					this._newIndex = -1;
+					let list = this._fileList.slice(0);
+					let clonelist = this.cloneListData(list)
+					// 最后同步到外层的排序列表。
+					this.$emit("update:modelValue", clonelist)
+
+				})
+			},
+			getUploadIngStatus() : boolean {
+				let UploadingOk = false;
+				for (let i = 0; i < this._fileList.length; i++) {
+					if (this._fileList[i].status == 1) {
+						UploadingOk = true;
+						break;
+					}
+				}
+				return UploadingOk;
+			},
+
+			async mLongStart(evt : UniTouchEvent):Promise<boolean|null> {
+				if (this.getUploadIngStatus()) {
+					// '上传中不允许拖动排序'
+					uni.showToast({ title: this!.i18n.t("tmui4x.uploadMedia.tips1"), icon: 'none' })
+					return false;
+				}
+				
+				// #ifdef MP
+				this._isLongPressCanDisableMove = true;
+				// #endif
+				let selfEle = this.$refs['xUploadMedia'] as UniElement
+				let selfEeleBox:DOMRect|null = null;
+				// #ifdef MP-WEIXIN
+				selfEeleBox = await selfEle.getBoundingClientRectAsync()
+				if (!this._isLongPressCanDisableMove) return Promise.resolve(false);
+				// #endif
+				// #ifndef MP-WEIXIN
+				selfEeleBox = selfEle.getBoundingClientRect()
+				// #endif
+				
+				if(selfEeleBox==null) {
+					// #ifdef MP
+					this._isLongPressCanDisableMove = false;
+					// #endif
+					return Promise.resolve(false);
+				}
+				
+				let x = evt.changedTouches[0].clientX - selfEeleBox.left
+				let y = evt.changedTouches[0].clientY - selfEeleBox.top
+				this.mouse_x = x - selfEeleBox.left
+				this.mouse_y = y - selfEeleBox.top
+				
+				this.diffY = y
+				this.diffX = x
+				
+				let moveItemel = this.$refs['moveItem'] as UniElement
+				
+				let offset_x = (x - this.itemWidth / 2) + this.spaceGap / 2
+				let offset_y = (y - this._itemHeight / 2) + this.spaceGap / 2
+				
+				// #ifdef MP
+				if(!this.xyIsInItem(x, y)) {
+					this._isLongPressCanDisableMove = false;
+					return Promise.resolve(false);
+				}
+				// #endif
+				// #ifndef MP
+				if(!this.xyIsInItem(offset_x,offset_y)) return Promise.resolve(false);
+				// #endif
+				this.movexitem_x = offset_x
+				this.movexitem_y = offset_y
+				this.mouse_x = offset_x
+				this.mouse_y = offset_y
+				this.tempXy(this.mouse_x, this.mouse_y)
+				let t = this;
+				// #ifndef MP
+				this._isLongPressCanDisableMove = true;
+				// #endif
+				this._dragOrder = [] as number[];
+				for (let i = 0; i < this.nowFileList.length; i++) {
+					this._dragOrder.push(i);
+				}
+				this._isDragging = true;
+			
+				this.$nextTick(()=>{
+					t.showMoveItem = true;
+				})
+				return Promise.resolve(false);
+			},
+			imgClickPrve(index : number) {
+				let urls = this.nowFileList.map((el) : string => el.path);
+				if(this.mode == 'photo'){
+					uni.previewImage({
+						current: index,
+						urls
+					})
+				}else if(this.mode == 'video'){
+					this.nowshowClickMedioSrc = this.nowFileList[index].path;
+					this.$nextTick(()=>{
+						this.showVideo = true;
+						
+					})
+				}
+				
+			}
+		},
+	}
+</script>
+<template>
+	<view>
+		<view @longpress="mLongStart"
+		<!-- #ifdef MP -->
+		@touchmove.stop="mMove"
+		<!-- #endif -->
+		<!-- #ifndef MP -->
+		@touchmove="mMove"
+		<!-- #endif -->
+		@touchend="mEnd" @touchcancel="mEnd" 
+		ref="xUploadMedia"
+		class="xUploadMedia"
+		:style="{height:_totalHeight+'px'}" :key="itemWidth"
+			>
+			<view v-for="(item,index) in _fileList" :key="item.id"
+				class="xUploadMediaItemParent"
+				:style="{
+					width:itemWidth+'px',
+					height:_imgHeight,
+					left:getItemLeft(index)+'px',
+					top:getItemTop(index)+'px',
+					transitionDuration:_isDragging&&index==_nowIndex?'0ms':_isDragging?'250ms':'0ms',
+					opacity:_isDragging&&index==_nowIndex?0:1
+				}">
+				<view class="xUploadMediaItem" @click="imgClickPrve(index)" @touchstart="mStart(index)" :style="{height:'100%'}">
+					<view @click.stop="delRemove(item,index)" class="xUploadMediaClose" >
+						<x-icon color="rgba(255,255,255,0.6)" font-size="18" name="close-line"></x-icon>
+					</view>
+					<image v-if="mode=='photo'" class="xUploadMediaImg" mode="fi" :src="item.path" :key="item.id"></image>
+					<video v-if="mode=='video'" object-fit='fill' :enable-progress-gesture="false" :show-loading="false" :show-progress="false" :show-fullscreen-btn="false" :show-play-btn="false" class="xUploadMediaImg" width="100%" height="100%" :src="item.path" :key="item.id"></video>
+					<view class="xUploadMediaLabel" :style="{backgroundColor:getStatusColor(item)}">
+						<text class="xUploadMediaLabelText">
+						{{getTextStatus(item.status)}}
+						</text>
+					</view>
+				</view>
+			</view>
+			<view v-if="_fileList.length < maxCount" @click="chooseFile"
+				class="xUploadMediaItemParent xUploadMediaItem"
+				:style="{width:itemWidth+'px',height:_imgHeight,left:getAddBtnLeft()+'px',top:getAddBtnTop()+'px'}" :key="itemWidth">
+				<!--
+				@slot 上传图片按钮插槽。
+				 -->
+				<slot>
+					<view class="xUploadMediaAddSlot"
+						:style="{border: `1px solid ${_borderColor}`,'backgroundColor': _bgColor}">
+						<x-icon font-size="36" color="#d6d6d6" dark-color="#4a4a4a" name="add-line"></x-icon>
+					</view>
+				</slot>
+			</view>
+			<view ref="moveItem" class="xUploadMediaMoveitem" v-show="_nowIndex>-1"
+				:style="{
+				left:movexitem_x+'px',top:movexitem_y+'px',width:itemWidth+'px',height:_imgHeight}">
+				<view v-if="showMoveItem"
+					:style="{backgroundColor:'rgba(0,0,0,0.3)',position:'relative',width:'100%',height:'100%',borderRadius:'6px'}">
+					<view class="xUploadMediaClose">
+						<x-icon style="opacity: 0.5;"  color="white" font-size="18" name="close-line"></x-icon>
+					</view>
+					<x-image v-if="mode=='photo'" style="opacity: 0.7;" width="100%" height="100%" :src="_fileList[_nowIndex].path"
+						:key="_fileList[_nowIndex].id"></x-image>
+					<view :style="{opacity: 0.5,backgroundColor:getStatusColor(_fileList[_nowIndex])}" class="xUploadMediaLabel">
+						<text class="xUploadMediaLabelText">
+						{{getTextStatus(_fileList[_nowIndex].status)}}
+						</text>
+					</view>
+				</view>
+			</view>
+		</view>
+		<!-- 视频预览  关闭-->
+		<x-modal  :title="i18n!.t('tmui4x.uploadMedia.videoPreview')" 
+		:confirm-text="i18n!.t('tmui4x.uploadMedia.close')" v-model:show="showVideo" height="360" :showCancel="false"  :overlay-click="false" :show-close="false" >
+			<video :src="nowshowClickMedioSrc" style="width: 100%;height: 200px;" v-if="nowshowClickMedioSrc!=''&&showVideo"></video>
+		</x-modal>
+	</view>
+</template>
+<style scoped>
+	.xUploadMediaAddSlot {
+		height: 100%;
+		width: 100%;
+		/* border: 1px solid #eeeeee; */
+		/* background-color: #f5f5f5; */
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+		align-items: center;
+	}
+
+	.xUploadMediaImg {
+		pointer-events: none;
+		width:100%;
+		height:100%;
+	}
+
+	.xUploadMediaMoveitem {
+		position: absolute;
+		left: 0px;
+		top: 0px;
+		z-index: 8;
+		pointer-events: none;
+	}
+
+	.xUploadMediaLabel {
+		position: absolute;
+		left: 0rpx;
+		bottom: 0rpx;
+		z-index: 5;
+		width: 100%;
+		padding: 4px 6px;
+		background-color: rgba(0, 0, 0, 0.6);
+		/* #ifdef WEB || MP-WEIXIN */
+		box-sizing:border-box;
+		/* #endif */
+	}
+
+	.xUploadMediaLabelText {
+		lines: 1;
+		text-overflow: ellipsis;
+		font-size: 10px;
+		color: rgba(255,255,255,0.8);
+		text-align: center;
+	}
+
+	.xUploadMediaClose {
+		position: absolute;
+		right: 0rpx;
+		top: 0rpx;
+		padding:0px;
+		width:20px;
+		height:20px;
+		background-color: rgba(0, 0, 0, 0.4);
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+		align-items: center;
+		z-index: 5;
+		border-bottom-left-radius: 6px;
+	}
+
+	.xUploadMediaItemParent {
+		position: absolute;
+		border-radius: 6px;
+		transition-property: top, left, opacity;
+		transition-timing-function: ease;
+	}
+
+	.xUploadMediaItem {
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+		align-items: center;
+		border-radius: 6px;
+		position: relative;
+		/* #ifdef WEB || MP-WEIXIN */
+		overflow:hidden;
+		/* #endif */
+	}
+
+	.xUploadMedia {
+		position: relative;
+	}
+
+	.xUploadMediaItemHover {
+		position: absolute;
+		z-index: 6;
+		width: 100%;
+		height: 100%;
+		border: 3px solid #1C84FF;
+		border-radius: 6px;
+	}
+</style>

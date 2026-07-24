@@ -1,0 +1,568 @@
+<script lang="ts" setup>
+	import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick, onUpdated } from "vue"
+	import { checkIsCssUnit, getUid } from "../../core/util/xCoreUtil.uts"
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { xConfig, xProvitae } from "../../config/xConfig.uts"
+	type xActionModalPropsType = {
+		/**
+		 * 自定义遮罩样式
+		 */
+		customStyle: string,
+		/**
+		 * 标题
+		 */
+		title: string,
+		/**
+		 * 是否显示底部关闭按钮
+		 */
+		showTitle: boolean,
+		/**
+		 * 是否显示关闭
+		 */
+		showClose: boolean,
+		/**
+		 * 遮罩是否允许点击被关闭
+		 */
+		overlayClick: boolean,
+		/**
+		 * 显示可v-model:show双向绑定
+		 */
+		show: boolean,
+		/**
+		 * 显示取消按钮
+		 */
+		showConfirm: boolean,
+		/**
+		 * 动画时间
+		 */
+		duration: number,
+		/**
+		 * 打开方向为上和下时的圆角
+		 * 空值时，取全局配置的圆角。注意是取drawer的圆角，统一弹层的圆角
+		 */
+		round: string,
+		/**
+		 * 弹层最大的高度值，默认为屏幕的可视高
+		 * 提供值时不能为百分比，可以是px,rpx单位数字。如果你不带单位，默认转换为rpx单位。
+		 */
+		maxHeight: string,
+		/**
+		 * 弹层的背景
+		 */
+		bgColor: string,
+		/**
+		 * 弹层的暗黑背景，如果为空取sheetDarkColor
+		 */
+		darkBgColor: string,
+		/**
+		 * 空值取全局主题值。
+		 */
+		btnColor: string,
+		/**
+		 * 确认按钮的文本
+		 */
+		btnText: string,
+		/**
+		 * 空值最自动计算文本色。
+		 */
+		btnFontColor: string,
+		/**
+		 * 打开dom的延迟量，如果你打开 弹窗在ios正常。
+		 * 请不要修改此值。如果遇到打不开，或者 打开 后没动画，关闭不了等可能是sdk bug导致 
+		 * 此时需要加大值来避免。具体加多少以你弹窗内的节点复杂度有关，需要你自行压力测试。
+		 * 此值仅在ios下生效。
+		 */
+		watiDuration: number
+	}
+	
+	/**
+	 * @name 底部对话框 xActionModal
+	 * @page /pages/index/action-modal
+	 * @category 反馈组件
+	 * @description 样式与darawer不一样，风格更为圆润精致，适于提醒框，阅读对话框等场景。
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({ name: "xActionModal" })
+
+	const i18n = xConfig.i18n
+	defineSlots<{
+		trigger(props: { show: boolean }): any
+		title(props: { show: boolean }): any
+		default(props: { show: boolean }): any
+		footer(props: { show: boolean }): any
+	}>()
+
+	const emits = defineEmits([
+		/**
+		 * 底部按钮被点击时触发
+		 */
+		'confirm',
+		/**
+		 * 点击遮罩事件
+		 */
+		'click',
+		/**
+		 * 关闭是触发
+		 */
+		'close',
+		/**
+		 * 打开时触发
+		 */
+		'open',
+		/**
+		 * 打开前执行
+		 */
+		'beforeOpen',
+		/**
+		 * 关闭前执行
+		 */
+		'beforeClose',
+		/**
+		 * 等同v-model:show
+		 */
+		'update:show'
+	])
+
+
+	const props = withDefaults(defineProps<xActionModalPropsType>(), {
+		customStyle: "",
+		title: "",
+		showTitle: true,
+		showClose: false,
+		overlayClick: true,
+		show: false,
+		showConfirm: true,
+		duration: 350,
+		round: "",
+		maxHeight: "",
+		bgColor: "white",
+		darkBgColor: "",
+		btnColor: "",
+		btnText: "",
+		btnFontColor: "",
+		watiDuration: 120
+	})
+
+	const showOverflay = ref(false)
+	const showOverflayRef = ref<UniElement | null>(null)
+	const xActionModalWrapContentRef = ref<UniElement | null>(null)
+	const actioning = ref(false)
+	const status = ref("")
+	const id = ref("xActionModal" + getUid())
+	const wrapId = ref("xActionModalWrap" + getUid())
+	const tid = ref(0)
+	const windtop = ref(0)
+	// #ifdef H5
+	const teleportElH5 = ref("uni-app")
+	const teleportTarget = ref<string | null>(null)
+	const getTeleportTarget = () => {
+		try {
+			if(status.value == ''||status.value=='close') return 'uni-app'
+			// 优先尝试 uni-page
+			if (document.querySelector('uni-page')) {
+				return 'uni-page'
+			}
+			// 优先尝试 uni-app
+			if (document.querySelector('uni-app')) {
+				return 'uni-app'
+			}
+			// 备用方案：尝试 app
+			if (document.querySelector('#app')) {
+				return '#app'
+			}
+			// 最后备用：body
+			return 'body'
+		} catch (error) {
+			console.warn('Failed to get teleport target:', error)
+			return 'body'
+		}
+	}
+	
+	// 检查teleport目标是否可用
+	const isTeleportTargetValid = (target: string) => {
+		try {
+			return !!document.querySelector(target)
+		} catch {
+			return false
+		}
+	}
+	// #endif
+
+	const _btnFontColor = computed((): string => {
+		return getDefaultColor(props.btnFontColor)
+	})
+
+	const _btnColor = computed((): string => {
+		if (props.btnColor == "") return getDefaultColor(xConfig.color)
+		return getDefaultColor(props.btnColor)
+	})
+
+	const _btnText = computed((): string => {
+		if (props.btnText == '') return i18n.t("tmui4x.actionModal.btnText")
+		return props.btnText
+	})
+
+	const _title = computed((): string => {
+		if (props.title == '') return i18n.t("tmui4x.actionModal.title")
+		return props.title
+	})
+
+	const _round = computed((): string => {
+		let round = props.round;
+		if (round == "") {
+			round = xConfig.drawerRadius
+		}
+		let radius = checkIsCssUnit(round, xConfig.unit);
+		return `${radius}`
+	})
+
+	const _bgColor = computed((): string => {
+		if (xConfig.dark == 'dark') {
+			if (props.darkBgColor != '') return getDefaultColor(props.darkBgColor)
+			return getDefaultColor(xConfig.sheetDarkColor)
+		}
+		return getDefaultColor(props.bgColor)
+	})
+
+	const _maxHeight = computed((): string => {
+		if (props.maxHeight == "") return "80%"
+		return checkIsCssUnit(props.maxHeight, xConfig.unit);
+	})
+
+	const _animationFun = computed((): string => xConfig.animationFun)
+
+	const __height = computed((): string => {
+		let h = '100%';
+		// #ifdef WEB
+		h = `calc(100% - ${windtop.value}px)`
+		// #endif
+		return h;
+	})
+
+	// 方法 - 按依赖顺序定义，被调用的函数在前面
+	function setStyleAni() {
+		try {
+			let watiDuration = 60;
+			// #ifdef APP-IOS
+			watiDuration = props.watiDuration
+			// #endif
+			if (status.value == 'open') {
+				showOverflay.value = true;
+				clearTimeout(tid.value)
+				tid.value = setTimeout(function () {
+					if (showOverflayRef.value == null || xActionModalWrapContentRef.value == null) return;
+					showOverflayRef.value!.style.setProperty("transition-duration", props.duration.toString() + 'ms')
+					xActionModalWrapContentRef.value!.style.setProperty("transition-duration", props.duration.toString() + 'ms')
+					showOverflayRef.value!.style.setProperty('opacity', '1')
+					xActionModalWrapContentRef.value!.style.setProperty('transform', `translate(0%,0%)`)
+				}, watiDuration);
+			} else if (status.value == 'close') {
+				if (showOverflayRef.value == null || xActionModalWrapContentRef.value == null) return;
+				showOverflayRef.value!.style.setProperty("transition-duration", props.duration.toString() + 'ms')
+				xActionModalWrapContentRef.value!.style.setProperty("transition-duration", props.duration.toString() + 'ms')
+				showOverflayRef.value!.style.setProperty('opacity', '0')
+				xActionModalWrapContentRef.value!.style.setProperty('transform', `translate(0,100%)`)
+			}
+		} catch (e) {
+			//TODO handle the exception
+			console.error("xActionModal Error:", e)
+		}
+	}
+
+	function onEnd() {
+		actioning.value = false;
+		if (status.value == 'close') {
+			showOverflay.value = false;
+			/**
+			 * 关闭时执行
+			 */
+			emits('close')
+			/**
+			 * 等同v-model:show
+			 */
+			emits('update:show', false)
+			// #ifdef WEB
+			teleportTarget.value = getTeleportTarget()
+			// #endif
+		} else {
+			/**
+			 * 打开执行的事件
+			 */
+			emits('open')
+		}
+	}
+
+	function closeAlert() {
+		if (actioning.value || status.value == 'close') return;
+		actioning.value = true;
+		status.value = 'close'
+		/**
+		 * 关闭前执行
+		 */
+		emits('beforeClose')
+		setStyleAni();
+	}
+
+	function showAlert() {
+		if (actioning.value) return;
+		if (status.value == 'open') return;
+	
+		showOverflay.value = true;
+		actioning.value = true;
+		status.value = 'open'
+		// #ifdef WEB
+		teleportTarget.value = getTeleportTarget()
+		// #endif
+		/**
+		 * 打开前执行
+		 */
+		emits('beforeOpen')
+		setStyleAni();
+	}
+
+	function openDrawer() {
+		showAlert();
+	}
+
+	function onConfirm() {
+		closeAlert()
+		emits('confirm')
+	}
+
+	function onClickOverflowy(evt: Event) {
+		evt.stopPropagation()
+		/**
+		 * 点击遮罩事件
+		 */
+		emits("click")
+		if (!props.overlayClick) return;
+		closeAlert();
+	}
+
+	function overTouch(evt: UniTouchEvent) {
+		// #ifdef WEB
+		evt.preventDefault()
+		// #endif
+		// #ifdef APP
+		evt.stopPropagation()
+		// #endif
+	}
+
+	// 监听器
+	watch((): boolean => props.show, (newval: boolean) => {
+		if (newval) {
+			showAlert()
+		} else {
+			closeAlert()
+		}
+	})
+
+	// 生命周期
+	onMounted(() => {
+		let sys = uni.getWindowInfo()
+		windtop.value = sys.windowTop;
+		if (props.show) {
+			showAlert();
+		}
+
+		// #ifdef H5
+		nextTick(() => {
+			teleportTarget.value = getTeleportTarget()
+		})
+		// #endif
+	})
+
+	// 监听页面变化，重新获取teleport目标
+	onUpdated(() => {
+		// #ifdef H5
+		if (teleportTarget.value && !isTeleportTargetValid(teleportTarget.value)) {
+			teleportTarget.value = getTeleportTarget()
+		}
+		// #endif
+	})
+
+	onBeforeUnmount(() => {
+		clearTimeout(tid.value)
+	})
+
+	defineExpose({
+		/** 打开 **/
+		open: () => showAlert(),
+		/** 关闭 **/
+		close: () => closeAlert()
+	})
+
+</script>
+<template>
+	<view>
+		<view @click="openDrawer">
+			<!--
+			@slot 标签触发显示遮罩，免于使用变量控制
+			@prop {Boolean} show - 当前是否已显示
+			-->
+			<slot name="trigger" :show="show"></slot>
+		</view>
+
+		<!-- #ifdef H5 -->
+		<teleport :to="teleportTarget || teleportElH5" :disabled="!teleportTarget">
+		<!-- #endif -->
+		<!-- #ifdef MP-WEIXIN -->
+		<root-portal>
+		<!-- #endif -->
+		
+			<view 
+				@click="onClickOverflowy" 
+				@touchmove="overTouch" 
+				v-if="showOverflay" 
+				@transitionend="onEnd" 
+				:id="id"
+				ref="showOverflayRef"
+				class="xActionModalWrap xActionModalWrap_bottom"
+				:style="[{width:'100%',height:__height,top:windtop+'px','transition-timing-function':_animationFun},customStyle]">
+				<view 
+					@click.stop="" 
+					class="xActionModalWrapContent xActionModalWrapContent_bottom"
+					ref="xActionModalWrapContentRef"
+					:id="wrapId" 
+					:style="{
+					borderRadius:_round,
+					maxHeight:_maxHeight!=''?_maxHeight:'100%',
+					backgroundColor:_bgColor,
+					'transition-timing-function':_animationFun
+					}">
+					<x-icon v-if="showClose" class="xActionModalXclose" @click="closeAlert" color="#dcdcdc" font-size="24"
+						name="close-circle-fill"></x-icon>
+					<view>
+						<view v-if="showTitle" class="xActionModalTitleBox">
+							<!-- 
+							 @slot 标题插槽
+							 @prop {Boolean} show - 当前是否已显示
+							 -->
+							<slot name="title" :show="show">
+								<text class="xActionModaltitleBox">{{_title}}</text>
+							</slot>
+						</view>
+					</view>
+
+					<scroll-view style="flex:1;" :scroll-y="true" :rebound="false">
+						<!--
+						@slot 默认插槽
+						@prop {Boolean} show - 当前是否已显示
+						-->
+						<slot name="default">
+						</slot>
+					</scroll-view>
+					<view v-if="showConfirm" class="xActionModalFooter">
+						<!-- 
+						 @slot 页脚按钮插槽
+						 -->
+						<slot name="footer">
+							<x-button @click="onConfirm" :block="true" :color="_btnColor" :round="_round"
+								:font-color="_btnFontColor">{{_btnText}}</x-button>
+						</slot>
+					</view>
+
+				</view>
+
+			</view>
+			
+		<!-- #ifdef MP-WEIXIN -->
+		</root-portal>
+		<!-- #endif -->
+		<!-- #ifdef H5 -->
+		</teleport>
+		<!-- #endif -->
+	</view>
+</template>
+<style>
+	.xActionModalItem {
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+		align-items: center;
+		height: 44px;
+		margin-bottom: 1px;
+
+	}
+
+	.xActionModalFooter {
+		margin: 16px;
+	}
+
+	.xActionModalFooterText {
+		font-size: 15px;
+		color: #333333;
+		text-align: center;
+	}
+
+	.xActionModalXclose {
+		position: absolute;
+		right: 12px;
+		top: 11px;
+		z-index: 100;
+	}
+
+	.xActionModalTitleBox {
+		height: 60px;
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: center;
+		/* margin-bottom: 4px; */
+	}
+
+	.xActionModaltitleBox {
+		max-width: 350rpx;
+		overflow: hidden;
+		lines: 1;
+		text-overflow: ellipsis;
+		font-size: 16px;
+		color: #888888;
+	}
+
+	.xActionModalWrap_bottom {
+		display: flex;
+		flex-direction: column;
+		justify-content: flex-end;
+		/* #ifndef MP-WEIXIN */
+		align-items: center;
+		/* #endif */
+		
+	}
+
+
+	.xActionModalWrapContent {
+		transition-duration: 350ms;
+		transition-property: transform;
+		display: flex;
+		flex-direction: column;
+		margin: 0 16px;
+		max-width: 500px;
+		/* width:100%; */
+	}
+
+	.xActionModalWrapContent_bottom {
+		transform: translate(0%, 100%);
+		margin-bottom: 24px;
+	}
+
+
+	.xActionModalWrap {
+		background-color: rgba(0, 0, 0, 0.35);
+		/* #ifndef APP-HARMONY */
+		transition-duration: 350ms;
+		/* #endif */
+		/* #ifdef APP-HARMONY */
+		transition-duration: 0ms;
+		/* #endif */
+		opacity: 0;
+		position: fixed;
+		z-index: 400;
+		left: 0;
+		top: 0px;
+		transition-property: opacity;
+	}
+</style>

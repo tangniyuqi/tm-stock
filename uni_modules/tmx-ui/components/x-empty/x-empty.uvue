@@ -1,0 +1,158 @@
+<script lang="ts" setup>
+	import { computed } from 'vue'
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	const i18n = xConfig.i18n;
+	/**
+	 * @name 空状态 xEmpty
+	 * @description 主要用于列表加载页面或者空状态页面时使用。
+	 * @page /pages/index/action-menu
+	 * @category 展示组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({name:"xEmpty"})
+	const emits = defineEmits([
+		/**
+		 * 刷新按钮被点击时触发
+		 */
+		'click'
+	])
+
+	type xEmptyPropsType = {
+		/**
+		 * 加载状态
+		 */
+		loading: boolean,
+		/**
+		 * 是否为空
+		 */
+		empty: boolean,
+		/**
+		 * 错误状态
+		 */
+		error: boolean,
+		/**
+		 * 是否有更多数据状态
+		 */
+		more: boolean,
+		/**
+		 * 没有数据时的提示，用于加载更多数据时
+		 * ,没有更多数据啦
+		 */
+		moreLabel: string,
+		/**
+		 * 列表加载出错时,出错啦~
+		 */
+		errorLabel: string,
+		/**
+		 * 按钮文本,点击重试
+		 */
+		btnLabel: string,
+		/**
+		 * 按钮颜色，默认取全局值
+		 */
+		btnColor: string,
+		/**
+		 * 按钮文本颜色，默认自动
+		 */
+		btnTextColor: string,
+		/**
+		 * 空或者加载出错时的标语,当前没有数据
+		 */
+		title: string,
+		/**
+		 * 图片路径
+		 */
+		src: string,
+		/**
+		 * 是否显示重试按钮
+		 */
+		showBtn: boolean,
+	}
+
+	const props = withDefaults(defineProps<xEmptyPropsType>(), {
+		loading: true,
+		empty: false,
+		error: false,
+		more: false,
+		moreLabel: "",
+		errorLabel: "",
+		btnLabel: "",
+		btnColor: "",
+		btnTextColor: "",
+		title: "",
+		src: "/static/tmui4xLibs/static/empty.png",
+		showBtn: true,
+	})
+
+	const _moreLabel = computed(() : string => {
+		if(props.moreLabel == '') return i18n.t("tmui4x.empty.moreLabel")
+		return props.moreLabel
+	})
+	const _errorLabel = computed(() : string => {
+		if(props.errorLabel == '') return i18n.t("tmui4x.empty.errorLabel")
+		return props.errorLabel
+	})
+	const _btnLabel = computed(() : string => {
+		if(props.btnLabel == '') return i18n.t("tmui4x.empty.btnLabel")
+		return props.btnLabel
+	})
+	const _btnColor = computed(() : string => {
+		if (props.btnColor == "") return getDefaultColor(xConfig.color)
+		return getDefaultColor(props.btnColor)
+	})
+	const _btnTextColor = computed(() : string => {
+		return getDefaultColor(props.btnTextColor)
+	})
+	const _title = computed(() : string => {
+		if(props.title == '') return i18n.t("tmui4x.empty.title")
+		return props.title
+	})
+
+	function onclick() {
+		/**
+		 * 刷新按钮被点击时触发
+		 */
+		emits('click')
+	}
+</script>
+<template>
+	<view class="xEmpty">
+		<x-loading v-if="loading"></x-loading>
+		<view class="xEmptyWrap" v-if="!loading&&!more&&(empty||error)">
+			<image style="width: 200px;height:200px" :src="src" />
+			<x-text font-size="16" v-if="empty" style="opacity: 0.5;">{{_title}}</x-text>
+			<x-text font-size="16" v-if="error" style="opacity: 0.5;">{{_errorLabel}}</x-text>
+			<!-- 
+			 @slot 按钮位置的插槽
+			 -->
+			<slot>
+				<view v-if="showBtn" style="padding-top: 21px;">
+					<x-button @click="onclick" width="150px" :color="_btnColor"
+						:font-color="_btnTextColor">{{_btnLabel}}</x-button>
+				</view>
+			</slot>
+		</view>
+		<x-text font-size="16" v-if="more&&!loading&&!error&&!empty"
+			style="padding: 16px;opacity: 0.5;">{{_moreLabel}}</x-text>
+	</view>
+</template>
+<style scoped>
+	.xEmpty {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		align-items: center;
+		margin: 16px 0;
+	}
+
+	.xEmptyWrap {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		align-items: center;
+	}
+</style>

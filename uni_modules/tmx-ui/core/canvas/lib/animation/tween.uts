@@ -1,0 +1,288 @@
+import { Shape } from '../shape.uts';
+import { ICanvas } from '@/uni_modules/tmx-ui/core/canvas/ICanvas.uts';
+
+export type EasingFunction = (t: number) => number;
+type AnimationConfig = {
+    props: UTSJSONObject;
+    duration: number;
+    easing?: EasingFunction;
+    startValues: Map<string, number>;
+}
+
+export class Tween {
+    private target: Shape;
+    private startValues: Map<string, number> = new Map();
+    private endValues: Map<string, number> = new Map();
+    private duration: number;
+    private startTime: number = 0;
+    private isPlaying: boolean = false;
+    private easing: EasingFunction;
+    private onUpdateFun: ((progress:number) => void) | null = null;
+    private onCompleteFun: (() => void) | null = null;
+    private parentICanvas: ICanvas;
+    private loop: number = 0;
+    private currentLoop: number = 0;
+    private yoyo: boolean = false;
+    private isReverse: boolean = false;
+    private animationQueue: AnimationConfig[] = [];
+    private currentAnimationIndex: number = -1;
+	private delayDur = 0
+	private delayDurTid = 12
+	private _tickId : number = -1;
+	private _needsStartTime : boolean = false;
+
+    constructor(target: Shape, canvas: ICanvas) {
+        this.target = target;
+        this.parentICanvas = canvas;
+        this.duration = 1000;
+        this.easing = Easing.linear as EasingFunction;
+    }
+
+    to(props: UTSJSONObject, duration: number = 1000): Tween {
+        return this.addTo(props, duration);
+    }
+
+    addTo(props: UTSJSONObject, duration: number = 1000, easing: EasingFunction = this.easing): Tween {
+        const startValues = new Map<string, number>();
+        for (const key in props) {
+            let keyValue = props[key];
+            if (typeof keyValue == 'number') {
+                let startValue = this.target.getAttr(key);
+                if(typeof startValue == 'number'){
+                    startValues.set(key, startValue);
+                }
+            }
+        }
+        this.animationQueue.push({
+            props: props,
+            duration: duration,
+            easing: easing,
+            startValues: startValues
+        });
+        return this;
+    }
+
+    delay(ms: number): Tween {
+        this.delayDur = ms;
+        return this;
+    }
+
+    clearAnimations(): Tween {
+        this.stop();
+        this.animationQueue = [];
+        this.currentAnimationIndex = -1;
+        this.startValues.clear();
+        this.endValues.clear();
+        return this;
+    }
+
+    start(): Tween {
+		if (this.isPlaying) return this;
+		this.isPlaying = true;
+		this.currentLoop = 1;
+		this.isReverse = false;
+		this._needsStartTime = true;
+
+		if (this.currentAnimationIndex == -1 && this.animationQueue.length > 0) {
+			this.currentAnimationIndex = 0;
+			this._setupAnimation(this.currentAnimationIndex);
+		}
+
+		const _this = this;
+		if (this.delayDur > 0) {
+			this.delayDurTid = setTimeout(function() {
+				_this._registerTick();
+			}, _this.delayDur);
+		} else {
+			this._registerTick();
+		}
+        return this;
+    }
+
+    stop(): Tween {
+		clearTimeout(this.delayDurTid)
+        this.isPlaying = false;
+		this._unregisterTick();
+        return this;
+    }
+
+	private _registerTick() : void {
+		if (this._tickId >= 0) return;
+		const _this = this;
+		this._tickId = this.parentICanvas.registerTick((time : number) : boolean => {
+			return _this._tick(time);
+		});
+	}
+
+	private _unregisterTick() : void {
+		if (this._tickId >= 0) {
+			this.parentICanvas.unregisterTick(this._tickId);
+			this._tickId = -1;
+		}
+	}
+
+	private _setupAnimation(index : number) : void {
+		const anim = this.animationQueue[index];
+		this.duration = anim.duration;
+		this.easing = anim.easing ?? this.easing;
+		this.startValues.clear();
+		this.endValues.clear();
+		for (const key in anim.props) {
+			const keyValue = anim.props[key];
+			if (typeof keyValue == 'number') {
+				const sv = anim.startValues.get(key);
+				if (sv != null) {
+					this.startValues.set(key, sv!);
+					this.endValues.set(key, keyValue);
+				}
+			}
+		}
+	}
+
+	private _tick(time : number) : boolean {
+		if (!this.isPlaying) return false;
+
+		if (this._needsStartTime) {
+			this.startTime = time;
+			this._needsStartTime = false;
+		}
+
+		let elapsed = time - this.startTime;
+
+		if (elapsed > this.duration) {
+			if (this.yoyo && !this.isReverse && (this.currentLoop < this.loop || this.loop == -1)) {
+				this.isReverse = true;
+				this.startTime = time;
+				elapsed = 0;
+			} else {
+				if (this.yoyo) this.isReverse = false;
+
+				if (this.currentAnimationIndex < this.animationQueue.length - 1) {
+					this.currentAnimationIndex++;
+					this._setupAnimation(this.currentAnimationIndex);
+					this.startTime = time;
+					elapsed = 0;
+				} else if (this.loop == -1 || this.currentLoop < this.loop) {
+					this.currentAnimationIndex = 0;
+					this.currentLoop++;
+					if (this.animationQueue.length > 0) {
+						this._setupAnimation(0);
+					}
+					this.startTime = time;
+					elapsed = 0;
+				} else {
+					this.startValues.forEach((sv : number, key : string) => {
+						const ev = this.endValues.get(key)
+						if (ev != null) this.target.setAttr(key, ev!)
+					})
+					this.target.needsUpdate = true
+					this.isPlaying = false;
+					this.currentAnimationIndex = -1;
+					this.animationQueue = [];
+					this.startValues.clear();
+					this.endValues.clear();
+				}
+			}
+		}
+
+		let progress = this.easing(elapsed / this.duration);
+		if (this.isReverse) {
+			progress = 1 - progress;
+		}
+
+		this.startValues.forEach((startValue, key) => {
+			const endValue = this.endValues.get(key)!;
+			const value = startValue + (endValue - startValue) * progress;
+			this.target.setAttr(key, value);
+		});
+
+		this.target.needsUpdate = true;
+
+		if (this.onUpdateFun != null) {
+			this.onUpdateFun!(progress);
+		}
+
+		if (!this.isPlaying) {
+			this._tickId = -1;
+			if (this.onCompleteFun != null) {
+				this.onCompleteFun!();
+			}
+			return false;
+		}
+		return true;
+	}
+
+    destroy(): void {
+        this.stop();
+        this.animationQueue = [];
+        this.currentAnimationIndex = -1;
+        this.startValues.clear();
+        this.endValues.clear();
+        this.onUpdateFun = null;
+        this.onCompleteFun = null;
+        this.loop = 0;
+        this.yoyo = false;
+    }
+
+    setEasing(easingFunction: EasingFunction): Tween {
+        this.easing = easingFunction;
+        return this;
+    }
+
+    onUpdate(callback: (progress:number) => void): Tween {
+        this.onUpdateFun = callback;
+        return this;
+    }
+
+    onComplete(callback: () => void): Tween {
+        this.onCompleteFun = callback;
+        return this;
+    }
+
+    setLoop(count: number): Tween {
+        this.loop = count;
+        return this;
+    }
+
+    setYoyo(value: boolean): Tween {
+        this.yoyo = value;
+        return this;
+    }
+}
+
+export const Easing = {
+    linear: (t: number): number => t,
+    
+    easeInQuad: (t: number): number => t * t,
+    
+    easeOutQuad: (t: number): number => t * (2 - t),
+    
+    easeInOutQuad: (t: number): number => {
+        return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+    },
+    
+    easeInCubic: (t: number): number => t * t * t,
+    
+    easeOutCubic: (t: number): number => (t-1) * t * t + 1,
+    
+    easeInOutCubic: (t: number): number => {
+        return t < 0.5 ? 4 * t * t * t : (t - 1) * (2 * t - 2) * (2 * t - 2) + 1;
+    },
+    
+    easeInElastic: (t: number): number => {
+        const c4 = (2 * Math.PI) / 3;
+        return t === 0 ? 0 : t === 1 ? 1 : -Math.pow(2, 10 * t - 10) * Math.sin((t * 10 - 10.75) * c4);
+    },
+    
+    easeOutElastic: (t: number): number => {
+        const c4 = (2 * Math.PI) / 3;
+        return t === 0 ? 0 : t === 1 ? 1 : Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * c4) + 1;
+    },
+    
+    easeInOutElastic: (t: number): number => {
+        const c5 = (2 * Math.PI) / 4.5;
+        return t === 0 ? 0 : t === 1 ? 1 : t < 0.5
+            ? -(Math.pow(2, 20 * t - 10) * Math.sin((20 * t - 11.125) * c5)) / 2
+            : (Math.pow(2, -20 * t + 10) * Math.sin((20 * t - 11.125) * c5)) / 2 + 1;
+    }
+};

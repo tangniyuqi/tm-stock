@@ -1,0 +1,14 @@
+import { XTIPS_TYPE, XTIPS_TYPE_PRIVATE } from "../interface.uts"
+import { defaultConfig, configCover } from "../libs/config.uts"
+import { hexToRgb } from "../libs/color.uts"
+import { xshowtips,xhideTips } from "x_tips_s";
+
+
+
+export const hideTips = () => {
+	xhideTips(UTSHarmony.getCurrentWindow()!.getUIContext())
+}
+export function showTips(opts : XTIPS_TYPE|null) {
+	let config = configCover(opts==null ? ({} as XTIPS_TYPE) : (opts!))
+	xshowtips(UTSHarmony.getCurrentWindow()!.getUIContext(),config)
+}

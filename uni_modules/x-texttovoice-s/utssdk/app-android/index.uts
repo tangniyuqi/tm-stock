@@ -1,0 +1,108 @@
+import TextToSpeech from "android.speech.tts.TextToSpeech"
+import OnInitListener from "android.speech.tts.TextToSpeech.OnInitListener"
+import OnUtteranceCompletedListener from "android.speech.tts.TextToSpeech.OnUtteranceCompletedListener"
+import UtteranceProgressListener from "android.speech.tts.UtteranceProgressListener"
+import Locale from "java.util.Locale"
+import { XuiTextToVoiceOpts, XuiTextToVoiceResult, XTTSImpl } from "../interface.uts"
+import { XuiTextToVoiceFailImpl } from "../unierror.uts"
+import Bundle from "android.os.Bundle";
+let tts : TextToSpeech | null = null
+
+/**
+ * 检查权限
+ */
+export function checkPermissions(call : (isAuth : boolean) => void) {
+	let cehckPerMissionsArs = [] as string[]
+	if (UTSAndroid.checkSystemPermissionGranted(UTSAndroid.getUniActivity()!, cehckPerMissionsArs)) {
+		call(true)
+	} else {
+		UTSAndroid.requestSystemPermission(UTSAndroid.getUniActivity()!, cehckPerMissionsArs, function (_A : boolean, _B : string[]) {
+			call(true)
+		}, function (_B : boolean, _A : string[]) {
+			call(false)
+		})
+	}
+}
+
+class TtsObj implements XTTSImpl {
+	config : XuiTextToVoiceOpts;
+	constructor(opts : XuiTextToVoiceOpts) {
+		this.config = opts;
+	}
+	isPlaying() : boolean {
+		let isplay = tts?.isSpeaking;
+		return isplay == null ? false : isplay
+	}
+	play(c : string) {
+		const params = Bundle()
+		tts?.speak(c, TextToSpeech.QUEUE_FLUSH, params, Math.random().toString(16).substring(4))
+	}
+	stop() {
+		tts?.stop()
+		tts?.shutdown()
+		this.config.onStop?.()
+	}
+}
+let TtsObjIml:TtsObj|null = null;
+export class xTtsImplIns {
+	public static play(c:string){
+		TtsObjIml?.play(c)
+	}
+	public static isPlaying() : boolean {
+		return TtsObjIml?.isPlaying()??false
+	}
+	public static stop(){
+		TtsObjIml?.stop()
+	}
+}
+
+export function XTtsSpeek(opts : XuiTextToVoiceOpts) {
+	function initTTS() {
+		class Listen extends OnInitListener {
+			override onInit(status : Int) {
+				if (status != TextToSpeech.SUCCESS) {
+					tts = null
+					console.error("TMUI Error:", status)
+					opts.fail?.(new XuiTextToVoiceFailImpl(1001));
+					opts.complete?.(null)
+					return;
+				}
+				let ttsObj = tts!;
+				const result = ttsObj.setLanguage(Locale.CHINESE)
+				if (result == TextToSpeech.LANG_MISSING_DATA) {
+					tts = null
+					opts.fail?.(new XuiTextToVoiceFailImpl(1002));
+					opts.complete?.(null)
+					return;
+				}
+				TtsObjIml = new TtsObj(opts)
+				opts.success?.(TtsObjIml!)
+				opts.complete?.(null)
+			}
+		}
+		class ProgressListen extends UtteranceProgressListener {
+			constructor() {
+				super()
+			}
+			public override onError(param : string | null) {
+				opts.onError?.(new XuiTextToVoiceFailImpl(1004));
+			}
+			public override onStart(param : string | null) {
+				opts.onStart?.();
+			}
+
+			public override onDone(param : string | null) {
+				opts.onDone?.();
+			}
+		}
+		tts = new TextToSpeech(UTSAndroid.getAppContext()!, new Listen())
+		tts!.setOnUtteranceProgressListener(new ProgressListen())
+	}
+
+	if (tts != null) {
+		tts?.stop()
+		tts?.shutdown()
+		tts = null;
+	}
+	initTTS()
+}

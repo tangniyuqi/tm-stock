@@ -1,0 +1,94 @@
+import { XuiTextToVoiceOpts, XuiTextToVoiceResult, XTTSImpl } from "../interface.uts"
+import { XuiTextToVoiceFailImpl } from "../unierror.uts"
+import { textToSpeech } from '@kit.CoreSpeechKit';
+import { BusinessError } from '@kit.BasicServicesKit';
+let tts : textToSpeech.TextToSpeechEngine | null = null;
+class TtsObj implements XTTSImpl {
+	config : XuiTextToVoiceOpts;
+	constructor(opts : XuiTextToVoiceOpts) {
+		this.config = opts;
+	}
+	isPlaying() : boolean {
+		return tts?.isBusy() ?? false
+	}
+	play(c : string) {
+		// 设置播报相关参数
+		let extraParam:Record<string, Object> = {
+			"queueMode": 0, "speed": 0.9, "pitch": 1, "languageContext": 'zh-CN',
+			"audioType": "pcm", "soundChannel": 3, "playType": 1
+		};
+		let speakParams : textToSpeech.SpeakParams = {
+			requestId: Math.random().toString(16).substring(4),
+			extraParams: extraParam
+		};
+		tts?.speak(c, speakParams);
+	}
+
+	stop() {
+		tts?.stop()
+		tts?.shutdown()
+	}
+}
+
+let TtsObjIml : TtsObj | null = null;
+export class xTtsImplIns {
+	public static play(c : string) {
+		TtsObjIml?.play(c)
+	}
+	public static isPlaying() : boolean {
+		return TtsObjIml?.isPlaying() ?? false
+	}
+	public static stop() {
+		TtsObjIml?.stop()
+	}
+}
+export function XTtsSpeek(opts : XuiTextToVoiceOpts) {
+	tts = null;
+	let extraParam:Record<string, Object> = { "style": 'interaction-broadcast', "locate": 'CN', "name": 'EngineName' };
+	let initParamsInfo : textToSpeech.CreateEngineParams = {
+		language: 'zh-CN',
+		person: 0,
+		online: 1,
+		extraParams: extraParam
+	};
+	let speakListener : textToSpeech.SpeakListener = {
+		// 开始播报回调
+		onStart(requestId : string, response : textToSpeech.StartResponse) {
+			opts.onStart?.()
+		},
+		// 合成完成及播报完成回调
+		onComplete(requestId : string, response : textToSpeech.CompleteResponse) {
+			opts.onDone?.()
+		},
+		// 停止播报回调
+		onStop(requestId : string, response : textToSpeech.StopResponse) {
+			opts.onStop?.()
+		},
+		// 返回音频流
+		onData(requestId : string, audio : ArrayBuffer, response : textToSpeech.SynthesisResponse) {
+		},
+		// 错误回调
+		onError(requestId : string, errorCode : number, errorMessage : string) {
+			console.error(`onError, requestId: ${requestId} errorCode: ${errorCode} errorMessage: ${errorMessage}`);
+			opts.onError?.(new XuiTextToVoiceFailImpl(1004))
+		}
+	};
+	// 调用createEngine方法
+	textToSpeech.createEngine(initParamsInfo, (err : BusinessError, textToSpeechEngine : textToSpeech.TextToSpeechEngine) => {
+		if (!err) {
+			console.info('Succeeded in creating engine');
+			// 接收创建引擎的实例
+			tts = textToSpeechEngine;
+			tts!.setListener(speakListener);
+			TtsObjIml = new TtsObj(opts)
+			opts.success?.(TtsObjIml!)
+			opts.complete?.(null)
+		} else {
+			console.error(`Failed to create engine. Code: ${err.code}, message: ${err.message}.`);
+			opts.fail?.(new XuiTextToVoiceFailImpl(1001))
+			opts.complete?.(null)
+		}
+	});
+	
+
+}

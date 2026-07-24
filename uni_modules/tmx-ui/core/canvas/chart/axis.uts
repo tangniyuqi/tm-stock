@@ -1,0 +1,531 @@
+import { ICanvas } from '@/uni_modules/tmx-ui/core/canvas/ICanvas.uts';
+import { Shape } from '@/uni_modules/tmx-ui/core/canvas/lib/shape.uts';
+import { ILine } from '@/uni_modules/tmx-ui/core/canvas/lib/line.uts';
+import { IText } from '@/uni_modules/tmx-ui/core/canvas/lib/text.uts';
+import { buildLinearTicks, getBandWidth, mapLinear, LinearScale, measureTextW } from './scale.uts';
+import { PlotRect } from './map.uts';
+import { ChartAxisOptions } from './types.uts';
+import { xConfig } from '@/uni_modules/tmx-ui/config/xConfig.uts';
+
+type AxisDrawResult = {
+	shapes : Shape[]
+}
+
+export type LinearAxisRange = {
+	ticks : number[],
+	min : number,
+	max : number
+}
+
+const isDark = () : boolean => xConfig.dark == 'dark'
+const AXIS_COLOR = () : string => isDark() ? '#4a5568' : '#cfd8dc'
+const GRID_COLOR = () : string => isDark() ? '#2d3748' : '#edf2f7'
+const LABEL_COLOR = () : string => isDark() ? '#a0aec0' : '#6b7280'
+const LABEL_FONT_SIZE = 11
+const DEF_AXIS_NAME_FONT_SIZE = 12
+
+type ResolvedAxisName = {
+	text : string,
+	location : string,
+	gap : number,
+	color : string,
+	fontSize : number
+}
+
+const resolveAxisName = (opts : ChartAxisOptions | null, defaultGap : number, fallbackColor : string) : ResolvedAxisName => {
+	return {
+		text: opts?.axisName ?? '',
+		location: opts?.axisNameLocation ?? 'end',
+		gap: opts?.axisNameGap ?? defaultGap,
+		color: opts?.axisNameColor ?? fallbackColor,
+		fontSize: opts?.axisNameFontSize ?? DEF_AXIS_NAME_FONT_SIZE
+	} as ResolvedAxisName
+}
+
+const formatYLabel = (value : number, formatter : string) : string => {
+	if (formatter != '') {
+		return formatter.replace('{value}', `${Math.round(value)}`)
+	}
+	const abs = Math.abs(value)
+	if (abs >= 100000000) return `${Math.round(value / 100000000)}亿`
+	if (abs >= 10000) return `${Math.round(value / 10000)}万`
+	if (abs >= 1000) return `${(value / 1000).toFixed(1)}k`
+	return `${Math.round(value)}`
+}
+
+const formatXLabel = (label : string, formatter : string, maxLen : number) : string => {
+	let result = formatter != '' ? formatter.replace('{value}', label) : label
+	if (maxLen > 0 && result.length > maxLen) {
+		result = maxLen > 2 ? result.substring(0, maxLen - 2) + '..' : result.substring(0, maxLen)
+	}
+	return result
+}
+
+export const resolveLinearAxisRange = (min : number, max : number, tickCount : number) : LinearAxisRange => {
+	const ticks = buildLinearTicks(min, max, tickCount)
+	const scaleMin = ticks.length > 0 ? ticks[0] : min
+	const scaleMax = ticks.length > 1 ? ticks[ticks.length - 1] : (scaleMin + 1)
+	return {
+		ticks: ticks,
+		min: scaleMin,
+		max: scaleMax == scaleMin ? scaleMin + 1 : scaleMax
+	} as LinearAxisRange
+}
+
+
+export const drawGrid = (
+	canvas : ICanvas,
+	rect : PlotRect,
+	yTicks : number[],
+	minY : number,
+	maxY : number,
+	gColor : string,
+	gWidth : number
+) : Shape[] => {
+	const shapes = [] as Shape[]
+	for (let i = 0; i < yTicks.length; i++) {
+		const y = mapLinear(yTicks[i], { min: minY, max: maxY == minY ? minY + 1 : maxY, startPx: rect.bottom, endPx: rect.top } as LinearScale)
+		if (Math.abs(y - rect.bottom) < 1) continue
+		shapes.push(new ILine({
+			pointStart: { x: rect.left, y: y },
+			pointEnd: { x: rect.right, y: y },
+			stroke: gColor,
+			strokeWidth: gWidth
+		}, canvas))
+	}
+	return shapes
+}
+
+export const drawYAxis = (
+	canvas : ICanvas,
+	rect : PlotRect,
+	minY : number,
+	maxY : number,
+	axisOpts : ChartAxisOptions | null
+) : Shape[] => {
+	const shapes = [] as Shape[]
+	const show = axisOpts?.show ?? true
+	const grid = axisOpts?.grid ?? true
+	const gWidth = axisOpts?.gridWidth ?? 1
+	const gColor = axisOpts?.gridColor ?? GRID_COLOR()
+	const lWidth = axisOpts?.lineWidth ?? 1
+	const lColor = axisOpts?.lineColor ?? AXIS_COLOR()
+	const lbColor = axisOpts?.labelColor ?? LABEL_COLOR()
+	const lbSize = axisOpts?.labelSize ?? LABEL_FONT_SIZE
+	const tickCount = axisOpts?.tickCount ?? 5
+	const formatter = axisOpts?.labelFormatter ?? ''
+
+	const yRange = resolveLinearAxisRange(minY, maxY, tickCount)
+	const yTicks = yRange.ticks
+	const scaleMinY = yRange.min
+	const scaleMaxY = yRange.max
+
+	if (grid) {
+		const gridShapes = drawGrid(canvas, rect, yTicks, scaleMinY, scaleMaxY, gColor, gWidth)
+		for (let i = 0; i < gridShapes.length; i++) {
+			shapes.push(gridShapes[i])
+		}
+	}
+
+	if (show) {
+		shapes.push(new ILine({
+			pointStart: { x: rect.left, y: rect.top },
+			pointEnd: { x: rect.left, y: rect.bottom },
+			stroke: lColor,
+			strokeWidth: lWidth
+		}, canvas))
+
+		for (let i = 0; i < yTicks.length; i++) {
+			const y = mapLinear(yTicks[i], { min: scaleMinY, max: scaleMaxY, startPx: rect.bottom, endPx: rect.top } as LinearScale)
+			const yLabelText = formatYLabel(yTicks[i], formatter)
+			const yLabelW = measureTextW(yLabelText, lbSize, canvas.ctx)
+			const clampedX = Math.max(2, rect.left - yLabelW - 4)
+			shapes.push(new IText({
+				x: clampedX,
+				y: y - 8,
+				text: yLabelText,
+				fill: lbColor,
+				fontSize: lbSize,
+				lineHeight: 1.1
+			}, canvas))
+		}
+	}
+
+	const yAxisNameInfo = resolveAxisName(axisOpts, 4, lbColor)
+	if (yAxisNameInfo.text != '') {
+		const nameW = measureTextW(yAxisNameInfo.text, yAxisNameInfo.fontSize, canvas.ctx)
+		let nx = Math.max(2, rect.left - nameW / 2)
+		let ny = rect.top - lbSize - yAxisNameInfo.gap - yAxisNameInfo.fontSize
+		if (yAxisNameInfo.location == 'start') {
+			ny = rect.bottom + lbSize + yAxisNameInfo.gap
+		} else if (yAxisNameInfo.location == 'middle') {
+			ny = (rect.top + rect.bottom) / 2 - yAxisNameInfo.fontSize / 2
+		}
+		if (ny < 2) ny = 2
+		shapes.push(new IText({
+			x: nx,
+			y: ny,
+			text: yAxisNameInfo.text,
+			fill: yAxisNameInfo.color,
+			fontSize: yAxisNameInfo.fontSize
+		}, canvas))
+	}
+
+	return shapes
+}
+
+export const drawXAxis = (
+	canvas : ICanvas,
+	rect : PlotRect,
+	domain : string[],
+	axisOpts : ChartAxisOptions | null
+) : Shape[] => {
+	const shapes = [] as Shape[]
+	const show = axisOpts?.show ?? true
+	const lbColor = axisOpts?.labelColor ?? LABEL_COLOR()
+	const lbSize = axisOpts?.labelSize ?? LABEL_FONT_SIZE
+
+	if (show) {
+		const lWidth = axisOpts?.lineWidth ?? 1
+		const lColor = axisOpts?.lineColor ?? AXIS_COLOR()
+		const gWidth = axisOpts?.gridWidth ?? 1
+		const gColor = axisOpts?.gridColor ?? GRID_COLOR()
+		const labelRotate = axisOpts?.labelRotate ?? 0
+		const formatter = axisOpts?.labelFormatter ?? ''
+		const autoInterval = axisOpts?.autoInterval ?? true
+		const maxLabelLength = axisOpts?.maxLabelLength ?? 0
+
+		shapes.push(new ILine({
+			pointStart: { x: rect.left, y: rect.bottom },
+			pointEnd: { x: rect.right, y: rect.bottom },
+			stroke: lColor,
+			strokeWidth: lWidth
+		}, canvas))
+
+		const band = getBandWidth(domain, rect.left, rect.right)
+		const grid = axisOpts?.grid ?? false
+		if (grid) {
+			for (let i = 1; i < domain.length; i++) {
+				const bx = rect.left + i * band
+				shapes.push(new ILine({
+					pointStart: { x: bx, y: rect.top },
+					pointEnd: { x: bx, y: rect.bottom },
+					stroke: gColor,
+					strokeWidth: gWidth
+				}, canvas))
+			}
+		}
+
+		const MIN_FONT = 8
+		let fontSize = lbSize
+		let interval = 1
+		let actualRotate = labelRotate
+		const canvasCtx = canvas.ctx
+
+		let charW = fontSize * 0.62
+		if (domain.length > 0) {
+			let maxAvgW = charW
+			for (let di = 0; di < domain.length; di++) {
+				if (domain[di].length == 0) continue
+				const labelW = measureTextW(domain[di], fontSize, canvasCtx)
+				const avgW = labelW / domain[di].length
+				if (avgW > maxAvgW) maxAvgW = avgW
+			}
+			charW = maxAvgW
+		}
+
+		if (autoInterval && domain.length > 0 && labelRotate == 0) {
+			const maxLen = domain.reduce((mx : number, s : string) : number => Math.max(mx, s.length), 0)
+			let labelPx = maxLen * charW
+
+			if (labelPx > band * 0.92) {
+				const shrinkSize = Math.max(MIN_FONT, Math.floor(band * 0.92 * fontSize / (maxLen * charW)))
+				if (shrinkSize < fontSize) {
+					const oldSize = fontSize
+					fontSize = shrinkSize
+					charW = charW * fontSize / oldSize
+				}
+			}
+
+			const charsPerBand = Math.floor(band * 0.92 / charW)
+			if (charsPerBand < 2) {
+				interval = Math.max(1, Math.ceil(charW * 2 / band))
+			}
+		}
+
+		const effectiveMaxLen = maxLabelLength > 0 ? maxLabelLength : 0
+
+		let maxFullW = 0
+		for (let di = 0; di < domain.length; di++) {
+			if (interval > 1 && di % interval != 0 && di != domain.length - 1) continue
+			const fl = formatXLabel(domain[di], formatter, 0)
+			const fw = measureTextW(fl, fontSize, canvasCtx)
+			if (fw > maxFullW) maxFullW = fw
+		}
+		const needsRotation = maxFullW > band * 0.92
+		if (needsRotation && actualRotate == 0) actualRotate = -45
+
+		for (let i = 0; i < domain.length; i++) {
+			if (interval > 1 && i % interval != 0 && i != domain.length - 1) continue
+			const cx = rect.left + i * band + band / 2
+
+			if (needsRotation) {
+				const labelText = effectiveMaxLen > 0 ? formatXLabel(domain[i], formatter, effectiveMaxLen) : formatXLabel(domain[i], formatter, 0)
+				const labelW = measureTextW(labelText, fontSize, canvasCtx)
+				const angleRad = Math.abs(actualRotate) * Math.PI / 180
+				shapes.push(new IText({
+					x: cx - labelW * Math.cos(angleRad),
+					y: rect.bottom + 2 + labelW * Math.sin(angleRad),
+					text: labelText,
+					fill: lbColor,
+					fontSize: fontSize,
+					rotation: actualRotate
+				}, canvas))
+			} else {
+				const fullLabel = formatXLabel(domain[i], formatter, 0)
+				const labelW = measureTextW(fullLabel, fontSize, canvasCtx)
+				shapes.push(new IText({
+					x: cx - Math.min(labelW / 2, band / 2),
+					y: rect.bottom + 6,
+					text: fullLabel,
+					fill: lbColor,
+					fontSize: fontSize
+				}, canvas))
+			}
+		}
+	}
+
+	const xAxisNameInfo = resolveAxisName(axisOpts, 4, lbColor)
+	if (xAxisNameInfo.text != '') {
+		const nameW = measureTextW(xAxisNameInfo.text, xAxisNameInfo.fontSize, canvas.ctx)
+		let nx = rect.right - nameW
+		let ny = rect.bottom + 6 + lbSize + xAxisNameInfo.gap
+		if (xAxisNameInfo.location == 'start') {
+			nx = rect.left
+		} else if (xAxisNameInfo.location == 'middle') {
+			nx = (rect.left + rect.right) / 2 - nameW / 2
+		}
+		shapes.push(new IText({
+			x: nx,
+			y: ny,
+			text: xAxisNameInfo.text,
+			fill: xAxisNameInfo.color,
+			fontSize: xAxisNameInfo.fontSize
+		}, canvas))
+	}
+
+	return shapes
+}
+
+export const drawCartesianAxes = (
+	canvas : ICanvas,
+	rect : PlotRect,
+	domain : string[],
+	minY : number,
+	maxY : number,
+	xAxisOpts : ChartAxisOptions | null,
+	yAxisOpts : ChartAxisOptions | null
+) : Shape[] => {
+	const shapes = [] as Shape[]
+	const yShapes = drawYAxis(canvas, rect, minY, maxY, yAxisOpts)
+	for (let i = 0; i < yShapes.length; i++) shapes.push(yShapes[i])
+	const xShapes = drawXAxis(canvas, rect, domain, xAxisOpts)
+	for (let i = 0; i < xShapes.length; i++) shapes.push(xShapes[i])
+	return shapes
+}
+
+export const drawTransposedAxes = (
+	canvas : ICanvas,
+	rect : PlotRect,
+	domain : string[],
+	minVal : number,
+	maxVal : number,
+	xAxisOpts : ChartAxisOptions | null,
+	yAxisOpts : ChartAxisOptions | null
+) : Shape[] => {
+	const shapes = [] as Shape[]
+	const tickCount = yAxisOpts?.tickCount ?? 5
+	const valFormatter = yAxisOpts?.labelFormatter ?? ''
+
+	shapes.push(new ILine({
+		pointStart: { x: rect.left, y: rect.top },
+		pointEnd: { x: rect.left, y: rect.bottom },
+		stroke: AXIS_COLOR(), strokeWidth: 1
+	}, canvas))
+	shapes.push(new ILine({
+		pointStart: { x: rect.left, y: rect.bottom },
+		pointEnd: { x: rect.right, y: rect.bottom },
+		stroke: AXIS_COLOR(), strokeWidth: 1
+	}, canvas))
+
+	const valTicks = buildLinearTicks(minVal, maxVal, tickCount)
+	const scaleMin = valTicks.length > 0 ? valTicks[0] : minVal
+	const scaleMax = valTicks.length > 1 ? valTicks[valTicks.length - 1] : (minVal + 1)
+
+	for (let i = 0; i < valTicks.length; i++) {
+		const x = mapLinear(valTicks[i], { min: scaleMin, max: scaleMax, startPx: rect.left, endPx: rect.right } as LinearScale)
+
+		if (Math.abs(x - rect.left) > 1) {
+			shapes.push(new ILine({
+				pointStart: { x: x, y: rect.top },
+				pointEnd: { x: x, y: rect.bottom },
+				stroke: GRID_COLOR(), strokeWidth: 1
+			}, canvas))
+		}
+
+		shapes.push(new IText({
+			x: x - 12,
+			y: rect.bottom + 6,
+			text: formatYLabel(valTicks[i], valFormatter),
+			fill: LABEL_COLOR(),
+			fontSize: LABEL_FONT_SIZE
+		}, canvas))
+	}
+
+	const band = getBandWidth(domain, rect.top, rect.bottom)
+	const catFontSize = Math.min(LABEL_FONT_SIZE, Math.max(8, Math.floor(band * 0.7)))
+	const maxCatW = rect.left - 6
+	const catCharW = catFontSize * 1.0
+
+	for (let i = 0; i < domain.length; i++) {
+		const cy = rect.top + i * band + band / 2
+		let catLabel = domain[i]
+		let catW = measureTextW(catLabel, catFontSize, canvas.ctx)
+
+		if (catW > maxCatW) {
+			const maxChars = Math.max(1, Math.floor(maxCatW / catCharW))
+			catLabel = maxChars > 2 ? catLabel.substring(0, maxChars - 2) + '..' : catLabel.substring(0, maxChars)
+			catW = measureTextW(catLabel, catFontSize, canvas.ctx)
+		}
+
+		shapes.push(new IText({
+			x: rect.left - catW - 6,
+			y: cy - catFontSize / 2,
+			text: catLabel,
+			fill: LABEL_COLOR(),
+			fontSize: catFontSize
+		}, canvas))
+	}
+
+	const valAxisName = resolveAxisName(yAxisOpts, 4, LABEL_COLOR())
+	if (valAxisName.text != '') {
+		const vNameW = measureTextW(valAxisName.text, valAxisName.fontSize, canvas.ctx)
+		let vnx = rect.right - vNameW
+		let vny = rect.bottom + 6 + LABEL_FONT_SIZE + valAxisName.gap
+		if (valAxisName.location == 'start') {
+			vnx = rect.left
+		} else if (valAxisName.location == 'middle') {
+			vnx = (rect.left + rect.right) / 2 - vNameW / 2
+		}
+		shapes.push(new IText({
+			x: vnx,
+			y: vny,
+			text: valAxisName.text,
+			fill: valAxisName.color,
+			fontSize: valAxisName.fontSize
+		}, canvas))
+	}
+
+	const catAxisName = resolveAxisName(xAxisOpts, 4, LABEL_COLOR())
+	if (catAxisName.text != '') {
+		const cNameW = measureTextW(catAxisName.text, catAxisName.fontSize, canvas.ctx)
+		let cnx = Math.max(2, rect.left - cNameW / 2)
+		let cny = rect.top - LABEL_FONT_SIZE - catAxisName.gap - catAxisName.fontSize
+		if (catAxisName.location == 'start') {
+			cny = rect.bottom + LABEL_FONT_SIZE + catAxisName.gap
+		} else if (catAxisName.location == 'middle') {
+			cny = (rect.top + rect.bottom) / 2 - catAxisName.fontSize / 2
+		}
+		if (cny < 2) cny = 2
+		shapes.push(new IText({
+			x: cnx,
+			y: cny,
+			text: catAxisName.text,
+			fill: catAxisName.color,
+			fontSize: catAxisName.fontSize
+		}, canvas))
+	}
+
+	return shapes
+}
+
+export const drawScatterAxes = (
+	canvas : ICanvas,
+	rect : PlotRect,
+	xMin : number,
+	xMax : number,
+	yMin : number,
+	yMax : number,
+	xAxisOpts : ChartAxisOptions | null,
+	yAxisOpts : ChartAxisOptions | null
+) : Shape[] => {
+	const shapes = [] as Shape[]
+	const yTickCount = yAxisOpts?.tickCount ?? 5
+	const yFormatter = yAxisOpts?.labelFormatter ?? ''
+	const yTicks = buildLinearTicks(yMin, yMax, yTickCount)
+	const sMinY = yTicks.length > 0 ? yTicks[0] : yMin
+	const sMaxY = yTicks.length > 1 ? yTicks[yTicks.length - 1] : (yMin + 1)
+
+	shapes.push(new ILine({ pointStart: { x: rect.left, y: rect.top }, pointEnd: { x: rect.left, y: rect.bottom }, stroke: AXIS_COLOR(), strokeWidth: 1 }, canvas))
+	shapes.push(new ILine({ pointStart: { x: rect.left, y: rect.bottom }, pointEnd: { x: rect.right, y: rect.bottom }, stroke: AXIS_COLOR(), strokeWidth: 1 }, canvas))
+
+	for (let i = 0; i < yTicks.length; i++) {
+		const y = mapLinear(yTicks[i], { min: sMinY, max: sMaxY, startPx: rect.bottom, endPx: rect.top } as LinearScale)
+		if (Math.abs(y - rect.bottom) > 1) {
+			shapes.push(new ILine({ pointStart: { x: rect.left, y: y }, pointEnd: { x: rect.right, y: y }, stroke: GRID_COLOR(), strokeWidth: 1 }, canvas))
+		}
+		const yText = formatYLabel(yTicks[i], yFormatter)
+		const yLW = measureTextW(yText, LABEL_FONT_SIZE, canvas.ctx)
+		shapes.push(new IText({ x: Math.max(2, rect.left - yLW - 4), y: y - 8, text: yText, fill: LABEL_COLOR(), fontSize: LABEL_FONT_SIZE }, canvas))
+	}
+
+	const xTickCount = xAxisOpts?.tickCount ?? 5
+	const xFormatter = xAxisOpts?.labelFormatter ?? ''
+	const xTicks = buildLinearTicks(xMin, xMax, xTickCount)
+	const sMinX = xTicks.length > 0 ? xTicks[0] : xMin
+	const sMaxX = xTicks.length > 1 ? xTicks[xTicks.length - 1] : (xMin + 1)
+	for (let i = 0; i < xTicks.length; i++) {
+		const x = mapLinear(xTicks[i], { min: sMinX, max: sMaxX, startPx: rect.left, endPx: rect.right } as LinearScale)
+		if (Math.abs(x - rect.left) > 1) {
+			shapes.push(new ILine({ pointStart: { x: x, y: rect.top }, pointEnd: { x: x, y: rect.bottom }, stroke: GRID_COLOR(), strokeWidth: 1 }, canvas))
+		}
+		const xText = formatYLabel(xTicks[i], xFormatter)
+		const xLW = measureTextW(xText, LABEL_FONT_SIZE, canvas.ctx)
+		shapes.push(new IText({ x: x - xLW / 2, y: rect.bottom + 6, text: xText, fill: LABEL_COLOR(), fontSize: LABEL_FONT_SIZE }, canvas))
+	}
+
+	const scYName = resolveAxisName(yAxisOpts, 4, LABEL_COLOR())
+	if (scYName.text != '') {
+		const ynW = measureTextW(scYName.text, scYName.fontSize, canvas.ctx)
+		let ynx = Math.max(2, rect.left - ynW / 2)
+		let yny = rect.top - LABEL_FONT_SIZE - scYName.gap - scYName.fontSize
+		if (scYName.location == 'start') {
+			yny = rect.bottom + LABEL_FONT_SIZE + scYName.gap
+		} else if (scYName.location == 'middle') {
+			yny = (rect.top + rect.bottom) / 2 - scYName.fontSize / 2
+		}
+		if (yny < 2) yny = 2
+		shapes.push(new IText({
+			x: ynx, y: yny,
+			text: scYName.text, fill: scYName.color, fontSize: scYName.fontSize
+		}, canvas))
+	}
+
+	const scXName = resolveAxisName(xAxisOpts, 4, LABEL_COLOR())
+	if (scXName.text != '') {
+		const xnW = measureTextW(scXName.text, scXName.fontSize, canvas.ctx)
+		let xnx = rect.right - xnW
+		let xny = rect.bottom + 6 + LABEL_FONT_SIZE + scXName.gap
+		if (scXName.location == 'start') {
+			xnx = rect.left
+		} else if (scXName.location == 'middle') {
+			xnx = (rect.left + rect.right) / 2 - xnW / 2
+		}
+		shapes.push(new IText({
+			x: xnx, y: xny,
+			text: scXName.text, fill: scXName.color, fontSize: scXName.fontSize
+		}, canvas))
+	}
+
+	return shapes
+}

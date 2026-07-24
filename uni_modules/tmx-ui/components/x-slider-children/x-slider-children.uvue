@@ -1,0 +1,317 @@
+<script lang="ts" setup>
+	import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue"
+	import { rpx2px } from "../../core/util/xCoreUtil.uts"
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	import { SLIDER_TREE_ITEM } from "../x-slider-tree/interface.uts"
+	import { getTreeSelectedNum } from "../x-slider-tree/util.uts"
+	
+	/**
+	 * @name 侧边分类子节点 xSliderTreeChildren
+	 * @description xSliderTree内部子组件，不可引用
+	 * @page /pages/index/slider-tree
+	 * @category 导航组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({name:"xSliderTreeChildren"})
+
+	defineSlots<{
+		default(): any
+	}>()
+
+	const emits = defineEmits([
+		/**
+		 * 返回上级
+		 */
+		"back",
+		/**
+		 * 项目点击事件
+		 * @param {string[]} ids - 选中的id数组
+		 * @param {string} type - 事件类型
+		 */
+		"itemClick"
+	])
+
+	type xSliderChildrenPropsType = {
+		/**
+		 * 选项项目未选中的文字颜色
+		 */
+		itemTextColor: string,
+		/**
+		 * 选项项目选中的文字颜色，空值取全局主题
+		 */
+		itemActiveColor: string,
+		/**
+		 * 右内容区域背景颜色
+		 */
+		sliderContentBgColor: string,
+		/**
+		 * 数据列表
+		 */
+		list: SLIDER_TREE_ITEM[],
+		/**
+		 * 当前选中项的id数组
+		 */
+		modelValue: string[],
+		/**
+		 * 是否允许多选
+		 */
+		multiple: boolean,
+		/**
+		 * 当前的索引
+		 */
+		index: number,
+		/**
+		 * 父级选中的项。
+		 */
+		nowSelecteds: string[],
+		/**
+		 * 高度
+		 */
+		height: string,
+		/**
+		 * 容器高度
+		 */
+		boxHeight: number,
+		/**
+		 * 文字大小
+		 */
+		fontSize: string
+	}
+
+	const props = withDefaults(defineProps<xSliderChildrenPropsType>(), {
+		itemTextColor: "#333333",
+		itemActiveColor: "",
+		sliderContentBgColor: "white",
+		list: [] as SLIDER_TREE_ITEM[],
+		modelValue: [] as string[],
+		multiple: false,
+		index: 0,
+		nowSelecteds: [] as string[],
+		height: '100%',
+		boxHeight: 0,
+		fontSize: "16"
+	})
+
+	// 响应式数据
+	const activeIndex = ref<number>(-1)
+	const selectedsIds = ref<string[]>([])
+	const headHeight = ref<number>(rpx2px(76))
+	const show = ref<boolean>(false)
+	const tid = ref<number>(12)
+
+	// 缓存选中ID的Set，避免每次调用isSelected/isSelectedNum时重复创建
+	const _selectedSet = computed((): Set<string> => {
+		return new Set(props.nowSelecteds.concat(selectedsIds.value))
+	})
+
+	const _boxCalcHeight = computed((): string => {
+		return props.index > 0 ? ((props.boxHeight - headHeight.value).toString() + 'px') : props.height
+	})
+
+	const _itemTextColor = computed((): string => {
+		if (xConfig.dark == 'dark') return '#fff'
+		return getDefaultColor(props.itemTextColor);
+	})
+
+	const _itemActiveColor = computed((): string => {
+		return props.itemActiveColor != "" ? getDefaultColor(props.itemActiveColor) : getDefaultColor(xConfig.color);
+	})
+
+	const _sliderContentBgColor = computed((): string => {
+		return getDefaultColor(props.sliderContentBgColor);
+	})
+
+	const _isNodata = computed((): boolean => {
+		if (activeIndex.value == -1 || props.list.length == 0 || activeIndex.value > props.list.length - 1) return false;
+		if (props.list[activeIndex.value].children.length == 0) return false;
+		return true;
+	})
+
+	const _yixuanFontsize = computed((): string => {
+		return (14 * xConfig.fontScale).toString() + 'px'
+	})
+
+	// 方法
+	/**
+	 * 当前是否选中
+	 */
+	const isSelected = (item: SLIDER_TREE_ITEM): boolean => {
+		return _selectedSet.value.has(item.id) && item.children.length == 0
+	}
+
+	/**
+	 * 本下级选了几个
+	 */
+	const isSelectedNum = (item: SLIDER_TREE_ITEM): number => {
+		return getTreeSelectedNum(item.children, _selectedSet.value);
+	}
+
+	const onClick = (item: SLIDER_TREE_ITEM, index: number): void => {
+		if (item.disabled) return;
+		activeIndex.value = index;
+
+		// 如果还有下一级，就不要向上汇报数据，直到最后一级。
+		if (item.children.length == 0) {
+			if (props.multiple) {
+				if (selectedsIds.value.includes(item.id)) {
+					let index = selectedsIds.value.findIndex((el: string): boolean => el == item.id);
+					if (index > -1) {
+						selectedsIds.value.splice(index, 1)
+					}
+				} else {
+					selectedsIds.value.push(item.id)
+				}
+			} else {
+				selectedsIds.value = [item.id]
+			}
+
+			emits("itemClick", selectedsIds.value, 'click')
+		}
+	}
+
+	const backParent = (): void => {
+		emits("itemClick", selectedsIds.value, 'back')
+		activeIndex.value = -1;
+	}
+
+	const childrenClick = (id: string[], types?: string): void => {
+		let type = types == null ? 'click' : 'back';
+		// 4.02开始，不知道为什么递归的子组件，递归几次，会被触发几次。
+		if (props.multiple) {
+			if (props.list[activeIndex.value].children.length > 0) {
+				selectedsIds.value = id
+			} else {
+				// 给当前级加上选中的子组级id
+				let ps = new Set(id.concat(selectedsIds.value))
+				let oks = [] as string[]
+				ps.forEach((el: string) => {
+					oks.push(el)
+				})
+				selectedsIds.value = oks
+			}
+
+			emits("itemClick", selectedsIds.value, type)
+		} else {
+			selectedsIds.value = id;
+			emits("itemClick", selectedsIds.value, type)
+		}
+	}
+
+	// 监听器
+	watch((): string[] => props.nowSelecteds, () => {
+		selectedsIds.value = props.nowSelecteds.slice(0);
+	})
+
+	// 生命周期
+	onMounted(() => {
+		selectedsIds.value = props.nowSelecteds.slice(0);
+		clearTimeout(tid.value)
+		tid.value = setTimeout(() => {
+			show.value = true;
+		}, 200)
+	})
+
+	onBeforeUnmount(() => {
+		clearTimeout(tid.value)
+	})
+
+	defineExpose({
+		/** 获取当前选中的项 **/
+		getSelected: (): string[] => selectedsIds.value,
+		/** 设置选中的项 **/
+		setSelected: (ids: string[]): void => {
+			selectedsIds.value = ids;
+		}
+	})
+</script>
+<template>
+	<view class="xSliderTreeItem">
+		<!-- 
+		@slot 内部节点插槽，不对外 
+		 -->
+		<slot></slot>
+		<!-- &&show -->
+		<list-view class="xSliderTreeItem" :style="{height:_boxCalcHeight}">
+			<list-item :hover-start-time="10" :hover-stay-time="100"
+				:hover-class="item.disabled?'':'xSliderTreeItemHover'" @click="onClick(item,index)"
+				v-for="(item,index) in list" :key="index" class="xSliderTreeItemRight"
+				:style="{backgroundColor:_sliderContentBgColor,opacity:item.disabled?'0.5':1}">
+				<text class="xSliderTreeItemRightText"
+					:style="{fontSize:fontSize,color:isSelected(item)?_itemActiveColor : _itemTextColor}">{{item.title}}</text>
+				<view style="display: flex;flex-direction: row;justify-content: flex-end;align-items: center;">
+					<text :style="{fontSize:_yixuanFontsize,color:_itemActiveColor,marginRight:'6px'}"
+						v-if="item.children.length>0&&isSelectedNum(item)>0">已选({{isSelectedNum(item)}})</text>
+					<x-icon v-if="isSelected(item)" font-size="16" :color="_itemActiveColor" name="check-line"></x-icon>
+					<x-icon v-if="item.children.length>0" :color="_itemTextColor" name="arrow-right-s-line"></x-icon>
+				</view>
+			</list-item>
+		</list-view>
+		<view @click.stop="" class="xSliderTreeItemMore" v-if="_isNodata"
+			:style="{backgroundColor:_sliderContentBgColor}">
+
+			<view v-if="list[activeIndex].children.length>0" style="flex:1">
+				<x-slider-children @back="backParent" :boxHeight="boxHeight" :height="height"
+					@itemClick="childrenClick" :nowSelecteds="nowSelecteds" :multiple="multiple"
+					:sliderContentBgColor="_sliderContentBgColor" :itemActiveColor="_itemActiveColor"
+					:itemTextColor="_itemTextColor" :index="index+1" :list="list[activeIndex].children">
+					<view @click="backParent" class="xSliderTreeItemMoreHeader">
+						<x-icon :color="_itemActiveColor" font-size="18" name="arrow-left-s-line"></x-icon>
+						<text
+							:style="{fontSize:fontSize,color:_itemActiveColor,marginLeft:'5px',fontWeight:'bold'}">返回上级({{list[activeIndex].title}})</text>
+					</view>
+				</x-slider-children>
+			</view>
+		</view>
+	</view>
+
+
+</template>
+<style scoped>
+	.xSliderTreeItemHover {
+		background-color: rgba(125, 125, 125, 0.1);
+	}
+
+	.xSliderTreeItemMoreHeader {
+		padding: 0 12px;
+		display: flex;
+		/* #ifndef APP */
+		box-sizing: border-box;
+		/* #endif */
+		flex-direction: row;
+		align-items: center;
+	}
+
+	.xSliderTreeItemMore {
+		position: absolute;
+		left: 0px;
+		top: 0px;
+		width: 100%;
+		height: 100%;
+		display: flex;
+		flex-direction: column;
+		z-index: 10;
+	}
+
+	.xSliderTreeItem {
+		width: 100%;
+		height: 100%;
+		position: relative;
+	}
+
+	.xSliderTreeItemRight {
+		padding: 0 12px;
+		height: 50px;
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: space-between;
+	}
+
+	.xSliderTreeItemRightText {
+		text-align: left;
+	}
+</style>

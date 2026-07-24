@@ -1,0 +1,38 @@
+import { HighlightConfig } from "../heightlight.uts"
+
+export function getRubyConfig(): HighlightConfig {
+	const config = new HighlightConfig()
+	
+	// Ruby 关键字
+	config.keywords = [
+		'BEGIN', 'END', '__ENCODING__', '__END__', '__FILE__', '__LINE__',
+		'alias', 'and', 'begin', 'break', 'case', 'class', 'def', 'defined?',
+		'do', 'else', 'elsif', 'end', 'ensure', 'false', 'for', 'if', 'in',
+		'module', 'next', 'nil', 'not', 'or', 'redo', 'rescue', 'retry',
+		'return', 'self', 'super', 'then', 'true', 'undef', 'unless', 'until',
+		'when', 'while', 'yield'
+	]
+	
+	// Ruby 内置类和方法
+	config.builtins = [
+		'Array', 'Hash', 'String', 'Integer', 'Float', 'Symbol', 'Range',
+		'Regexp', 'File', 'Dir', 'Class', 'Module', 'Object', 'Kernel',
+		'Numeric', 'Time', 'Date', 'DateTime', 'Proc', 'Lambda',
+		'Thread', 'Exception', 'StandardError', 'RuntimeError',
+		'puts', 'print', 'p', 'gets', 'chomp', 'split', 'join',
+		'map', 'select', 'reject', 'each', 'collect', 'reduce',
+		'include', 'extend', 'require', 'require_relative',
+		'attr_reader', 'attr_writer', 'attr_accessor',
+		'private', 'protected', 'public'
+	]
+	
+	// Ruby 操作符
+	config.operators = [
+		'+', '-', '*', '/', '%', '**', '=', '==', '!=', '<', '>', '<=', '>=',
+		'<==>', '===', '=~', '!~', '&&', '||', '!', '&', '|', '^', '~',
+		'<<', '>>', '..', '...', '?', ':', '=>', '->', '::'
+	]
+	
+	return config
+}
+

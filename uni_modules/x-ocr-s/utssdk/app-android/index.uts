@@ -1,0 +1,129 @@
+import Text from "com.google.mlkit.vision.text.Text"
+import TextRecognition from "com.google.mlkit.vision.text.TextRecognition"
+import TextRecognizer from "com.google.mlkit.vision.text.TextRecognizer"
+import TextRecognizerOptionsInterface from "com.google.mlkit.vision.text.TextRecognizerOptionsInterface"
+import ChineseTextRecognizerOptions from "com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions"
+import JapaneseTextRecognizerOptions from "com.google.mlkit.vision.text.japanese.JapaneseTextRecognizerOptions"
+
+
+import Context from 'android.content.Context'
+import IOException from 'java.io.IOException'
+import InputStream from 'java.io.InputStream'
+import Uri from 'android.net.Uri';
+import File from 'java.io.File'
+import Bitmap from "android.graphics.Bitmap"
+import BarcodeScanner from "com.google.mlkit.vision.barcode.BarcodeScanner"
+import BarcodeScannerOptions from "com.google.mlkit.vision.barcode.BarcodeScannerOptions"
+import BarcodeScanning from "com.google.mlkit.vision.barcode.BarcodeScanning"
+import ZoomSuggestionOptions from "com.google.mlkit.vision.barcode.ZoomSuggestionOptions"
+import ZoomCallback from "com.google.mlkit.vision.barcode.ZoomSuggestionOptions.ZoomCallback"
+import Barcode from "com.google.mlkit.vision.barcode.common.Barcode"
+import InputImage from "com.google.mlkit.vision.common.InputImage"
+import Task from "com.google.android.gms.tasks.Task"
+import List from "java.util.List"
+import ByteBuffer from 'java.nio.ByteBuffer'
+import ImageFormat from 'android.graphics.ImageFormat'
+
+import Vibrator from "android.os.Vibrator"
+
+
+import ContentValues from "android.content.ContentValues"
+import ContentUris from "android.content.ContentUris"
+import JSONObject from "org.json.JSONObject"
+import TimeZone from "java.util.TimeZone"
+import Cursor from "android.database.Cursor"
+import MediaStore from "android.provider.MediaStore"
+import SimpleDateFormat from "java.text.SimpleDateFormat"
+import Locale from "java.util.Locale"
+import MediaScannerConnection from "android.media.MediaScannerConnection"
+
+import Rect from 'android.graphics.Rect';
+
+import {XOcrOpts,XOcrFail,XOcrResult} from "../interface.uts"
+import {XOcrImpl} from "../unierror.uts"
+
+/**
+ * 震动
+ * @param {number} duriation 震动时间单位ms
+ */
+export function vibrator(duriation : number) : boolean {
+	try {
+		const context = UTSAndroid.getAppContext() as Context
+		let vb = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator;
+		if (vb!.hasVibrator()) {
+			vb!.vibrate(duriation.toLong());
+		} else {
+			return false
+		}
+	} catch (e) {
+		console.error(e)
+
+	}
+	return false
+}
+
+
+export function xOcrPare(opts:XOcrOpts) {
+	// 置信度
+	let zxd = opts?.zhixingdu??0.50
+	let local = opts.langs
+	if(opts.langs!='zh'&&opts.langs!='ja'){
+		opts.fail?.(new XOcrImpl(1004))
+		opts.complete?.(null)
+		return;
+	}
+	try {
+		let decodedPath = UTSAndroid.convert2AbsFullPath(opts.path)
+		const file = new File(decodedPath)
+		let image = InputImage.fromFilePath(UTSAndroid.getAppContext() as Context, Uri.fromFile(file));
+		let recognizer = TextRecognition.getClient(new ChineseTextRecognizerOptions.Builder().build()) as TextRecognizer;
+		if (local == 'ja') {
+			recognizer = TextRecognition.getClient(new JapaneseTextRecognizerOptions.Builder().build()) as TextRecognizer;
+		}
+		if (image != null) {
+			const result = recognizer.process(image!)
+				.addOnSuccessListener((TextList) => {
+					let str = [] as string[]
+					let sour = [] as string[]
+					for (block in TextList.textBlocks) {
+						for (line in block.lines) {
+							let texts = ''
+							for (element in line.elements) {
+								if (element.getConfidence() >= zxd) {
+									let elementText = element.text as string;
+									let elementFrame = element.getBoundingBox()
+									let rect = elementFrame as Rect
+									sour.push(JSON.stringify({ boundingBox: [rect.left, rect.top, rect.width(), rect.height()], text: elementText } as UTSJSONObject)! as string)
+									texts += elementText
+
+								}
+							}
+							if (texts != '') {
+								str.push(texts)
+							}
+						}
+					}
+
+					// vibrator(100)
+					const resultJg:XOcrResult = {
+						text:str as string[],
+						textBlock:sour
+					}
+					opts.success?.(resultJg)
+					opts.complete?.(resultJg)
+					
+				})
+				.addOnFailureListener((e) => {
+					opts.fail?.(new XOcrImpl(1001))
+					opts.complete?.(null)
+				})
+		} else {
+			opts.fail?.(new XOcrImpl(1003))
+			opts.complete?.(null)
+		}
+	} catch (e : IOException) {
+		console.error("X-OCR Error:",e)
+		opts.fail?.(new XOcrImpl(1002))
+		opts.complete?.(null)
+	}
+}

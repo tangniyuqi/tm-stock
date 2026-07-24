@@ -1,0 +1,272 @@
+import { ICanvas } from '@/uni_modules/tmx-ui/core/canvas/ICanvas.uts';
+import { Shape } from '@/uni_modules/tmx-ui/core/canvas/lib/shape.uts';
+import { ILinePolygon } from '@/uni_modules/tmx-ui/core/canvas/lib/linePolygon.uts';
+import { IText } from '@/uni_modules/tmx-ui/core/canvas/lib/text.uts';
+import { PlotRect } from '../map.uts';
+import { getChartColor } from '../palette.uts';
+import { ChartDatum, ChartSeriesOptions, ChartSeriesContext } from '../types.uts';
+import { xConfig } from '@/uni_modules/tmx-ui/config/xConfig.uts';
+
+const isDark = () : boolean => xConfig.dark == 'dark'
+const DEF_FILL = () : string => isDark() ? '#2d3748' : '#e8edf3'
+const DEF_STROKE = () : string => isDark() ? '#4a5568' : '#ffffff'
+const DEF_LABEL = () : string => isDark() ? '#a0aec0' : '#6b7280'
+const DEF_ACTIVE = () : string => isDark() ? '#4a5568' : '#3b82f6'
+const DEF_STROKE_MODE_LINE = () : string => isDark() ? '#63b3ed' : '#3b82f6'
+
+function pointInPolygon(px : number, py : number, pts : number[]) : boolean {
+	let inside = false
+	const n = pts.length
+	if (n < 6) return false
+	let j = n - 2
+	for (let i = 0; i < n; i += 2) {
+		const xi = pts[i]
+		const yi = pts[i + 1]
+		const xj = pts[j]
+		const yj = pts[j + 1]
+		if (((yi > py) != (yj > py)) && (px < (xj - xi) * (py - yi) / (yj - yi) + xi)) {
+			inside = !inside
+		}
+		j = i
+	}
+	return inside
+}
+
+function getFeatureName(feature : ChartDatum) : string {
+	const props = feature.get('properties')
+	if (props == null) return ''
+	const p = props as UTSJSONObject
+	const name = p.get('name')
+	if (name == null) return ''
+	return `${name}`
+}
+
+function getFeatureCentroid(feature : ChartDatum) : number[] {
+	const props = feature.get('properties')
+	if (props == null) return [0, 0] as number[]
+	const p = props as UTSJSONObject
+	let c = p.get('centroid')
+	if (c == null) c = p.get('center')
+	if (c == null) return [0, 0] as number[]
+	const arr = c as number[]
+	if (arr.length < 2) return [0, 0] as number[]
+	return arr
+}
+
+function collectBounds(feature : ChartDatum, bounds : number[]) : void {
+	const geo = feature.get('geometry')
+	if (geo == null) return
+	const g = geo as UTSJSONObject
+	const geoType = `${g.get('type') ?? ''}`
+	const coordsRaw = g.get('coordinates')
+	if (coordsRaw == null) return
+
+	if (geoType == 'MultiPolygon') {
+		const polygons = coordsRaw as any[]
+		for (let pi = 0; pi < polygons.length; pi++) {
+			const rings = polygons[pi] as any[]
+			if (rings.length == 0) continue
+			const ring = rings[0] as any[]
+			for (let ci = 0; ci < ring.length; ci++) {
+				const pt = ring[ci] as number[]
+				if (pt.length < 2) continue
+				if (pt[0] < bounds[0]) bounds[0] = pt[0]
+				if (pt[0] > bounds[1]) bounds[1] = pt[0]
+				if (pt[1] < bounds[2]) bounds[2] = pt[1]
+				if (pt[1] > bounds[3]) bounds[3] = pt[1]
+			}
+		}
+	} else if (geoType == 'Polygon') {
+		const rings = coordsRaw as any[]
+		if (rings.length == 0) return
+		const ring = rings[0] as any[]
+		for (let ci = 0; ci < ring.length; ci++) {
+			const pt = ring[ci] as number[]
+			if (pt.length < 2) continue
+			if (pt[0] < bounds[0]) bounds[0] = pt[0]
+			if (pt[0] > bounds[1]) bounds[1] = pt[0]
+			if (pt[1] < bounds[2]) bounds[2] = pt[1]
+			if (pt[1] > bounds[3]) bounds[3] = pt[1]
+		}
+	}
+}
+
+function projectRings(
+	feature : ChartDatum,
+	scale : number,
+	offsetX : number,
+	offsetY : number,
+	minLng : number,
+	maxLat : number
+) : number[][] {
+	const result = [] as number[][]
+	const geo = feature.get('geometry')
+	if (geo == null) return result
+	const g = geo as UTSJSONObject
+	const geoType = `${g.get('type') ?? ''}`
+	const coordsRaw = g.get('coordinates')
+	if (coordsRaw == null) return result
+
+	if (geoType == 'MultiPolygon') {
+		const polygons = coordsRaw as any[]
+		for (let pi = 0; pi < polygons.length; pi++) {
+			const rings = polygons[pi] as any[]
+			for (let ri = 0; ri < rings.length; ri++) {
+				const ring = rings[ri] as any[]
+				const pts = [] as number[]
+				for (let ci = 0; ci < ring.length; ci++) {
+					const pt = ring[ci] as number[]
+					if (pt.length < 2) continue
+					pts.push((pt[0] - minLng) * scale + offsetX)
+					pts.push((maxLat - pt[1]) * scale + offsetY)
+				}
+				if (pts.length >= 6) result.push(pts)
+			}
+		}
+	} else if (geoType == 'Polygon') {
+		const rings = coordsRaw as any[]
+		for (let ri = 0; ri < rings.length; ri++) {
+			const ring = rings[ri] as any[]
+			const pts = [] as number[]
+			for (let ci = 0; ci < ring.length; ci++) {
+				const pt = ring[ci] as number[]
+				if (pt.length < 2) continue
+				pts.push((pt[0] - minLng) * scale + offsetX)
+				pts.push((maxLat - pt[1]) * scale + offsetY)
+			}
+			if (pts.length >= 6) result.push(pts)
+		}
+	}
+	return result
+}
+
+type MapFeatureCache = {
+	rings : number[][],
+	name : string,
+	cx : number,
+	cy : number
+}
+let _mapCache = [] as MapFeatureCache[]
+
+export function hitTestMap(x : number, y : number) : number {
+	for (let i = 0; i < _mapCache.length; i++) {
+		const f = _mapCache[i]
+		for (let ri = 0; ri < f.rings.length; ri++) {
+			if (pointInPolygon(x, y, f.rings[ri])) return i
+		}
+	}
+	return -1
+}
+
+export function getMapFeatureName(idx : number) : string {
+	if (idx < 0 || idx >= _mapCache.length) return ''
+	return _mapCache[idx].name
+}
+
+export function getMapFeatureCenter(idx : number) : number[] {
+	if (idx < 0 || idx >= _mapCache.length) return [0, 0] as number[]
+	return [_mapCache[idx].cx, _mapCache[idx].cy] as number[]
+}
+
+export const renderMapSeries = (
+	canvas : ICanvas,
+	series : ChartSeriesOptions,
+	data : ChartDatum[],
+	rect : PlotRect,
+	ctx : ChartSeriesContext
+) : Shape[] => {
+	const shapes = [] as Shape[]
+	_mapCache = [] as MapFeatureCache[]
+	if (data.length == 0) return shapes
+
+	const bounds = [180, -180, 90, -90] as number[]
+	for (let i = 0; i < data.length; i++) {
+		collectBounds(data[i], bounds)
+	}
+	const minLng = bounds[0]
+	const maxLng = bounds[1]
+	const minLat = bounds[2]
+	const maxLat = bounds[3]
+	if (maxLng <= minLng || maxLat <= minLat) return shapes
+
+	const plotW = rect.right - rect.left
+	const plotH = rect.bottom - rect.top
+	const geoW = maxLng - minLng
+	const geoH = maxLat - minLat
+	const scale = Math.min(plotW / geoW, plotH / geoH)
+	const offsetX = rect.left + (plotW - geoW * scale) / 2
+	const offsetY = rect.top + (plotH - geoH * scale) / 2
+
+	const mapMode = series.mapMode ?? 'fill'
+	const isStrokeMode = mapMode == 'stroke'
+	const fillColor = series.mapFillColor ?? DEF_FILL()
+	const strokeColor = series.mapStrokeColor ?? (isStrokeMode ? DEF_STROKE_MODE_LINE() : DEF_STROKE())
+	const activeFill = series.mapActiveColor ?? DEF_ACTIVE()
+	const baseStrokeW = series.mapStrokeWidth ?? (isStrokeMode ? 1.5 : 1)
+	const labelColor = series.label?.color ?? DEF_LABEL()
+	const showLabel = series.label?.show ?? true
+	const labelFontSize = series.label?.fontSize ?? 10
+
+	const labels = [] as Shape[]
+
+	for (let i = 0; i < data.length; i++) {
+		const feature = data[i]
+		const name = getFeatureName(feature)
+		const isActive = ctx.activeType == 'map' && ctx.activeIndex == i
+		const centroid = getFeatureCentroid(feature)
+		const cx = (centroid[0] - minLng) * scale + offsetX
+		const cy = (maxLat - centroid[1]) * scale + offsetY
+
+		const rings = projectRings(feature, scale, offsetX, offsetY, minLng, maxLat)
+		_mapCache.push({ rings: rings, name: name, cx: cx, cy: cy } as MapFeatureCache)
+
+		for (let ri = 0; ri < rings.length; ri++) {
+			if (isStrokeMode) {
+				shapes.push(new ILinePolygon({
+					points: rings[ri],
+					fill: isActive ? activeFill : '',
+					stroke: isActive ? activeFill : strokeColor,
+					strokeWidth: isActive ? baseStrokeW + 1 : baseStrokeW,
+					closed: true,
+					tension: 0
+				}, canvas))
+			} else {
+				shapes.push(new ILinePolygon({
+					points: rings[ri],
+					fill: isActive ? activeFill : fillColor,
+					stroke: strokeColor,
+					strokeWidth: isActive ? baseStrokeW + 1 : baseStrokeW,
+					closed: true,
+					tension: 0
+				}, canvas))
+			}
+		}
+
+		if (showLabel && rings.length > 0) {
+			const labelFmt = series.label?.formatter ?? ''
+			let labelText = name
+			if (labelFmt != '') {
+				const props = feature.get('properties')
+				const pObj = props != null ? props as UTSJSONObject : {} as UTSJSONObject
+				let valStr = ''
+				const vRaw = pObj.get('value')
+				if (vRaw != null) valStr = `${vRaw}`
+				labelText = labelFmt.replace('{name}', name).replace('{value}', valStr)
+			}
+			const tw = labelText.length * labelFontSize * 0.6
+			labels.push(new IText({
+				x: cx - tw / 2,
+				y: cy - labelFontSize / 2,
+				text: labelText,
+				fill: isActive ? '#ffffff' : labelColor,
+				fontSize: labelFontSize
+			}, canvas))
+		}
+	}
+
+	for (let li = 0; li < labels.length; li++) {
+		shapes.push(labels[li])
+	}
+
+	return shapes
+}

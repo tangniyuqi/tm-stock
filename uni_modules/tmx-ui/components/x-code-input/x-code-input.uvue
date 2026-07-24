@@ -1,0 +1,385 @@
+<script lang="ts" setup>
+	import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from "vue"
+	import { PropType } from "vue"
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	import { checkIsCssUnit, getUnit } from "../../core/util/xCoreUtil.uts"
+	import xSkeleton from "../x-skeleton/x-skeleton.uvue"
+
+	/**
+	 * @name 验证码输入框 xCodeInput
+	 * @description 验证码输入框，截止4.22安卓会自动拉起系统键盘，ios无法使用系统键盘。目前仅配合我的组件键盘可以全局兼容。已向官方返回Input的bug
+	 * @page /pages/index/code-input
+	 * @category 其它组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({name:"xCodeInput"})
+	// emits
+	const emits = defineEmits([
+		/**
+		 * 输入框点击时触发
+		 */
+		"click",
+		/**
+		 * 自带键盘上确认或者达到指定长度位数时触发，可能会多次触发
+		 * @param {String} value - 值
+		 */
+		"confirm",
+		/**
+		 * 输入时触发
+		 * @param {String} value - 值
+		 */
+		"change",
+		/**
+		 * 等同vmodel，可与我的keyborad键盘配合使用。
+		 */
+		"update:modelValue"
+	])
+
+	// props
+	type xCodeInputPropsType = {
+		/**
+		 * 进入时自动获取焦点，并弹出系统自带的键盘(需要useSysKeyborad=true)。
+		 */
+		autoFocus: boolean,
+		/**
+		 * 是否使用系统自带的键盘。，如果为false你需要自行配置输入键盘
+		 * 比如使用我的keyborad键盘组件。
+		 */
+		useSysKeyborad: boolean,
+		/**
+		 * 当前输入的值
+		 */
+		modelValue: string,
+		/**
+		 * 最大长度
+		 */
+		maxlength: number,
+		/**
+		 * 间距
+		 */
+		gutter: string,
+		/**
+		 * 验证码框的宽
+		 */
+		width: string,
+		/**
+		 * 验证码框的高
+		 */
+		height: string,
+		/**
+		 * 当前输入项激活时的文字颜色同时也是高亮时的背景色。
+		 * 默认取全局主题
+		 */
+		fontColor: string,
+		/**
+		 * 暗黑时的主题色，不填写等同fontColor
+		 */
+		darkFontColor: string,
+		/**
+		 * 文字大小
+		 */
+		fontSize: string,
+		/**
+		 * 圆角
+		 */
+		round: string,
+		/**
+		 * skin = fill时的背景
+		 */
+		bgColor: string,
+		/**
+		 * skin = fill时的暗黑背景
+		 */
+		darkBgColor: string,
+		/**
+		 * skin = outline时的边线颜色
+		 */
+		borderColor: string,
+		/**
+		 * skin = outline时的暗黑边线颜色
+		 */
+		darkBorderColor: string,
+		/**
+		 * skin = outline时的边线颜色[非激活时]
+		 */
+		unBorderColor: string,
+		/**
+		 * skin = outline时的暗黑边线颜色[非激活时]
+		 */
+		unDarkBorderColor: string,
+		skin: 'fill' | 'outline',
+		/**
+		 * 待输入时的占位形状
+		 * line线型
+		 * round圆形
+		 * 空值表示不需要占位符号
+		 */
+		placeShape: string,
+	}
+
+	const props = withDefaults(defineProps<xCodeInputPropsType>(), {
+		autoFocus: false,
+		useSysKeyborad: true,
+		modelValue: "",
+		maxlength: 4,
+		gutter: "8",
+		width: "50",
+		height: "50",
+		fontColor: "",
+		darkFontColor: "",
+		fontSize: "21",
+		round: "8",
+		bgColor: "#f0f0f0",
+		darkBgColor: "#272727",
+		borderColor: "",
+		darkBorderColor: "",
+		unBorderColor: "#e3e3e3",
+		unDarkBorderColor: "#2c2b2c",
+		skin: "outline",
+		placeShape: "round",
+	})
+
+	// state
+	const _autoFocus = ref<boolean>(false)
+	const inputvalue = ref<string>("")
+	const tid = ref<number>(0)
+	
+	// computed
+	const _fontColor = computed(() : string => {
+		let fontcolor = props.fontColor == "" ? xConfig.color : props.fontColor;
+		let darkFontcolor = props.darkFontColor == "" ? fontcolor : props.darkFontColor;
+		if (xConfig.dark == 'dark') {
+			return getDefaultColor(darkFontcolor)
+		}
+		return getDefaultColor(fontcolor)
+	})
+	const _borderColor = computed(() : string => {
+		let outLineColor = props.borderColor == "" ? xConfig.color : props.borderColor;
+		let darkOutlineColor = props.darkBorderColor == "" ? _fontColor.value : props.darkBorderColor;
+	
+	
+		if (xConfig.dark == 'dark') {
+			return getDefaultColor(darkOutlineColor)
+		}
+		return getDefaultColor(outLineColor)
+	})
+	const _unborderColor = computed(() : string => {
+		let unBorderColor = props.unBorderColor == "" ? _fontColor.value : props.unBorderColor;
+		let unDarkBorderColor = props.unDarkBorderColor == "" ? _fontColor.value : props.unDarkBorderColor;
+	
+		if (xConfig.dark == 'dark') {
+			return getDefaultColor(unDarkBorderColor)
+		}
+		return getDefaultColor(unBorderColor)
+	})
+	const _bgcolor = computed(() : string => {
+	
+		if (xConfig.dark == 'dark') {
+			return getDefaultColor(props.darkBgColor)
+		}
+		return getDefaultColor(props.bgColor)
+	})
+	const _fontSize = computed(() : string => {
+		let fontSize = checkIsCssUnit(props.fontSize, xConfig.unit);
+		if (xConfig.fontScale == 1) return fontSize;
+		let sizeNumber = parseInt(fontSize)
+		if (isNaN(sizeNumber)) {
+			sizeNumber = 21
+		}
+		return (sizeNumber * xConfig.fontScale).toString() + getUnit(fontSize)
+	})
+	const _maxLength = computed(() : number => {
+		return props.maxlength
+	})
+	const _round = computed(() : string => {
+		return checkIsCssUnit(props.round, xConfig.unit)
+	})
+	const _gutter = computed(() : string => {
+		return checkIsCssUnit(props.gutter, xConfig.unit)
+	})
+	const _width = computed(() : string => {
+		return checkIsCssUnit(props.width, xConfig.unit)
+	})
+	const _height = computed(() : string => {
+		return checkIsCssUnit(props.height, xConfig.unit)
+	})
+
+	// methods first (so they can be referenced below)
+	function getValue(index : number) : string {
+		if (index > inputvalue.value.length - 1) return ""
+		return inputvalue.value.split("")[index]
+	}
+	function onconfirm() {
+		emits('update:modelValue',inputvalue.value)
+		nextTick(()=>{
+			/**
+			 * 输入长度等于指定长度时触发
+			 */
+			emits('confirm', inputvalue.value)
+		})
+		_autoFocus.value = false;
+	}
+	function borderColorAc(index : number) : string {
+		let isActive = inputvalue.value.split("").length >= (index)
+		if (!isActive) {
+			if (props.skin == 'fill') return "transparent"
+		}
+		return isActive ? _borderColor.value : _unborderColor.value
+	}
+	function blur() {
+		_autoFocus.value = false;
+	}
+	function onFocus(){
+		let len = inputvalue.value.split("").length;
+		if (len > _maxLength.value){
+			inputvalue.value = inputvalue.value.substring(0,_maxLength.value)
+		}
+	}
+	function onClick() {
+		/**
+		 * 点击框时触发
+		 */
+		emits('click', inputvalue.value)
+		
+		_autoFocus.value = true;
+	}
+	function inputEvent(evt : UniInputEvent):string {
+		let value = evt.detail.value;
+		let len = value.split("").length;
+		if (len > _maxLength.value){
+			inputvalue.value =value
+			clearTimeout(tid.value)
+			tid.value = setTimeout(function() {
+				inputvalue.value =  value.substring(0,_maxLength.value)
+			}, 100)
+			 return inputvalue.value;
+		}
+		inputvalue.value = value;
+		
+		emits('update:modelValue',inputvalue.value)
+		if (len == _maxLength.value) {
+			nextTick(()=>{
+				/**
+				 * 输入长度等于指定长度时触发
+				 */
+				emits('confirm', inputvalue.value)
+				_autoFocus.value = false;
+			})
+		}
+		
+		/**
+		 * 变动时触发
+		 */
+		emits('change', inputvalue.value)
+		return inputvalue.value;
+	}
+
+	
+
+
+	onMounted(() => {
+		_autoFocus.value = props.autoFocus;
+	})
+	onBeforeUnmount(() => {
+		clearTimeout(tid.value)
+	})
+
+
+	watch(():string => props.modelValue, (newval : string) => {
+		if (newval == inputvalue.value) return;
+		inputvalue.value = newval;
+		let len = newval.split("").length;
+		if (len == _maxLength.value) {
+			/**
+			 * 输入长度等于指定长度时触发
+			 */
+			emits('confirm', inputvalue.value)
+		}
+	})
+</script>
+<template>
+
+	<view @click="onClick" class="xCodeInput">
+		<input
+		@focus="onFocus"
+		v-if="useSysKeyborad"
+		:focus="_autoFocus"
+		:adjust-position="false"
+		:style="{
+			width:'100%',
+			height:_height,
+		}" @confirm="onconfirm" @input="inputEvent" v-model="inputvalue" @blur="blur" 
+		:auto-focus="_autoFocus"
+			class="xCodeInputInput" type="number" />
+
+		<view class="xCodeInputItem" :style="{
+			borderRadius:_round,
+			border:`2px solid ${borderColorAc(index)}`,
+			backgroundColor:skin=='fill'?_bgcolor:'transparent',
+			width:_width,
+			height:_height,
+			marginRight:(index==_maxLength-1)?'0px':_gutter}" v-for="(_,index) in _maxLength" :key="index">
+			<text 
+			:class="[
+				(index<=inputvalue.length)?'xCodeInputItemTextOn':'xCodeInputItemTextOff'
+			]"
+			class="xCodeInputItemText" :style="{
+				fontWeight:'bold',
+				color:_fontColor,
+				fontSize:_fontSize
+			}">
+				{{getValue(index)}}
+			</text>
+			<x-skeleton v-if="(index<=inputvalue.length)&&getValue(index)==''&&placeShape=='round'" height="5" width="5" :color="_borderColor" :dark-color="_borderColor" ></x-skeleton>
+			<x-skeleton v-if="(index<=inputvalue.length)&&getValue(index)==''&&placeShape=='line'" height="2" width="33%" :color="_borderColor" :dark-color="_borderColor"></x-skeleton>
+		</view>
+	</view>
+</template>
+
+<style scoped>
+	.xCodeInputItemText{
+		transition-property: transform,opacity;
+		transition-duration: 250ms;
+		transition-timing-function: linear;
+		transition-delay: 50ms;
+	}
+	.xCodeInputItemTextOn{
+		transform: scale(1);
+		opacity: 1;
+	}
+	.xCodeInputItemTextOff{
+		transform: scale(0);
+		opacity: 0;
+	}
+	.xCodeInputItem {
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+		align-items: center;
+		transition-property: background-color,border-color;
+		transition-duration: 250ms;
+		transition-timing-function: linear;
+	}
+
+	.xCodeInput {
+		position: relative;
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.xCodeInputInput {
+		/* pointer-events: none;*/
+		opacity: 0; 
+		/* transform: translateX(-1000%); */
+		position: absolute;
+		left: -1000px;
+		top: -1000px;
+		z-index: -1;
+	}
+</style>

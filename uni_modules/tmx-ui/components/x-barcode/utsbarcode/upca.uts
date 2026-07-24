@@ -1,0 +1,38 @@
+import { ean13 } from "./ean13.uts"
+
+/**
+ * UPC-A：12 位数字（11 位数据 + 校验），条空与「首位为 0 的 EAN-13」相同。
+ */
+class upca {
+	/** 13 位字符串，首位固定 0，供 ean13 编码器使用 */
+	data13 = ""
+
+	constructor(text: string) {
+		let t = text.trim()
+		if (t.search(/^[0-9]{11}$/) !== -1 as number) {
+			t = t + this.checksum11(t).toString()
+		}
+		if (t.search(/^[0-9]{12}$/) !== -1 as number) {
+			this.data13 = "0" + t
+		} else {
+			this.data13 = ""
+		}
+	}
+
+	checksum11(codestr: string): number {
+		const res = codestr.substring(0, 11).split("")
+		const resNumber = res.map((n: string): number => parseInt(n))
+		const jg = resNumber.reduce((sum: number, a: number, idx: number): number => (idx % 2) > 0 ? sum + a * 3 : sum + a, 0)
+		return (10 - (jg % 10)) % 10
+	}
+
+	/** 与 ean13.encode() 相同结构 */
+	encode(): string[] {
+		if (this.data13.length != 13) {
+			return [] as string[]
+		}
+		return new ean13(this.data13).encode()
+	}
+}
+
+export { upca }

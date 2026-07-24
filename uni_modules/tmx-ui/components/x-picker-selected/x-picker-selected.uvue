@@ -1,0 +1,767 @@
+<script lang="ts" setup>
+	import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from "vue"
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { checkIsCssUnit } from "../../core/util/xCoreUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+
+	type xPickerSelectedListyType = {
+		id: any,
+		title: string,
+		item: UTSJSONObject
+	}
+
+	type xPickerSelectedPropsType = {
+		/**
+		 * 当前选中的数据，any数组string[],number[]
+		 * 否则报错，无法运行。
+		 */
+		modelValue: any[],
+		/**
+		 * 当前打开的状态。
+		 * 等同v-model:model-show
+		 */
+		modelShow: boolean,
+		/**
+		 * 回显当前选中的文本，只输出
+		 * 等同v-model:model-str
+		 */
+		modelStr: string[],
+		/**
+		 * 顶部标题,默认：请选择
+		 */
+		title: string,
+		/**
+		 * 取消按钮的文本,默认：取消
+		 */
+		cancelText: string,
+		/**
+		 * 确认按钮的文本,默认：确认
+		 */
+		confirmText: string,
+		/**
+		 * 搜索的字段名称
+		 */
+		filterKey: string,
+		/**
+		 * 显示文本的字段
+		 */
+		labelKey: string,
+		/**
+		 * 列表字段的唯一标识
+		 * 注意它的数据是number或者string类型.
+		 */
+		idKey: string,
+		/**
+		 * 数据列表。
+		 */
+		list: UTSJSONObject[],
+		/**
+		 * 默认采用本地对list的结果集进行筛选搜索。
+		 * 如果禁用用，你可以自行通过search事件来搜索
+		 * 并赋值给list更新结果。
+		 */
+		localSearch: boolean,
+		/**
+		 * 是否允许多选
+		 */
+		multiple: boolean,
+		/**
+		 * 当设置multiple为false时
+		 * 是否允许为单选唯一模式,即不允许取消唯一项,意味着一旦选中一项就无法清空或者取消.
+		 */
+		isRadioMode: boolean,
+		/**
+		 * 是否懒加载内部内容。
+		 * 当前你的列表内容非常多，且影响打开的动画性能时，请务必
+		 * 设置此项为true，以获得流畅视觉效果。
+		 */
+		lazyContent: boolean,
+		/**
+		 * lazyContent的延迟时间 单位 ms
+		 * 如果你的 app效果不行，请加大此值
+		 */
+		lazyDuration: number,
+		/**
+		 * 项目的高度.不要去动态改变高,内部是listview item虚拟列表动态改高
+		 * 会出现问题的.
+		 */
+		itemHeight: string,
+		/**
+		 * 层级
+		 */
+		zIndex: number,
+		/**
+		 * 是否显示关闭按钮
+		 */
+		showClose: boolean,
+		/**
+		 * 下拉刷新时v-model:refresh,触发时会设置为true，结束时需要自行设置为false
+		 * 来结束刷新。
+		 */
+		refresh: boolean,
+		/**
+		 * 触底刷新时，v-model:bottomR-refresh,触发时会设置为true，结束时需要自行设置为false
+		 * 来结束刷新。
+		 */
+		bottomRefresh: boolean,
+		/**
+		 * 是否禁用下拉刷新
+		 */
+		disabledPull: boolean,
+		/**
+		 * 是否禁用触底刷新
+		 */
+		disabledBottom: boolean,
+		/**
+		 * 是否禁用弹出
+		 */
+		disabled: boolean,
+		/**
+		 * 宽屏时是否让内容剧中显示
+		 * 并限制其宽为屏幕宽，只展示中间内容以适应宽屏。
+		 */
+		widthCoverCenter: boolean
+	}
+
+	/**
+	 * @name 搜索选择 xpickerSelected
+	 * @description 弹层式大数据列表筛选，搜索。可异步加载数据。可针对本地搜索及异步搜索加载数据，虚拟列表支持。
+	 * @page /pages/index/picker-selected
+	 * @category 表单组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({name:"xPickerSelected"})
+
+	const i18n = xConfig.i18n
+	defineSlots<{
+		item(props: { item: UTSJSONObject }): any
+		default(props: { label: string }): any
+	}>()
+
+	const emits = defineEmits([
+		/**
+		 * 触底刷新时触发，需要自行设置属性bottomRefresh为false结束状态
+		 */
+		'bottomRefresh',
+		/**
+		 * 下拉刷新时触发，需要自行设置属性refresh为false结束状态
+		 */
+		'refresh',
+		/**
+		 * 搜索时触发
+		 * @param {string} keyword - 搜索的关键词
+		 */
+		'search',
+		/**
+		 * 确认选择时触发
+		 * @param {any[]} ids - 选中的ids结果集
+		 * @param {UTSJSONObject[]} data - 选中的数据结果集
+		 */
+		'confirm',
+		/**
+		 * 取消搜索时触发
+		 */
+		'cancel',
+		/**
+		 * 显示弹层时触发，
+		 * 可以用来在此第一次加载list异步数据。
+		 */
+		'open',
+		/**
+		 * 变量控制打开状态
+		 * 等同v-model:model-show
+		 */
+		'update:modelShow',
+		/**
+		 * 自动回显文本数组，此属性只对外输出。
+		 */
+		'update:modelStr',
+		/**
+		 * v-model:bottomR-refresh
+		 */
+		'update:bottomRefresh',
+		/**
+		 * v-model:refresh
+		 */
+		'update:refresh',
+		/**
+		 * v-model:modelValue
+		 */
+		'update:modelValue'
+	])
+
+	const props = withDefaults(defineProps<xPickerSelectedPropsType>(), {
+		modelValue: () => [] as any[],
+		modelShow: false,
+		modelStr: () => [] as string[],
+		title: "",
+		cancelText: "",
+		confirmText: "",
+		filterKey: "text",
+		labelKey: "text",
+		idKey: "id",
+		list: () => [] as UTSJSONObject[],
+		localSearch: true,
+		multiple: true,
+		isRadioMode: false,
+		lazyContent: false,
+		lazyDuration: 100,
+		itemHeight: "50",
+		zIndex: 1100,
+		showClose: false,
+		refresh: false,
+		bottomRefresh: false,
+		disabledPull: true,
+		disabledBottom: true,
+		disabled: false,
+		widthCoverCenter: false
+	})
+
+	// 响应式数据
+	const show = ref(false)
+	const nowValue = ref<xPickerSelectedListyType[]>([])
+	const searchList = ref<xPickerSelectedListyType[]>([])
+	const searchKey = ref("")
+	const duration = ref(60)
+	const yanchiDuration = ref(false)
+	let tid = 0
+	let tid34 = 0
+	const isRefresh = ref(false) // 是否在刷新中
+	const isBootomIsRefresh = ref(false) // 是否在刷新中
+
+	// 计算属性
+	const _itemHeight = computed((): string => checkIsCssUnit(props.itemHeight, xConfig.unit))
+	/**
+	 * 处理原始列表数据
+	 * 将UTSJSONObject转换为xPickerSelectedListyType格式
+	 */
+	const _list = computed((): xPickerSelectedListyType[] => {
+		return props.list.map((el: UTSJSONObject): xPickerSelectedListyType => {
+			return {
+				id: el.getAny(props.idKey)!,
+				title: el.getString(props.labelKey)!,
+				item: el
+			} as xPickerSelectedListyType
+		})
+	})
+	/**
+	 * 渲染列表数据
+	 * 根据搜索条件和本地搜索设置返回对应的数据
+	 */
+	const _renderListData = computed((): xPickerSelectedListyType[] => {
+		if (props.localSearch && searchKey.value.length > 0) {
+			return searchList.value
+		}
+		return _list.value
+	})
+
+	
+
+	const _color = computed((): string => getDefaultColor(xConfig.color))
+	const _isDark = computed((): boolean => xConfig.dark == 'dark')
+	const _borderColor = computed((): string => {
+		if (xConfig.dark == 'dark') return xConfig.borderDarkColor
+		return '#f5f5f5'
+	})
+	const _inputBgColor = computed((): string => {
+		if (xConfig.dark == 'dark') return xConfig.inputDarkColor
+		return '#f5f5f5'
+	})
+	const _inputColor = computed((): string => {
+		if (xConfig.dark == 'dark') return "#fff"
+		return "#333"
+	})
+	
+	const _placeholderStyle = computed((): string => {
+		let pstyle = ''
+		if (xConfig.dark == 'dark') {
+			pstyle = 'color:#eeeeee'
+		}else{
+			pstyle = 'color:#333333'
+		}
+		return pstyle
+	})
+
+	/**
+	 * 当前选中值的字符串表示
+	 */
+	const nowvalueStr = computed((): string => {
+		return nowValue.value.map((el): string => el.title).join(",")
+	})
+
+	/**
+	 * 取消按钮文本
+	 */
+	const _cancelText = computed((): string => {
+		if (props.cancelText == '') {
+			return i18n.t("tmui4x.cancel")
+		}
+		return props.cancelText
+	})
+
+	/**
+	 * 确认按钮文本
+	 */
+	const _confirmText = computed((): string => {
+		if (props.confirmText == '') {
+			return i18n.t("tmui4x.confirm")
+		}
+		return props.confirmText
+	})
+
+	/**
+	 * 标题文本
+	 */
+	const _title = computed((): string => {
+		if (props.title == '') {
+			return i18n.t("tmui4x.pickerTitle")
+		}
+		return props.title
+	})
+
+	// 方法定义（按调用顺序排列）
+
+	/**
+	 * 更新模型字符串
+	 * 将当前选中值转换为字符串数组并触发更新事件
+	 */
+	function updateModelStr(): void {
+		const strs = nowValue.value.map((el): string => el.title)
+		emits('update:modelStr', strs)
+	}
+
+	/**
+	 * 将ID数组转换为xPickerSelectedListyType数组
+	 * @param ids - ID数组
+	 * @returns xPickerSelectedListyType数组
+	 */
+	function idsToxPickerSelectedListyTypeAr(ids: any[]): xPickerSelectedListyType[] {
+		if (props.list.length == 0) return [] as xPickerSelectedListyType[]
+		
+		const fts = props.list.filter((el: UTSJSONObject): boolean => {
+			return ids.includes(el.getAny(props.idKey)!)
+		}) as UTSJSONObject[]
+
+		const templist = fts.map((el: UTSJSONObject): xPickerSelectedListyType => {
+			return {
+				id: el.getAny(props.idKey)!,
+				title: el.getString(props.labelKey)!,
+				item: el
+			} as xPickerSelectedListyType
+		})
+		return templist.slice(0)
+	}
+
+	/**
+	 * 处理项目点击事件
+	 * 根据多选/单选模式处理选择逻辑
+	 * @param item - 点击的项目
+	 */
+	function onclik(item: xPickerSelectedListyType): void {
+		if (!props.multiple) {
+			const index = nowValue.value.findIndex((el): boolean => el.id == item.id)
+			if (props.isRadioMode) {
+				nowValue.value = [item] as xPickerSelectedListyType[]
+			} else {
+				nowValue.value = index > -1 ? ([] as xPickerSelectedListyType[]) : ([item] as xPickerSelectedListyType[])
+			}
+		} else {
+			const index = nowValue.value.findIndex((el): boolean => el.id == item.id)
+			if (index > -1) {
+				nowValue.value.splice(index, 1)
+			} else {
+				nowValue.value.push(item)
+			}
+		}
+	}
+
+	/**
+	 * 缓存已选中ID的Map，isSelected从O(n)的findIndex降为O(1)的has
+	 */
+	const _selectedIdMap = computed((): Map<string, boolean> => {
+		let m = new Map<string, boolean>()
+		for (let i = 0; i < nowValue.value.length; i++) {
+			m.set(`${nowValue.value[i].id}`, true)
+		}
+		return m
+	})
+	/**
+	 * 判断项目是否已选中
+	 * @param item - 要检查的项目
+	 * @returns 是否已选中
+	 */
+	function isSelected(item: xPickerSelectedListyType): boolean {
+		return _selectedIdMap.value.has(`${item.id}`)
+	}
+	
+	/**
+	 * 执行搜索确认
+	 * 根据本地搜索设置执行本地搜索或触发搜索事件
+	 */
+	function inputConfirm(): void {
+		if (props.localSearch) {
+			searchList.value = [] as xPickerSelectedListyType[]
+			const templist = _list.value.filter((el): boolean => {
+				return el.title.indexOf(searchKey.value.trim()) > -1
+			})
+			searchList.value = templist.slice(0)
+			return
+		}
+		emits('search', searchKey.value.trim())
+	}
+	
+	/**
+	 * 处理输入事件
+	 * 延迟执行搜索以优化性能
+	 * @param evt - 输入事件
+	 */
+	function inpuEvent(evt: UniInputEvent): void {
+		searchKey.value = evt.detail.value
+		clearTimeout(tid34)
+		tid34 = setTimeout((): void => {
+			inputConfirm()
+		}, 250)
+	}
+
+	/**
+	 * 清空搜索关键词
+	 */
+	function clearSearchKey(): void {
+		searchKey.value = ""
+		inputConfirm()
+	}
+
+	
+
+	/**
+	 * 打开显示选择器
+	 */
+	function openShow(): void {
+		if (props.disabled) return
+		show.value = true
+		emits('update:modelShow', true)
+		emits('open')
+	}
+
+	/**
+	 * 关闭选择器
+	 */
+	function onClose(): void {
+		emits('update:modelShow', false)
+		if (props.lazyContent) {
+			yanchiDuration.value = false
+		}
+	}
+
+	/**
+	 * 打开选择器后的处理
+	 */
+	function onOpen(): void {
+		// #ifdef APP
+		tid = setTimeout((): void => {
+			yanchiDuration.value = true
+		}, props.lazyDuration)
+		// #endif
+		// #ifdef WEB||MP-WEIXIN
+		yanchiDuration.value = true
+		// #endif
+	}
+
+	/**
+	 * 取消选择
+	 */
+	function onCancel(): void {
+		emits('cancel')
+		nowValue.value = idsToxPickerSelectedListyTypeAr(props.modelValue)
+		updateModelStr()
+	}
+
+	/**
+	 * 确认选择
+	 */
+	function onConfirm(): void {
+		const ids = nowValue.value.map((el): any => el.id)
+		const strs = nowValue.value.map((el: xPickerSelectedListyType): string => el.title)
+		emits('confirm', ids, strs)
+		emits('update:modelValue', ids)
+		updateModelStr()
+	}
+
+	/**
+	 * 清空所有选择
+	 */
+	function clearAll(): void {
+		nowValue.value = [] as xPickerSelectedListyType[]
+		// console.log(nowValue.value)
+	}
+
+	/**
+	 * 全选
+	 */
+	function selectedAll(): void {
+		const temp = _list.value.slice(0)
+		if (_list.value.length > 0) {
+			if (props.multiple) {
+				nowValue.value = temp
+			} else {
+				nowValue.value = [temp[0]] as xPickerSelectedListyType[]
+			}
+		}
+	}
+
+	/**
+	 * 加载刷新
+	 */
+	function loadRefres(): void {
+		emits('update:refresh', true)
+		emits('refresh')
+	}
+
+	/**
+	 * 底部加载刷新
+	 */
+	function bottomLoadRefres(): void {
+		emits('update:bottomRefresh', true)
+		emits('bottomRefresh')
+	}
+
+	// 监听器
+	watch((): any[] => props.modelValue, (newvalue: any[]) => {
+		if (newvalue.join(",") == nowValue.value.map(el => el.id).join(",")) return
+		nowValue.value = idsToxPickerSelectedListyTypeAr(props.modelValue)
+		updateModelStr()
+	})
+
+	watch(_list, () => {
+		nowValue.value = idsToxPickerSelectedListyTypeAr(props.modelValue)
+		updateModelStr()
+	})
+
+	watch((): boolean => props.modelShow, (newValue: boolean) => {
+		if (newValue == show.value) return
+		show.value = newValue
+	})
+
+	watch((): boolean => props.refresh, (newValue: boolean) => {
+		isRefresh.value = newValue
+	})
+
+	watch((): boolean => props.bottomRefresh, (newValue: boolean) => {
+		isBootomIsRefresh.value = newValue
+	})
+
+	// 生命周期
+	onMounted(() => {
+		// #ifdef APP-IOS
+		duration.value = 120
+		// #endif
+		nowValue.value = idsToxPickerSelectedListyTypeAr(props.modelValue)
+		updateModelStr()
+		yanchiDuration.value = props.lazyContent ? false : true
+
+		isRefresh.value = props.refresh
+		if (isRefresh.value) {
+			/**
+			 * 下拉触发了刷新。请在事件refresh中设置本状态modelValue为false来结束刷新。
+			 */
+			emits("refresh")
+		}
+	})
+
+	onBeforeUnmount(() => {
+		clearTimeout(tid)
+		clearTimeout(tid34)
+	})
+
+	defineExpose({
+		/** 打开选择器 **/
+		open: () => openShow(),
+		/** 关闭选择器 **/
+		close: () => onClose(),
+		/** 清空选择 **/
+		clearAll: () => clearAll(),
+		/** 全选 **/
+		selectedAll: () => selectedAll(),
+		/** 清空搜索框内容 **/
+		clearSearchKey:() => clearSearchKey()
+	})
+</script>
+<template>
+	<view>
+		<view @click="openShow">
+			<!--
+			 @slot 插槽,默认触发打开选择器。你的默认布局可以放置在这里。
+			 @prop {string} label - 当前选中的字符串
+			 -->
+			<slot :label="nowvalueStr"></slot>
+		</view>
+		<x-drawer :cancel-text="_cancelText" :confirm-text="_confirmText" :zIndex="zIndex" @open="onOpen"
+			:widthCoverCenter="widthCoverCenter" :watiDuration='duration' contentMargin="0px" :disabledScroll="true" :title="_title"
+			@close="onClose" @confirm="onConfirm" @cancel="onCancel" :showFooter="true" v-model:show="show"
+			:show-close="showClose" size="80%">
+			<view class="xPickerSlectedIwrap" :style="{height:'44px',borderRadius:'44px'}">
+				<!-- 请输入关键词 -->
+				<view class="xPickerSlectedInputBox" :style="{backgroundColor:_inputBgColor}">
+					<input :placeholder="i18n.t('tmui4x.pickerSelected.placeholder')" :placeholder-style="_placeholderStyle" :style="{color:_inputColor,fontSize:'16px'}" @input="inpuEvent" @confirm="inputConfirm"
+						:value="searchKey" class="xPickerSlectedInput" />
+					<view v-if="searchKey.length>0" @click="clearSearchKey" class="clearClick">
+						<x-icon font-size="24" name="close-circle-fill" color="#d1d1d1"></x-icon>
+					</view>
+				</view>
+				<!-- 搜索 -->
+				<x-button width="80" @click="inputConfirm" :color="_color" round="0" height="44" >
+					{{i18n.t("tmui4x.pickerSelected.search")}}
+				</x-button>
+			</view>
+			<view class="xPickerSlectedWrap">
+				<x-loading v-if="!yanchiDuration"></x-loading>
+		
+				<view v-if="(_list.length>0&&_renderListData.length>0)&&yanchiDuration" style="flex:1">
+					<x-pull-refresh :disabled-bottom="disabledBottom" :disabled-pull="disabledPull" @refresh="loadRefres"
+						@bottomRefresh="bottomLoadRefres" v-model="isRefresh"
+						v-model:model-bottom-status="isBootomIsRefresh" v-if="_list.length>0&&yanchiDuration"
+						mode="listview" height="100%">
+						<list-item @click="onclik(item)" v-for="(item,index) in _renderListData" :type="index" :key="index"
+							class="xPickerSlectedItem" :style="{height:_itemHeight}"
+							:class="[isSelected(item)?'xPickerSlectedWrapOn':'']">
+							<view class="xPickerSlectedItemWrap"
+								:style="{'border-bottom': `1px solid ${_borderColor}`,margin:'0 16px'}">
+								<view class="xPickerSlectedItemText">
+									<!-- 
+									 @slot 动态循环列表的项目插槽
+									 @prop {xPickerSelectedListyType} item - 项目数据.
+									 -->
+									<slot name="item" :item="item.item">
+										<x-text :color="isSelected(item)?_color:(_isDark?'white':'#888')" font-size="15"
+											line-height="1.2" :lines="2">
+											{{item.title}}
+										</x-text>
+									</slot>
+								</view>
+								<x-icon :color="isSelected(item)?_color:'#e6e6e6'" font-size="28"
+									:name="isSelected(item)?'checkbox-circle-fill':'checkbox-blank-circle-line'"></x-icon>
+							</view>
+						</list-item>
+					</x-pull-refresh>
+				</view>
+				<view style="flex:1" v-if="_list.length==0||_renderListData.length==0" >
+					<x-empty :show-btn="false" :loading="false" :empty="true"></x-empty>
+				</view>
+				<view v-if="_list.length>0&&yanchiDuration" class="xPickerSlectedFooter">
+				<!-- 						已选择{{nowValue.length}}项 -->
+					<x-text class="xPickerSlectedFooterBtnText" style="text-align: center;" :color="_color" font-size="14">
+						{{i18n.t("tmui4x.pickerSelected.selected",nowValue.length)}}
+					</x-text>
+					<view class="xPickerSlectedFooterBtn">
+					<x-text v-if="!isRadioMode" class="xPickerSlectedFooterBtnText" @click="clearAll" color="#666"
+						font-size="14">
+						<!-- 清空选择 -->
+						{{i18n.t("tmui4x.pickerSelected.claer")}}
+					</x-text>
+					<x-text v-if="isRadioMode" class="xPickerSlectedFooterBtnText" color="#666" font-size="14">
+							<!-- 当前为单选模式 -->
+							{{i18n.t("tmui4x.pickerSelected.selectedMode")}}
+						</x-text>
+						<x-text style="margin-left: 24px;" v-if="multiple" class="xPickerSlectedFooterBtnText"
+							@click="selectedAll" :color="_color" font-size="14">
+							<!-- 选择所有 -->
+							{{i18n.t("tmui4x.pickerSelected.selectedALl")}}
+						</x-text>
+					</view>
+				</view>
+			</view>
+		</x-drawer>
+	</view>
+</template>
+<style scoped>
+	.xPickerSlectedFooterBtn {
+		display: flex;
+		flex-direction: row;
+		justify-content: flex-end;
+	}
+
+	.xPickerSlectedFooter {
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
+		padding: 12px 16px;
+	}
+
+	.xPickerSlectedInputBox {
+		height: 100%;
+		flex: 1;
+		position: relative;
+		display: flex;
+		flex-direction: row;
+		justify-content: flex-end;
+		/* align-item:center; */
+		/* background-color: #f5f5f5; */
+	}
+
+	.clearClick {
+		/* position: absolute; */
+		/* right: 24px; */
+		padding: 0 16px;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		flex-direction: row;
+	}
+
+	.xPickerSlectedIwrap {
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: center;
+		/* height: 44px; */
+		/* border-radius: 44px; */
+		margin: 0 16px 16px 16px;
+		/* #ifdef MP-WEIXIN */
+		overflow: hidden;
+		/* #endif */
+	}
+
+	.xPickerSlectedInput {
+		height: 100%;
+		flex: 1;
+		padding: 0 16px;
+	}
+
+	.xPickerSlectedItem {
+		/* #ifdef MP-WEIXIN */
+		display: block;
+		/* #endif */
+
+	}
+
+	.xPickerSlectedFooterBtnText {
+
+		/* #ifdef WEB */
+		cursor: pointer;
+		/* #endif */
+	}
+
+	.xPickerSlectedItemWrap {
+		display: flex;
+		flex-direction: row;
+		justify-content: flex-start;
+		align-items: center;
+		height: 100%;
+	}
+
+	.xPickerSlectedItemText {
+		flex: 1;
+		/* #ifdef WEB */
+		cursor: pointer;
+		/* #endif */
+	}
+
+	.xPickerSlectedWrap {
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+	}
+</style>

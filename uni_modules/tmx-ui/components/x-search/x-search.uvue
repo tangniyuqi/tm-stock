@@ -1,0 +1,344 @@
+﻿<script lang="ts" setup>
+	import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from "vue"
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { checkIsCssUnit } from "../../core/util/xCoreUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+
+	/**
+	 * @name 搜索栏 xSearch
+	 * @description 可定制化强
+	 * @page /pages/daohang/search
+	 * @category 导航组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({ name: "xSearch" })
+
+	const i18n = xConfig.i18n
+
+	export type xSearchPropsType = {
+		/** 输入框圆角 */
+		round: string,
+		/** 是否显示清除图标 */
+		showClear: boolean,
+		/** 双向绑定的输入值 */
+		modelValue: string,
+		/** 输入框提示语 */
+		placeholder: string,
+		/** 搜索图标和清除图标的颜色 */
+		iconColor: string,
+		/** 搜索条背景 */
+		color: string,
+		/** 取消的文本色 */
+		cancelFontColor: string,
+		/** 暗黑模式下的搜索条背景，空值取：sheetDarkColor */
+		darkColor: string,
+		/** 输入框的背景 */
+		inputBgColor: string,
+		/** 输入框的字体颜色 */
+		fontColor: string,
+		/** 边框style: [width, style, color] */
+		border: string[],
+		/** 暗黑模式下边框颜色 */
+		darkBorderColor: string,
+		/** 输入框的提示样式 */
+		placeholderStyle: string,
+		/** 是否显示右侧取消按钮 */
+		showCancel:boolean,
+		/** 禁用输入选择 */
+		disabled:boolean,
+		/** 自动获得焦点 */
+		autoFocus:boolean
+	}
+
+	const props = withDefaults(defineProps<xSearchPropsType>(), {
+		round: "8",
+		showClear: true,
+		modelValue: "",
+		placeholder: "",
+		iconColor: "#bfbfbf",
+		color: "#ffffff",
+		cancelFontColor: "#000000",
+		darkColor: "",
+		inputBgColor: "#f5f5f5",
+		fontColor: "#333333",
+		border: (): string[] => [] as string[],
+		darkBorderColor: "",
+		placeholderStyle: "",
+		showCancel:true,
+		disabled:false,
+		autoFocus:false
+	})
+
+	const emits = defineEmits<{
+		/** 取消时触发 */
+		(e: 'cancel', str: string): void
+		/** 清空时触发 */
+		(e: 'clear', str: string): void
+		/** 点击右侧文本时触发 */
+		(e: 'rightClick', str: string): void
+		/** 输入法确认搜索时触发 */
+		(e: 'confirm', str: string): void
+		/** 输入时触发 */
+		(e: 'input', str: string): void
+		/** 等同 v-model */
+		(e: 'update:modelValue', str: string): void
+	}>()
+
+	// 模板 ref：取消按钮容器，用于直接操作 style 触发过渡
+	const cancelBoxRef = ref<UniElement | null>(null)
+	// 响应式数据
+	const nowValue = ref<string>("")
+	const foucsIng = ref<boolean>(false)
+	// 动画相关的非响应式状态
+	let _aniTid = 0
+	let isDestroy = false
+
+	// 计算属性
+	const _placeholderStyle = computed((): string => {
+		let pstyle = props.placeholderStyle
+		// #ifdef APP-HARMONY
+		if (xConfig.dark == 'dark' && pstyle == '') return "color:#ffffff"
+		// #endif
+		return pstyle
+	})
+	const _round = computed((): string => checkIsCssUnit(props.round, xConfig.unit))
+	const _placeholder = computed((): string => {
+		if (props.placeholder == '') return i18n.t("tmui4x.search.placeholder")
+		return props.placeholder
+	})
+	const _iconColor = computed((): string => getDefaultColor(props.iconColor))
+	const _color = computed((): string => {
+		if (xConfig.dark == 'dark') {
+			if (props.darkColor == "") {
+				return xConfig.sheetDarkColor
+			}
+			return getDefaultColor(props.darkColor)
+		}
+		return getDefaultColor(props.color)
+	})
+	const _inputBgColor = computed((): string => {
+		if (xConfig.dark == 'dark') return xConfig.inputDarkColor
+		return getDefaultColor(props.inputBgColor)
+	})
+	const _cancelFontColor = computed((): string => getDefaultColor(props.cancelFontColor))
+	const _fontColor = computed((): string => {
+		if (xConfig.dark == 'dark') return '#ffffff'
+		return getDefaultColor(props.fontColor)
+	})
+	const _border = computed((): string => {
+		let borderstr = props.border
+		if (borderstr.length != 3) return "none"
+		let lastColor = borderstr[borderstr.length - 1]
+		if (xConfig.dark == 'dark') {
+			if (props.darkBorderColor == "") {
+				lastColor = getDefaultColor(xConfig.borderDarkColor)
+			} else {
+				lastColor = props.darkBorderColor
+			}
+		}
+		return `${borderstr[0]} ${borderstr[1]} ${lastColor}`
+	})
+
+	/**
+	 * 取消按钮显示/隐藏的过渡动画。
+	 * 不走 class 切换（class 在多端原生渲染下容易被快速连续切换打断），
+	 * 改为直接 setProperty 到目标值。CSS 只定义 transition 和"隐藏"初态，
+	 * JS 在需要显示时把 style 写成"显示"值，transition 会平滑过渡。
+	 */
+	function _applyAni() {
+		if (isDestroy || !props.showCancel) return
+		const el = cancelBoxRef.value
+		if (el == null) return
+		const on = nowValue.value.length > 0 || foucsIng.value
+		el.style.setProperty('opacity', on ? 1 : 0)
+		el.style.setProperty('transform', on ? 'scale(1) translateX(0px)' : 'scale(0) translateX(60px)')
+		el.style.setProperty('width', on ? '60px' : '0px')
+		el.style.setProperty('pointer-events', on ? 'auto' : 'none')
+	}
+
+	/**
+	 * 调度一次动画更新。用 clearTimeout + setTimeout(0) + nextTick 保证：
+	 * 1) 连续多次触发会被合并，最后一次有效；
+	 * 2) 下一个宏/微任务内写入 style，让过渡从当前帧记录起点再变，避免被同步 class 切换吞掉。
+	 */
+	function setAni() {
+		clearTimeout(_aniTid)
+		_aniTid = setTimeout(() => {
+			nextTick(() => { _applyAni() })
+		}, 0)
+	}
+
+	// 监听 props.modelValue 变化
+	watch((): string => props.modelValue, (newValue: string) => {
+		if (newValue === nowValue.value) return
+		nowValue.value = newValue
+		setAni()
+	})
+
+	onMounted(() => {
+		isDestroy = false
+		nowValue.value = props.modelValue
+		setAni()
+	})
+
+	onBeforeUnmount(() => {
+		isDestroy = true
+		clearTimeout(_aniTid)
+	})
+
+	// 方法
+	function confirm() {
+		emits('confirm', nowValue.value)
+	}
+	function inputHndler(evt: InputEvent) {
+		// @ts-ignore
+		nowValue.value = evt.detail.value
+		emits('input', nowValue.value)
+		emits('update:modelValue', nowValue.value)
+		setAni()
+	}
+	function raightCellClick() {
+		emits('rightClick', nowValue.value)
+	}
+	function clearHandler() {
+		nowValue.value = ""
+		emits('update:modelValue', "")
+		emits('clear', "")
+		foucsIng.value = false
+		setAni()
+	}
+	function cancel() {
+		nowValue.value = ""
+		emits('cancel', "")
+		emits('update:modelValue', "")
+		foucsIng.value = false
+		setAni()
+	}
+	function blur() {
+		if (nowValue.value.length == 0) {
+			foucsIng.value = false
+			setAni()
+		}
+	}
+	function foucus() {
+		foucsIng.value = true
+		setAni()
+	}
+
+</script>
+<template>
+	<view class="xSearch" :style="{backgroundColor:_color}">
+		<view class="xSearchLeft">
+			<!-- 
+			 @slot 左插槽
+			 -->
+			<slot name="left"></slot>
+		</view>
+		<view class="xSearchCenter" :style="{borderRadius:_round,backgroundColor:_inputBgColor,border:_border}">
+			<!-- 
+			 输入框内的左插槽
+			 -->
+			<slot name="inputLeft"></slot>
+			<x-icon style="margin: 0 12px;" :color="_iconColor" name="search-2-line" font-size="16"></x-icon>
+			<input :auto-focus="autoFocus" :disabled="disabled" :style="{color:_fontColor,pointerEvents: disabled?'none':'auto'}" @focus="foucus" @blur="blur" @input="inputHndler" confirm-type="search"
+				:value="nowValue" @confirm="confirm" :placeholder-style="_placeholderStyle" :placeholder="_placeholder"
+				class="xSearchCenterInput" type="text" />
+			<view @click="clearHandler" v-if="showClear&&nowValue.length>0" class="xSearchclear"
+				style="padding: 0 12px;">
+				<x-icon :color="_iconColor" name="close-circle-fill"></x-icon>
+			</view>
+			<!-- 
+			 输入框内右插槽
+			 -->
+			<slot name="inputRight"></slot>
+		</view>
+		<view 
+			v-if="props.showCancel"
+			ref="cancelBoxRef"
+			@click="cancel"
+			class="xSearchRightText">
+			<!-- 
+			 取消按钮的文本插槽
+			 -->
+			<slot name="cancel">
+				<x-text :color="_cancelFontColor">
+					<!-- 取消 -->
+					{{i18n.t("tmui4x.search.cancel")}}
+				</x-text>
+			</slot>
+		</view>
+		<view class="xSearchRight" @click="raightCellClick">
+			<!-- 
+			 右插槽
+			 -->
+			<slot name="right">
+
+			</slot>
+		</view>
+	</view>
+</template>
+<style scoped>
+	.xSearchCenterInput {
+		flex: 1;
+		font-size: 16px;
+		
+	}
+
+	.xSearch {
+		width: 100%;
+		position: relative;
+		height: 48px;
+		display: flex;
+		flex-direction: row;
+		justify-content: flex-start;
+		align-items: center;
+		overflow: hidden;
+	}
+
+	.xSearchCenter {
+		display: flex;
+		flex-direction: row;
+		justify-content: flex-start;
+		align-items: center;
+		height: 38px;
+		flex: 1;
+
+	}
+
+	.xSearchLeft {
+		display: flex;
+		flex-direction: row;
+		justify-content: flex-start;
+	}
+
+	.xSearchRight {
+		display: flex;
+		flex-direction: row;
+		justify-content: flex-end;
+	}
+
+	/**
+	 * 过渡方案改为直接由 JS 在 el.style 上写目标值触发 transition（与 x-checkbox 一致），
+	 * 不再用 class 切换。CSS 只保留过渡定义与初始隐藏态。
+	 */
+	.xSearchRightText {
+		transition-duration: 250ms;
+		transition-property: opacity, transform, width;
+		transition-timing-function: cubic-bezier(.18, .89, .32, 1);
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+		align-items: center;
+		/* 初始隐藏：JS 在 mounted/输入/聚焦时改为显示态 */
+		opacity: 0;
+		transform: scale(0) translateX(60px);
+		width: 0px;
+		pointer-events: none;
+		/* #ifdef WEB */
+		cursor: pointer;
+		/* #endif */
+	}
+</style>

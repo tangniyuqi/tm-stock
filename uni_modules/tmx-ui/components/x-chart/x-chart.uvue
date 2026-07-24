@@ -1,0 +1,1392 @@
+<script lang="ts" setup>
+	import { computed, getCurrentInstance, onBeforeUnmount, onMounted, ref, watch } from "vue"
+	import { checkIsCssUnit } from "../../core/util/xCoreUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	import { ICanvas } from "../../core/canvas/ICanvas.uts"
+	import { ICanvasEvent, CanvasEventType } from "../../core/canvas/interface.uts"
+	import { Shape } from "../../core/canvas/lib/shape.uts"
+	import { ILine } from "../../core/canvas/lib/line.uts"
+	import { IRect } from "../../core/canvas/lib/rect.uts"
+	import { IText } from "../../core/canvas/lib/text.uts"
+	import { measureTextW } from "../../core/canvas/chart/scale.uts"
+	import { getThemePrimary } from "../../config/xConfig.uts"
+	import { getDatumNumber, getDatumString, buildLinearTicks } from "../../core/canvas/chart/scale.uts"
+	import { PlotRect, computeMergedYRange } from "../../core/canvas/chart/map.uts"
+	import { getChartColor } from "../../core/canvas/chart/palette.uts"
+	import { ChartDatum, ChartOptions, ChartSeriesOptions, ChartSeriesContext, ChartActiveStyle, ResolvedActiveStyle, ChartClickEvent, ChartEdgeEvent, IndicatorPanelOptions } from "../../core/canvas/chart/types.uts"
+	import { DataViewport, panViewport, sliceByViewport, downsampleLTTB } from "../../core/canvas/chart/viewport.uts"
+	import { drawCartesianAxes, drawTransposedAxes, drawScatterAxes, resolveLinearAxisRange } from "../../core/canvas/chart/axis.uts"
+	import { renderLineSeries, getLineSeriesRange } from "../../core/canvas/chart/series/line.uts"
+	import { renderBarSeries, renderBarGroup, getBarSeriesRange, getBarGroupRange } from "../../core/canvas/chart/series/bar.uts"
+	import type { BarGroupEntry } from "../../core/canvas/chart/series/bar.uts"
+	import { renderPieSeries } from "../../core/canvas/chart/series/pie.uts"
+	import { renderAreaSeries, getAreaSeriesRange } from "../../core/canvas/chart/series/area.uts"
+	import { renderRadarSeries, resetRadarGrid } from "../../core/canvas/chart/series/radar.uts"
+	import { renderScatterSeries, getScatterRange } from "../../core/canvas/chart/series/scatter.uts"
+	import { renderFunnelSeries } from "../../core/canvas/chart/series/funnel.uts"
+	import { renderSunburstSeries } from "../../core/canvas/chart/series/sunburst.uts"
+	import { renderTreemapSeries } from "../../core/canvas/chart/series/treemap.uts"
+	import { renderCandlestickSeries, getCandlestickRange } from "../../core/canvas/chart/series/candlestick.uts"
+	import { renderIndicatorSeries, computeIndicatorValues, getIndicatorYRange, IndicatorValueSet } from "../../core/canvas/chart/series/indicator.uts"
+	import { computePanelValues, slicePanelValues, renderPanelSeries, PanelComputedSet } from "../../core/canvas/chart/series/indicatorPanel.uts"
+	import { renderMapSeries, hitTestMap, getMapFeatureName, getMapFeatureCenter } from "../../core/canvas/chart/series/map.uts"
+	import { renderGaugeSeries } from "../../core/canvas/chart/series/gauge.uts"
+	import { animateChartEntrance, stopAnimationsForChart } from "../../core/canvas/chart/animate.uts"
+
+	type xChartPropsType = {
+		width : string,
+		height : string,
+		options : ChartOptions | null,
+		/** 是否禁止页面滚动（拦截触摸事件），默认 true。设为 false 则允许页面滚动 */
+		preventScroll : boolean,
+		/** 是否启用交互（点击高亮、提示框），默认 true。设为 false 则纯展示 */
+		interactive : boolean
+	}
+	type LegendItem = {
+		key : string,
+		kind : string,
+		label : string,
+		color : string
+	}
+	type TooltipItem = {
+		color : string,
+		name : string,
+		value : string
+	}
+	type TooltipState = {
+		show : boolean,
+		left : number,
+		top : number,
+		title : string,
+		items : TooltipItem[]
+	}
+	/**
+	 * @name 原生图表 Chart
+	 * @description 全新的原生图表支持所有平台，暗黑适配，更美观，渲染速度快，非webview，纯原生canvas实现。
+	 * @page /pages/chart/index
+	 * @category 其它组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.87+ | 1.1.22 |
+	 */
+	defineOptions({ name: "xChart" })
+	const props = withDefaults(defineProps<xChartPropsType>(), {
+		width: '100%',
+		height: '280px',
+		options: null,
+		preventScroll: false,
+		interactive: true
+	})
+	const emits = defineEmits<{
+		(e : 'click', event : ChartClickEvent) : void,
+		(e : 'reachEdge', event : ChartEdgeEvent) : void
+	}>()
+	const chartBodyRef = ref<UniElement|null>(null);
+	const chartBodyRefBoundx = ref<DOMRect|null>(null)
+	const CARTESIAN_TYPES = ['line', 'bar', 'area'] as string[]
+	const canvasId = "xChart-" + Math.random().toString(16).substring(4)
+	const proxy = getCurrentInstance()?.proxy ?? null
+	const chart = ref<ICanvas>(new ICanvas({ canvasId: canvasId, component: proxy as any | null }))
+	const mountedOk = ref<boolean>(false)
+	const innerOptions = ref<ChartOptions | null>(null)
+	const renderedShapes = ref<Shape[]>([] as Shape[])
+	const legendItems = ref<LegendItem[]>([] as LegendItem[])
+	const hiddenLegendKeys = ref<string[]>([] as string[])
+	const tooltip = ref<TooltipState>({ show: false, left: 0, top: 0, title: '', items: [] as TooltipItem[] } as TooltipState)
+	const crosshairShapes = ref<Shape[]>([] as Shape[])
+	let activeType = ''
+	let activeIndex = -1
+	const viewport = ref<DataViewport>({ start: 0, end: 1 } as DataViewport)
+	const panStartX = ref<number>(0)
+	const panStartVp = ref<DataViewport | null>(null)
+	let relayoutTid = 0
+	let panDrawQueued = false
+	let needsEntranceAnim = true
+	let _resolvedStyle : ResolvedActiveStyle | null = null
+	let _edgeFiredStart = false
+	let _edgeFiredEnd = false
+	let _cachedDrawData : ChartDatum[] = [] as ChartDatum[]
+	let _cachedRect : PlotRect | null = null
+	let _cachedXField = ''
+	let _isCartesianOnly = false
+	let _isTransposed = false
+	let _isDragSelecting = false
+	let _dragHasMoved = false
+	let _isHovering = false
+	let _clickedIndex = -1
+	/** K 线值域缓存，crosshair 反推鼠标 Y 对应价格 */
+	let _cachedKMinY = 0
+	let _cachedKMaxY = 1
+	let _hasKSeries = false
+	let _kCrosshairVisible = false
+	let _lastKCrosshairX = 0
+
+	const _width = computed(() : string => checkIsCssUnit(props.width, xConfig.unit))
+	const _height = computed(() : string => checkIsCssUnit(props.height, xConfig.unit))
+	const _isDark = computed(() : boolean => xConfig.dark == 'dark')
+	const _titleColor = computed(() : string => _isDark.value ? '#e2e8f0' : '#111827')
+	const _legendColor = computed(() : string => _isDark.value ? '#a0aec0' : '#4b5563')
+	const getChartOptions = () : ChartOptions => {
+		const source = innerOptions.value ?? props.options
+		if (source == null) {
+			return {
+				data: [
+					{ month: '01', value: 23 } as UTSJSONObject, { month: '02', value: 35 } as UTSJSONObject,
+					{ month: '03', value: 18 } as UTSJSONObject, { month: '04', value: 42 } as UTSJSONObject,
+					{ month: '05', value: 31 } as UTSJSONObject, { month: '06', value: 27 } as UTSJSONObject
+				] as ChartDatum[],
+				series: [{ type: 'line', xField: 'month', yField: 'value' } as ChartSeriesOptions]
+			} as ChartOptions
+		}
+		return source
+	}
+	const _hasDataZoom = computed(() : boolean => {
+		const opts = getChartOptions()
+		return opts.dataZoom != null && (opts.dataZoom?.enabled ?? true)
+	})
+	const _zoomThumbLeft = computed(() : string => `${viewport.value.start * 100}%`)
+	const _zoomThumbWidth = computed(() : string => `${Math.max(8, (viewport.value.end - viewport.value.start) * 100)}%`)
+
+
+
+	const titleText = computed(() : string => {
+		const opts = getChartOptions()
+		if (opts.title?.show != true) return ''
+		return opts.title?.text ?? ''
+	})
+	const showLegend = computed(() : boolean => {
+		const opts = getChartOptions()
+		return opts.legend?.show ?? true
+	})
+	const hasHeader = computed(() : boolean => titleText.value != '' || (showLegend.value && legendItems.value.length > 0))
+	const isLegendHidden = (key : string) : boolean => hiddenLegendKeys.value.includes(key)
+
+	let drawChart : () => void = () => { }
+	let clearCrosshair : () => void = () => { }
+	let dismissTooltip : () => void = () => { }
+
+	const getPlotRect = (opts : ChartOptions, target : ICanvas) : PlotRect => {
+		const p = opts.padding
+		const isTransposed = opts.coord?.transposed ?? false
+		const xName = opts.xAxis?.axisName ?? ''
+		const yName = opts.yAxis?.axisName ?? ''
+		const hasTopName = isTransposed ? xName != '' : yName != ''
+		const hasBottomName = isTransposed ? yName != '' : xName != ''
+		const defTop = hasTopName ? 40 : 24
+		const defBottom = p?.bottom ?? (hasBottomName ? 38 : 28)
+		const defLeft = p?.left ?? 36
+		return {
+			left: defLeft, top: p?.top ?? defTop,
+			right: Math.max(defLeft + 1, target.boxWidth - (p?.right ?? 16)),
+			bottom: Math.max((p?.top ?? defTop) + 1, target.boxHeight - defBottom)
+		} as PlotRect
+	}
+
+	const clearRenderedShapes = () => {
+		for (let i = 0; i < renderedShapes.value.length; i++) chart.value.removeShape(renderedShapes.value[i])
+		renderedShapes.value = [] as Shape[]
+	}
+	const addShapes = (shapes : Shape[]) => {
+		for (let i = 0; i < shapes.length; i++) {
+			chart.value.addShape(shapes[i])
+			renderedShapes.value.push(shapes[i])
+		}
+	}
+
+	const updateLegendItems = (opts : ChartOptions, drawData : ChartDatum[]) => {
+		const items = [] as LegendItem[]
+		if (opts.series.length == 0) { legendItems.value = items; return }
+		const first = opts.series[0]
+		if (first.type == 'pie') {
+			const af = (first.angleField ?? '') != '' ? (first.angleField ?? '') : (first.yField ?? '')
+			const lf = (first.colorField ?? '') != '' ? (first.colorField ?? '') : (first.xField ?? '')
+			for (let i = 0; i < drawData.length; i++) {
+				const label = getDatumString(drawData[i], lf, `${i}`)
+				if (getDatumNumber(drawData[i], af, 0) <= 0) continue
+				items.push({ key: `pie:${label}`, kind: 'pie', label: label, color: getChartColor(i) } as LegendItem)
+			}
+		} else {
+			for (let i = 0; i < opts.series.length; i++) {
+				const s = opts.series[i]
+				// 金融指标：用专业名称 + 代表色（BOLL/ENV 取中轨颜色作为图例色）
+				if (s.type == 'indicator' && s.indicator != null) {
+					const ind = s.indicator!
+					const p = ind.period ?? 20
+					let name : string = ''
+					if (ind.kind == 'ma') {
+						name = `MA${p}`
+					} else if (ind.kind == 'ema') {
+						name = `EMA${p}`
+					} else if (ind.kind == 'boll') {
+						name = `BOLL(${p},${ind.k ?? 2})`
+					} else if (ind.kind == 'env') {
+						const dev = ind.deviation ?? 0.05
+						name = `ENV(${p},${Math.round(dev * 100)}%)`
+					} else {
+						name = ind.kind
+					}
+					const cs = ind.colors ?? [] as string[]
+					const indColor = cs.length > 0 ? cs[0] : (s.color ?? getChartColor(i))
+					items.push({ key: `series:${i}`, kind: 'series', label: name, color: indColor } as LegendItem)
+					continue
+				}
+				const color = s.color ?? getChartColor(i)
+				const seriesLabel = (s.yField ?? '') != '' ? (s.yField ?? '') : `${s.type}-${i + 1}`
+				items.push({ key: `series:${i}`, kind: 'series', label: seriesLabel, color: color } as LegendItem)
+			}
+		}
+		legendItems.value = items
+		const validKeys = items.map((el : LegendItem) : string => el.key)
+		hiddenLegendKeys.value = hiddenLegendKeys.value.filter((el : string) : boolean => validKeys.includes(el))
+	}
+	// #ifdef APP|WEB
+	let resizeObserver : UniResizeObserver | null = null
+	// #endif
+	let relayoutFixTid = 0
+	const scheduleRelayout = () => {
+		clearTimeout(relayoutTid)
+		clearTimeout(relayoutFixTid)
+		relayoutTid = setTimeout(() => {
+			if (!mountedOk.value) return
+			const ctx2 = chart.value.ctx
+			if (ctx2 == null) return
+			const c2 = ctx2.canvas
+			chart.value.resize()
+			drawChart()
+		}, 200)
+	}
+
+	const formatTooltipValue = (opts : ChartOptions, title : string, rawValue : string) : string => {
+		const fmt = opts.tooltip?.formatter ?? ''
+		if (fmt == '') return rawValue
+		return fmt.replace('{title}', title).replace('{value}', rawValue)
+	}
+
+	const setTooltip = (show : boolean, left : number, top : number, title : string, items : TooltipItem[]) => {
+		if (!show) { tooltip.value = { show: false, left: 0, top: 0, title: '', items: [] as TooltipItem[] } as TooltipState; return }
+		const parentY = chartBodyRefBoundx.value?.y??0
+		const parentX = chartBodyRefBoundx.value?.x??0
+		const boxW = Math.max(100, chart.value.boxWidth)
+		const boxH = Math.max(80, chart.value.boxHeight)
+		const tipW = 140
+		const tipH = 24 + items.length * 20
+		const isLeftHalf = left < boxW / 2
+		const safeLeft = isLeftHalf
+			? Math.min(boxW - tipW - 6, left + 8)
+			: Math.max(6, left - tipW - 8)
+		const safeTop = Math.max(6, Math.min(boxH - tipH - 6, top - tipH / 2))
+		tooltip.value = { show: true, left: safeLeft+parentX, top: safeTop+parentY, title: title, items: items } as TooltipState
+		if(chartBodyRefBoundx.value==null||(chartBodyRefBoundx.value?.y??0)==0){
+			chartBodyRef.value?.getBoundingClientRectAsync()?.then((rect:DOMRect)=>{
+				chartBodyRefBoundx.value =  rect;
+				const _parentY = chartBodyRefBoundx.value?.y??0
+				const _parentX = chartBodyRefBoundx.value?.x??0
+				tooltip.value.left +=  _parentX
+				tooltip.value.top +=  _parentY
+			})
+		}
+	}
+
+	const resetInteraction = () => {
+		setTooltip(false, 0, 0, '', [] as TooltipItem[])
+		activeType = ''
+		activeIndex = -1
+		clearCrosshair()
+	}
+
+	clearCrosshair = () => {
+		for (let i = 0; i < crosshairShapes.value.length; i++) chart.value.removeShape(crosshairShapes.value[i])
+		crosshairShapes.value = [] as Shape[]
+	}
+
+	const formatYAxisCrosshairLabel = (value : number) : string => {
+		const abs = Math.abs(value)
+		if (abs >= 100000000) return `${(value / 100000000).toFixed(2)}亿`
+		if (abs >= 10000) return `${(value / 10000).toFixed(2)}万`
+		if (abs >= 100) return `${Math.round(value)}`
+		return `${value.toFixed(2)}`
+	}
+
+	const drawCrosshair = (x : number, rect : PlotRect, y : number, xLabel : string) => {
+		clearCrosshair()
+		const opts = getChartOptions()
+		if (opts.tooltip?.showCrosshairs != true) return
+		const rs = _resolvedStyle
+		const isKMode = _hasKSeries && y >= 0
+		const userColor = opts.tooltip?.crosshairsColor ?? (opts.activeStyle?.crosshairColor ?? '')
+		let color = ''
+		if (userColor != '') {
+			color = userColor
+		} else if (isKMode) {
+			color = getThemePrimary()
+		} else if (rs != null) {
+			color = rs!.crosshairColor
+		} else {
+			color = _isDark.value ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.15)'
+		}
+		const chWidth = rs != null ? rs!.crosshairWidth : (opts.activeStyle?.crosshairWidth ?? 1)
+		const vline = new ILine({
+			pointStart: { x: x, y: rect.top },
+			pointEnd: { x: x, y: rect.bottom },
+			stroke: color,
+			strokeWidth: chWidth
+		}, chart.value)
+		chart.value.addShape(vline)
+		crosshairShapes.value.push(vline)
+
+		if (!_hasKSeries || y < 0) return
+
+		const hline = new ILine({
+			pointStart: { x: rect.left, y: y },
+			pointEnd: { x: rect.right, y: y },
+			stroke: color,
+			strokeWidth: chWidth
+		}, chart.value)
+		chart.value.addShape(hline)
+		crosshairShapes.value.push(hline)
+
+		const tipOpts = opts.tooltip
+		const bgColor = tipOpts?.axisLabelBgColor ?? getThemePrimary()
+		const textColor = tipOpts?.axisLabelTextColor ?? '#ffffff'
+		const fontSize = tipOpts?.axisLabelFontSize ?? 11
+		const padX = 6
+		const padY = 3
+		const boxH = fontSize + padY * 2
+
+		if (xLabel != '') {
+			const tw = measureTextW(xLabel, fontSize, chart.value.ctx)
+			const boxW = tw + padX * 2
+			let bx = x - boxW / 2
+			if (bx < rect.left - boxW / 2) bx = rect.left - boxW / 2
+			if (bx + boxW > rect.right + boxW / 2) bx = rect.right + boxW / 2 - boxW
+			const by = rect.bottom + 1
+			const xBg = new IRect({
+				x: bx, y: by, width: boxW, height: boxH,
+				fill: bgColor, radius: 3
+			}, chart.value)
+			let byf = by + (boxH - fontSize) / 2
+			// #ifdef APP-ANDROID
+			byf = by
+			// #endif
+			const xText = new IText({
+				x: bx, y:byf,
+				width: boxW, height: boxH,
+				text: xLabel, fill: textColor, fontSize: fontSize,
+				textAlign: 'center', textBaseline: 'top', lineHeight: 1
+			}, chart.value)
+			chart.value.addShape(xBg)
+			chart.value.addShape(xText)
+			crosshairShapes.value.push(xBg)
+			crosshairShapes.value.push(xText)
+		}
+
+		const yRatio = (rect.bottom - y) / Math.max(1, rect.bottom - rect.top)
+		const yVal = _cachedKMinY + (_cachedKMaxY - _cachedKMinY) * yRatio
+		const yLabel = formatYAxisCrosshairLabel(yVal)
+		const ytw = measureTextW(yLabel, fontSize, chart.value.ctx)
+		const yBoxW = ytw + padX * 2
+		let yBx = rect.left - yBoxW - 1
+		if (yBx < 0) yBx = 0
+		let yBy = y - boxH / 2
+	
+		if (yBy < rect.top) yBy = rect.top
+		if (yBy + boxH > rect.bottom) yBy = rect.bottom - boxH
+		const yBg = new IRect({
+			x: yBx, y: yBy, width: yBoxW, height: boxH,
+			fill: bgColor, radius: 3
+		}, chart.value)
+		let yByf = yBy + (boxH - fontSize) / 2
+		// #ifdef APP-ANDROID
+		yByf = yBy
+		// #endif
+		const yText = new IText({
+			x: yBx, y: yByf,
+			width: yBoxW, height: boxH,
+			text: yLabel, fill: textColor, fontSize: fontSize,
+			textAlign: 'center', textBaseline: 'top', lineHeight: 1
+		}, chart.value)
+		chart.value.addShape(yBg)
+		chart.value.addShape(yText)
+		crosshairShapes.value.push(yBg)
+		crosshairShapes.value.push(yText)
+	}
+
+	/** K 线触摸跟随：根据触点 x 定位 K 线，水平线吸附到收盘价位置 */
+	const updateKlineCrosshair = (touchX : number, _touchY : number) : boolean => {
+		if (!_hasKSeries) return false
+		if (_cachedRect == null) return false
+		const opts = getChartOptions()
+		const rect = _cachedRect!
+		const data = _cachedDrawData
+		if (data.length == 0) return false
+		const themeColor = getThemePrimary()
+		let xField = ''
+		for (let si = 0; si < opts.series.length; si++) {
+			if (opts.series[si].type == 'k') { xField = opts.series[si].xField ?? ''; break }
+		}
+		const band = (rect.right - rect.left) / data.length
+		let idx = Math.floor((touchX - rect.left) / Math.max(0.001, band))
+		if (idx < 0) idx = 0
+		if (idx >= data.length) idx = data.length - 1
+		const cx = rect.left + idx * band + band / 2
+		const record = data[idx]
+		const title = getDatumString(record, xField, `${idx}`)
+		const stV = getDatumNumber(record, 'start', 0)
+		const enV = getDatumNumber(record, 'end', 0)
+		const hiV = getDatumNumber(record, 'max', 0)
+		const loV = getDatumNumber(record, 'min', 0)
+		const yRange = _cachedKMaxY - _cachedKMinY
+		const plotH = rect.bottom - rect.top
+		const closeY = yRange > 0 ? rect.bottom - (enV - _cachedKMinY) / yRange * plotH : rect.top + plotH / 2
+		const items = [
+			{ color: themeColor, name: '开', value: `${stV}` } as TooltipItem,
+			{ color: themeColor, name: '收', value: `${enV}` } as TooltipItem,
+			{ color: themeColor, name: '高', value: `${hiV}` } as TooltipItem,
+			{ color: themeColor, name: '低', value: `${loV}` } as TooltipItem
+		] as TooltipItem[]
+		_lastKCrosshairX = touchX
+		setTooltip(true, cx, closeY, title, items)
+		drawCrosshair(cx, rect, closeY, title)
+		chart.value.render()
+		return true
+	}
+
+	let _hoverRedrawQueued = false
+	const onSeriesHover = (seriesType : string, index : number, x : number, y : number, title : string, rawValue : string, color : string) => {
+		if (!props.interactive) return
+		if (activeIndex == index && activeType == seriesType) return
+		_isHovering = true
+		activeType = seriesType
+		activeIndex = index
+		const opts = getChartOptions()
+		const displayValue = formatTooltipValue(opts, title, rawValue)
+		const items = [{ color: color, name: title, value: displayValue } as TooltipItem]
+		setTooltip(true, x, y, title, items)
+		if (!_hoverRedrawQueued) {
+			_hoverRedrawQueued = true
+			setTimeout(() => {
+				_hoverRedrawQueued = false
+				drawChart()
+			}, 50)
+		}
+	}
+
+	const onSeriesClick = (seriesType : string, index : number, x : number, y : number, title : string, rawValue : string, color : string) => {
+		if (!props.interactive) return
+		if (seriesType == '' || index == -1) {
+			dismissTooltip()
+			return
+		}
+		if (index == _clickedIndex && activeType == seriesType) {
+			_clickedIndex = -1
+			dismissTooltip()
+			return
+		}
+		_clickedIndex = index
+		_isHovering = false
+		const opts = getChartOptions()
+		if (opts.tooltip?.show == false) return
+		activeType = seriesType
+		activeIndex = index
+
+		const items = [] as TooltipItem[]
+		const hasPieOnly = opts.series.every((s : ChartSeriesOptions) : boolean => s.type == 'pie')
+
+		if (hasPieOnly || seriesType == 'pie') {
+			const displayValue = formatTooltipValue(opts, title, rawValue)
+			items.push({ color: color, name: title, value: displayValue } as TooltipItem)
+		} else if (seriesType == 'scatter') {
+			let drawData = opts.data
+			if (opts.dataZoom?.enabled ?? true) {
+				drawData = sliceByViewport(opts.data, viewport.value)
+			}
+			if (index >= 0 && index < drawData.length) {
+				const record = drawData[index]
+				for (let si = 0; si < opts.series.length; si++) {
+					if (isLegendHidden(`series:${si}`)) continue
+					const s = opts.series[si]
+					if (s.type != 'scatter') continue
+					const xf = s.xField ?? ''
+					const yf = s.yField ?? ''
+					if (xf == '' || yf == '') continue
+					const seriesColor = s.color ?? getChartColor(si)
+					const xv = getDatumNumber(record, xf, 0)
+					const yv = getDatumNumber(record, yf, 0)
+					const displayValue = formatTooltipValue(opts, title, `${xf}: ${xv}, ${yf}: ${yv}`)
+					items.push({ color: seriesColor, name: yf, value: displayValue } as TooltipItem)
+				}
+			}
+		} else if (seriesType == 'radar') {
+			const xf = opts.series.length > 0 ? (opts.series[0].xField ?? '') : ''
+			for (let di = 0; di < opts.data.length; di++) {
+				if (getDatumString(opts.data[di], xf, '') == title) {
+					for (let si = 0; si < opts.series.length; si++) {
+						if (isLegendHidden(`series:${si}`)) continue
+						const s = opts.series[si]
+						if (s.type != 'radar') continue
+						const yf = s.yField ?? ''
+						if (yf == '') continue
+						const seriesColor = s.color ?? getChartColor(si)
+						const val = getDatumNumber(opts.data[di], yf, 0)
+						const displayValue = formatTooltipValue(opts, title, `${yf}: ${val}`)
+						items.push({ color: seriesColor, name: yf, value: displayValue } as TooltipItem)
+					}
+					break
+				}
+			}
+		} else {
+			let drawData = opts.data
+			if (opts.dataZoom?.enabled ?? true) {
+				drawData = sliceByViewport(opts.data, viewport.value)
+			}
+			let record = null as ChartDatum | null
+			if (index >= 0 && index < drawData.length) {
+				record = drawData[index]
+			} else if (drawData.length > 0) {
+				const xf = opts.series.length > 0 ? (opts.series[0].xField ?? '') : ''
+				for (let di = 0; di < drawData.length; di++) {
+					if (getDatumString(drawData[di], xf, '') == title) {
+						record = drawData[di]
+						break
+					}
+				}
+			}
+			if (record != null) {
+				for (let si = 0; si < opts.series.length; si++) {
+					if (isLegendHidden(`series:${si}`)) continue
+					const s = opts.series[si]
+					if (!CARTESIAN_TYPES.includes(s.type)) continue
+					const yf = s.yField ?? ''
+					if (yf == '') continue
+					const seriesColor = s.color ?? getChartColor(si)
+					const val = getDatumNumber(record!, yf, 0)
+					const displayValue = formatTooltipValue(opts, title, `${yf}: ${val}`)
+					items.push({ color: seriesColor, name: yf, value: displayValue } as TooltipItem)
+				}
+			}
+		}
+
+		if (items.length == 0) {
+			const displayValue = formatTooltipValue(opts, title, rawValue)
+			items.push({ color: color, name: seriesType, value: displayValue } as TooltipItem)
+		}
+
+		setTooltip(true, x, y, title, items)
+		const rect = getPlotRect(opts, chart.value)
+		if (seriesType != 'k') {
+			drawCrosshair(x, rect, -1, '')
+		}
+
+		let clickRecord = null as ChartDatum | null
+		if (title != '') {
+			const xf0 = opts.series.length > 0 ? (opts.series[0].xField ?? (opts.series[0].colorField ?? '')) : ''
+			for (let di = 0; di < opts.data.length; di++) {
+				if (getDatumString(opts.data[di], xf0, `${di}`) == title) {
+					clickRecord = opts.data[di]
+					break
+				}
+			}
+		}
+		if (clickRecord == null && index >= 0 && index < opts.data.length) {
+			clickRecord = opts.data[index]
+		}
+
+		emits('click', {
+			seriesType: seriesType,
+			dataIndex: index,
+			title: title,
+			record: clickRecord,
+			data: opts.data
+		} as ChartClickEvent)
+		drawChart()
+	}
+
+	drawChart = () => {
+		if (!mountedOk.value) return
+		const rc = chart.value.ctx
+
+		if (rc != null) {
+			const el = rc!.canvas
+			if (el.offsetWidth > 2 && el.offsetHeight > 2) {
+				if (Math.abs(el.offsetWidth - chart.value.boxWidth) > 2 || Math.abs(el.offsetHeight - chart.value.boxHeight) > 2) {
+					chart.value.resize()
+				}
+			}
+		}
+		const opts = getChartOptions()
+		clearRenderedShapes()
+		const rawRect = getPlotRect(opts, chart.value)
+		// 副图（MACD / KDJ / RSI / VOL）布局：主图 bottom 上移让出空间；最下方副图底部紧贴 padding.bottom
+		const indPanels = opts.indicatorPanels ?? [] as IndicatorPanelOptions[]
+		const MAIN_PANEL_GAP : number = 30
+		const PANEL_GAP : number = 14
+		let totalPanelsH : number = 0
+		for (let pi = 0; pi < indPanels.length; pi++) totalPanelsH += (indPanels[pi].height ?? 90)
+		const panelGapsH : number = indPanels.length > 0 ? MAIN_PANEL_GAP + (indPanels.length - 1) * PANEL_GAP : 0
+		const rect : PlotRect = {
+			left: rawRect.left,
+			top: rawRect.top,
+			right: rawRect.right,
+			bottom: indPanels.length > 0 ? Math.max(rawRect.top + 50, rawRect.bottom - totalPanelsH - panelGapsH) : rawRect.bottom
+		}
+		const panelRects = [] as PlotRect[]
+		if (indPanels.length > 0) {
+			let y = rect.bottom + MAIN_PANEL_GAP
+			for (let pi = 0; pi < indPanels.length; pi++) {
+				const h = indPanels[pi].height ?? 90
+				panelRects.push({ left: rect.left, top: y, right: rect.right, bottom: y + h } as PlotRect)
+				y += h + PANEL_GAP
+			}
+		}
+		if (opts.series.length == 0) return
+
+		const hasPieOnly = opts.series.every((s : ChartSeriesOptions) : boolean => s.type == 'pie')
+		const hasMapOnly = opts.series.every((s : ChartSeriesOptions) : boolean => s.type == 'map')
+		const hasGaugeOnly = opts.series.every((s : ChartSeriesOptions) : boolean => s.type == 'gauge')
+		const skipCartesian = hasPieOnly || hasMapOnly || hasGaugeOnly
+		let drawData = opts.data
+		// 记录视口切片在"全量 opts.data"中的起止索引，供金融指标按全量计算后截取对齐
+		let sliceStartIdx : number = 0
+		let sliceEndIdx : number = opts.data.length - 1
+		const zoomEnabled = opts.dataZoom?.enabled ?? true
+		if (!skipCartesian && zoomEnabled) {
+			drawData = sliceByViewport(opts.data, viewport.value)
+			// 与 sliceByViewport 内部等价的索引计算，用于对齐指标全量→切片
+			const lastIdxVp = opts.data.length - 1
+			if (lastIdxVp >= 0) {
+				const vp = viewport.value
+				const vpStart = vp.start ?? 0
+				const vpEnd = vp.end ?? 1
+				sliceStartIdx = Math.max(0, Math.floor(lastIdxVp * vpStart))
+				sliceEndIdx = Math.min(lastIdxVp, Math.ceil(lastIdxVp * vpEnd))
+			}
+		}
+		// K 线 / 指标场景：跳过 LTTB 降采样。
+		// 1) K 线每根承载 OHLC 四元组，按单 yField 下采样会丢失信息
+		// 2) 指标按全量 opts.data 计算后按 sliceStartIdx/EndIdx 截取，必须与 drawData 索引严格对应
+		const hasKForDS = opts.series.some((s : ChartSeriesOptions) : boolean => s.type == 'k')
+		const hasIndicatorForDS = opts.series.some((s : ChartSeriesOptions) : boolean => s.type == 'indicator')
+		const maxRenderPoints = Math.max(100, Math.floor(chart.value.boxWidth > 0 ? chart.value.boxWidth : 300))
+		if (!skipCartesian && !hasKForDS && !hasIndicatorForDS && drawData.length > maxRenderPoints) {
+			const yf0 = opts.series.length > 0 ? (opts.series[0].yField ?? 'value') : 'value'
+			drawData = downsampleLTTB(drawData, maxRenderPoints, yf0)
+		}
+		updateLegendItems(opts, skipCartesian ? opts.data : drawData)
+
+		const yFields = [] as string[]
+		let firstXField = ''
+		const barEntries = [] as BarGroupEntry[]
+		let hasNonCartesian = false
+		for (let i = 0; i < opts.series.length; i++) {
+			const s = opts.series[i]
+			const st = s.type
+			// indicator 依附 K 线主图 y 轴，不走 merged 合并，但属于笛卡尔系，不触发 hit 事件模式切换
+			if (st != 'line' && st != 'bar' && st != 'area' && st != 'k' && st != 'indicator') hasNonCartesian = true
+			const vis = !isLegendHidden(`series:${i}`)
+			if (!vis) continue
+			if (!CARTESIAN_TYPES.includes(st) && st != 'k') continue
+			const yf = s.yField ?? ''
+			if (yf != '' && !yFields.includes(yf)) yFields.push(yf)
+			if (firstXField == '') firstXField = s.xField ?? ''
+			if (st == 'bar') barEntries.push({ series: s, seriesIdx: i, visible: true } as BarGroupEntry)
+		}
+		_cachedDrawData = drawData
+		_cachedRect = rect
+		_cachedXField = firstXField
+		_isCartesianOnly = !hasNonCartesian && opts.series.length > 0
+		_isTransposed = opts.coord?.transposed ?? false
+		if (_isCartesianOnly || hasMapOnly) {
+			chart.value.checkPointInHitEvents = ['longpress'] as CanvasEventType[]
+		} else {
+			chart.value.checkPointInHitEvents = ['down', 'move', 'up', 'cancel', 'click'] as CanvasEventType[]
+		}
+
+		let mergedDomain = [] as string[]
+		let mergedMinY = 0 as number
+		let mergedMaxY = 1 as number
+
+		if (barEntries.length > 1) {
+			const barRange = getBarGroupRange(drawData, barEntries)
+			mergedDomain = barRange.domain
+			mergedMinY = barRange.minY
+			mergedMaxY = barRange.maxY
+		}
+		const isTransposed = opts.coord?.transposed ?? false
+
+		if (yFields.length > 0 && firstXField != '') {
+			if (mergedDomain.length == 0) {
+				const merged = computeMergedYRange(drawData, yFields, firstXField)
+				mergedDomain = merged.domain
+				mergedMinY = merged.minY
+				mergedMaxY = merged.maxY
+			}
+			const yTickCount = opts.yAxis?.tickCount ?? 5
+			const yRange = resolveLinearAxisRange(mergedMinY, mergedMaxY, yTickCount)
+			mergedMinY = yRange.min
+			mergedMaxY = yRange.max
+
+			if (isTransposed) {
+				addShapes(drawTransposedAxes(chart.value, rect, mergedDomain, mergedMinY, mergedMaxY, opts.xAxis ?? null, opts.yAxis ?? null))
+			} else {
+				addShapes(drawCartesianAxes(chart.value, rect, mergedDomain, mergedMinY, mergedMaxY, opts.xAxis ?? null, opts.yAxis ?? null))
+			}
+		}
+
+		let scatterXMin = 0 as number
+		let scatterXMax = 1 as number
+		let scatterYMin = 0 as number
+		let scatterYMax = 1 as number
+		let hasScatter = false
+		for (let si = 0; si < opts.series.length; si++) {
+			if (opts.series[si].type != 'scatter') continue
+			if (isLegendHidden(`series:${si}`)) continue
+			hasScatter = true
+			const sr = getScatterRange(drawData, opts.series[si])
+			if (sr.xMin < scatterXMin || si == 0) scatterXMin = sr.xMin
+			if (sr.xMax > scatterXMax || si == 0) scatterXMax = sr.xMax
+			if (sr.yMin < scatterYMin || si == 0) scatterYMin = sr.yMin
+			if (sr.yMax > scatterYMax || si == 0) scatterYMax = sr.yMax
+		}
+		if (hasScatter) {
+			const sxTicks = buildLinearTicks(scatterXMin, scatterXMax, opts.xAxis?.tickCount ?? 5)
+			if (sxTicks.length > 1) { scatterXMin = sxTicks[0]; scatterXMax = sxTicks[sxTicks.length - 1] }
+			const syTicks = buildLinearTicks(scatterYMin, scatterYMax, opts.yAxis?.tickCount ?? 5)
+			if (syTicks.length > 1) { scatterYMin = syTicks[0]; scatterYMax = syTicks[syTicks.length - 1] }
+			addShapes(drawScatterAxes(chart.value, rect, scatterXMin, scatterXMax, scatterYMin, scatterYMax, opts.xAxis ?? null, opts.yAxis ?? null))
+		}
+
+		let kDomain = [] as string[]
+		let kMinY = 0 as number
+		let kMaxY = 1 as number
+		let hasK = false
+		for (let si = 0; si < opts.series.length; si++) {
+			if (opts.series[si].type != 'k') continue
+			hasK = true
+			const kr = getCandlestickRange(drawData, opts.series[si].xField ?? '')
+			kDomain = kr.domain
+			kMinY = kr.minY
+			kMaxY = kr.maxY
+		}
+
+		// 金融指标：必须对全量 opts.data 计算（MA/BOLL 的 NaN 前缀只能出现在最前期），
+		// 再按 sliceStartIdx/sliceEndIdx 截取成与 drawData 等长的段，
+		// 这样 pan/zoom 到后段时指标值在视口起点已经存在，不会永远空缺前 N 个位置。
+		// y 范围用"切片后"的值范围（而非全量），防止早期大幅波动撑大 y 轴。
+		const indicatorValueCache = new Map<number, IndicatorValueSet>()
+		if (hasK) {
+			for (let si = 0; si < opts.series.length; si++) {
+				const s = opts.series[si]
+				if (s.type != 'indicator' || s.indicator == null) continue
+				if (isLegendHidden(`series:${si}`)) continue
+				const fullVs = computeIndicatorValues(opts.data, s.indicator!)
+				const slicedLines = [] as number[][]
+				for (let li = 0; li < fullVs.lines.length; li++) {
+					const src = fullVs.lines[li]
+					const seg = [] as number[]
+					for (let j = sliceStartIdx; j <= sliceEndIdx && j < src.length; j++) {
+						seg.push(src[j])
+					}
+					slicedLines.push(seg)
+				}
+				const vs = { lines: slicedLines, labels: fullVs.labels } as IndicatorValueSet
+				indicatorValueCache.set(si, vs)
+				const r = getIndicatorYRange(vs)
+				if (!r.valid) continue
+				if (r.min < kMinY) kMinY = r.min
+				if (r.max > kMaxY) kMaxY = r.max
+			}
+		}
+
+		if (hasK) {
+			const kyTicks = buildLinearTicks(kMinY, kMaxY, opts.yAxis?.tickCount ?? 5)
+			if (kyTicks.length > 1) { kMinY = kyTicks[0]; kMaxY = kyTicks[kyTicks.length - 1] }
+			addShapes(drawCartesianAxes(chart.value, rect, kDomain, kMinY, kMaxY, opts.xAxis ?? null, opts.yAxis ?? null))
+		}
+		_hasKSeries = hasK
+		_cachedKMinY = kMinY
+		_cachedKMaxY = kMaxY
+
+		let barGroupRendered = false
+		resetRadarGrid()
+		const allRadarSeries = opts.series.filter((s : ChartSeriesOptions) : boolean => s.type == 'radar')
+		const radarGridFill = allRadarSeries.length > 0 && allRadarSeries.length <= 1
+		const _aType = activeType
+		const _aIdx = activeIndex
+		const _onClick = onSeriesClick
+		const _us = opts.activeStyle
+		const _dark = _isDark.value
+		const _aStyle = {
+			pointColor: _us?.pointColor ?? (_dark ? '#1e293b' : '#ffffff'),
+			pointBorderWidth: _us?.pointBorderWidth ?? 2,
+			pointScale: _us?.pointScale ?? 4,
+			backdrop: _us?.backdrop ?? (_dark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)'),
+			borderColor: _us?.borderColor ?? (_dark ? '#6d7888' : '#1f2937'),
+			borderWidth: _us?.borderWidth ?? 1,
+			pieScale: _us?.pieScale ?? 8,
+			crosshairWidth: _us?.crosshairWidth ?? 1,
+			crosshairColor: _us?.crosshairColor ?? (opts.tooltip?.crosshairsColor ?? (_dark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.15)')),
+			textColor: _dark ? '#e2e8f0' : '#111827',
+			textSubColor: _dark ? '#94a3b8' : '#6b7280'
+		} as ResolvedActiveStyle
+		_resolvedStyle = _aStyle
+		for (let i = 0; i < opts.series.length; i++) {
+			if (isLegendHidden(`series:${i}`)) continue
+			const item = opts.series[i]
+			if (item.type == 'area') {
+				addShapes(renderAreaSeries(chart.value, item, drawData, rect, i, { activeType: _aType, activeIndex: _aIdx, activeStyle: _aStyle, onClickPoint: _onClick }, mergedMinY, mergedMaxY))
+			} else if (item.type == 'line') {
+				addShapes(renderLineSeries(chart.value, item, drawData, rect, i, { activeType: _aType, activeIndex: _aIdx, activeStyle: _aStyle, onClickPoint: _onClick }, mergedMinY, mergedMaxY))
+			} else if (item.type == 'bar') {
+				if (barEntries.length > 1 && !barGroupRendered) {
+					addShapes(renderBarGroup(chart.value, barEntries, drawData, rect, { activeType: _aType, activeIndex: _aIdx, activeStyle: _aStyle, onClickPoint: _onClick }, isTransposed, mergedMinY, mergedMaxY))
+					barGroupRendered = true
+				} else if (barEntries.length <= 1) {
+					addShapes(renderBarSeries(chart.value, item, drawData, rect, i, { activeType: _aType, activeIndex: _aIdx, activeStyle: _aStyle, onClickPoint: _onClick }, isTransposed, mergedMinY, mergedMaxY))
+				}
+			} else if (item.type == 'pie') {
+				addShapes(renderPieSeries(chart.value, item, opts.data, rect, {
+					activeType: _aType, activeIndex: _aIdx, activeStyle: _aStyle,
+					isLegendHidden: isLegendHidden, onClickPoint: _onClick, onHoverPoint: onSeriesHover
+				}))
+			} else if (item.type == 'radar') {
+				const hasRadarArea = allRadarSeries.some((rs : ChartSeriesOptions) : boolean => (rs.areaOpacity ?? 0) > 0)
+				const radarGridType = hasRadarArea ? 'polygon' : 'arc'
+				addShapes(renderRadarSeries(chart.value, item, allRadarSeries, drawData, rect, i, radarGridFill, radarGridType, { activeType: _aType, activeIndex: _aIdx, activeStyle: _aStyle, onClickPoint: _onClick }))
+			} else if (item.type == 'scatter') {
+				addShapes(renderScatterSeries(chart.value, item, drawData, rect, i, scatterXMin, scatterXMax, scatterYMin, scatterYMax, { activeType: _aType, activeIndex: _aIdx, activeStyle: _aStyle, onClickPoint: _onClick }))
+			} else if (item.type == 'funnel') {
+				addShapes(renderFunnelSeries(chart.value, item, opts.data, rect, { activeType: _aType, activeIndex: _aIdx, activeStyle: _aStyle, onClickPoint: _onClick }))
+			} else if (item.type == 'sunburst') {
+				const sbValueField = item.yField ?? item.angleField ?? 'value'
+				addShapes(renderSunburstSeries(chart.value, opts.data, rect, sbValueField, { activeType: _aType, activeIndex: _aIdx, activeStyle: _aStyle, onClickPoint: _onClick }))
+			} else if (item.type == 'treemap') {
+				const tmValueField = item.yField ?? 'value'
+				addShapes(renderTreemapSeries(chart.value, opts.data, rect, tmValueField, { activeType: _aType, activeIndex: _aIdx, activeStyle: _aStyle, onClickPoint: _onClick }))
+			} else if (item.type == 'k') {
+				addShapes(renderCandlestickSeries(chart.value, item, drawData, rect, kDomain, kMinY, kMaxY, { activeType: _aType, activeIndex: _aIdx, activeStyle: _aStyle, onClickPoint: _onClick }))
+			} else if (item.type == 'indicator') {
+				const vs = indicatorValueCache.get(i)
+				if (vs != null) {
+					addShapes(renderIndicatorSeries(chart.value, item, drawData, rect, i, kMinY, kMaxY, vs!))
+				}
+			} else if (item.type == 'map') {
+				addShapes(renderMapSeries(chart.value, item, opts.data, rect, { activeType: _aType, activeIndex: _aIdx, activeStyle: _aStyle, onClickPoint: _onClick }))
+			} else if (item.type == 'gauge') {
+				addShapes(renderGaugeSeries(chart.value, item, opts.data, rect, { activeType: _aType, activeIndex: _aIdx, activeStyle: _aStyle, onClickPoint: _onClick }))
+			}
+		}
+
+		// 副图指标渲染（MACD / KDJ / RSI / VOL）
+		// 仅在存在 K 线时渲染；x 轴 band 用 K 线同一个 xField，严格与主图对齐
+		if (indPanels.length > 0 && hasK) {
+			let panelXField : string = ''
+			for (let si = 0; si < opts.series.length; si++) {
+				if (opts.series[si].type == 'k') { panelXField = opts.series[si].xField ?? ''; break }
+			}
+			for (let pi = 0; pi < indPanels.length; pi++) {
+				const pn = indPanels[pi]
+				const fullSet = computePanelValues(opts.data, pn)
+				const slicedSet = slicePanelValues(fullSet, sliceStartIdx, sliceEndIdx)
+				addShapes(renderPanelSeries(chart.value, pn, drawData, panelRects[pi], panelXField, slicedSet))
+			}
+		}
+
+		const animOpt = opts.animation
+		const entranceEnabled = animOpt?.entrance ?? true
+		let entranceMs = 500
+		if (animOpt != null) {
+			const d = animOpt.entranceDuration
+			if (d != null && d > 0) {
+				entranceMs = d
+			}
+		}
+		if (needsEntranceAnim) {
+			needsEntranceAnim = false
+			if (entranceEnabled) {
+				animateChartEntrance(chart.value, renderedShapes.value, entranceMs)
+			} else {
+				chart.value.render()
+			}
+		} else {
+			chart.value.render()
+		}
+		if (_kCrosshairVisible && _hasKSeries) {
+			updateKlineCrosshair(_lastKCrosshairX, 0)
+		}
+	}
+
+	dismissTooltip = () => {
+		_clickedIndex = -1
+		if (tooltip.value.show || activeIndex != -1) {
+			resetInteraction()
+			drawChart()
+		}
+	}
+	const toggleLegend = (item : LegendItem) => {
+		const idx = hiddenLegendKeys.value.indexOf(item.key)
+		if (idx == -1) hiddenLegendKeys.value.push(item.key)
+		else hiddenLegendKeys.value.splice(idx, 1)
+		resetInteraction()
+		drawChart()
+	}
+	const hitTestIdx = (touchX : number, touchY : number) : number => {
+		if (_cachedDrawData.length == 0 || _cachedRect == null) return -1
+		const n = _cachedDrawData.length
+		let pos = touchX
+		let start = _cachedRect!.left
+		let end = _cachedRect!.right
+		if (_isTransposed) {
+			pos = touchY
+			start = _cachedRect!.top
+			end = _cachedRect!.bottom
+		}
+		const band = (end - start) / n
+		if (band <= 0) return -1
+		const idx = Math.floor((pos - start) / band)
+		if (idx < 0) return 0
+		if (idx >= n) return n - 1
+		return idx
+	}
+
+	const selectByIndex = (idx : number, touchX : number, touchY : number, doEmit : boolean) : boolean => {
+		if (idx < 0 || _cachedRect == null || idx >= _cachedDrawData.length || _cachedXField == '') return false
+		const opts = getChartOptions()
+		const record = _cachedDrawData[idx]
+		const title = getDatumString(record, _cachedXField, `${idx}`)
+		let sType = 'line'
+		for (let si = 0; si < opts.series.length; si++) {
+			const st = opts.series[si].type
+			if (CARTESIAN_TYPES.includes(st) || st == 'k') { sType = st; break }
+		}
+		activeType = sType
+		activeIndex = idx
+		const items = [] as TooltipItem[]
+		for (let si = 0; si < opts.series.length; si++) {
+			if (isLegendHidden(`series:${si}`)) continue
+			const s = opts.series[si]
+			if (s.type == 'k') {
+				const kst = getDatumNumber(record, 'start', 0)
+				const ken = getDatumNumber(record, 'end', 0)
+				const khi = getDatumNumber(record, 'max', 0)
+				const klo = getDatumNumber(record, 'min', 0)
+				const kColor = ken >= kst ? '#F4333C' : '#1CA93D'
+				items.push({ color: kColor, name: '开', value: `开: ${kst}` } as TooltipItem)
+				items.push({ color: kColor, name: '收', value: `收: ${ken}` } as TooltipItem)
+				items.push({ color: kColor, name: '高', value: `高: ${khi}` } as TooltipItem)
+				items.push({ color: kColor, name: '低', value: `低: ${klo}` } as TooltipItem)
+				continue
+			}
+			if (!CARTESIAN_TYPES.includes(s.type)) continue
+			const yf = s.yField ?? ''
+			if (yf == '') continue
+			const seriesColor = s.color ?? getChartColor(si)
+			const val = getDatumNumber(record, yf, 0)
+			const displayValue = formatTooltipValue(opts, title, `${yf}: ${val}`)
+			items.push({ color: seriesColor, name: yf, value: displayValue } as TooltipItem)
+		}
+		if (items.length == 0) return false
+		const rect = _cachedRect!
+		const n = _cachedDrawData.length
+		if (_isTransposed) {
+			const band = (rect.bottom - rect.top) / n
+			const cy = rect.top + idx * band + band / 2
+			setTooltip(true, touchX, cy, title, items)
+		} else {
+			const band = (rect.right - rect.left) / n
+			const cx = rect.left + idx * band + band / 2
+			setTooltip(true, cx, touchY, title, items)
+			if (renderedShapes.value.length < 400) {
+				drawCrosshair(cx, rect, -1, '')
+				chart.value.render()
+			}
+		}
+		if (doEmit) {
+			emits('click', { seriesType: sType, dataIndex: idx, title: title, record: record, data: opts.data } as ChartClickEvent)
+		}
+		return true
+	}
+
+	const onPanStart = (event : ICanvasEvent) => {
+		const opts = getChartOptions()
+		const zoomEnabled = opts.dataZoom != null && (opts.dataZoom?.enabled ?? true)
+		const klineFollow = _hasKSeries && (opts.tooltip?.showCrosshairs == true)
+		if (klineFollow) {
+			if (_kCrosshairVisible) {
+				_kCrosshairVisible = false
+				clearCrosshair()
+				dismissTooltip()
+				chart.value.render()
+			} else {
+				_kCrosshairVisible = true
+				updateKlineCrosshair(event.x, event.y)
+			}
+		}
+		if (zoomEnabled) {
+			panStartX.value = event.x
+			panStartVp.value = { start: viewport.value.start, end: viewport.value.end } as DataViewport
+			return
+		}
+		if (!props.interactive || !_isCartesianOnly) return
+		_isDragSelecting = true
+		_dragHasMoved = false
+	}
+	const onPanMove = (event : ICanvasEvent) => {
+		if (_isDragSelecting) {
+			_dragHasMoved = true
+			const idx = hitTestIdx(event.x, event.y)
+			if (idx >= 0 && idx != activeIndex) selectByIndex(idx, event.x, event.y, true)
+			return
+		}
+		const opts = getChartOptions()
+		const zoomEnabled = opts.dataZoom != null && (opts.dataZoom?.enabled ?? true)
+		const klineFollow = _hasKSeries && (opts.tooltip?.showCrosshairs == true) && _kCrosshairVisible
+		if (zoomEnabled && panStartVp.value != null) {
+			if (!klineFollow) {
+				dismissTooltip()
+			}
+			const rect = getPlotRect(opts, chart.value)
+			const plotW = Math.max(1, rect.right - rect.left)
+			const span = panStartVp.value.end - panStartVp.value.start
+			const dx = event.x - panStartX.value
+			viewport.value = panViewport(panStartVp.value, -dx / plotW * span)
+			if (!panDrawQueued) {
+				panDrawQueued = true
+				const _evx = event.x
+				const _evy = event.y
+				setTimeout(() => {
+					panDrawQueued = false
+					drawChart()
+					if (klineFollow) {
+						updateKlineCrosshair(_evx, _evy)
+					}
+				}, 16)
+			} else if (klineFollow) {
+				updateKlineCrosshair(event.x, event.y)
+			}
+			const total = opts.data.length
+			const edgePx = 50
+			const edgeRatio = total > 0 ? edgePx / (plotW * total / Math.max(1, total * span)) : 0.02
+			if (viewport.value.start <= edgeRatio) {
+				if (!_edgeFiredStart) {
+					_edgeFiredStart = true
+					emits('reachEdge', { direction: 'start', start: viewport.value.start, end: viewport.value.end, total: total } as ChartEdgeEvent)
+				}
+			} else {
+				_edgeFiredStart = false
+			}
+			if (viewport.value.end >= 1 - edgeRatio) {
+				if (!_edgeFiredEnd) {
+					_edgeFiredEnd = true
+					emits('reachEdge', { direction: 'end', start: viewport.value.start, end: viewport.value.end, total: total } as ChartEdgeEvent)
+				}
+			} else {
+				_edgeFiredEnd = false
+			}
+			return
+		}
+		if (klineFollow && _kCrosshairVisible) {
+			updateKlineCrosshair(event.x, event.y)
+			return
+		}
+		if (_isCartesianOnly && props.interactive) {
+			const hIdx = hitTestIdx(event.x, event.y)
+			if (hIdx >= 0 && hIdx != activeIndex) {
+				_isHovering = true
+				selectByIndex(hIdx, event.x, event.y, false)
+			}
+		}
+	}
+	const onPanEnd = (_event : ICanvasEvent) => {
+		panStartVp.value = null
+		if (_isDragSelecting) {
+			_isDragSelecting = false
+			if (_dragHasMoved) drawChart()
+		}
+	}
+	const onCancel = (_event : ICanvasEvent) => {
+		panStartVp.value = null
+		if (_isDragSelecting) {
+			_isDragSelecting = false
+			_dragHasMoved = false
+		}
+		if (_isHovering) {
+			_isHovering = false
+			if (_clickedIndex == -1) {
+				resetInteraction()
+				drawChart()
+			}
+		}
+	}
+	const onChartClick = (event : ICanvasEvent) => {
+		if (!props.interactive) return
+		if (_dragHasMoved) { _dragHasMoved = false; return }
+		_isHovering = false
+		const opts2 = getChartOptions()
+		const hasMap2 = opts2.series.length > 0 && opts2.series[0].type == 'map'
+		if (hasMap2) {
+			const mIdx = hitTestMap(event.x, event.y)
+			if (mIdx >= 0) {
+				if (mIdx == _clickedIndex) {
+					_clickedIndex = -1
+					dismissTooltip()
+				} else {
+					_clickedIndex = mIdx
+					activeType = 'map'
+					activeIndex = mIdx
+					const mName = getMapFeatureName(mIdx)
+					const mCenter = getMapFeatureCenter(mIdx)
+					const mItems = [{ color: '#3b82f6', name: mName, value: mName } as TooltipItem]
+					setTooltip(true, mCenter[0], mCenter[1], mName, mItems)
+					emits('click', { seriesType: 'map', dataIndex: mIdx, title: mName, record: null, data: opts2.data } as ChartClickEvent)
+					drawChart()
+				}
+			} else {
+				dismissTooltip()
+			}
+			return
+		}
+		if (_isCartesianOnly) {
+			const idx = hitTestIdx(event.x, event.y)
+			if (idx >= 0) {
+				if (idx == _clickedIndex) {
+					_clickedIndex = -1
+					dismissTooltip()
+				} else {
+					_clickedIndex = idx
+					selectByIndex(idx, event.x, event.y, true)
+					drawChart()
+				}
+				return
+			}
+		}
+		if (event.target.length == 0) dismissTooltip()
+	}
+	const bindEvents = (event : any) => { chart.value.bindEvent(event) }
+
+	const initChart = () => {
+		chart.value.init().then(() => {
+			mountedOk.value = true
+
+			chart.value.preventTouchDefault = props.preventScroll
+			chart.value.checkPointInHitEvents = ['down', 'move', 'up', 'cancel', 'click']
+			chart.value.addEventListener('down', onPanStart)
+			chart.value.addEventListener('move', onPanMove)
+			chart.value.addEventListener('up', onPanEnd)
+			chart.value.addEventListener('cancel', onCancel)
+			chart.value.addEventListener('click', onChartClick)
+			const opts = getChartOptions()
+			viewport.value = { start: opts.dataZoom?.start ?? 0, end: opts.dataZoom?.end ?? 1 } as DataViewport
+			scheduleRelayout()
+			// #ifdef APP||WEB
+			const canvasEl = uni.getElementById(canvasId)
+			if (canvasEl != null) {
+				resizeObserver = new UniResizeObserver((entries : Array<UniResizeObserverEntry>) => {
+					chartBodyRefBoundx.value = null;
+					scheduleRelayout()
+				})
+				resizeObserver!.observe(canvasEl!)
+			}
+			// #endif
+		}).catch((e) => {
+			console.error('chart.value.init error:', e)
+		})
+	}
+
+	watch(() : ChartOptions | null => props.options, () => {
+		const opts = getChartOptions()
+		viewport.value = { start: opts.dataZoom?.start ?? 0, end: opts.dataZoom?.end ?? 1 } as DataViewport
+		hiddenLegendKeys.value = [] as string[]
+		resetInteraction()
+		stopAnimationsForChart(chart.value)
+		needsEntranceAnim = true
+		scheduleRelayout()
+	})
+
+	onMounted(() => {
+		// #ifndef APP-HARMONY
+		initChart()
+		// #endif
+		// #ifdef APP-HARMONY
+		relayoutTid = setTimeout(function () {
+			initChart()
+		}, 200);
+		// #endif
+	})
+	onBeforeUnmount(() => {
+		clearTimeout(relayoutTid)
+		clearTimeout(relayoutFixTid)
+		stopAnimationsForChart(chart.value)
+		// #ifdef APP|WEB
+		if (resizeObserver != null) {
+			resizeObserver!.disconnect()
+			resizeObserver = null
+		}
+		// #endif
+		chart.value.destroy()
+	})
+
+	defineExpose({
+		setOptions: (options : ChartOptions) => {
+			innerOptions.value = options
+			viewport.value = { start: options.dataZoom?.start ?? 0, end: options.dataZoom?.end ?? 1 } as DataViewport
+			hiddenLegendKeys.value = [] as string[]
+			resetInteraction()
+			stopAnimationsForChart(chart.value)
+			needsEntranceAnim = true
+			scheduleRelayout()
+		},
+		redraw: drawChart
+	})
+</script>
+
+<template>
+	<view class="x-chart">
+		<view v-if="hasHeader" class="x-chart-header">
+			<text v-if="titleText != ''" class="x-chart-title" :style="{ color: _titleColor }">{{ titleText }}</text>
+			<view v-if="showLegend&&legendItems.length>1" class="x-chart-legend">
+				<view class="x-chart-legend-item" :class="{ 'x-chart-legend-item--off': isLegendHidden(item.key) }"
+					v-for="(item, idx) in legendItems" :key="idx" @click="toggleLegend(item)">
+					<view class="x-chart-legend-dot" :style="{ backgroundColor: item.color }"></view>
+					<text class="x-chart-legend-text" :style="{ color: _legendColor }">{{ item.label }}</text>
+				</view>
+			</view>
+		</view>
+		<view class="x-chart-body" ref="chartBodyRef">
+			<canvas :style="{ width: _width, height: _height }" :id="canvasId" @click="bindEvents"
+				@touchstart="bindEvents" @touchmove="bindEvents" @touchend="bindEvents" @touchcancel="bindEvents"
+				@mousedown="bindEvents" @mousemove="bindEvents" @mouseup="bindEvents" <!-- #ifdef WEB -->
+				@mouseleave="bindEvents"
+				<!-- #endif -->
+
+				></canvas>
+			<view v-if="_hasDataZoom" class="x-chart-zoom-track">
+				<view class="x-chart-zoom-thumb" :style="{ left: _zoomThumbLeft, width: _zoomThumbWidth }"></view>
+			</view>
+			<view v-if="tooltip.show&&chartBodyRefBoundx!=null" class="x-chart-tooltip"
+				:style="{ left: tooltip.left + 'px', top: tooltip.top + 'px' }">
+				<text class="x-chart-tooltip-title">{{ tooltip.title }}</text>
+				<view class="x-chart-tooltip-row" v-for="(ti, tidx) in tooltip.items" :key="tidx">
+					<view class="x-chart-tooltip-dot" :style="{ backgroundColor: ti.color }"></view>
+					<text class="x-chart-tooltip-value">{{ ti.value }}</text>
+				</view>
+			</view>
+		</view>
+	</view>
+</template>
+
+<style scoped>
+	.x-chart {
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+	}
+
+	.x-chart-header {
+		padding: 8px 8px 0 8px;
+		
+	}
+
+	.x-chart-title {
+		font-size: 18px;
+		font-weight: bold;
+		text-align: center;
+	}
+
+	.x-chart-legend {
+		display: flex;
+		flex-direction: row;
+		flex-wrap: wrap;
+		margin-top: 10px;
+		justify-content: center;
+	}
+
+	.x-chart-legend-item {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		margin-right: 12px;
+		margin-bottom: 6px;
+	}
+
+	.x-chart-legend-item--off {
+		opacity: 0.35;
+	}
+
+	.x-chart-legend-dot {
+		width: 8px;
+		height: 8px;
+		border-radius: 4px;
+		margin-right: 4px;
+	}
+
+	.x-chart-legend-text {
+		font-size: 12px;
+		color: #4b5563;
+	}
+
+	.x-chart-body {
+		flex: 1;
+		position: relative;
+		overflow: hidden;
+	}
+
+	.x-chart-zoom-track {
+		position: absolute;
+		left: 36px;
+		right: 16px;
+		bottom: 2px;
+		height: 3px;
+		background-color: rgba(0, 0, 0, 0.06);
+		border-radius: 2px;
+		pointer-events: none;
+	}
+
+	.x-chart-zoom-thumb {
+		position: absolute;
+		top: 0;
+		height: 3px;
+		background-color: rgba(0, 0, 0, 0.2);
+		border-radius: 2px;
+	}
+
+	.x-chart-tooltip {
+		position: fixed;
+		min-width: 100px;
+		max-width: 200px;
+		background-color: rgba(0, 0, 0, 0.75);
+		border: 1px solid rgba(0, 0, 0, 0.5);
+		border-radius: 12px;
+		padding: 12px 16px;
+		pointer-events: none;
+	}
+
+	.x-chart-tooltip-title {
+		color: #f9fafb;
+		font-size: 12px;
+		font-weight: bold;
+	}
+
+	.x-chart-tooltip-row {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		margin-top: 4px;
+	}
+
+	.x-chart-tooltip-dot {
+		width: 8px;
+		height: 8px;
+		border-radius: 4px;
+		margin-right: 6px;
+	}
+
+	.x-chart-tooltip-value {
+		color: #e5e7eb;
+		font-size: 12px;
+		/* #ifndef APP-HARMONY */
+		white-space: break-spaces;
+		/* #endif */
+		flex: 1;
+	}
+</style>

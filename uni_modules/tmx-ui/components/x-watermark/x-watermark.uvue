@@ -1,0 +1,278 @@
+﻿<script lang="ts" setup>
+	import { ref, computed, watch, onMounted, onBeforeUnmount, getCurrentInstance } from "vue"
+	import { rpx2px, checkIsCssUnit } from "../../core/util/xCoreUtil.uts"
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { getUid } from '../../core/util/xCoreUtil.uts'
+	import { xConfig, xProvitae } from "../../config/xConfig.uts"
+
+	type POSITION = {
+		x : number,
+		y : number
+	}
+
+	/**
+	 * @name 水印 xWatermark
+	 * @description 适合需要保密，版权的页面使用，可自行调整透明度，颜色值等，方便打标签。
+	 * @page /pages/index/watermark
+	 * @category 展示组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({ name: "xWatermark" })
+
+	type xWatermarkPropsType = {
+		/** 水印文字 */
+		label : string,
+		/** 水印颜色 */
+		color : string,
+		/** 暗黑时的水印颜色 */
+		darkColor : string,
+		/** 文字大小 */
+		fontSize : string,
+		/** 渲染的水印之间的间隙，单位px */
+		gap : number,
+	}
+
+	const props = withDefaults(defineProps<xWatermarkPropsType>(), {
+		label: "XUI DESIGN",
+		color: "rgba(0,0,0,0.05)",
+		darkColor: "rgba(255,255,255,0.05)",
+		fontSize: "18",
+		gap: 40,
+	})
+
+	const instance = getCurrentInstance()
+
+	const id = ("xWatermark" + getUid()) as string
+	const width = ref<number>(0)
+	const height = ref<number>(0)
+	let textWidth = 0
+	let textHeight = 0
+	const devwidth = ref<number>(0)
+	const devheight = ref<number>(0)
+	let tid = 0
+	const windtop = ref<number>(0)
+
+	const _fontSize = computed(() : string => checkIsCssUnit(props.fontSize, xConfig.unit))
+
+	const _color = computed(() : string => {
+		if (xConfig.dark == 'dark') return props.darkColor
+		return getDefaultColor(props.color)
+	})
+
+	const _xProvitae_w = computed(() : number => xProvitae.windowInnerWidth)
+
+	function calcText() : POSITION[] {
+		let gap = props.gap
+		let item_w = textWidth + gap;
+		let item_h = textHeight + gap;
+		let maxCols = Math.ceil(width.value / item_w);
+		let maxRows = Math.ceil(height.value / item_h);
+		let pos = [] as POSITION[];
+		for (let i = 0; i < maxRows; i++) {
+			for (let j = 0; j < maxCols; j++) {
+				pos.push({ x: j * item_w, y: i * item_h } as POSITION)
+			}
+		}
+		return pos
+	}
+
+	async function drawer() : Promise<any | null> {
+		let canvas = uni.getElementById(id) as UniElement
+		let ctx = null as DrawableContext | null
+		let ratio = 1;
+		// #ifdef APP
+		ctx = canvas.getDrawableContext()!
+		// #endif
+		// #ifdef WEB
+		// @ts-ignore
+		let dom = canvas as HTMLElement;
+		canvas = dom.querySelector('canvas')
+		// @ts-ignore
+		ratio = window.devicePixelRatio;
+		let w = width.value
+		let h = height.value
+		// @ts-ignore
+		canvas.width = w * ratio
+		// @ts-ignore
+		canvas.height = h * ratio
+		// @ts-ignore
+		ctx = canvas.getContext('2d')!
+		// #endif
+
+		// #ifdef MP-WEIXIN
+		let ctxnode = await uni.createCanvasContextAsync({
+			id: id,
+			component: instance,
+		})
+		const canvasContext = ctxnode.getContext('2d')!;
+		canvas = canvasContext.canvas;
+		const dpr = uni.getWindowInfo()?.pixelRatio ?? 1;
+		canvas.width = canvas.offsetWidth * dpr;
+		canvas.height = canvas.offsetHeight * dpr;
+		canvasContext.scale(dpr, dpr);
+		ctx = canvasContext
+		// #endif
+
+		if (ctx == null) return Promise.resolve(null)
+
+		// #ifdef APP
+		ctx!.reset();
+		// #endif
+		// #ifdef MP||WEB
+		// @ts-ignore
+		ctx!.clearRect(0, 0, width.value * ratio, height.value * ratio)
+		// #endif
+
+		ctx!.font = _fontSize.value;
+
+		// #ifdef WEB || MP-WEIXIN
+		let font = 0;
+		if (_fontSize.value.indexOf('rpx') > -1) {
+			font = rpx2px(parseFloat(_fontSize.value)) * ratio
+		} else {
+			font = parseFloat(_fontSize.value) * ratio
+		}
+		ctx!.font = font.toString() + 'px Arial';
+		// #endif
+
+		ctx!.fillStyle = _color.value;
+		ctx!.textAlign = 'left';
+
+		let ar = calcText();
+		// #ifdef MP-WEIXIN
+		ctx.translate(width.value / 2, height.value / 2);
+		ctx.rotate((-45 * Math.PI) / 180);
+		ctx.translate(-width.value / 2, -height.value / 2);
+		// #endif
+		ar.forEach((el : POSITION) => {
+			ctx!.fillText(props.label, el.x * ratio, el.y * ratio);
+		})
+		// #ifdef APP
+		ctx!.update()
+		// #endif
+
+		return Promise.resolve(null)
+	}
+
+	function getNodes() {
+		uni.createSelectorQuery().in(instance!.proxy)
+			.select(".xWaterMarkText")
+			.boundingClientRect().exec((ret) => {
+				if (ret.length == 0) return;
+				let nodeinfo = ret[0] as NodeInfo;
+				if (nodeinfo == null) return;
+				textWidth = nodeinfo.width!;
+				textHeight = nodeinfo.height!;
+				drawer();
+			})
+	}
+
+	function reset() {
+		clearTimeout(tid)
+		tid = setTimeout(function () {
+			getNodes()
+		}, 100);
+	}
+
+	function resetDrawer() {
+		let sys = uni.getWindowInfo()
+		// #ifndef APP
+		width.value = sys.windowWidth
+		height.value = sys.windowHeight;
+		windtop.value = sys.windowTop;
+		// #endif
+		// #ifdef APP
+		width.value = sys.windowWidth
+		height.value = sys.windowHeight + 44;
+		// #endif
+		devwidth.value = sys.windowWidth
+		devheight.value = sys.windowHeight
+		let maxheight = Math.sqrt(width.value * width.value + height.value * height.value);
+		let maxwidth = Math.max(width.value, height.value);
+		width.value = maxwidth * 2;
+		height.value = maxheight * 2;
+		clearTimeout(tid)
+		tid = setTimeout(function () {
+			getNodes()
+		}, 100);
+	}
+
+	watch(() : string => props.label, () => { reset() })
+	watch(() : string => props.color, () => { reset() })
+	watch(() : string => props.fontSize, () => { reset() })
+	watch(() : number => props.gap, () => { reset() })
+	watch(_xProvitae_w, () => {
+		let sys = uni.getWindowInfo()
+		// #ifndef APP
+		width.value = sys.windowWidth
+		height.value = sys.windowHeight;
+		windtop.value = sys.windowTop;
+		// #endif
+		// #ifdef APP
+		width.value = sys.windowWidth
+		height.value = sys.windowHeight + 44;
+		// #endif
+	})
+
+	onMounted(() => {
+		// #ifndef APP-HARMONY
+		resetDrawer();
+		// #endif
+		// #ifdef APP-HARMONY
+		setTimeout(function () {
+			resetDrawer();
+		}, 150);
+		// #endif
+		uni.$on('onResize', resetDrawer)
+	})
+
+	onBeforeUnmount(() => {
+		clearTimeout(tid)
+		uni.$off('onResize', resetDrawer)
+	})
+</script>
+<template>
+
+	<!-- #ifdef APP -->
+	<view class="xWaterMark" :id="id" :style="{width:width+'px',height:height+'px',top:-(height-devheight)/2+'px',left:-(width-devwidth)/2+'px','transform-origin':`(${width/2}px,${height/2}px)`}">
+		<view>
+			<text class="xWaterMarkText" :style="{fontSize:_fontSize}">{{label}}</text>
+		</view>
+	</view>
+	<!-- #endif -->
+	<!-- #ifdef WEB || MP-WEIXIN -->
+	<view class="xWaterMark" :style="{width:width+'px',height:height+'px',top:-(height-devheight)/2+'px',left:-(width-devwidth)/2+'px','transform-origin':`(${width/2}px,${height/2}px)`}">
+		<text class="xWaterMarkText" :style="{fontSize:_fontSize}">{{label}}</text>
+		<canvas ref="xWaterMark" :id="id" :style="{width:width+'px',height:height+'px'}"></canvas>
+	</view>
+	<!-- #endif -->
+
+</template>
+<style scoped>
+	.xWaterMark {
+		pointer-events: none;
+		position: fixed;
+		z-index: 88;
+		left: 0px;
+		top: 0px;
+		display: flex;
+		flex-direction: row;
+		/* #ifdef APP-IOS || APP-ANDROID || WEB */
+		transform: rotate(-45deg);
+		/* #endif */
+	
+	}
+
+	.xWaterMarkText {
+		opacity: 0;
+		color: yellow;
+		background-color: #000000;
+		position: fixed;
+		left: 0;
+		top: 0;
+		pointer-events: none;
+	}
+</style>

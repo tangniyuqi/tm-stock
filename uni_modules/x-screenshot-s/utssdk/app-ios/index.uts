@@ -1,0 +1,124 @@
+import { UIButton, UIControl, UIImage, UIView, UIImageView, UIImageWriteToSavedPhotosAlbum, UIGraphicsImageRenderer, UIGraphicsImageRendererFormat } from "UIKit";
+import { URL, FileManager, NSAttributedString } from 'Foundation';
+import { XScreenshotOpts, XScreenshotResult, XScreenshotFormat } from "../interface.uts"
+import { XScreenshotImpl } from "../unierror.uts"
+
+function resolveFormat(opts : XScreenshotOpts) : XScreenshotFormat | null {
+	let format = opts.format ?? 'png'
+	if (format != 'png' && format != 'jpg') {
+		return null
+	}
+	return format
+}
+
+function savePhotoTocache(image : UIImage, format : XScreenshotFormat) : string {
+	let fileid = Math.random().toString(16).substring(2, 11);
+	let userDir = FileManager.default.urls(for = FileManager.SearchPathDirectory.cachesDirectory, in = FileManager.SearchPathDomainMask.userDomainMask).first!
+	let ext = format == 'jpg' ? '.jpg' : '.png'
+	let filename = fileid + ext;
+	let destinationURL = userDir.appendingPathComponent(filename)
+	let imageData = format == 'jpg' ? image.jpegData(compressionQuality = 1) : image.pngData()
+	if (imageData == null) return ""
+	let real = UTSiOS.try(imageData!.write(to = destinationURL), "?");
+	if (real == null) return ""
+	return destinationURL.path
+}
+
+function callbackSuccess(opts : XScreenshotOpts, path : string) {
+	const resultJg : XScreenshotResult = {
+		path: path
+	}
+	opts.success?.(resultJg)
+	opts.complete?.(resultJg)
+}
+
+function callbackFail(opts : XScreenshotOpts, errCode : number) {
+	opts.fail?.(new XScreenshotImpl(errCode))
+	opts.complete?.(null)
+}
+
+function createRendererFormat(format : XScreenshotFormat) : UIGraphicsImageRendererFormat {
+	let renderFormat = UIGraphicsImageRendererFormat()
+	renderFormat.opaque = format == 'jpg'
+	renderFormat.scale = 0
+	return renderFormat
+}
+
+function renderViewToPath(rootView : UIView, opts : XScreenshotOpts, format : XScreenshotFormat) {
+	if (rootView.bounds.size.width <= 0 || rootView.bounds.size.height <= 0) {
+		callbackFail(opts, 1004)
+		return
+	}
+	let size = rootView.bounds.size
+	let renderFormat = createRendererFormat(format)
+	let renderer = new UIGraphicsImageRenderer(size = size, format = renderFormat)
+	renderer.image(actions = (context : UIGraphicsImageRendererContext) => {
+		rootView.drawHierarchy(in = rootView.bounds, afterScreenUpdates = true)
+		let image = context.currentImage
+		let path = savePhotoTocache(image, format)
+		if (path == '') {
+			callbackFail(opts, 1001)
+			return
+		}
+		callbackSuccess(opts, path)
+	})
+}
+
+function getScreenImage(opts : XScreenshotOpts, format : XScreenshotFormat) {
+
+	if (UTSiOS.available("iOS 10.0, *")) {
+		try {
+			let parent = UTSiOS.getCurrentViewController() as UIViewController;
+			let rootView = parent.view as UIView
+			renderViewToPath(rootView, opts, format)
+		} catch (e) {
+			console.error("X-Screenshot Error:", e)
+			callbackFail(opts, 1002)
+		}
+	} else {
+		callbackFail(opts, 1006)
+	}
+
+}
+
+/**
+ * 获取窗口截图
+ */
+export function getRootShotImage(opts : XScreenshotOpts) {
+	let format = resolveFormat(opts)
+	if (format == null) {
+		callbackFail(opts, 1007)
+		return
+	}
+	getScreenImage(opts, format)
+}
+
+/**
+ * 获取指定元素截图
+ */
+export function getElementShotImage(opts : XScreenshotOpts) {
+	let format = resolveFormat(opts)
+	if (format == null) {
+		callbackFail(opts, 1007)
+		return
+	}
+	if (opts.ele == null) {
+		callbackFail(opts, 1003)
+		return;
+	}
+	if (UTSiOS.available("iOS 10.0, *")) {
+		try {
+			let view = opts.ele!.getIOSView() as UIView | null;
+			if (view == null) {
+				callbackFail(opts, 1003)
+				return;
+			}
+			renderViewToPath(view!, opts, format)
+		} catch (e) {
+			console.error("X-Screenshot Error:", e)
+			callbackFail(opts, 1002)
+		}
+	} else {
+		callbackFail(opts, 1006)
+	}
+}

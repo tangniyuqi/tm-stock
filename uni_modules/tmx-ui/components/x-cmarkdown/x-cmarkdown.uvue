@@ -1,0 +1,129 @@
+<template>
+	<view>
+		<x-cmarkdown-item :value="mdContent"
+		:codeTheme="props.codeTheme"
+		:codeThemeMode="props.codeThemeMode"
+		:previewImage="props.previewImage"
+		:showCodeToolbar="props.showCodeToolbar"
+		:showTableRipple="props.showTableRipple"
+		:linkAndCopyColor="props.linkAndCopyColor"
+		:fontSize="_fontSize"
+		@link="linkClick"
+		@image="imgClick"
+		></x-cmarkdown-item>
+	
+	</view>
+</template>
+
+<script setup lang="ts">
+	import { md2json, initCmark ,MarkdownToken,ParseMdRes } from "@/uni_modules/uni-cmark"
+	import {HtmlParser} from "./htmlParser.uts"
+	import { toFillMarginAr, checkIsCssUnit, getUnit } from "../../core/util/xCoreUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	/**
+	 * @name markdown xCmarkdown
+	 * @description markdown组件,可以用来渲染标签的html文章或者纯Markdown或者markdown+简单的html标签混合渲染，与原x-markdown不同，采用官方原生c库实现解析速度超猛。
+	 * 并且是纯原生渲染，不再是webview渲染了，因此渲染速度也超快。并且为了兼容和生成截图的需求，针对官方C库解析扩展了相关的功能
+	 * 1、允许你在markdown中输入简单的html标签，以控制一些文本样式：比如颜色，背景字号等行内样式。2、允许启用isHtml纯html解析，当你启用html解析时它的技术路径是
+	 * 参考微信小程序支持的标签过滤掉不支持的标签，和删除属性，再进行原生渲染，因此理论上说纯html会比较快解析的数量要少。
+	 * [此组件依赖uni-cmark插件可在代码仓库下载]
+	 * @page /pages/zhanshi/cmarkdown
+	 * @category 展示组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑ | ☑ | ☑ | ☑ | 4.76+ | 1.1.20+ |
+	 */
+	defineOptions({ name: "xCmarkdown" })
+	type xCmarkdownType = {
+		value:string,
+		/**代码块的主题，目前提供github，vscode ，jetbrains，dracula，solarized*/
+		codeTheme : "github" | "vscode" | "jetbrains" | "dracula" | "monokai" | "solarized",
+		/** 代码块主题，以什么样式主题输出，auto:自动跟随全局主题，light:使用亮系配色，dark:使用暗系配色 */
+		codeThemeMode : "auto" | "light" | "dark",
+		/** 预览图片 */
+		previewImage:boolean,
+		/** 是否显示代码复制工具栏 */
+		showCodeToolbar:boolean,
+		/** 显示表格波纹背景 */
+		showTableRipple:boolean,
+		/** 链接及复制的主色，空取全值 */
+		linkAndCopyColor:string,
+		/**
+		 * 是否是纯html，它会先把html内容解析为标签的Markdown格式，删除不支持的标签，删除所有属性和样式，统一样式
+		 * 如果你需要指定文本颜色可以使用行内html块比如<span style="color:red;">我是内容</span>,仅支持行内样式。
+		 */
+		isHtml:boolean,
+		/** 默认的字号,它是文本字号，不包含其它特殊的文本字号，如果有标签内的样式字号此处会失效 */
+		fontSize:string
+	}
+	const props = withDefaults(defineProps<xCmarkdownType>(), {
+		value: "",
+		codeTheme: 'jetbrains',
+		codeThemeMode: 'auto',
+		previewImage:true,
+		showCodeToolbar:true,
+		showTableRipple:true,
+		linkAndCopyColor:'',
+		isHtml:false,
+		fontSize:"16px"
+	})
+	const emit = defineEmits([
+		/**
+		 * 连接被点击
+		 * @param {string}  val 点击后的链接
+		 */
+		'link',
+		/**
+		 * 图片被点击
+		 * @param {string}  val 点击后的链接
+		 */
+		'image'
+	])
+	const mdContent = ref<MarkdownToken[]>([])
+	const _fontSize = computed(():string => checkIsCssUnit(props.fontSize, xConfig.unit))
+	const pareMd = (val:string)=>{
+		if(props.isHtml){
+			mdContent.value = new HtmlParser(val).parse()
+		}else{
+			initCmark().then(()=>{
+				let d = new Date().getTime()
+				const md:ParseMdRes = md2json(val.replace(/\<br\>/g,''));
+				// #ifndef APP-IOS
+				if(md.errorMsg!=''){
+					console.error(md.errorMsg)
+					return;
+				}
+				mdContent.value = md.data as MarkdownToken[]
+				// #endif
+				// #ifdef APP-IOS
+				if(md.errorMsg!=''&&md.errorMsg!=undefined){
+					console.error(md.errorMsg)
+					return;
+				}
+				mdContent.value = JSON.parse<MarkdownToken[]>(md)
+				// #endif
+			})
+		}
+		
+	}
+	
+	watch(():string => props.value,(newval:string)=>{
+		pareMd(newval)
+	})
+	const linkClick = (url:string) =>{
+		console.log(url,'link')
+	}
+	const imgClick = (url:string) =>{
+		console.log(url,'imgClick')
+	}
+	onMounted(()=>{
+		if(props.value.trim()!=''){
+			pareMd(props.value)
+		}
+	})
+</script>
+
+<style>
+
+</style>

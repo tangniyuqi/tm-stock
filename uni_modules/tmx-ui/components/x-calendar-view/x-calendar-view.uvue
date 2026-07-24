@@ -1,0 +1,691 @@
+<script lang="ts" setup>
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	import { xDate } from "../../core/util/xDate.uts"
+	import { xCalendarDateStyle_type, xCalendarDateStyleStatusType } from "../../interface.uts"
+	import { xCalendar } from "./xCalendar"
+	import calendarMultipleUvue from "./calendar-multiple.uvue"
+	import { xDateArrayItemType } from "../x-calendar-view/interface.uts"
+	const i18n = xConfig.i18n;
+	
+	type xCalendarMultiplePropsType = {
+		/**
+		 * 同步当前时间v-model
+		 * 不想受控:model-value
+		 */
+		modelValue : string,
+		/**
+		 * day:固定此值
+		 */
+		model : "day" | "range" | "week" | "quarter" | "year",
+	
+		/**
+		 * 禁用的日期字符串如"2023-12-12"
+		 * 它与下面的start，end不冲突。
+		 */
+		disabledDays : string[],
+		/**
+		 * 是否禁用用户交互，相当于展示日期。
+		 */
+		disabled:boolean,
+		/**
+		 * 是否上下切换日历
+		 */
+		vertical:boolean,
+		/**
+		 * 允许选择的开始日期
+		 */
+		startDate : string,
+		/**
+		 * 允许选择的结束日期
+		 */
+		endDate : string,
+		/**
+		 * 设置指定日期的样式
+		 * 数据类型见：xCalendarDateStyle_type
+		 */
+		dateStyle : xCalendarDateStyle_type[],
+		/**
+		 * 同步vmodel时格式化模板
+		 */
+		format : string,
+		/**
+		 * 选中的主题色，默认空值，取全局主题色
+		 * 如果提供了dateStyle，以dateStyle为准
+		 */
+		color : string,
+		/**
+		 * 默认的文字颜色
+		 * 如果提供了dateStyle，以dateStyle为准
+		 */
+		fontColor : string,
+		/**
+		 * 默认的暗黑文字颜色
+		 * 如果提供了dateStyle，以dateStyle为准
+		 */
+		fontDarkColor : string,
+		/**
+		 * 默认选中时的文字颜色
+		 * 如果提供了dateStyle，以dateStyle为准
+		 */
+		activeFontColor : string,
+		/**
+		 * 范围选中时,范围中间的选中颜色,
+		 * 如果为空,为color的透明度0.5;
+		 */
+		rangColor : string,
+		rangFontColor : string,
+		/**
+		 * 头的背景颜色，默认为透明
+		 */
+		headBgColor : string,
+		/**
+		 * 头的文字颜色，提供了后暗黑失效会以这个为准。
+		 */
+		headFontColor : string,
+		/**
+		 * 头部自定义样式。
+		 */
+		headStyle : string,
+		/**
+		 * 循环渲染时，是否只渲染当前面板（如果你在pad等10年前的低端机上渲染日历有压力请打开此值为true)
+		 * 关闭后可以提升滑动体验。
+		 */
+		renderOnly:boolean,
+		/**
+		 * 你当前的一周的第一天的索引值是几：0: 周一，1: 周二，2: 周三，3: 周四，4: 周五，5: 周六，6: 周日
+		 */
+		seekDay:number,
+		/**
+		 * 给日期设定状态
+		 * 类型为：xCalendarDateStyleStatusType
+		 */
+		dateStatus:xCalendarDateStyleStatusType[]
+	}
+	
+	/**
+	 * @name 日历 xCalendar
+	 * @page /pages/index/calendar-view
+	 * @category 表单组件
+	 * @description 日历面板，支持指定日期新式设置，角标，底部文本设置等暂不同时支持多选，因为不支持联合类型后期需要分开组件使用。
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| - | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({name:"xCalendarMultiple"})
+	const calendar = new xCalendar()
+	const emit = defineEmits([
+		/**
+		 * 时间变化时触发
+		 * @param {string[]} value - 当前变化的日期
+		 */
+		'change', 
+		/**
+		 * 当前日历面板的日期被点击时触发
+		 * @param {string} value - 当前被点击的日期
+		 */
+		'click', 
+		/**
+		 * 当前激活面板月份改变时触发（就是当前看到的月份面板）
+		 * @param {string} value - 当前激活面板的日期
+		 */
+		'currentChange', 
+		/**
+		 * 同步当前的选中的日期绑定
+		 * @param {string[]} value - 当前选中日期
+		 */
+		'update:modelValue', 
+		/**
+		 * 同步当前查看的月份日期，请以日期形式提供值
+		 * @param {string} value - 当前查看的月分日期
+		 */
+		'update:currentDate'
+		])
+	const props = withDefaults(defineProps<xCalendarMultiplePropsType>(), {
+		modelValue: "",
+		model: 'day',
+		disabledDays:():string[] => [] as string[],
+		disabled:false,
+		vertical:false,
+		startDate: '1900-1-1',
+		endDate: '2100-1-1',
+		dateStyle: ():xCalendarDateStyle_type[] => [] as xCalendarDateStyle_type[],
+		format: 'YYYY-MM-DD',
+		color: '',
+		fontColor: '#333333',
+		fontDarkColor: '#ffffff',
+		activeFontColor: '#ffffff',
+		rangColor: '',
+		rangFontColor: '',
+		headBgColor: 'transparent',
+		headFontColor: '',
+		headStyle: '',
+		renderOnly:true,
+		seekDay:0,
+		dateStatus:():xCalendarDateStyleStatusType[] => [] as xCalendarDateStyleStatusType[]
+	})
+	const xCalendarViewCalendarBodyRef = ref<UniElement|null>(null)
+	const bodyHeight = ref('auto')
+	// #ifndef APP-HARMONY
+	bodyHeight.value = '100%'
+	// #endif
+	let bodyGetHeightTid = 256
+	const durtion = ref(300)
+	const weeksCn = computed(() : string[] => {
+		// ["周一", "周二", "周三", "周四", "周五", "周六", "周日"] 
+		// 根据 seekDay 属性调整周名称的顺序
+		const weekNames = [
+			i18n!.t("tmui4x.calendar.week",0),
+			i18n!.t("tmui4x.calendar.week",1),
+			i18n!.t("tmui4x.calendar.week",2),
+			i18n!.t("tmui4x.calendar.week",3),
+			i18n!.t("tmui4x.calendar.week",4),
+			i18n!.t("tmui4x.calendar.week",5),
+			i18n!.t("tmui4x.calendar.week",6),
+		]
+		// 如果 seekDay 为 0（默认周一），直接返回原数组
+		if (props.seekDay == 0) {
+			return weekNames
+		}
+		// 根据 seekDay 重新排列数组
+		const result: string[] = []
+		for (let i = 0; i < 7; i++) {
+			const index = (i + props.seekDay) % 7
+			result.push(weekNames[index])
+		}
+		return result
+	})
+	const _headBgColor = computed(() : string => getDefaultColor(props.headBgColor))
+	const _headFontColor = computed(() : string => {
+		if (props.headFontColor == '') return '#333333'
+		return getDefaultColor(props.headFontColor)
+	})
+
+	const _modelValue = ref(props.modelValue)
+	const _currentDate = ref(new xDate(props.modelValue).format("YYYY-MM-DD"))
+	const _currentDateSwipersIndex = ref(0)
+	
+	const _currentDateSwipers = ref<string[]>([])
+	const _currentDateLabel = computed(() : string => {
+		let ars = _currentDate.value.split('-');
+		// `${ars[0]}年${ars[1]}月`
+		return i18n.t('tmui4x.calendar.titleCurrentMonth',[ars[0],ars[1]] as string[])
+	})
+	const _currentYear = ref(new xDate(props.modelValue).getYear())
+	let _modelValueDate = computed(() : Date => {
+		if(_modelValue.value=="") return new Date(_currentDate.value.replace(/-/g, '/'));
+		return new Date(_modelValue.value.replace(/-/g, '/'))
+	})
+	const _tipsText = computed(() : string => {
+		// 		return _modelValue.value!='' ? `已选择` : '未选择日期'
+		return _modelValue.value!='' ? (i18n.t('tmui4x.calendar.selectedStatus',2)+": "+_modelValue.value) : i18n.t('tmui4x.calendar.selectedStatus',1)
+	})
+
+	const _monthBgColor = computed(() : string => xConfig.dark == 'dark' ? xConfig.sheetDarkColor : '#ffffff')
+	const _color = computed(() : string => props.color == '' ? getDefaultColor(xConfig.color) : getDefaultColor(props.color))
+	
+	const showPanel = ref(false)
+	function dateClick(item : xDateArrayItemType) {
+		const isInselected = calendar.isInCurrente(new Date(item.date.date), _modelValueDate.value)
+		emit('click', new xDate(item.date.date).format('YYYY-MM-DD'))
+		if(props.disabled) return;
+		
+		let dates = ''
+		if(_modelValue.value==''){
+			dates = item.date.date
+		}else{
+			dates = isInselected?'':item.date.date
+		}
+		const nowFormat = new xDate(dates).format(props.format)
+		_modelValue.value = dates
+		
+		emit('update:modelValue',dates==''?'':nowFormat)
+		emit('change', dates==''?'':nowFormat)
+	}
+	function getSwiperListCurrentDates(nowCurrentDate:string):string[]{
+		let index = _currentDateSwipersIndex.value
+		let currentData = new xDate(nowCurrentDate)
+		
+		let xd = currentData.getClone().setDateOf(1,'d').format('YYYY-MM-DD')
+		let start = currentData.getClone().setDateOf(1,'d').subtraction(1,'m').format('YYYY-MM-DD')
+		let end = currentData.getClone().setDateOf(1,'d').add(1,'m').format('YYYY-MM-DD')
+		let datas = [xd,end,start]
+		
+		if(_currentDateSwipers.value.length == 0) return datas;
+		if(index==0){
+			datas = [xd,end,start]
+		}else if(index==1){
+			datas = [start,xd,end]
+		}else if(index==2){
+			datas = [end,start,xd]
+		}
+		return datas;
+	}
+	function clear() {
+		if (_modelValue.value == "") return;
+		_modelValue.value = ""
+		emit('update:modelValue', _modelValue.value)
+		emit('change', _modelValue.value)
+	}
+
+	function nowMonth() {
+		let nowdate = new xDate()
+		_currentDate.value = nowdate.format("YYYY-MM-DD")
+		_currentYear.value = nowdate.getYear()
+		_currentDateSwipers.value = getSwiperListCurrentDates(_currentDate.value);
+		emit('currentChange', _currentDate.value)
+		emit('update:currentDate', _currentDate.value)
+	}
+
+	function stepperChangeYear(eyear : number) {
+		let nowdate = new xDate(_currentDate.value)
+		nowdate.setDateOf(eyear, 'y')
+		_currentDate.value = nowdate.format("YYYY-MM-DD")
+		_currentDateSwipers.value = getSwiperListCurrentDates(_currentDate.value);
+		emit('currentChange', _currentDate.value)
+		emit('update:currentDate', _currentDate.value)
+	}
+
+	function changeMonth(eyear : number) {
+		let nowdate = new xDate(_currentDate.value)
+		nowdate.setDateOf(eyear, 'm')
+		_currentDate.value = nowdate.format("YYYY-MM-DD")
+		_currentYear.value = nowdate.getYear()
+		showPanel.value = false;
+		emit('currentChange', _currentDate.value)
+		emit('update:currentDate', _currentDate.value)
+		_currentDateSwipers.value = getSwiperListCurrentDates(_currentDate.value);
+	}
+	function nextMonth() {
+		let nowdate = new xDate(_currentDate.value)
+		nowdate.add(1, 'm')
+		_currentDate.value = nowdate.format("YYYY-MM-DD")
+		_currentYear.value = nowdate.getYear()
+		_currentDateSwipers.value = getSwiperListCurrentDates(_currentDate.value);
+		emit('currentChange', _currentDate.value)
+		emit('update:currentDate', _currentDate.value)
+	}
+	function prevMonth() {
+		let nowdate = new xDate(_currentDate.value)
+		nowdate.subtraction(1, 'm')
+		_currentDate.value = nowdate.format("YYYY-MM-DD")
+		_currentYear.value = nowdate.getYear()
+		_currentDateSwipers.value = getSwiperListCurrentDates(_currentDate.value);
+		emit('currentChange', _currentDate.value)
+		emit('update:currentDate', _currentDate.value)
+	}
+	
+	function swiperChange(evt:UniSwiperChangeEvent){
+		_currentDateSwipersIndex.value = evt.detail.current;
+		nextTick(()=>{
+			_currentDate.value = _currentDateSwipers.value[ evt.detail.current]
+			_currentDateSwipers.value = getSwiperListCurrentDates(_currentDate.value);
+			let nowdate = new xDate(_currentDate.value)
+			_currentYear.value = nowdate.getYear()
+			emit('currentChange', _currentDate.value)
+			emit('update:currentDate', _currentDate.value)
+			durtion.value = 300
+		})
+	}
+	
+	watch(() : string => props.modelValue, (newVal:string) => {
+		_modelValue.value = props.modelValue;
+		if(newVal!=""){
+			let nowdate = new xDate(newVal).setDateOf(1,'d')
+			let nowcurrentDate = nowdate
+			if(nowcurrentDate.format("YYYY-MM-DD") == _currentDate.value) return;
+			_currentDate.value = nowcurrentDate.format("YYYY-MM-DD")
+			_currentYear.value = nowcurrentDate.getYear()
+			_currentDateSwipersIndex.value = 0;
+			_currentDateSwipers.value = getSwiperListCurrentDates(_currentDate.value);
+		}
+		durtion.value = 0;
+		
+		
+	})
+	
+	function getCalendarBodyNodes(){
+		// #ifdef APP-HARMONY
+		clearTimeout(bodyGetHeightTid)
+		bodyGetHeightTid = setTimeout(function() {
+			xCalendarViewCalendarBodyRef.value?.getBoundingClientRectAsync()
+			?.then((domrect:DOMRect)=>{
+				let h = domrect.height;
+				bodyHeight.value = h==null||h==0?'100%':`${h}px`;
+			}).catch(er=>{
+				console.error("TMUI ERROR",er)
+			})
+		}, 150);
+		// #endif
+	}
+	
+	onMounted(() => {
+		if (props.modelValue !="") {
+			let nowdate = new xDate(props.modelValue)
+			_currentDate.value = nowdate.format("YYYY-MM-DD")
+			_currentYear.value = nowdate.getYear()
+		}
+		nextTick(()=>{
+			_currentDateSwipers.value = getSwiperListCurrentDates(_currentDate.value);
+			emit('update:currentDate', _currentDate.value)
+			getCalendarBodyNodes()
+		})
+		
+	})
+	
+	function getmonth(item:string):number{
+		let vls = item.split("-");
+		return parseInt(vls[1])
+	}
+	
+	defineExpose({
+		/**
+		 * 下月
+		 */
+		next(){
+			nextMonth();
+		},
+		/**
+		 * 上月
+		 */
+		prev(){
+			prevMonth();
+		},
+		/**
+		 * 设置日历返回到本月
+		 */
+		setCurrentMonth(){
+			nowMonth()
+		},
+		/**
+		 * 清空选择
+		 */
+		clear(){
+			clear()
+		}
+	})
+</script>
+<template>
+	<view class="xCalendarView">
+		<!--
+		 @slot 日历头，隐藏使用空插槽，将隐藏，如果想自定，请通过ref函数来翻页控制日历走向。
+		 -->
+		<slot name="header">
+			<view class="xCalendarViewDataHeaderWrap" :class="[showPanel?'xCalendarViewMonthOff':'xCalendarViewMonthOn']"
+				:style="[{backgroundColor:_headBgColor},headStyle]">
+				<view class="xCalendarViewHeader" style="padding: 0 12px">
+					<view @click="showPanel= !showPanel" class="xCalendarViewHeaderLeft">
+						<!-- 2024年5月 -->
+						<x-text :color="_headFontColor" font-size="21">{{_currentDateLabel}}</x-text>
+						<x-icon :color="_headFontColor" font-size="21" name="arrow-down-s-fill"></x-icon>
+					</view>
+					<view class="xCalendarViewHeaderRight">
+					<!-- 	<view @click="prevMonth" class="px-10 py-15">
+							<x-icon font-size="21" :color="_headFontColor" name="arrow-up-s-fill">上月</x-icon>
+						</view>
+						<view @click="nextMonth" class="px-10 py-15">
+							<x-icon font-size="21" :color="_headFontColor" name="arrow-down-s-fill">下月</x-icon>
+						</view> -->
+						<!-- 清空 -->
+						<x-text @click="clear" :color="_headFontColor" style="padding: 10px 20px;">{{i18n.t('tmui4x.clear')}}</x-text>
+						<!-- 本月 -->
+						<x-text @click="nowMonth" :color="_headFontColor" style="padding: 10px 0px;">{{i18n.t('tmui4x.calendar.currentMonthTitle')}}</x-text>
+					</view>
+				</view>
+				<view class="xCalendarViewDataHeader">
+					<view class="xCalendarViewDataHeaderItem" v-for="(item,index) in 7" :key="item">
+						<!-- {{weeksCn[index]}} -->
+						<x-text :color="_headFontColor" font-size="12">{{weeksCn[index]}}</x-text>
+					</view>
+				</view>
+			</view>
+		</slot>
+		<view class="xCalendarViewSpace"></view>
+		<view :class="[showPanel?'xCalendarViewMonthOff':'xCalendarViewMonthOn']" ref="xCalendarViewCalendarBodyRef" class="xCalendarViewWrap">
+			<swiper 
+			:vertical="props.vertical" 
+			@change="swiperChange" 
+			:current="_currentDateSwipersIndex" 
+			:duration="durtion"
+			v-if="_currentDateSwipers.length>0" :circular="true" 
+			:style="`width:100%;height:${bodyHeight}`">
+				<swiper-item v-for="(item,index) in _currentDateSwipers" :key="index" :style="`width:100%;height:${bodyHeight}`">
+					<view :style="`width:100%;height:${bodyHeight};position: relative;`">
+						<view class="xCalendarViewContentBox">
+							<!-- 打开下方，可以在更低端机上提高2/3的性能 -->
+							<calendar-multiple-uvue v-if="index == _currentDateSwipersIndex||!props.renderOnly" @click="dateClick" :currentDate="item"
+								:dateStatus="props.dateStatus"
+								:seekDay="props.seekDay"
+								:modelValue="props.modelValue" :model="props.model" 
+								:disabledDays="props.disabledDays" :startDate="props.startDate" :endDate="props.endDate"
+								:dateStyle="props.dateStyle" :format="props.format" :color="props.color"
+								:fontColor="props.fontColor" :fontDarkColor="props.fontDarkColor"
+								:activeFontColor="props.activeFontColor" :rangColor="props.rangColor"
+								:rangFontColor="props.rangFontColor">
+							</calendar-multiple-uvue>
+						</view>
+						<view class="xCalendarViewNum">
+							<text class="xCalendarViewNumText">{{getmonth(item)}}</text>
+						</view>
+					</view>
+				</swiper-item>
+			</swiper>
+		</view>
+		<view class="xCalendarViewSpace"></view>
+		<!--
+		 @slot 日历尾部
+		 -->
+		<slot name="footer">
+			<view class="xCalendarViewFooter">
+				<x-text color="#707070" font-size="14">{{_tipsText}}</x-text>
+			</view>
+		</slot>
+		
+		<!-- 月和年 -->
+		<view :class="[showPanel?'xCalendarViewMonthOn':'xCalendarViewMonthOff']" class="xCalendarViewMonth"
+			:style="{backgroundColor:_monthBgColor}">
+			<view class="xCalendarViewHeader" style="padding: 0 12px">
+				<view @click="showPanel= !showPanel" class="xCalendarViewHeaderLeft">
+					<!-- 2024年5月 -->
+					<x-text :color="_color" font-size="21">{{_currentDateLabel}}</x-text>
+					<x-icon :color="_color" font-size="21" name="arrow-up-s-fill"></x-icon>
+				</view>
+				<view class="xCalendarViewHeaderRight">
+					<x-stepper @change="stepperChangeYear" v-model="(_currentYear as number)" :min="1900" :max="5000"
+						width="120"></x-stepper>
+				</view>
+			</view>
+			<view class="xCalendarViewMonthWrap" style="flex:1">
+				<view @click="changeMonth(index)" class="xCalendarViewMonthItem" v-for="(item,index) in 12"
+					:key="index">
+					<!-- <x-text font-size="18">{{item}}月</x-text> -->
+					<x-text font-size="18">{{i18n.t('tmui4x.calendar.monthCountSelected',item)}}</x-text>
+				</view>
+			</view>
+		</view>
+	</view>
+</template>
+<style scoped lang="scss">
+	$headerHeight: 50px;
+	$weekheaderHeight: 40px;
+	$footerHeight: 40px;
+	$spaceHeight: 5px;
+	$cellHeight: 50px;
+	$minBodyHeight: (
+		50px * 6) + $headerHeight + $weekheaderHeight + $footerHeight + ($spaceHeight * 2
+	);
+
+	.xCalendarViewMonth {
+		position: absolute;
+		z-index: 3;
+		left: 0;
+		top: 0;
+		width: 100%;
+		height: 100%;
+		display: flex;
+		flex-direction: column;
+		transition-property: transform, opacity;
+		transition-timing-function: cubic-bezier(.42, .38, .15, .93);
+		transition-duration: 0.3s;
+
+		&.xCalendarViewMonthOff {
+			pointer-events: none;
+			// #ifdef APP-IOS
+			opacity: 0;
+			transform: scale(0, 0);
+			width:0;
+			height:0;
+			// #endif
+			// #ifndef APP-IOS
+			opacity: 0;
+			transform: scale(0, 0);
+			// #endif
+		}
+
+		&.xCalendarViewMonthOn {
+			pointer-events: auto;
+			opacity: 1;
+			transform: scale(1, 1);
+		}
+
+		.xCalendarViewMonthWrap {
+			display: flex;
+			flex-direction: row;
+			flex-wrap: wrap;
+
+			.xCalendarViewMonthItem {
+				width: 33.3333%;
+				height: 25%;
+				display: flex;
+				flex-direction: row;
+				justify-content: center;
+				align-items: center;
+			}
+		}
+	}
+
+	.xCalendarViewWrap {
+		transition-property: transform, opacity;
+		transition-timing-function: cubic-bezier(.42, .38, .15, .93);
+		transition-duration: 0.3s;
+
+		&.xCalendarViewMonthOff {
+			pointer-events: none;
+			opacity: 0;
+			// #ifndef APP-IOS
+			transform: scale(2, 2);
+			// #endif
+		}
+
+		&.xCalendarViewMonthOn {
+			pointer-events: auto;
+			opacity: 1;
+			// #ifndef APP-IOS
+			transform: scale(1, 1);
+			// #endif
+		}
+
+		position: relative;
+		width: 100%;
+		flex: 1;
+
+		.xCalendarViewContentBox {
+			position: absolute;
+			left: 0px;
+			top: 0px;
+			width: 100%;
+			height: 100%;
+			z-index: 3;
+		}
+
+		.xCalendarViewNum {
+			display: flex;
+			flex-direction: row;
+			justify-content: center;
+			align-items: center;
+			width: 100%;
+			height: 100%;
+
+			.xCalendarViewNumText {
+				font-size: 200px;
+				color: rgba(125, 125, 125, 0.1);
+				font-weight: bold;
+			}
+		}
+
+	}
+
+	.xCalendarViewDataHeaderWrap {
+		transition-property: transform, opacity;
+		transition-timing-function: cubic-bezier(.42, .38, .15, .93);
+		transition-duration: 0.3s;
+
+		&.xCalendarViewMonthOff {
+			pointer-events: none;
+			opacity: 0;
+		}
+
+		&.xCalendarViewMonthOn {
+			pointer-events: auto;
+			opacity: 1;
+		}
+	}
+
+	.xCalendarViewSpace {
+		height: $spaceHeight;
+	}
+
+	.xCalendarViewHeader {
+		height: $headerHeight;
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: center;
+
+		.xCalendarViewHeaderLeft {
+			display: flex;
+			flex-direction: row;
+			justify-content: flex-start;
+			align-items: center;
+		}
+
+		.xCalendarViewHeaderRight {
+			display: flex;
+			flex-direction: row;
+			justify-content: flex-end;
+			align-items: center;
+		}
+	}
+
+	.xCalendarViewDataHeader {
+		height: $weekheaderHeight;
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+		align-items: center;
+
+		.xCalendarViewDataHeaderItem {
+			width: 14.285%;
+			display: flex;
+			flex-direction: row;
+			justify-content: center;
+			align-items: center;
+		}
+	}
+
+	.xCalendarView {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		min-height: $minBodyHeight;
+	}
+
+	.xCalendarViewFooter {
+		height: $footerHeight;
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+		align-items: center;
+	}
+</style>

@@ -1,0 +1,67 @@
+import { xBlurOpts } from "../interface.uts"
+import ViewGroup from 'android.view.ViewGroup';
+import Color from 'android.graphics.Color';
+import { hexToRgb } from '../libs/color.uts'
+import BlurView from 'eightbitlab.com.blurview.BlurView';
+
+
+export class XblurU {
+	$element : UniNativeViewElement;
+	targetView : BlurView | null = null;
+	config : xBlurOpts;
+	constructor(opts : xBlurOpts) {
+		this.config = opts;
+		this.$element = opts.ele as UniNativeViewElement;
+		this.bindView();
+	}
+
+	bindView() {
+		this.targetView = new BlurView(UTSAndroid.getUniActivity()!);
+		this.$element.bindAndroidView(this.targetView!);
+		this.targetView!.setBlurEnabled(true)
+		this.targetView!.setBlurAutoUpdate(true)
+		let decorView = UTSAndroid.getUniActivity()!.window.decorView as ViewGroup
+		// let context = UTSAndroid.getAppContext()!;
+		this.targetView!.setupWith(decorView)
+		this.applyEffect();
+	}
+
+	/** 外部更新 bgColor / blur 时可调用 */
+	updateEffect(bgColor : string, blur : number) {
+		this.config.bgColor = bgColor
+		this.config.blur = blur
+		this.applyEffect()
+	}
+
+	private parseBgColor() : Int {
+		let colorrgba = hexToRgb(this.config.bgColor)
+		let r = (colorrgba?.r ?? 255).toInt()
+		let g = (colorrgba?.g ?? 255).toInt()
+		let b = (colorrgba?.b ?? 255).toInt()
+		let a = ((colorrgba?.a ?? 1) * 255).toInt()
+		return Color.argb(a, r, g, b)
+	}
+
+	private blurRadiusPx() : Float {
+		let br = this.config.blur / 100.0 * 25.0
+		if (br < 1.0) {
+			br = 1.0
+		}
+		if (br > 25.0) {
+			br = 25.0
+		}
+		return br.toFloat()
+	}
+
+	applyEffect() {
+		if (this.targetView == null) {
+			return
+		}
+		const bv = this.targetView as BlurView
+		bv.setBlurRadius(this.blurRadiusPx())
+		bv.setOverlayColor(this.parseBgColor())
+	}
+
+
+		
+}

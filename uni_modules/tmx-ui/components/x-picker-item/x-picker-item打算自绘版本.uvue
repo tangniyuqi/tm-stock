@@ -1,0 +1,192 @@
+﻿﻿<script lang="ts" setup>
+	import { PropType } from "vue"
+	import { getUid } from "../../core/util/xCoreUtil.uts"
+	import { checkIsCssUnit, rpx2px,getUnit } from "../../core/util/xCoreUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	import { X_PICKER_X_ITEM } from "../../interface.uts"
+	import { X_PICKER_PATH_MENU_TYPE } from "../x-picker-view/interface.uts"
+	import { useTool } from "@/uni_modules/tmx-ui/core/util/useTool.uts";
+	/**
+	 * @name 选择容器子节点 xPickerItem
+	 * @description xPickerView内部子组件，不可引用
+	 * @page /pages/index/picker-view
+	 * @category 表单组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.20 |
+	 */
+	defineOptions({ name: "xPickerItem" })
+	const props = withDefaults(defineProps<{
+		/**
+		 * 子项索引
+		 */
+		childrenIndex:number,
+		list:X_PICKER_X_ITEM[],
+		modelValue:X_PICKER_PATH_MENU_TYPE
+	}>(),{
+		childrenIndex:0,
+		list:():X_PICKER_X_ITEM[] => [] as X_PICKER_X_ITEM[],
+		modelValue:null
+	})
+	const emits = defineEmits([
+		'change'
+	])
+	const dlkey = useTool.getRandomKey('xPickerItem',true)
+	const xPickerItemRef = ref<UniScrollViewElement|null>(null)
+	const _list = computed(():X_PICKER_X_ITEM[] => props.list)
+	const _modelValue = computed(():X_PICKER_PATH_MENU_TYPE|null => props.modelValue)
+	const _autoScrollTop = ref(0)
+	const _active_id = computed(():string => {
+		if(props.modelValue == null) return '';
+		return props.modelValue.ids[props.childrenIndex]
+	})
+	const getScollTop = ():number => {
+		if(props.modelValue == null) return 0;
+		return (props.modelValue.indexPath[props.childrenIndex])*50
+	}
+	
+	// 滚动停止检测
+	let lastScrollTop:number = 0
+	let rafId:number|null = null
+	let isChecking:boolean = false
+	const changeIndex = ref(-1)
+	
+	// #ifdef WEB
+	const checkScrollEnd = (currentScrollTop:number, callback:()=>void):void => {
+		if(isChecking) return
+		isChecking = true
+		lastScrollTop = currentScrollTop
+		
+		const detectScrollStop = ():void => {
+			if(lastScrollTop === currentScrollTop) {
+				// 滚动已停止
+				isChecking = false
+				callback()
+			} else {
+				// 继续检测
+				lastScrollTop = currentScrollTop
+				rafId = requestAnimationFrame(detectScrollStop)
+			}
+		}
+		
+		rafId = requestAnimationFrame(detectScrollStop)
+	}
+	// #endif
+
+	const scrollEnd = ()=>{
+		
+		if(changeIndex.value ==-1) return;
+		if(_modelValue.value!=null){
+			const cindex = _modelValue.value.indexPath[props.childrenIndex]
+			if(changeIndex.value != cindex){
+				const cid = _list.value[changeIndex.value].id
+				console.log('滚动结束',changeIndex.value)
+				emits('change',props.childrenIndex,changeIndex.value,cid)
+			}
+		}
+		// xPickerItemRef.value?.scrollTo(0,changeIndex.value  * 50)
+		_autoScrollTop.value = changeIndex.value  * 50
+	
+	}
+	
+	const onScroll = (evt:UniScrollEvent)=>{
+	
+		const top = evt.detail.scrollTop;
+		let index = Math.ceil(top/50)
+		index = Math.max(0,Math.min(_list.value.length-1,index))
+		_autoScrollTop.value = top;
+		changeIndex.value = index
+		
+		
+		if(_modelValue.value!=null){
+			// #ifdef WEB
+			checkScrollEnd(top,()=>{
+				useTool.debounce(dlkey,()=>{
+					scrollEnd()
+				},150,false)
+			})
+			// #endif
+		}
+
+
+		
+	}
+	
+	const mTouchStart = ()=>{}
+	const mTouchMove = ()=>{}
+	const mTouchEnd = ()=>{}
+	
+	const itemClick = (id:string,index:number)=>{
+		if( _modelValue.value == null) return;
+		changeIndex.value = index
+		scrollEnd()
+	}
+	
+	const onScrollEnd = ()=>{
+		useTool.debounce(dlkey,()=>{
+			scrollEnd()
+		},150,false)
+	
+	}
+	
+	onMounted(()=>{
+		setTimeout(function() {
+			_autoScrollTop.value = getScollTop()
+		}, 50);
+	})
+</script>
+<template>
+	<list-view
+	class="xPickerItem"
+	ref="xPickerItemRef"
+	:upper-threshold="0"
+	:lower-threshold="0"
+	:show-scrollbar="false"
+	:scroll-top="_autoScrollTop"
+	@scrollend="onScrollEnd"
+	@scroll="onScroll"
+	@touchstart="mTouchStart"
+	@touchmove="mTouchMove"
+	@touchend="mTouchEnd"
+	@touchcancel="mTouchEnd"
+	
+	>
+		<list-item class="uniTestitem"></list-item>
+		<list-item class="uniTestitem"></list-item>
+		<!-- 			 {'background-color':_active_id==item.id?'red':'rgba(0,0,0,0)'} -->
+		<list-item
+		@click="itemClick(item.id,index)"
+		 v-for="(item,index) in _list"
+		 :key="index"
+		 class="uniTestitem"
+		>
+			<text
+			class="uniTestitemText"
+			:style="{
+				fontWeight:_active_id==item.id?'bold':'normal'
+			}"
+			>{{item.title}}</text>
+		</list-item>
+		
+		
+		<list-item class="uniTestitem"></list-item>
+		<list-item class="uniTestitem"></list-item>
+	</list-view>
+</template>
+<style>
+	.uniTestitemText{
+		padding: 0 5px;
+		
+	}
+	.xPickerItem{
+		height: 100%;
+	}
+	.uniTestitem{
+		height: 50px;
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: center;
+	}
+</style>

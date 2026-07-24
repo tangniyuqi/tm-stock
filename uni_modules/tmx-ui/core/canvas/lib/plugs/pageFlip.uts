@@ -1,0 +1,635 @@
+import { ICanvas } from '@/uni_modules/tmx-ui/core/canvas/ICanvas.uts';
+import { IEventListener, ICanvasEvent } from '../../interface.uts';
+
+export type PageRenderer = (ctx : CanvasRenderingContext2D, width : number, height : number) => void
+
+type FlipState = 'idle' | 'dragging' | 'animating'
+type FlipDirection = 'next' | 'prev'
+
+type PeelPoint = { x : number, y : number }
+
+export type PageFlipOptions = {
+	duration ?: number,
+	swipeThreshold ?: number,
+	enableSwipe ?: boolean,
+	shadowOpacity ?: number
+}
+
+export class PageFlip {
+	private _canvas : ICanvas
+	private _pages : PageRenderer[] = []
+	private _currentIndex : number = 0
+
+	private _state : FlipState = 'idle'
+	private _direction : FlipDirection = 'next'
+
+	// ─── 手指 / 角点 位置 ───
+	// 角点：手势开始时按下的点，作为翻折的"钉住点"
+	private _cornerX : number = 0
+	private _cornerY : number = 0
+	// 手指：当前拖拽到的位置（也作为翻折"角"的终点）
+	private _fingerX : number = 0
+	private _fingerY : number = 0
+
+	// ─── 动画状态 ───
+	private _tickId : number = -1
+	private _animStartTime : number = 0
+	private _animStartFingerX : number = 0
+	private _animStartFingerY : number = 0
+	private _animEndFingerX : number = 0
+	private _animEndFingerY : number = 0
+	private _animDuration : number = 300
+	private _animCompletes : boolean = false
+	private _isGestureAnim : boolean = false
+
+	private _dragStartTime : number = 0
+	private _directionLocked : boolean = false
+
+	/** 程序化翻页动画的完整时长 ms */
+	duration : number = 400
+	/** 手势释放后补齐动画的时长上限 ms */
+	completionMaxDuration : number = 260
+	/** 滑动距离占画布宽度的比例阈值，超过则完成翻页 */
+	swipeThreshold : number = 0.3
+	/** 是否启用手势翻页 */
+	enableSwipe : boolean = true
+	/** 页面正面底色（在调用页面渲染器前先填充此色，让 renderer 只管画内容不用管背景） */
+	pageColor : string = '#ffffff'
+	/** 翻折背面的纸张底色 */
+	foldBackColor : string = '#f5f5f5'
+	/** 翻折面高光强度（0-1），模拟纸张弯曲时的光泽 */
+	foldBackHighlight : number = 0.25
+	/**
+	 * 翻折面上"目标页镜像"的透明度：
+	 *  - 1 = 完全显示（像真纸翻过来能看到字，视觉最佳）
+	 *  - 0 = 关闭镜像，只显示纯色纸张（移动端最省性能）
+	 */
+	foldBackPrintAlpha : number = 1
+	/** 保留字段：不再使用，留着避免外部旧代码报错 */
+	shadowOpacity : number = 0.3
+
+	onPageChanged : ((oldIndex : number, newIndex : number) => void) | null = null
+
+	private _downListener : IEventListener | null = null
+	private _moveListener : IEventListener | null = null
+	private _upListener : IEventListener | null = null
+	private _cancelListener : IEventListener | null = null
+
+	constructor(canvas : ICanvas, opts ?: PageFlipOptions) {
+		this._canvas = canvas
+		if (opts != null) {
+			if (opts!.duration != null) this.duration = opts!.duration!
+			if (opts!.swipeThreshold != null) this.swipeThreshold = opts!.swipeThreshold!
+			if (opts!.enableSwipe != null) this.enableSwipe = opts!.enableSwipe!
+			if (opts!.shadowOpacity != null) this.shadowOpacity = opts!.shadowOpacity!
+		}
+	}
+
+	// ─── 页面管理 ───
+
+	get pageCount() : number {
+		return this._pages.length
+	}
+
+	get currentPageIndex() : number {
+		return this._currentIndex
+	}
+
+	addPage(renderer : PageRenderer) : PageFlip {
+		this._pages.push(renderer)
+		return this
+	}
+
+	removePage(index : number) : PageFlip {
+		if (index >= 0 && index < this._pages.length) {
+			this._pages.splice(index, 1)
+			if (this._currentIndex >= this._pages.length) {
+				this._currentIndex = Math.max(0, this._pages.length - 1)
+			}
+		}
+		return this
+	}
+
+	/** 渲染当前页（无翻页） */
+	renderCurrentPage() {
+		const ctx = this._canvas.ctx
+		if (ctx == null || this._pages.length == 0) return
+		const w = this._canvas.width
+		const h = this._canvas.height
+		ctx.clearRect(0, 0, w, h)
+		// 先填页面底色，再由 renderer 画内容
+		ctx.fillStyle = this.pageColor
+		ctx.fillRect(0, 0, w, h)
+		if (this._currentIndex >= 0 && this._currentIndex < this._pages.length) {
+			this._pages[this._currentIndex](ctx, w, h)
+		}
+	}
+
+	// ─── 折叠几何工具 ───
+
+	/** 将点 P 相对"过点 M、法向量 (nx, ny)"的直线做镜像反射 */
+	private _reflectPoint(px : number, py : number, mx : number, my : number, nx : number, ny : number) : PeelPoint {
+		const dot = (px - mx) * nx + (py - my) * ny
+		return { x: px - 2 * dot * nx, y: py - 2 * dot * ny } as PeelPoint
+	}
+
+	/**
+	 * 用直线 a*x + b*y = c 切分多边形，返回两侧的多边形。
+	 * below: a*x+b*y - c < 0 的那一侧
+	 * above: a*x+b*y - c > 0 的那一侧
+	 */
+	private _splitPolygon(polygon : PeelPoint[], a : number, b : number, c : number) : PeelPoint[][] {
+		const below : PeelPoint[] = []
+		const above : PeelPoint[] = []
+		const n = polygon.length
+		for (let i = 0; i < n; i++) {
+			const p = polygon[i]
+			const q = polygon[(i + 1) % n]
+			const pSide = a * p.x + b * p.y - c
+			const qSide = a * q.x + b * q.y - c
+			if (pSide <= 0) below.push(p)
+			if (pSide >= 0) above.push(p)
+			if (pSide * qSide < 0) {
+				const t = pSide / (pSide - qSide)
+				const ix = p.x + t * (q.x - p.x)
+				const iy = p.y + t * (q.y - p.y)
+				const ip = { x: ix, y: iy } as PeelPoint
+				below.push(ip)
+				above.push(ip)
+			}
+		}
+		return [below, above]
+	}
+
+	private _pathFromPolygon(ctx : CanvasRenderingContext2D, polygon : PeelPoint[]) {
+		if (polygon.length < 2) return
+		ctx.beginPath()
+		ctx.moveTo(polygon[0].x, polygon[0].y)
+		for (let i = 1; i < polygon.length; i++) {
+			ctx.lineTo(polygon[i].x, polygon[i].y)
+		}
+		ctx.closePath()
+	}
+
+	/** 求多边形的外接矩形（用作 fillRect 的最小区域，避免全画布渐变计算） */
+	private _polygonBBox(polygon : PeelPoint[]) : PeelPoint[] {
+		let minX = polygon[0].x
+		let maxX = polygon[0].x
+		let minY = polygon[0].y
+		let maxY = polygon[0].y
+		for (let i = 1; i < polygon.length; i++) {
+			const p = polygon[i]
+			if (p.x < minX) minX = p.x
+			if (p.x > maxX) maxX = p.x
+			if (p.y < minY) minY = p.y
+			if (p.y > maxY) maxY = p.y
+		}
+		return [{ x: minX, y: minY } as PeelPoint, { x: maxX, y: maxY } as PeelPoint]
+	}
+
+	// ─── 主渲染 ───
+
+	private _renderFlipFrame() {
+		const ctx = this._canvas.ctx
+		if (ctx == null) return
+		const w = this._canvas.width
+		const h = this._canvas.height
+		const curIdx = this._currentIndex
+
+		const dx = this._fingerX - this._cornerX
+		const dy = this._fingerY - this._cornerY
+		const dist = Math.sqrt(dx * dx + dy * dy)
+
+		// 手指没动 / 方向还没锁定 → 只画当前页
+		if (dist < 2 || !this._directionLocked) {
+			ctx.clearRect(0, 0, w, h)
+			ctx.fillStyle = this.pageColor
+			ctx.fillRect(0, 0, w, h)
+			this._pages[curIdx](ctx, w, h)
+			return
+		}
+
+		const nextIdx = this._direction == 'next' ? curIdx + 1 : curIdx - 1
+		if (nextIdx < 0 || nextIdx >= this._pages.length) {
+			ctx.clearRect(0, 0, w, h)
+			ctx.fillStyle = this.pageColor
+			ctx.fillRect(0, 0, w, h)
+			this._pages[curIdx](ctx, w, h)
+			return
+		}
+
+		// 折线：corner ↔ finger 的中垂线
+		const mx = (this._cornerX + this._fingerX) / 2
+		const my = (this._cornerY + this._fingerY) / 2
+		// 法向量（指向 finger 方向，单位向量）
+		const nx = dx / dist
+		const ny = dy / dist
+		// 折线方程: nx*x + ny*y = D, D = nx*mx + ny*my
+		// corner 一侧: nx*x + ny*y - D < 0（angle is towards corner）
+		const D = nx * mx + ny * my
+
+		// 切分画布为"翻折侧（corner 侧）"和"平面侧"
+		const pageRect = [
+			{ x: 0, y: 0 } as PeelPoint,
+			{ x: w, y: 0 } as PeelPoint,
+			{ x: w, y: h } as PeelPoint,
+			{ x: 0, y: h } as PeelPoint
+		]
+		const parts = this._splitPolygon(pageRect, nx, ny, D)
+		const peelPoly = parts[0]   // corner 侧：原本被纸覆盖，翻起后露出目标页
+		const flatPoly = parts[1]   // 平面侧：当前页原样显示
+
+		ctx.clearRect(0, 0, w, h)
+
+		// 1. 露出的下一页（peelPoly 区域，先填 pageColor 作底，再画 renderer）
+		if (peelPoly.length >= 3) {
+			ctx.save()
+			this._pathFromPolygon(ctx, peelPoly)
+			ctx.clip()
+			ctx.fillStyle = this.pageColor
+			ctx.fillRect(0, 0, w, h)
+			this._pages[nextIdx](ctx, w, h)
+			ctx.restore()
+		}
+
+		// 2. 保持平铺的当前页（flatPoly 区域）
+		if (flatPoly.length >= 3) {
+			ctx.save()
+			this._pathFromPolygon(ctx, flatPoly)
+			ctx.clip()
+			ctx.fillStyle = this.pageColor
+			ctx.fillRect(0, 0, w, h)
+			this._pages[curIdx](ctx, w, h)
+			ctx.restore()
+		}
+
+		// 3. 翻折面（peelPoly 镜像到折线另一侧，绘制纸张背面 + 镜像内容 + 高光）
+		if (peelPoly.length >= 3) {
+			const visiblePoly : PeelPoint[] = []
+			for (let i = 0; i < peelPoly.length; i++) {
+				const rp = this._reflectPoint(peelPoly[i].x, peelPoly[i].y, mx, my, nx, ny)
+				visiblePoly.push(rp)
+			}
+
+			// 用多边形外接矩形代替全画布 fillRect
+			const bbox = this._polygonBBox(visiblePoly)
+			const bx = bbox[0].x
+			const by = bbox[0].y
+			const bw = bbox[1].x - bx
+			const bh = bbox[1].y - by
+
+			ctx.save()
+			this._pathFromPolygon(ctx, visiblePoly)
+			ctx.clip()
+
+			// 3a. 纸色底
+			ctx.fillStyle = this.foldBackColor
+			ctx.fillRect(bx, by, bw, bh)
+
+			// 3b. 目标页镜像（通过 ctx.transform 应用反射矩阵，页面渲染器被原样复用）
+			if (this.foldBackPrintAlpha > 0) {
+				// 反射矩阵 R = I - 2·N·Nᵀ；平移 T = 2·(N·M)·N
+				const a = 1 - 2 * nx * nx
+				const b = -2 * nx * ny
+				const c = -2 * nx * ny
+				const d = 1 - 2 * ny * ny
+				const dk = 2 * (nx * mx + ny * my)
+				const e = dk * nx
+				const f = dk * ny
+
+				ctx.save()
+				if (this.foldBackPrintAlpha < 1) {
+					ctx.globalAlpha = this.foldBackPrintAlpha
+				}
+				// 与当前变换（可能含 dpr 缩放）相乘，输入坐标先反射再走外层缩放
+				ctx.transform(a, b, c, d, e, f)
+				this._pages[nextIdx](ctx, w, h)
+				ctx.restore()
+			}
+
+			// 3c. 高光渐变（叠在镜像内容之上，增加立体感）
+			if (this.foldBackHighlight > 0) {
+				const tipX = this._fingerX
+				const tipY = this._fingerY
+				const grad = ctx.createLinearGradient(mx, my, tipX, tipY)
+				const hi = this.foldBackHighlight
+				grad.addColorStop(0, `rgba(0,0,0,${(hi * 0.35).toFixed(3)})`)
+				grad.addColorStop(0.35, `rgba(255,255,255,${(hi * 0.45).toFixed(3)})`)
+				grad.addColorStop(0.7, `rgba(255,255,255,${(hi * 0.15).toFixed(3)})`)
+				grad.addColorStop(1, 'rgba(0,0,0,0)')
+				ctx.fillStyle = grad
+				ctx.fillRect(bx, by, bw, bh)
+			}
+
+			ctx.restore()
+		}
+	}
+
+	// ─── 手势处理 ───
+
+	private _onDown(event : ICanvasEvent) {
+		if (!this.enableSwipe) return
+		if (this._pages.length < 2) return
+		// 动画未结束时禁止新手势，避免中断导致状态混乱
+		if (this._state == 'animating') return
+
+		// 初始化 finger 到按下点（实际 corner 要等方向锁定后确定）
+		if (event.detail.length > 0) {
+			this._fingerX = event.detail[0].startX
+			this._fingerY = event.detail[0].startY
+		}
+
+		this._state = 'dragging'
+		this._direction = 'next'
+		this._dragStartTime = Date.now()
+		this._directionLocked = false
+	}
+
+	private _onMove(event : ICanvasEvent) {
+		if (this._state != 'dragging') return
+		if (event.detail.length == 0) return
+		const detail = event.detail[0]
+		const w = this._canvas.width
+		const h = this._canvas.height
+		if (w <= 0) return
+
+		// 首次明显水平移动锁定方向
+		// cornerX 锚在页面边（左或右），保证折线只能绕边缘点旋转，不会 360°
+		// cornerY 就是按下点的 Y —— 用户从哪个高度抓就从哪翻，中间按下是横向折
+		if (!this._directionLocked) {
+			const endLenX = detail.endLenX
+			if (endLenX < -3) {
+				if (this._currentIndex >= this._pages.length - 1) return
+				this._direction = 'next'
+				this._cornerX = w
+				this._cornerY = detail.startY
+				this._directionLocked = true
+			} else if (endLenX > 3) {
+				if (this._currentIndex <= 0) return
+				this._direction = 'prev'
+				this._cornerX = 0
+				this._cornerY = detail.startY
+				this._directionLocked = true
+			} else {
+				return
+			}
+		}
+
+		// finger 跟手，但限制 Y 偏移量避免折线倾斜过度
+		this._fingerX = detail.moveX
+		const maxYDelta = h * 0.35
+		const rawDy = detail.moveY - this._cornerY
+		const clampedDy = Math.max(-maxYDelta, Math.min(maxYDelta, rawDy))
+		this._fingerY = this._cornerY + clampedDy
+
+		this._renderFlipFrame()
+	}
+
+	private _onUp(_event : ICanvasEvent) {
+		if (this._state != 'dragging') return
+		this._finishGesture()
+	}
+
+	private _onCancel(_event : ICanvasEvent) {
+		if (this._state != 'dragging') return
+		this._finishGesture()
+	}
+
+	/** 计算当前 finger 相对 corner 的翻页进度（0 = 无翻折，1 = 完全翻过） */
+	private _fingerDistanceRatio() : number {
+		const w = this._canvas.width
+		if (w <= 0) return 0
+		const dx = this._fingerX - this._cornerX
+		const dy = this._fingerY - this._cornerY
+		return Math.min(1, Math.sqrt(dx * dx + dy * dy) / w)
+	}
+
+	private _finishGesture() {
+		if (!this._directionLocked) {
+			// 没有有效滑动，回到 idle
+			this._state = 'idle'
+			this.renderCurrentPage()
+			return
+		}
+
+		const touchDuration = Date.now() - this._dragStartTime
+		const ratio = this._fingerDistanceRatio()
+		const isFling = touchDuration > 0 && touchDuration < 280 && ratio > 0.05
+		const shouldComplete = ratio >= this.swipeThreshold || isFling
+
+		this._animStartFingerX = this._fingerX
+		this._animStartFingerY = this._fingerY
+
+		if (shouldComplete) {
+			// 目标 finger：让折线扫过画布对侧
+			// next: 折线 x 达到负无穷 → finger x = -cornerX - extra
+			// prev: finger x = 2w - cornerX + extra
+			const w = this._canvas.width
+			if (this._direction == 'next') {
+				this._animEndFingerX = -w - this._cornerX
+			} else {
+				this._animEndFingerX = 2 * w + (w - this._cornerX)
+			}
+			this._animEndFingerY = this._fingerY
+		} else {
+			// 回弹到 corner
+			this._animEndFingerX = this._cornerX
+			this._animEndFingerY = this._cornerY
+		}
+
+		this._animCompletes = shouldComplete
+		this._animStartTime = 0
+		this._state = 'animating'
+		this._isGestureAnim = true
+
+		// 动画时长：按剩余距离比例，但有上限
+		const fingerDist = Math.sqrt(
+			Math.pow(this._animEndFingerX - this._animStartFingerX, 2) +
+			Math.pow(this._animEndFingerY - this._animStartFingerY, 2)
+		)
+		const w2 = this._canvas.width * 2
+		const ratioLeft = w2 > 0 ? Math.min(1, fingerDist / w2) : 0
+		this._animDuration = Math.min(this.duration * Math.max(ratioLeft, 0.15), this.completionMaxDuration)
+
+		const _this = this
+		this._tickId = this._canvas.registerTick((time : number) : boolean => {
+			return _this._animTick(time)
+		})
+	}
+
+	// ─── 动画 ───
+
+	private _animTick(time : number) : boolean {
+		if (this._state != 'animating') return false
+
+		if (this._animStartTime == 0) {
+			this._animStartTime = time
+		}
+
+		const elapsed = time - this._animStartTime
+		const dur = this._animDuration
+		let t = dur > 0 ? elapsed / dur : 1
+		if (t >= 1) t = 1
+
+		// 线性缓动
+		this._fingerX = this._animStartFingerX + (this._animEndFingerX - this._animStartFingerX) * t
+		this._fingerY = this._animStartFingerY + (this._animEndFingerY - this._animStartFingerY) * t
+
+		this._renderFlipFrame()
+
+		if (t >= 1) {
+			this._onAnimComplete()
+			return false
+		}
+		return true
+	}
+
+	private _onAnimComplete() {
+		const oldIndex = this._currentIndex
+		if (this._animCompletes) {
+			if (this._direction == 'next') {
+				this._currentIndex = Math.min(this._currentIndex + 1, this._pages.length - 1)
+			} else {
+				this._currentIndex = Math.max(this._currentIndex - 1, 0)
+			}
+		}
+		this._state = 'idle'
+		this._directionLocked = false
+		this._tickId = -1
+		this.renderCurrentPage()
+
+		if (this._animCompletes && oldIndex != this._currentIndex && this.onPageChanged != null) {
+			this.onPageChanged!(oldIndex, this._currentIndex)
+		}
+	}
+
+	// ─── 程序化导航 ───
+
+	nextPage() {
+		if (this._state != 'idle') return
+		if (this._currentIndex >= this._pages.length - 1) return
+		this._direction = 'next'
+		this._startAutoFlip('next')
+	}
+
+	prevPage() {
+		if (this._state != 'idle') return
+		if (this._currentIndex <= 0) return
+		this._direction = 'prev'
+		this._startAutoFlip('prev')
+	}
+
+	goToPage(index : number) {
+		if (index < 0 || index >= this._pages.length) return
+		if (index == this._currentIndex) return
+		this._cancelRunningAnim()
+
+		const diff = index - this._currentIndex
+		if (diff == 1) {
+			this.nextPage()
+		} else if (diff == -1) {
+			this.prevPage()
+		} else {
+			const oldIndex = this._currentIndex
+			this._currentIndex = index
+			this.renderCurrentPage()
+			if (this.onPageChanged != null) {
+				this.onPageChanged!(oldIndex, this._currentIndex)
+			}
+		}
+	}
+
+	private _startAutoFlip(direction : FlipDirection) {
+		const w = this._canvas.width
+		// 程序化：corner 锚在顶部角（与手势版一致）
+		if (direction == 'next') {
+			this._cornerX = w
+			this._cornerY = 0
+			this._animStartFingerX = w
+			this._animStartFingerY = 0
+			this._animEndFingerX = -w
+			this._animEndFingerY = 0
+		} else {
+			this._cornerX = 0
+			this._cornerY = 0
+			this._animStartFingerX = 0
+			this._animStartFingerY = 0
+			this._animEndFingerX = 2 * w
+			this._animEndFingerY = 0
+		}
+		this._fingerX = this._animStartFingerX
+		this._fingerY = this._animStartFingerY
+
+		this._direction = direction
+		this._directionLocked = true
+		this._animCompletes = true
+		this._animDuration = this.duration
+		this._animStartTime = 0
+		this._state = 'animating'
+		this._isGestureAnim = false
+
+		const _this = this
+		this._tickId = this._canvas.registerTick((time : number) : boolean => {
+			return _this._animTick(time)
+		})
+	}
+
+	private _cancelRunningAnim() {
+		if (this._state == 'animating' && this._tickId >= 0) {
+			this._canvas.unregisterTick(this._tickId)
+			this._tickId = -1
+		}
+		this._state = 'idle'
+		this._directionLocked = false
+	}
+
+	// ─── 事件绑定 / 销毁 ───
+
+	bindEvents() {
+		const _this = this
+
+		this._downListener = (event : ICanvasEvent) => {
+			_this._onDown(event)
+		}
+		this._moveListener = (event : ICanvasEvent) => {
+			_this._onMove(event)
+		}
+		this._upListener = (event : ICanvasEvent) => {
+			_this._onUp(event)
+		}
+		this._cancelListener = (event : ICanvasEvent) => {
+			_this._onCancel(event)
+		}
+
+		this._canvas.addEventListener('down', this._downListener!)
+		this._canvas.addEventListener('move', this._moveListener!)
+		this._canvas.addEventListener('up', this._upListener!)
+		this._canvas.addEventListener('cancel', this._cancelListener!)
+	}
+
+	unbindEvents() {
+		if (this._downListener != null) {
+			this._canvas.removeEventListener('down', this._downListener!)
+		}
+		if (this._moveListener != null) {
+			this._canvas.removeEventListener('move', this._moveListener!)
+		}
+		if (this._upListener != null) {
+			this._canvas.removeEventListener('up', this._upListener!)
+		}
+		if (this._cancelListener != null) {
+			this._canvas.removeEventListener('cancel', this._cancelListener!)
+		}
+		this._downListener = null
+		this._moveListener = null
+		this._upListener = null
+		this._cancelListener = null
+	}
+
+	destroy() {
+		this._cancelRunningAnim()
+		this.unbindEvents()
+		this._pages = []
+		this.onPageChanged = null
+	}
+}

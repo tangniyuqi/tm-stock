@@ -1,0 +1,6 @@
+export type xSSEMethod = "post"|"get"
+export type xSSEOptions = {
+	method?:xSSEMethod,
+	url:string,
+	header?:UTSJSONObject
+}

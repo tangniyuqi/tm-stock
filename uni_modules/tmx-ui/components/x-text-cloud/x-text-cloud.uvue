@@ -1,0 +1,287 @@
+<script lang="ts" setup>
+	import { checkIsCssUnit, getUid } from '../../core/util/xCoreUtil.uts'
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	import { TEXTCLOUD_ITEM_INFO } from "../../interface.uts"
+	import { computed, onMounted, watch, nextTick, getCurrentInstance } from 'vue'
+	
+	type WordPosition = {
+		x : number
+		y : number
+		width : number
+		height : number
+		text : string
+		fontSize : number
+		color : string
+	}
+	type PROPS_TYPE = {
+		width : string
+		height : string
+		color : string
+		bgColor : string
+	}
+
+	
+	type Props = {
+		width : string,
+		height : string,
+		backgroundColor : string,
+		list : TEXTCLOUD_ITEM_INFO[],
+		color : string
+	}
+	
+	/**
+	 * @name 词云 TextCloud
+	 * @description 词从中心向外椭圆螺旋紧凑排布，大小按权重自适应，不重叠。
+	 * @page /pages/index/text-cloud
+	 * @category 展示组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({ name: 'xTextCloud' })
+	
+	const props = withDefaults(defineProps<Props>(), {
+		width: '100%',
+		height: '300rpx',
+		backgroundColor: 'transparent',
+		list: [] as TEXTCLOUD_ITEM_INFO[],
+		color: 'primary'
+	})
+	
+	const _props = computed(() : PROPS_TYPE => {
+		return {
+			width: checkIsCssUnit(props.width, 'rpx'),
+			height: checkIsCssUnit(props.height, 'rpx'),
+			bgColor: getDefaultColor(props.backgroundColor),
+			color: getDefaultColor(props.color),
+		} as PROPS_TYPE
+	})
+	
+	const id = ("xTextCloud" + getUid()) as string
+	const proxy = getCurrentInstance()?.proxy ?? null
+	let boxWidth = 0
+	let boxHeight = 0
+	let tid = 0
+	let _placedWords : WordPosition[] = []
+	
+	function calcFontSize(weight : number, maxWeight : number) : number {
+		const maxFontSize = 32
+		const minFontSize = 12
+		if (maxWeight <= 0) return minFontSize
+		const size = (weight / maxWeight) * (maxFontSize - minFontSize) + minFontSize
+		return Math.round(size)
+	}
+	
+	function calcMeasureText(ctx : CanvasRenderingContext2D, text : string, fontSize : number) : number {
+		let w = ctx.measureText(text).width
+		// #ifdef APP-HARMONY
+		let totalWidth = 0
+		for (let i = 0; i < text.length; i++) {
+			const char = text.charAt(i)
+			const code = char.charCodeAt(0)
+			if ((code >= 0x4e00 && code <= 0x9fff) || (code >= 0x3000 && code <= 0x303f) || (code >= 0xff00 && code <= 0xffef)) {
+				totalWidth += fontSize
+			} else {
+				totalWidth += fontSize * 0.5
+			}
+		}
+		w = totalWidth
+		// #endif
+		return w
+	}
+	
+	function layoutWords(ctx : CanvasRenderingContext2D, cw : number, ch : number) {
+		const result : WordPosition[] = []
+		if (props.list.length == 0) { _placedWords = result; return }
+
+		let maxWeight = 0
+		for (let i = 0; i < props.list.length; i++) {
+			if (props.list[i].weight > maxWeight) maxWeight = props.list[i].weight
+		}
+
+		const words = props.list.slice().sort((a : TEXTCLOUD_ITEM_INFO, b : TEXTCLOUD_ITEM_INFO) : number => b.weight - a.weight)
+		const centerX = cw / 2
+		const centerY = ch / 2
+		const ellipseScale = ch / cw
+		const angleStep = 0.45
+		const radiusStep = Math.max(5, Math.min(cw, ch) / 80)
+		const gap = 2
+		const defaultColor = _props.value.color
+		ctx.textBaseline = 'top'
+
+		const maxTry = 900
+		const spiralX : number[] = []
+		const spiralY : number[] = []
+		for (let k = 0; k < maxTry; k++) {
+			const angle = k * angleStep
+			const radius = 2 + k * radiusStep / (2 * Math.PI)
+			spiralX.push(centerX + Math.cos(angle) * radius)
+			spiralY.push(centerY + Math.sin(angle) * radius * ellipseScale)
+		}
+
+		const cellSize = Math.max(14, Math.min(cw, ch) / 18)
+		const colCount = Math.ceil(cw / cellSize) + 2
+		const grid = new Map<number, number[]>()
+
+		const addToGrid = (idx : number, rx : number, ry : number, rw : number, rh : number) => {
+			const mincX = Math.floor(rx / cellSize)
+			const mincY = Math.floor(ry / cellSize)
+			const maxcX = Math.floor((rx + rw) / cellSize)
+			const maxcY = Math.floor((ry + rh) / cellSize)
+			for (let gx = mincX; gx <= maxcX; gx++) {
+				for (let gy = mincY; gy <= maxcY; gy++) {
+					const k = gy * colCount + gx
+					let arr = grid.get(k)
+					if (arr == null) { arr = []; grid.set(k, arr) }
+					arr.push(idx)
+				}
+			}
+		}
+
+		const nearBuf : number[] = []
+		const nearSeen = new Set<number>()
+		const getNearby = (rx : number, ry : number, rw : number, rh : number) : number[] => {
+			nearBuf.splice(0, nearBuf.length)
+			nearSeen.clear()
+			const mincX = Math.floor(rx / cellSize)
+			const mincY = Math.floor(ry / cellSize)
+			const maxcX = Math.floor((rx + rw) / cellSize)
+			const maxcY = Math.floor((ry + rh) / cellSize)
+			for (let gx = mincX - 1; gx <= maxcX + 1; gx++) {
+				for (let gy = mincY - 1; gy <= maxcY + 1; gy++) {
+					const arr = grid.get(gy * colCount + gx)
+					if (arr != null) {
+						for (let ai = 0; ai < arr.length; ai++) {
+							const nid = arr[ai]
+							if (!nearSeen.has(nid)) { nearSeen.add(nid); nearBuf.push(nid) }
+						}
+					}
+				}
+			}
+			return nearBuf
+		}
+
+		const overlapRaw = (ax : number, ay : number, aw : number, ah : number, b : WordPosition) : boolean => {
+			return !((ax + aw + gap) < b.x || ax > (b.x + b.width + gap) || (ay + ah + gap) < b.y || ay > (b.y + b.height + gap))
+		}
+
+		for (let i = 0; i < words.length; i++) {
+			const item = words[i]
+			const fontSize = calcFontSize(item.weight, maxWeight)
+			ctx.font = `${fontSize}px Arial`
+			const w = calcMeasureText(ctx, item.text, fontSize)
+			const h = fontSize
+			const halfW = w / 2
+			const halfH = h / 2
+			const color = item?.color ?? defaultColor
+			let placed = false
+
+			for (let k = 0; k < maxTry; k++) {
+				const x = spiralX[k] - halfW
+				const y = spiralY[k] - halfH
+				if (x < 0 || y < 0 || (x + w) > cw || (y + h) > ch) continue
+				let collide = false
+				const near = getNearby(x, y, w, h)
+				for (let j = 0; j < near.length; j++) {
+					if (overlapRaw(x, y, w, h, result[near[j]])) { collide = true; break }
+				}
+				if (!collide) {
+					const wp = { x, y, width: w, height: h, text: item.text, fontSize, color } as WordPosition
+					result.push(wp)
+					addToGrid(result.length - 1, x, y, w, h)
+					placed = true
+					break
+				}
+			}
+
+			if (!placed) {
+				let cursorX = 0
+				let cursorY = 0
+				let lineHeight = 0
+				while (cursorY + h <= ch) {
+					if (cursorX + w > cw) { cursorX = 0; cursorY += lineHeight + gap; lineHeight = 0 }
+					let hit = false
+					const near = getNearby(cursorX, cursorY, w, h)
+					for (let t = 0; t < near.length; t++) {
+						if (overlapRaw(cursorX, cursorY, w, h, result[near[t]])) { hit = true; break }
+					}
+					if (!hit) {
+						const wp = { x: cursorX, y: cursorY, width: w, height: h, text: item.text, fontSize, color } as WordPosition
+						result.push(wp)
+						addToGrid(result.length - 1, cursorX, cursorY, w, h)
+						break
+					}
+					cursorX += Math.max(4, w * 0.25)
+					if (h > lineHeight) lineHeight = h
+				}
+			}
+		}
+
+		_placedWords = result
+	}
+	
+	function draw() {
+		uni.createCanvasContextAsync({
+			id: id as string,
+			component: proxy,
+			success: (context : CanvasContext) => {
+				const ctx2d = context.getContext('2d')!
+				const canvas = ctx2d.canvas
+				const dpr = uni.getWindowInfo().pixelRatio
+				canvas.width = canvas.offsetWidth * dpr
+				canvas.height = canvas.offsetHeight * dpr
+				ctx2d.scale(dpr, dpr)
+				ctx2d.clearRect(0, 0, canvas.width, canvas.height)
+				ctx2d.fillStyle = _props.value.bgColor
+				ctx2d.fillRect(0, 0, canvas.offsetWidth, canvas.offsetHeight)
+				layoutWords(ctx2d, canvas.offsetWidth, canvas.offsetHeight)
+				ctx2d.textBaseline = 'top'
+				for (let i = 0; i < _placedWords.length; i++) {
+					const w = _placedWords[i]
+					ctx2d.font = `${w.fontSize}px Arial`
+					ctx2d.fillStyle = w.color
+					ctx2d.fillText(w.text, w.x, w.y)
+				}
+			}
+		})
+	}
+	
+	function measureAndDraw() {
+		uni.createSelectorQuery().in(proxy)
+			.select('.xTextCloud')
+			.boundingClientRect()
+			.exec((ret : any[]) => {
+				if (ret.length == 0) return
+				const node = ret[0] as NodeInfo
+				boxWidth = node.width!
+				boxHeight = node.height!
+				nextTick(() => { draw() })
+			})
+	}
+	
+	onMounted(() => {
+		clearTimeout(tid)
+		tid = setTimeout(() => { measureAndDraw() }, 120)
+	})
+	watch([
+		() : TEXTCLOUD_ITEM_INFO[] => props.list,
+		() : string => _props.value.width,
+		() : string => _props.value.height,
+		() : string => _props.value.bgColor,
+		() : string => _props.value.color
+		],
+	() => {
+		measureAndDraw()
+	})
+</script>
+<template>
+
+	<view class="xTextCloud" :style="{width:_props.width,height:_props.height,backgroundColor:_props.bgColor}">
+		<canvas :id="id" :style="{width:'100%',height:'100%'}"></canvas>
+	</view>
+
+</template>
+<style scoped>
+</style>

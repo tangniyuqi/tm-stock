@@ -1,0 +1,41 @@
+import { HighlightConfig } from "../heightlight.uts"
+
+export function getRustConfig(): HighlightConfig {
+	const config = new HighlightConfig()
+	
+	// Rust 关键字
+	config.keywords = [
+		'as', 'async', 'await', 'break', 'const', 'continue', 'crate', 'dyn',
+		'else', 'enum', 'extern', 'false', 'fn', 'for', 'if', 'impl', 'in',
+		'let', 'loop', 'match', 'mod', 'move', 'mut', 'pub', 'ref', 'return',
+		'self', 'Self', 'static', 'struct', 'super', 'trait', 'true', 'type',
+		'unsafe', 'use', 'where', 'while',
+		'abstract', 'become', 'box', 'do', 'final', 'macro', 'override',
+		'priv', 'typeof', 'unsized', 'virtual', 'yield'
+	]
+	
+	// Rust 内置类型和宏
+	config.builtins = [
+		'i8', 'i16', 'i32', 'i64', 'i128', 'isize',
+		'u8', 'u16', 'u32', 'u64', 'u128', 'usize',
+		'f32', 'f64', 'bool', 'char', 'str', 'String',
+		'Vec', 'Option', 'Result', 'Some', 'None', 'Ok', 'Err',
+		'Box', 'Rc', 'Arc', 'Cell', 'RefCell', 'Cow',
+		'HashMap', 'HashSet', 'BTreeMap', 'BTreeSet',
+		'println', 'print', 'eprintln', 'eprint', 'format',
+		'panic', 'assert', 'assert_eq', 'assert_ne', 'debug_assert',
+		'vec', 'include', 'include_str', 'include_bytes',
+		'cfg', 'derive', 'test', 'macro_rules'
+	]
+	
+	// Rust 操作符
+	config.operators = [
+		'+', '-', '*', '/', '%', '=', '==', '!=', '<', '>', '<=', '>=',
+		'&&', '||', '!', '&', '|', '^', '~', '<<', '>>',
+		'+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=', '<<=', '>>=',
+		'->', '=>', '::', '..', '...', '..=', '?', '@'
+	]
+	
+	return config
+}
+

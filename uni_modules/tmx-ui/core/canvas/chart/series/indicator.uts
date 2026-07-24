@@ -1,0 +1,195 @@
+/**
+ * 金融指标 series（主图叠加：MA / EMA / BOLL / ENV）
+ *
+ * 与 K 线（candlestick）共享 x 轴 band 与 y 轴线性刻度；
+ * 绘制前必须先在 x-chart 层面将指标数值范围合并进 K 线 y 轴的 min/max，
+ * 否则 MA60 / BOLL 上下轨可能超出画板。
+ */
+import { ICanvas } from '@/uni_modules/tmx-ui/core/canvas/ICanvas.uts';
+import { Shape } from '@/uni_modules/tmx-ui/core/canvas/lib/shape.uts';
+import { ILinePolygon } from '@/uni_modules/tmx-ui/core/canvas/lib/linePolygon.uts';
+import { getDatumString, buildBandDomain, createLinearScale, mapLinear, mapBandCenter } from '../scale.uts';
+import { PlotRect, XYPoint } from '../map.uts';
+import { getChartColor } from '../palette.uts';
+import { buildSmoothLinePoints } from './line.uts';
+import { ChartDatum, ChartSeriesOptions, ChartIndicatorOptions } from '../types.uts';
+import { calcMA, calcEMA, calcBOLL, calcENV } from '../indicators.uts';
+
+/** 指标数值集合（渲染与 y 轴合并两处共用，避免重复计算） */
+export type IndicatorValueSet = {
+	/** 每条指标线的值数组，长度 == data.length，NaN 表示该点无值（周期未满） */
+	lines : number[][],
+	/** 每条线的默认标签（如 MA5 / UP / DN），用于后续图例扩展 */
+	labels : string[]
+}
+
+/** 指标值的 y 范围（仅统计有限值） */
+export type IndicatorYRange = {
+	min : number,
+	max : number,
+	valid : boolean
+}
+
+/** 计算指标数值集合（独立出来便于 x-chart 先合并 y 范围再渲染） */
+export const computeIndicatorValues = (data : ChartDatum[], ind : ChartIndicatorOptions) : IndicatorValueSet => {
+	const kind = ind.kind
+	const field = ind.field ?? 'end'
+	const period = ind.period ?? 20
+	if (kind == 'ma') {
+		const arr = calcMA(data, field, period)
+		return { lines: [arr] as number[][], labels: [`MA${period}`] as string[] } as IndicatorValueSet
+	}
+	if (kind == 'ema') {
+		const arr = calcEMA(data, field, period)
+		return { lines: [arr] as number[][], labels: [`EMA${period}`] as string[] } as IndicatorValueSet
+	}
+	if (kind == 'boll') {
+		const k = ind.k ?? 2
+		const r = calcBOLL(data, field, period, k)
+		return {
+			lines: [r.mb, r.up, r.dn] as number[][],
+			labels: [`BOLL(${period})`, 'UP', 'DN'] as string[]
+		} as IndicatorValueSet
+	}
+	if (kind == 'env') {
+		const dev = ind.deviation ?? 0.05
+		const r = calcENV(data, field, period, dev)
+		return {
+			lines: [r.mb, r.up, r.dn] as number[][],
+			labels: [`ENV(${period})`, 'UP', 'DN'] as string[]
+		} as IndicatorValueSet
+	}
+	return { lines: [] as number[][], labels: [] as string[] } as IndicatorValueSet
+}
+
+/** 从指标值集合中提取有限值的 min/max */
+export const getIndicatorYRange = (set : IndicatorValueSet) : IndicatorYRange => {
+	let mn : number = Number.POSITIVE_INFINITY
+	let mx : number = Number.NEGATIVE_INFINITY
+	let hit : boolean = false
+	for (let i = 0; i < set.lines.length; i++) {
+		const arr = set.lines[i]
+		for (let j = 0; j < arr.length; j++) {
+			const v = arr[j]
+			if (isNaN(v)) continue
+			if (!isFinite(v)) continue
+			if (v < mn) mn = v
+			if (v > mx) mx = v
+			hit = true
+		}
+	}
+	if (!hit) {
+		return { min: 0, max: 1, valid: false } as IndicatorYRange
+	}
+	return { min: mn, max: mx, valid: true } as IndicatorYRange
+}
+
+/** 把 [{x,y},...] 扁平成 [x0,y0,x1,y1,...]（ILinePolygon 需要扁平数组） */
+const _flattenPoints = (pts : XYPoint[]) : number[] => {
+	const raw = [] as number[]
+	for (let i = 0; i < pts.length; i++) {
+		raw.push(pts[i].x)
+		raw.push(pts[i].y)
+	}
+	return raw
+}
+
+/**
+ * 渲染指标 series
+ * @param minY/maxY 必须由 x-chart 层面合并 K 线 + 所有指标 值后的统一范围
+ * @param valueSet  预先计算好的指标数值集合（避免在 y 合并阶段算一次、渲染再算一次）
+ */
+export const renderIndicatorSeries = (
+	canvas : ICanvas,
+	series : ChartSeriesOptions,
+	data : ChartDatum[],
+	rect : PlotRect,
+	seriesIdx : number,
+	minY : number,
+	maxY : number,
+	valueSet : IndicatorValueSet
+) : Shape[] => {
+	const shapes = [] as Shape[]
+	const ind = series.indicator
+	if (ind == null || valueSet.lines.length == 0) return shapes
+	const xf = series.xField ?? ''
+	if (xf == '' || data.length == 0) return shapes
+
+	const domain = buildBandDomain(data, xf)
+	const yScale = createLinearScale(minY, maxY, rect.bottom, rect.top)
+
+	const colors = ind.colors ?? [] as string[]
+	const lineWidth = Math.max(0.5, ind.lineWidth ?? 1.5)
+	const smooth = ind.smooth ?? false
+	const dash = ind.lineDash ?? [] as number[]
+
+	// 对每条指标线构建 XYPoint[]，NaN 位置直接跳过（形成断线而不是 0 点）
+	const linePoints = [] as XYPoint[][]
+	for (let li = 0; li < valueSet.lines.length; li++) {
+		const vals = valueSet.lines[li]
+		const pts = [] as XYPoint[]
+		for (let i = 0; i < data.length; i++) {
+			const v = i < vals.length ? vals[i] : NaN
+			if (isNaN(v) || !isFinite(v)) continue
+			const label = getDatumString(data[i], xf, `${i}`)
+			const px = mapBandCenter(label, domain, rect.left, rect.right)
+			const py = mapLinear(v, yScale)
+			pts.push({ x: px, y: py } as XYPoint)
+		}
+		linePoints.push(pts)
+	}
+
+	// 填充带：BOLL / ENV 等 3 条线且 fillBand=true 时，在 up 与 dn 之间填色
+	// lines[0]=mb, lines[1]=up, lines[2]=dn（见 computeIndicatorValues 约定顺序）
+	if (ind.fillBand == true && linePoints.length >= 3) {
+		const up = linePoints[1]
+		const dn = linePoints[2]
+		if (up.length > 1 && dn.length > 1) {
+			// 闭合多边形：上轨正序 + 下轨逆序
+			const polygon = [] as number[]
+			for (let i = 0; i < up.length; i++) {
+				polygon.push(up[i].x); polygon.push(up[i].y)
+			}
+			for (let i = dn.length - 1; i >= 0; i--) {
+				polygon.push(dn[i].x); polygon.push(dn[i].y)
+			}
+			const fillColor = colors.length > 0 ? colors[0] : getChartColor(seriesIdx)
+			const opacity = ind.fillOpacity ?? 0.08
+			shapes.push(new ILinePolygon({
+				points: polygon,
+				stroke: '',
+				strokeWidth: 0,
+				fill: fillColor,
+				opacity: opacity,
+				closed: true,
+				lineJoin: 'round'
+			}, canvas))
+		}
+	}
+
+	// 逐条绘制指标线
+	for (let li = 0; li < linePoints.length; li++) {
+		const pts = linePoints[li]
+		if (pts.length < 2) continue
+		const color = colors.length > li ? colors[li] : getChartColor(seriesIdx + li)
+		// 金融指标默认直连（每个拐点都是决策语义），smooth=true 时才走 monotone 平滑
+		let flat : number[]
+		if (smooth) {
+			flat = buildSmoothLinePoints(pts, 0.6)
+		} else {
+			flat = _flattenPoints(pts)
+		}
+		shapes.push(new ILinePolygon({
+			points: flat,
+			stroke: color,
+			strokeWidth: lineWidth,
+			fill: '',
+			lineCap: 'round',
+			lineJoin: 'round',
+			closed: false,
+			lineDash: dash
+		}, canvas))
+	}
+
+	return shapes
+}

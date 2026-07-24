@@ -1,0 +1,557 @@
+﻿<!-- #ifdef MP-WEIXIN -->
+<!-- @vue-docgen-ignore-next-line -->
+<script module="xfs" lang="wxs" src="./xfs.wxs"></script>
+<!-- #endif -->
+<script lang="ts" setup>
+	import { ref, computed, watch, onMounted, getCurrentInstance } from "vue"
+	import { getUid, checkIsCssUnit } from '../../core/util/xCoreUtil.uts'
+	import { getDefaultColor } from '../../core/util/xCoreColorUtil.uts'
+	import { xConfig } from "../../config/xConfig.uts"
+
+	type POSITION_TYPE_XY = {
+		x : number,
+		y : number
+	}
+
+	/**
+	 * @name 左滑菜单 xSwitchSlider
+	 * @description 常用于对话聊天，订单列表等一些隐藏式按钮设计场景。如果子菜单无法定宽或者被挤夺请写style:flex-shrink: 0;避免。
+	 * @page /pages/index/switch-slider
+	 * @category 反馈组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({ name: "xSwitchSlider" })
+
+	defineSlots<{
+		default(props : { status : boolean }) : any,
+		menu(props : { status : boolean }) : any
+	}>()
+
+	type xSwitchSliderPropsType = {
+		/** 被拖动层的自定义样式 */
+		custonmStyle : string,
+		/** 菜单容器层自定义样式 */
+		custonmMenuStyle : string,
+		/** 宽度 */
+		width : string,
+		/** 高度，单位随意 */
+		height : string,
+		/** 是否禁用 */
+		disabled : boolean,
+		/** 当滑动时小于此值，会回弹到原位 */
+		threshold : number,
+		/** 当打开或者松开时的动画时间 */
+		duration : number,
+		/** 当前打开状态 */
+		status : boolean,
+		/** 下边线的颜色 */
+		borderColor : string,
+		/** 下边线暗黑的颜色，不提供取全局borderDarkColor */
+		borderDarkColor : string,
+		/** 让拖动层内容失去响应 */
+		eventNone : boolean,
+		/** 是否显示下边线 */
+		showBottomBorder : boolean,
+	}
+
+	const props = withDefaults(defineProps<xSwitchSliderPropsType>(), {
+		custonmStyle: "",
+		custonmMenuStyle: "",
+		width: "100%",
+		height: "50",
+		disabled: false,
+		threshold: 15,
+		duration: 450,
+		status: false,
+		borderColor: "#f5f5f5",
+		borderDarkColor: "",
+		eventNone: true,
+		showBottomBorder: true,
+	})
+
+	const emits = defineEmits([
+		'disabledScrollChange',
+		'click',
+		'open',
+		'close',
+		'start',
+		'end',
+		'move',
+		'update:status',
+		'longTimePress'
+	])
+
+	const instance = getCurrentInstance()
+
+	const opened = ref<boolean>(false)
+	let startX = 0
+	let startY = 0
+	let slideX = 0
+	let _x = 0
+	let _y = 0
+	let _tempPop_x = 0
+	let _tempPop_y = 0
+	let dirs = "right"
+	const id = ("xSwitchSilder" + getUid()) as string
+	const idMenuRight = ("xSwitchSilderItems" + getUid()) as string
+	const isMove = ref<boolean>(false)
+	let dateTime = 0
+	let diffX = 0
+	let isSwiper = 'none'
+	let weblongTimePressId = 0
+
+	const xSwitchSilderRef = ref<UniElement | null>(null)
+	const xSwitchSilderItemsRef = ref<UniElement | null>(null)
+
+	const _height = computed(() : string => checkIsCssUnit(props.height, xConfig.unit))
+
+	const _borderColor = computed(() : string => {
+		if (xConfig.dark == 'dark' && props.borderDarkColor == '') return getDefaultColor(xConfig.borderDarkColor)
+		if (xConfig.dark == 'dark' && props.borderDarkColor != '') return getDefaultColor(props.borderDarkColor)
+		return getDefaultColor(props.borderColor)
+	})
+
+	const _animationFun = computed(() : string => xConfig.animationFun)
+
+	// #ifdef MP-WEIXIN
+	function setOpts(opts : any) {
+		if (opts?.isMove != null) isMove.value = opts.isMove;
+		if (opts?.opened != null) opened.value = opts.opened;
+		if (opts?.isSwiper != null) isSwiper = opts.isSwiper;
+	}
+
+	function callEmits(args : any) {
+		if (!args.name) return;
+		if (args.args != null && args.args != undefined) {
+			emits(args.name, args.args)
+		} else {
+			emits(args.name)
+			if (args.name == 'open' || args.name == 'close') {
+				emits("update:status", args.name == 'open')
+			}
+		}
+	}
+	// #endif
+
+	function resetMoveData() {
+		startX = 0;
+		startY = 0;
+		let ele = xSwitchSilderRef.value as UniElement | null
+		if (ele == null) return;
+		ele!.style.setProperty("transition-duration", '0ms')
+	}
+
+	function getNodeInfo() {
+		uni.createSelectorQuery().in(instance!.proxy)
+			.select(".xSwitchSilderItems")
+			.boundingClientRect().exec((ret) => {
+				if (ret.length == 0) return;
+				let el = uni.getElementById(id) as UniElement | null
+				let nodeinfo = ret[0] as NodeInfo
+				if (nodeinfo == null) return;
+				let width = nodeinfo.width as number
+				if (props.status && el != null) {
+					opened.value = false;
+					dirs = "left"
+					el!.style.setProperty("transition-duration", props.duration.toString() + 'ms')
+					el!.style.setProperty("left", '-' + width.toString() + 'px')
+					slideX = -width;
+				}
+			})
+	}
+
+	function longTimePress() {
+		if (isMove.value || opened.value) return;
+		emits('longTimePress')
+	}
+
+	function getMenuRightwidth() : number {
+		let menuEl = xSwitchSilderItemsRef.value as UniElement | null
+		if (menuEl == null) return 0;
+		return menuEl!.getBoundingClientRect().width;
+	}
+
+	function eventTransform_start(evt : POSITION_TYPE_XY) {
+		diffX = 0
+		dateTime = new Date().getTime()
+		resetMoveData();
+		if (props.disabled) return;
+		startX = evt.x - slideX;
+		_x = evt.x
+		_y = evt.y
+		startY = evt.y;
+		isMove.value = true;
+	}
+
+	function eventTransform_move(evt : POSITION_TYPE_XY) {
+		let el = xSwitchSilderRef.value as UniElement | null;
+		if (el == null) return;
+		let x = evt.x - startX;
+		let realleftdom = el!.style.getPropertyValue("left") as string | null
+		let leftpos = parseInt(realleftdom == null ? '0' : realleftdom)
+		if (isNaN(leftpos)) leftpos = 0
+
+		let menuwidth = getMenuRightwidth()
+		let dX = evt.x - _x;
+		_x = evt.x
+
+		if (leftpos > 0) {
+			x = 0
+		} else if (leftpos < -menuwidth) {
+			x = -menuwidth
+		}
+
+		x = Math.min(0, x)
+		x = Math.max(-menuwidth, x)
+		slideX = x;
+
+		if (Math.abs(x) > props.threshold) {
+			dirs = dX > 0 ? "right" : "left"
+		}
+		if (leftpos >= -menuwidth && leftpos <= 0 && Math.abs(dX) > 0) {
+			el!.style.setProperty("left", x + 'px')
+		}
+		diffX = dX;
+	}
+
+	function mStart(evt : UniTouchEvent) {
+		emits("start")
+		dateTime = Date.now()
+		let event = evt.changedTouches[0];
+		_tempPop_x = event.clientX
+		_tempPop_y = event.clientY
+		resetMoveData();
+		if (props.disabled) return;
+		isMove.value = true;
+		isSwiper = 'none';
+		eventTransform_start({ x: event.clientX, y: event.clientY } as POSITION_TYPE_XY)
+	}
+
+	function mMove(evt : UniTouchEvent) {
+		emits("move")
+		let event = evt.changedTouches[0]
+		if (props.disabled) return;
+
+		let y = Math.abs(event.clientY - _tempPop_y)
+		let x = Math.abs(event.clientX - _tempPop_x)
+		const hasDirection = Math.max(x, y) > 10
+		const isHorizontal = x > y
+
+		if (hasDirection && isSwiper == 'none') {
+			if (isHorizontal) {
+				isSwiper = 'swiper'
+				evt.preventDefault()
+				evt.stopPropagation()
+			} else {
+				isSwiper = 'off'
+			}
+		}
+
+		if (isSwiper == 'swiper') {
+			eventTransform_move({ x: event.clientX, y: event.clientY } as POSITION_TYPE_XY)
+		}
+	}
+
+	function mClick() {
+		emits("click")
+	}
+
+	function mEnd(evt : UniTouchEvent) {
+		emits("end")
+		let diffdate = Date.now() - dateTime
+		let dx = evt.changedTouches[0].clientX - _tempPop_x
+		let dy = evt.changedTouches[0].clientY - _tempPop_y
+		if (Math.abs(dx) == Math.abs(dy) && dx == 0 && diffdate > 5 && diffdate <= 250) {
+			mClick()
+		}
+
+		let el = xSwitchSilderRef.value as UniElement | null;
+		let menuEl = xSwitchSilderItemsRef.value as UniElement | null
+		if (el == null || menuEl == null) return;
+		isMove.value = false;
+		if (props.disabled || isSwiper == 'off') return;
+
+		let menuwidth = menuEl!.getBoundingClientRect().width
+		el!.style.setProperty("transition-duration", props.duration.toString() + 'ms')
+		if (dirs == 'left') {
+			slideX = -menuwidth;
+			el!.style.setProperty("left", (-menuwidth).toString() + 'px')
+			opened.value = true;
+			emits("open")
+		} else if (dirs == 'right') {
+			el!.style.setProperty("left", '0px')
+			slideX = 0
+			opened.value = false;
+			emits("close")
+		}
+	}
+
+	function onAniEnd() {
+		// #ifdef APP||WEB
+		if (dirs == 'left') {
+			emits("update:status", true)
+			isMove.value = false;
+		}
+		if (dirs == 'right') {
+			emits("update:status", false)
+			isMove.value = false;
+		}
+		// #endif
+	}
+
+	// #ifdef WEB
+	function mmStart(evt : UniMouseEvent) {
+		;(window as any).xSwitchSliderId = id
+		emits("start")
+		dateTime = Date.now()
+		resetMoveData();
+		_tempPop_x = evt.clientX;
+		_tempPop_y = evt.clientY;
+		if (props.disabled) return;
+		isSwiper = 'none';
+		isMove.value = true;
+		eventTransform_start({ x: evt.clientX, y: evt.clientY } as POSITION_TYPE_XY)
+		weblongTimePressId = setTimeout(function () {
+			longTimePress()
+		}, 500);
+	}
+
+	function mmMove(evt : UniMouseEvent) {
+		clearTimeout(weblongTimePressId)
+		if ((window as any).xSwitchSliderId != id) return;
+		emits("move")
+		if (props.disabled || !isMove.value) return;
+
+		let y = Math.abs(evt.clientY - _tempPop_y)
+		let x = Math.abs(evt.clientX - _tempPop_x)
+		const hasDirection = Math.max(x, y) > 10
+		const isHorizontal = x > y
+
+		if (hasDirection && isSwiper == 'none') {
+			if (isHorizontal) {
+				isSwiper = 'swiper'
+				evt.preventDefault()
+				evt.stopPropagation()
+			} else {
+				isSwiper = 'off'
+			}
+		}
+
+		if (isSwiper == 'swiper') {
+			eventTransform_move({ x: evt.clientX, y: evt.clientY } as POSITION_TYPE_XY)
+		}
+	}
+
+	function mmEnd(evt : UniMouseEvent) {
+		clearTimeout(weblongTimePressId)
+		if ((window as any).xSwitchSliderId != id || !isMove.value) return;
+		emits("end")
+		let diffdate = Date.now() - dateTime
+		let dx = evt.clientX - _tempPop_x
+		let dy = evt.clientY - _tempPop_y
+		if (Math.abs(dx) == Math.abs(dy) && dx == 0 && diffdate > 5 && diffdate <= 250) {
+			mClick()
+			return;
+		}
+		let el = xSwitchSilderRef.value as UniElement | null
+		let menuEl = xSwitchSilderItemsRef.value as UniElement | null
+		if (el == null || menuEl == null) return;
+		isMove.value = false;
+
+		if (props.disabled || isSwiper == 'off') return;
+
+		let menuwidth = menuEl!.getBoundingClientRect().width
+		let nowLeftStr = el!.style.getPropertyValue('left')
+		const nowLeft = Math.abs(nowLeftStr == null || nowLeftStr == '' ? 0 : parseFloat(nowLeftStr))
+		el!.style.setProperty("transition-duration", props.duration.toString() + 'ms')
+
+		if (dirs == 'left') {
+			slideX = -menuwidth;
+			opened.value = true;
+			emits("open")
+			if (nowLeft >= menuwidth) {
+				emits("update:status", true)
+				isMove.value = false;
+			}
+			el!.style.setProperty("left", (-menuwidth).toString() + 'px')
+		} else if (dirs == 'right') {
+			slideX = 0
+			opened.value = false;
+			emits("close")
+			if (nowLeft <= 0) {
+				emits("update:status", false)
+				isMove.value = false;
+			}
+			el!.style.setProperty("left", '0px')
+		}
+	}
+	// #endif
+
+	function open() {
+		opened.value = true;
+		dirs = "left"
+		// #ifdef APP||WEB
+		let menuwidth = getMenuRightwidth()
+		let el = xSwitchSilderRef.value as UniElement | null;
+		if (el == null) return;
+		el!.style.setProperty("transition-duration", props.duration.toString() + 'ms')
+		el!.style.setProperty("left", '-' + menuwidth.toString() + 'px')
+		slideX = -menuwidth;
+		// #endif
+	}
+
+	function close() {
+		opened.value = false;
+		dirs = "right"
+		// #ifdef APP||WEB
+		let el = xSwitchSilderRef.value as UniElement | null;
+		if (el != null) {
+			el!.style.setProperty("transition-duration", props.duration.toString() + 'ms')
+			el!.style.setProperty("left", '0px')
+		}
+		// #endif
+		slideX = 0;
+	}
+
+	watch(() : boolean => props.status, (newval : boolean) => {
+		if (newval == opened.value) return;
+		if (props.status) {
+			open()
+		} else {
+			close()
+		}
+	})
+
+	onMounted(() => {
+		getNodeInfo();
+	})
+
+	defineExpose({
+		/** 打开 **/
+		open,
+		/** 关闭 **/
+		close,
+		// #ifdef MP-WEIXIN
+		setOpts,
+		callEmits,
+		// #endif
+	})
+</script>
+<template>
+	<view>
+		<view  
+			class="xSwitchSilder" :style="{minHeight:_height}">
+			<view 
+			
+			@longpress="longTimePress"
+			
+			<!-- #ifdef APP||WEB -->
+			@touchstart="mStart"
+			@touchmove="mMove" 
+			@touchend="mEnd" 
+			@touchcancel="mEnd" 
+			<!-- #endif -->
+			
+			
+			<!-- #ifdef WEB -->
+			@mousedown="mmStart"
+			@mousemove="mmMove"
+			@mouseup="mmEnd"
+			@mouseleave="mmEnd"
+			<!-- #endif -->
+			
+			<!-- #ifdef MP-WEIXIN -->
+			@touchstart="xfs.mStart"
+			@touchmove="xfs.mMove"
+			@touchend="xfs.mEnd"
+			@touchcancel="xfs.mEnd"
+			:data-opts="{
+			  disabled:disabled,
+			  slideX:slideX,
+			  duration:duration,
+			  animationFun:_animationFun,
+			  opened:opened,
+			  threshold:threshold
+			}"
+			:change:prop="xfs.propObserver"
+			:prop="opened"
+			<!-- #endif -->
+			
+			:id="id" ref="xSwitchSilderRef" 
+			:style="[{'transition-timing-function':_animationFun},custonmStyle]"
+			class="xSwitchSilderWrap " 
+			@transitionend="onAniEnd">
+				<view  :class="[eventNone?'noEventBySwitchSlider':'']" class="" style="width: 100%;height: 100%;">
+					<!--
+					 @slot 默认插槽，你的顶层布局可以在这里。
+					 -->
+					<slot></slot>
+				</view>
+			</view>
+			<view class="xSwitchSilderItemsWrap">
+				<view ref="xSwitchSilderItemsRef" :id="idMenuRight" class="xSwitchSilderItems" :style="custonmMenuStyle">
+					<!-- 
+					 @slot 菜单插槽
+					 @prop {boolean} status - 当前打开的状态
+					 -->
+					<slot name="menu" :status="opened"></slot>
+				</view>
+			</view>
+		</view>
+		<view v-if="showBottomBorder" :style="{backgroundColor:_borderColor,height:'1px'}"></view>
+	</view>
+</template>
+<style>
+	.noEventBySwitchSlider {
+		pointer-events: none;
+	}
+
+	.xSwitchSilder {
+		display: flex;
+		flex-direction: column;
+		/* #ifdef WEB */
+		cursor: grab;
+		/* #endif */
+	}
+
+	/* #ifdef WEB */
+	.xSwitchSilder:active {
+		cursor: grabbing;
+	}
+
+	/* #endif */
+	.xSwitchSilderWrap {
+		position: absolute;
+		width: 100%;
+		height: 100%;
+		z-index: 2;
+		right: 0px;
+		transition-property: left;
+		transition-duration: 0ms;
+	}
+
+	.xSwitchSilderItemsWrap {
+		width: 100%;
+		height: 100%;
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: flex-end;
+	}
+
+	.xSwitchSilderItems {
+		flex-shrink: 0;
+		height: 100%;
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: flex-end;
+		
+		/* #ifdef WEB */
+		cursor: pointer;
+		/* #endif */
+	}
+</style>

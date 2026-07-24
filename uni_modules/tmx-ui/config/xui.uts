@@ -1,0 +1,87 @@
+import { xProvitae, xConfig ,setConfig} from "./xConfig.uts"
+import { Tmui4xI18nTml} from "@/uni_modules/x-vuei18n-s/interface.uts"
+import { getDarkMode, isCustomTheme, WebObserveTheme, setThemeDarkModel } from "./observeAppTheme.uts"
+import {Tmui4xOptions} from "@/uni_modules/tmx-ui/interface.uts"
+const xui = definePlugin({
+	install(app:VueApp,config:Tmui4xOptions|null) {
+		setConfig(config)
+		/**
+		 * 组合式代码中使用
+		 */
+		app.config.globalProperties.$i18n = xConfig.i18n
+		let darkModel = getDarkMode();
+		if (isCustomTheme()) {
+			xConfig.dark = darkModel
+		} else {
+			if (xConfig.dark == 'auto') {
+				uni.setStorageSync('tmuiXuiOsThemeSet', darkModel)
+				xConfig.dark = darkModel
+			} else {
+				uni.setStorageSync('tmuiXuiOsThemeSet', xConfig.dark)
+			}
+		}
+		WebObserveTheme()
+		setThemeDarkModel()
+		app.mixin({
+			data() {
+				return {
+					/**
+					 * 模板vue内及选项式this.i18n可调用使用
+					 */
+					i18n: xConfig.i18n as Tmui4xI18nTml
+				}
+			},
+			computed:{
+				// #ifdef MP
+				xThemeConfigBgColor():string{
+					return xConfig.dark=='dark'?xConfig.backgroundColorContentDark:xConfig.backgroundColorContentLight
+				},
+				xThemeConfigNavBgColor():string{
+					return xConfig.dark=='dark'?xConfig.navigationBarBackgroundColorDark:xConfig.navigationBarBackgroundColorLight
+				},
+				xThemeConfigNavFontColor():string{
+					return xConfig.dark=='dark'?xConfig.navigationBarTextStyleDark:xConfig.navigationBarTextStyleLight
+				},
+				xThemeConfigIsDark():boolean{
+					return xConfig.dark=='dark'
+				}
+				// #endif
+			},
+			onPageScroll(e) {
+				xProvitae.scrollTop = e.scrollTop
+				const pages = getCurrentPages()
+				if(pages.length==0) return;
+				const page = pages[pages.length-1].route
+				uni.$emit('onPageScroll', {top:e.scrollTop,page:page} as UTSJSONObject)
+			
+			},
+			onResize() {
+				uni.$emit('onResize', function () { })
+			},
+			onLoad(query) {
+				xProvitae.onLoadOpts = JSON.parseObject(JSON.stringify(query)!)??({})
+				uni.$emit('onLoad',function () { })
+			},
+			onHide() {
+				uni.$emit('onHide', function () { })
+			},
+			onReady(){
+				uni.$emit('onReady', function () { })
+				xProvitae.pageReady = true;
+				
+			},
+			onShow() {
+				// #ifdef WEB
+				this.$nextTick(()=>{
+					setThemeDarkModel()
+				})
+				// #endif
+				uni.$emit('onShow', function () { })
+			}
+		})
+	}
+})
+
+
+
+export default xui

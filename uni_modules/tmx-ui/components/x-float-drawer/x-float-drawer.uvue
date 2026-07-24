@@ -1,0 +1,802 @@
+<!-- #ifdef MP-WEIXIN -->
+<!-- @vue-docgen-ignore-next-line -->
+<script module="xfs" lang="wxs" src="./xfs.wxs"></script>
+<!-- #endif -->
+<script lang="ts" setup>
+	import { ref, computed, watch, onMounted } from "vue"
+	import { checkIsCssUnit, rpx2px } from "../../core/util/xCoreUtil.uts"
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+
+	type StatusType = 'close' | 'open'
+
+	/**
+	 * @name 浮动面板 FloatDrawer
+	 * @description 提供流畅的拖拉阻尼效果，回弹丝滑。右滑关闭逻辑已经实现,但在app体验不好,主要是scoll与事件冲突需要官方优化.
+	 * @page /pages/index/float-drawer
+	 * @category 反馈组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({ name: "xFloatDrawer" })
+
+	type xFloatDrawerPropsType = {
+		/**
+		 * 显示可v-model:show双向绑定
+		 * 默认是打开还是放置在底部。
+		 */
+		show : boolean,
+		/**
+		 * 是否仅允许通过标题栏拖动。
+		 */
+		onlyHeader : boolean,
+		/**
+		 * 动画时间
+		 */
+		duration : number,
+		/**
+		 * 向上的圆角
+		 * 空值时，取全局配置的圆角。
+		 */
+		round : string,
+		/**
+		 * 百分比，数字字符或者带单位,
+		 * 默认露出的内容高度
+		 */
+		size : string,
+		/**
+		 * 弹层最大的高度值，默认为屏幕的可视高
+		 * 提供值时不能为百分比，可以是px,rpx单位数字。如果你不带单位，默认转换为rpx单位。
+		 */
+		maxHeight : string,
+		/**
+		 * 当拖动时，触发打开和关闭时的临界值，单位是px
+		 * 如果没有达到此临界值时，将会回弹至原始位置。
+		 */
+		triggerDy : number,
+		/**
+		 * 当拖动时，如果已经达到了关闭和打开时的临界值时
+		 * 可以继续拖拉时缓动阻尼值
+		 */
+		threshold : number,
+		/**
+		 * 内容层的背景色
+		 */
+		bgColor : string,
+		/**
+		 * 暗黑的背景色,空时，取全局的sheetDarkColor
+		 */
+		darkBgColor : string,
+		/**
+		 * 拖动标题栏的横线背景色
+		 */
+		actionColor : string,
+		/**
+		 * 禁用内部的容器并采用view容器
+		 */
+		disabledScroll : boolean,
+		/**
+		 * 没有禁用disabledScroll生效
+		 * 容器内部使用的类型
+		 * scroll :scroll-view
+		 * list : list-view
+		 */
+		containerType : string,
+		/**
+		 * 是否禁用用户滚动等来触发关闭或者打开。
+		 */
+		disabled : boolean,
+		/**
+		 * 层级
+		 */
+		zIndex : number,
+		/**
+		 * 控制内容的边跑,有时需要自定布局时非常有用.
+		 * 请直接使用style css规则写margin,
+		 */
+		contentMargin : string
+	}
+
+	const props = withDefaults(defineProps<xFloatDrawerPropsType>(), {
+		show: false,
+		onlyHeader: false,
+		duration: 350,
+		round: "",
+		size: "15%",
+		maxHeight: "80%",
+		triggerDy: 100,
+		threshold: 0.045,
+		bgColor: "white",
+		darkBgColor: "",
+		actionColor: "#888888",
+		disabledScroll: false,
+		containerType: "scroll",
+		disabled: false,
+		zIndex: 100,
+		contentMargin: "0 16px 16px 16px"
+	})
+
+	const emits = defineEmits([
+		/**
+		 * 关闭时执行
+		 */
+		'close',
+		/**
+		 * 打开执行的事件
+		 */
+		'open',
+		/**
+		 * 打开前执行
+		 */
+		'beforeOpen',
+		/**
+		 * 关闭前执行
+		 */
+		'beforeClose',
+		/**
+		 * 高度位置变化时触发这个差值.返回参数evt是个百分比,0%是最低下,100%代表是在最顶部.
+		 */
+		'heightChange',
+		/**
+		 * 开始拖动
+		 */
+		'movestart',
+		/**
+		 * 结束拖动
+		 */
+		'moveend',
+		/**
+		 * 等同v-model:show
+		 */
+		'update:show'
+	])
+
+	const xFLoatDrawerRef = ref<UniElement | null>(null)
+	const xFloatScrollRef = ref<UniElement | null>(null)
+
+	const _height = ref<number>(0)
+	const status = ref<StatusType>('close')
+	const disabledScrolling = ref<boolean>(false)
+
+	let _width : number = 0
+	let actioning : boolean = false
+	let diffY : number = 0
+	let first : boolean = true
+	let tid : number = 5
+	let _lastTouchY : number = 0
+	let _isTouching : boolean = false
+	let _scrollTop : number = 0
+	let _lastScrollTop : number = 0
+	let _translateY : number = 0
+	let _currentTranslateY : number = 0
+	let _dragBaseSet : boolean = false
+	const _topEpsilon : number = 2
+
+	const _round = computed(() : string => {
+		let round = props.round;
+		if (round == "") {
+			round = xConfig.drawerRadius
+		}
+		const radius = checkIsCssUnit(round, 'rpx');
+		return `${radius} ${radius} 0px 0px`
+	})
+
+	const _size = computed(() : number => {
+		if (props.size == "") {
+			return _height.value * 0.8
+		}
+		if (props.size.lastIndexOf('rpx') > -1) {
+			const sz = rpx2px(parseFloat(props.size))
+			return _height.value - sz
+		}
+		if (props.size.lastIndexOf('px') > -1) {
+			const sz = parseFloat(props.size)
+			return _height.value - sz
+		}
+		if (props.size.lastIndexOf('%') > -1) {
+			const sz = parseFloat(props.size) / 100 * _height.value
+			return _height.value - sz
+		}
+		const sz = uni.rpx2px(parseFloat(props.size))
+		return _height.value - sz
+	})
+
+	const _maxHeight = computed(() : number => {
+		if (props.size == "") {
+			return _height.value * 0.2
+		}
+		if (props.maxHeight.lastIndexOf('rpx') > -1) {
+			const sz = rpx2px(parseFloat(props.maxHeight))
+			return _height.value - sz
+		}
+		if (props.maxHeight.lastIndexOf('px') > -1) {
+			const sz = parseFloat(props.maxHeight)
+			return _height.value - sz
+		}
+		if (props.maxHeight.lastIndexOf('%') > -1) {
+			const sz = parseFloat(props.maxHeight) / 100 * _height.value
+			return _height.value - sz
+		}
+		const sz = rpx2px(parseFloat(props.maxHeight))
+		return _height.value - sz
+	})
+
+	const _bgColor = computed(() : string => {
+		if (xConfig.dark == 'dark') {
+			if (props.darkBgColor != '') return getDefaultColor(props.darkBgColor)
+			return getDefaultColor(xConfig.sheetDarkColor)
+		}
+		return getDefaultColor(props.bgColor)
+	})
+
+	const _actionColor = computed(() : string => getDefaultColor(props.actionColor))
+	const _animationFun = computed(() : string => xConfig.animationFun)
+
+	function getCurrentHeightPercentByTranslate(translateY : number) : number {
+		const minY = _maxHeight.value
+		const maxY = _size.value
+		const total = maxY - minY
+		if (total <= 0) return 0
+		let clamped = translateY
+		if (clamped < minY) clamped = minY
+		if (clamped > maxY) clamped = maxY
+		return (maxY - clamped) / total * 100
+	}
+
+	function setStyleAni() {
+		try {
+			const ele = xFLoatDrawerRef.value
+			if (ele == null) return
+			let duration = props.duration;
+			if (first == true) {
+				duration = 0
+			}
+			if (status.value == 'open') {
+				clearTimeout(tid)
+				tid = setTimeout(function () {
+					ele.style.setProperty("transition-duration", duration.toString() + 'ms')
+					ele.style.setProperty('transform', `translate(0%,${_maxHeight.value}px)`)
+				}, 50);
+			} else if (status.value == 'close') {
+				clearTimeout(tid)
+				tid = setTimeout(function () {
+					ele.style.setProperty("transition-duration", duration.toString() + 'ms')
+					ele.style.setProperty('transform', `translate(0%,${_size.value}px)`)
+				}, 50);
+			}
+		} catch (e) {
+		}
+		first = false;
+	}
+
+	function onEnd() {
+		clearTimeout(props.duration)
+		tid = setTimeout(function () {
+			if (status.value == 'close') {
+				/**
+				 * 关闭时执行
+				 */
+				emits('close')
+				/**
+				 * 等同v-model:show
+				 */
+				emits('update:show', false)
+				emits('heightChange', 0)
+			} else {
+				/**
+				 * 打开执行的事件
+				 */
+				emits('open')
+				emits('update:show', true)
+				emits('heightChange', 100)
+			}
+			actioning = false;
+			diffY = 0
+		}, props.duration);
+	}
+
+	function open() {
+		if (actioning) return;
+		if (status.value == 'open') return;
+		actioning = true;
+		status.value = 'open'
+		/**
+		 * 打开前执行
+		 */
+		emits('beforeOpen')
+		emits('heightChange', 100)
+		setStyleAni();
+		onEnd()
+	}
+
+	function close() {
+		if (actioning || status.value == 'close') return
+		actioning = true;
+		status.value = 'close'
+		/**
+		 * 关闭前执行
+		 */
+		emits('beforeClose')
+		emits('heightChange', 0)
+		setStyleAni();
+		onEnd()
+	}
+
+	function scrollTouchStart() {
+		if (status.value == 'open') {
+			disabledScrolling.value = false
+		}
+	}
+
+	function headerClickClose() {
+		if (_isTouching) return;
+		if (status.value == 'open') {
+			actioning = false;
+			close()
+		} else if (status.value == 'close') {
+			actioning = false;
+			open()
+		}
+	}
+
+	function diffStart(eventx : number, eventy : number) {
+		_isTouching = true
+		_lastTouchY = eventy
+		diffY = 0
+		_dragBaseSet = false
+		const ele = xFLoatDrawerRef.value
+		if (ele == null) return
+		if (status.value == 'open') {
+			_translateY = eventy - _maxHeight.value
+			_currentTranslateY = _maxHeight.value
+		} else if (status.value == 'close') {
+			_translateY = eventy - _size.value
+			_currentTranslateY = _size.value
+		}
+		ele.style.setProperty("transition-duration", '0ms')
+		emits('heightChange', getCurrentHeightPercentByTranslate(_currentTranslateY))
+	}
+
+	function diffMove(eventx : number, eventy : number) {
+		if (!_isTouching) return
+		const dy = eventy - _lastTouchY
+		diffY = dy
+		const panelBase = status.value == 'open' ? _maxHeight.value : _size.value
+		const panelDragged = Math.abs(_currentTranslateY - panelBase) > 2
+		if (dy < 0) {
+			if (status.value == 'open') {
+				if (!panelDragged) {
+					disabledScrolling.value = false
+					_dragBaseSet = false
+				}
+			}
+		} else if (dy > 0) {
+			const atTop = _scrollTop <= _topEpsilon
+			if (atTop) {
+				if (!disabledScrolling.value) {
+					disabledScrolling.value = true
+				}
+				if (!_dragBaseSet) {
+					_dragBaseSet = true
+					_translateY = eventy - _currentTranslateY
+					_lastTouchY = eventy
+					const ele2 = xFLoatDrawerRef.value
+					if (ele2 != null) ele2.style.setProperty("transition-duration", '0ms')
+				}
+			} else {
+				if (disabledScrolling.value) disabledScrolling.value = false
+				_dragBaseSet = false
+			}
+		}
+		// 拖拽位移与阻尼：
+		const ele = xFLoatDrawerRef.value
+		if (ele == null) return
+		const base = status.value == 'open' ? _maxHeight.value : _size.value
+		const rawTranslate = eventy - _translateY
+		let newTranslate = base
+		const minY = _maxHeight.value
+		const maxY = _size.value
+		if (status.value == 'open') {
+			const atTop = _scrollTop <= _topEpsilon
+			if (atTop) {
+				if (rawTranslate < minY) {
+					const overUp = minY - rawTranslate
+					const dampUp = overUp * props.threshold
+					newTranslate = minY - Math.min(props.triggerDy, dampUp)
+				} else if (rawTranslate > maxY) {
+					const over = rawTranslate - maxY
+					const damp = over * props.threshold
+					newTranslate = maxY + Math.min(props.triggerDy, damp)
+				} else {
+					newTranslate = rawTranslate
+				}
+			}
+		} else {
+			if (dy < 0) {
+				// 向上：在 [minY, maxY] 线性；超过 minY 才强阻尼
+				if (rawTranslate >= minY) {
+					newTranslate = Math.max(minY, Math.min(rawTranslate, maxY))
+				} else {
+					const overUp = minY - rawTranslate
+					const dampUp = overUp * props.threshold
+					newTranslate = minY - Math.min(props.triggerDy, dampUp)
+				}
+			} else if (dy > 0) {
+				// 向下：仅越过底部时强阻尼
+				if (rawTranslate <= maxY) {
+					newTranslate = maxY
+				} else {
+					const overDown = rawTranslate - maxY
+					const dampDown = overDown * props.threshold
+					newTranslate = maxY + Math.min(props.triggerDy, dampDown)
+				}
+			}
+		}
+		_currentTranslateY = newTranslate
+
+		ele.style.setProperty('transform', `translate(0%,${newTranslate}px)`)
+		emits('heightChange', getCurrentHeightPercentByTranslate(newTranslate))
+		_translateY = eventy - newTranslate
+		_lastTouchY = eventy
+	}
+
+	function diffEnd(eventx : number, eventy : number) {
+		if (!_isTouching) return;
+		_isTouching = false
+		const ele = xFLoatDrawerRef.value
+		if (ele == null) return
+		const base = status.value == 'open' ? _maxHeight.value : _size.value
+		const moved = _currentTranslateY - base
+
+		const absMoved = Math.abs(moved)
+
+		if (absMoved >= props.triggerDy) {
+			if (status.value == 'open' && moved > 0) {
+				status.value = 'close'
+				onEnd()
+			}
+			if (status.value == 'close' && moved < 0) {
+				status.value = 'open'
+				onEnd()
+			}
+		}
+		// 复位
+		const fuweiBase = status.value == 'open' ? _maxHeight.value : _size.value
+		ele.style.setProperty("transition-duration", props.duration.toString() + 'ms')
+		ele.style.setProperty('transform', `translate(0%,${fuweiBase}px)`)
+		if (status.value == 'open') {
+			emits('heightChange', 100)
+		} else if (status.value == 'close') {
+			emits('heightChange', 0)
+		}
+
+		diffY = 0
+	}
+
+	function scrolltoTop() {
+		// #ifndef MP
+		disabledScrolling.value = true;
+		// #endif
+		// #ifdef APP-ANDROID
+		// const el = xFloatScrollRef.value
+		// if (el != null) el.scrollTop = 0
+		// #endif
+	}
+
+	function onscroll(evt : UniScrollEvent) {
+		const scrollTop = evt.detail.scrollTop
+		_lastScrollTop = _scrollTop
+		_scrollTop = scrollTop
+		// 在滚动过程中，如果向上滚动，则始终允许滚动
+		if (_isTouching) {
+			const delta = _scrollTop - _lastScrollTop
+			if (delta > 0) {
+				// 内容向上滚动
+				if (disabledScrolling.value) disabledScrolling.value = false
+			} else if (delta < 0) {
+				// 内容向下滚动
+				const atTop = _scrollTop <= _topEpsilon
+				if (atTop) {
+					if (!disabledScrolling.value) disabledScrolling.value = true
+				} else {
+					if (disabledScrolling.value) disabledScrolling.value = false
+				}
+			}
+		}
+	}
+
+	function mStart(evt : UniTouchEvent) {
+		const x = evt.changedTouches[0].clientX
+		const y = evt.changedTouches[0].clientY
+		diffStart(x, y)
+	}
+
+	function mMove(evt : UniTouchEvent) {
+		const x = evt.changedTouches[0].clientX
+		const y = evt.changedTouches[0].clientY
+		diffMove(x, y)
+	}
+
+	function mEnd(evt : UniTouchEvent) {
+		const x = evt.changedTouches[0].clientX
+		const y = evt.changedTouches[0].clientY
+		diffEnd(x, y)
+	}
+
+	// #ifdef WEB
+	function mmStart(evt : UniMouseEvent) {
+		// #ifdef WEB||H5
+		if (evt instanceof TouchEvent) {
+			return;
+		}
+		// #endif
+		const x = evt.clientX
+		const y = evt.clientY
+		diffStart(x, y)
+	}
+
+	function mmMove(evt : UniMouseEvent) {
+		const x = evt.clientX
+		const y = evt.clientY
+		diffMove(x, y)
+	}
+
+	function mmEnd(evt : UniMouseEvent) {
+		const x = evt.clientX
+		const y = evt.clientY
+		diffEnd(x, y)
+	}
+	// #endif
+
+	// #ifdef MP-WEIXIN
+	function setOpts(opts : any) {
+		status.value = opts.status as StatusType;
+	}
+
+	function callEmits(args : any) {
+		if (!args.name) return;
+		if (args.name != 'open' && args.name != 'close') {
+			if (args.args != null && args.args != undefined) {
+				emits(args.name, args.args)
+			} else {
+				emits(args.name)
+			}
+		} else {
+			if (args.name == 'open') {
+				status.value = 'open';
+			}
+			if (args.name == 'close') {
+				status.value = 'close';
+			}
+			onEnd()
+		}
+	}
+
+	function setDisabledScolly(opts : any) {
+		disabledScrolling.value = opts.disabledScolly
+		_isTouching = opts.isMoving
+	}
+	// #endif
+
+	watch(() : boolean => props.show, (_newval : boolean) => {
+		if (_newval && status.value == 'close') {
+			actioning = false;
+			open()
+			onEnd()
+		} else if (!_newval && status.value == 'open') {
+			actioning = false;
+			close()
+			onEnd()
+		}
+	})
+
+	onMounted(() => {
+		let yachi = 0
+		// #ifdef APP
+		yachi = 250
+		// #endif
+
+		tid = setTimeout(function () {
+			const sys = uni.getWindowInfo()
+			_width = sys.windowWidth
+			_height.value = sys.windowHeight;
+			if (props.show) {
+				status.value = 'close'
+				open();
+			} else {
+				status.value = 'open'
+				close()
+			}
+		}, yachi);
+	})
+
+	// #ifdef MP-WEIXIN
+	defineExpose({
+		setOpts,
+		callEmits,
+		setDisabledScolly
+	})
+	// #endif
+</script>
+<template>
+	<!-- @transitionend="onEnd" -->
+	<view 
+		ref="xFLoatDrawerRef"
+		class="xFloatDrawerWrapContent" 
+		:style="{
+		width:'100%',
+		height:_height+'px',
+		borderRadius:_round,
+		backgroundColor:_bgColor,
+		'transition-timing-function':_animationFun,
+		zIndex:zIndex
+		}"
+		<!-- #ifdef MP-WEIXIN -->
+		
+		@touchstart="xfs.mStart"
+		@touchend="xfs.mEnd"
+		@touchcancel="xfs.mEnd"
+		@touchmove.stop.prevent="xfs.mMove" 
+		:change:prop="xfs.propObserver"
+		:prop="status"
+		:data-opts="{
+			maxHeight:_maxHeight,size:_size,height:_height,
+			status:status,
+			threshold:threshold,
+			duration:duration,
+			triggerDy:triggerDy,
+			_scrollDetail_y:0
+		}"
+
+		<!-- #endif -->
+		
+		<!-- #ifdef APP -->
+		@touchstart="mStart"
+		@touchmove="mMove"
+		@touchend="mEnd"
+		<!-- #endif -->
+		
+		<!-- #ifdef H5 -->
+		@touchstart="mStart"
+		@touchmove.stop.prevent="mMove"
+		@touchend="mEnd"
+		<!-- #endif -->
+		
+		<!-- #ifdef WEB -->
+		@mousedown="mmStart"
+		@mousemove="mmMove"
+		@mouseup="mmEnd"
+		@mouseleave="mmEnd"
+		<!-- #endif -->
+		
+		>
+		
+		<view class="xFloatDrawerBar">
+			<view @click.stop="headerClickClose" style="height:100%" class="xFloatDrawerBarSop">
+				<view class="xFloatDrawerBarLine" 
+				:disable="disabled"
+				:style="{'background-color':_actionColor,opacity: disabled?0.5:1}">
+				</view>
+			</view>
+		</view>
+
+		<view class="xFLoatViewWrap" :style="{flex:'1',padding:contentMargin}">
+			<scroll-view
+				:upper-threshold="0"
+				:lower-threshold="0"
+				ref="xFloatScrollRef"
+				@scrolltoupper="scrolltoTop"
+				@scroll="onscroll"
+				@touchstart="scrollTouchStart"
+				v-if="!disabledScroll&&containerType=='scroll'"
+				<!-- #ifndef MP-WEIXIN -->
+				:direction="(status=='close'||disabledScrolling)?'none':'vertical'" 
+				<!-- #endif -->
+				<!-- #ifdef MP-WEIXIN -->
+				:scroll-y="(status=='close'||!disabledScrolling)"
+				<!-- #endif -->
+				:style="{flex:'1'}" 
+				:bounces="false">
+				<!--
+					@slot 默认插槽
+					@prop {Boolean} show - 当前是否已显示
+				-->
+				<slot name="default" :show="show"></slot>
+				<view :style="{height:_maxHeight+'px'}"></view>
+			</scroll-view>
+			
+			<list-view 
+				:upper-threshold="0"
+				:lower-threshold="0"
+				ref="xFloatScrollRef"
+				@scroll="onscroll"
+				@touchstart="scrollTouchStart"
+				@scrolltoupper="scrolltoTop"
+				v-else-if="!disabledScroll&&containerType=='list'"
+				<!-- #ifndef MP-WEIXIN -->
+				:direction="status=='close'||disabledScrolling?'none':'vertical'" 
+				<!-- #endif -->
+				<!-- #ifdef MP-WEIXIN -->
+				:scroll-y="(status=='close'||!disabledScrolling)"
+				<!-- #endif -->
+				:style="{flex:'1'}" :bounces="false">
+				<!--
+					@slot 默认插槽
+					@prop {Boolean} show - 当前是否已显示
+				-->
+				<slot name="default" :show="show"></slot>
+				<list-item>
+					<view :style="{height:_maxHeight+'px'}"></view>
+				</list-item>
+			</list-view>
+			
+			<view v-else :style="{flex:'1',margin:contentMargin}">
+				<!--
+					@slot 默认插槽
+					@prop {Boolean} show - 当前是否已显示
+					@prop {Number} height - 容器的高度
+				-->
+				<slot name="default" :show="show" :height="_maxHeight"></slot>
+			</view>
+				
+				
+		</view>
+	</view>
+</template>
+<style lang="scss">
+	.xFloatDrawerBarSop {
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+		align-items: center;
+	}
+
+	.xFloatDrawerBar {
+		height: 44px;
+
+		/* #ifdef WEB */
+		cursor: grab;
+		/* #endif */
+	}
+
+	/* #ifdef WEB */
+	.xFloatDrawerBar:active {
+		cursor: grabbing;
+	}
+
+	/* #endif */
+
+
+	.xFloatDrawerBarLine {
+		width: 60px;
+		height: 4px;
+		border-radius: 8px;
+		/* #ifdef WEB */
+		&:not[disable=true]:hover{
+			opacity: 0.5;
+		}
+		/* #endif */
+	}
+
+	.xFloatDrawerWrapContent {
+		display: flex;
+		flex-direction: column;
+		/* #ifndef APP-HARMONY */
+		transition-duration: 250ms;
+		/* #endif */
+		/* #ifdef APP-HARMONY */
+		transition-duration: 0ms;
+		/* #endif */
+		/* transition-timing-function: cubic-bezier(.18,.89,.32,1); */
+		transition-property: transform;
+		display: flex;
+		flex-direction: column;
+		transform: translate(0%, 100%);
+		position: fixed;
+		/* z-index: 100; */
+		left: 0px;
+		bottom: 0px;
+	}
+</style>

@@ -1,0 +1,275 @@
+import { ICanvas } from '@/uni_modules/tmx-ui/core/canvas/ICanvas.uts';
+import { Shape } from '@/uni_modules/tmx-ui/core/canvas/lib/shape.uts';
+import bezier from '@/uni_modules/tmx-ui/core/util/bezier.uts';
+
+type ChartAnimTarget = {
+	shape : Shape,
+	prop : string,
+	startVal : number,
+	endVal : number
+}
+
+/** 入场动画按画布实例独立，避免同页多图时互相 cancel 导致其它图卡在动画初始帧（只显示一个点等） */
+const entranceRafByCanvasId = new Map<string, number>()
+const entranceTimerByCanvasId = new Map<string, number>()
+
+let hlFrameId : number | null = null
+let hlTimerId : number | null = null
+
+let hlTargets = [] as ChartAnimTarget[]
+let hlCanvas : ICanvas | null = null
+let hlStartTime : number = 0
+let hlDuration : number = 180
+
+const stopHighlightAnimation = () => {
+	if (hlFrameId != null) {
+		// #ifdef APP||WEB
+		cancelAnimationFrame(hlFrameId!)
+		// #endif
+		hlFrameId = null
+	}
+	if (hlTimerId != null) {
+		// #ifdef MP
+		clearTimeout(hlTimerId!)
+		// #endif
+		hlTimerId = null
+	}
+	hlTargets = [] as ChartAnimTarget[]
+	hlCanvas = null
+}
+
+export const cancelEntranceAnimation = (canvas : ICanvas) : void => {
+	const k = canvas.id
+	const prevRaf = entranceRafByCanvasId.get(k)
+	if (prevRaf != null) {
+		// #ifdef APP||WEB
+		cancelAnimationFrame(prevRaf)
+		// #endif
+		entranceRafByCanvasId.delete(k)
+	}
+	const prevTimer = entranceTimerByCanvasId.get(k)
+	if (prevTimer != null) {
+		// #ifdef MP
+		clearTimeout(prevTimer)
+		// #endif
+		entranceTimerByCanvasId.delete(k)
+	}
+}
+
+export const stopAnimationsForChart = (canvas : ICanvas) : void => {
+	const nowId = canvas.id;
+	const oldNowId = hlCanvas?.id??'';
+	cancelEntranceAnimation(canvas)
+	if (hlCanvas != null && oldNowId == nowId) {
+		stopHighlightAnimation()
+	}
+}
+
+export const stopAllChartAnimations = () => {
+	entranceRafByCanvasId.forEach((fid : number) => {
+		// #ifdef APP||WEB
+		cancelAnimationFrame(fid)
+		// #endif
+	})
+	entranceRafByCanvasId.clear()
+	entranceTimerByCanvasId.forEach((tid : number) => {
+		// #ifdef MP
+		clearTimeout(tid)
+		// #endif
+	})
+	entranceTimerByCanvasId.clear()
+	stopHighlightAnimation()
+}
+
+export const animateHighlight = (canvas : ICanvas, shape : Shape, prop : string, from : number, to : number, dur : number) => {
+	shape.setAttr(prop, from)
+	shape.needsUpdate = true
+
+	if (hlCanvas == null) {
+		stopHighlightAnimation()
+		hlCanvas = canvas
+		hlDuration = dur
+		hlStartTime = Date.now()
+	}
+
+	hlTargets.push({ shape: shape, prop: prop, startVal: from, endVal: to } as ChartAnimTarget)
+
+	if (hlTargets.length > 1) return
+
+	let animate : (t : number) => void = (_t : number) => {}
+	animate = (_t : number) => {
+		if (hlCanvas == null) return
+		const elapsed = Date.now() - hlStartTime
+		const raw = Math.min(1.0, elapsed / Math.max(1, hlDuration))
+		const progress = chartEase(raw)
+
+		for (let i = 0; i < hlTargets.length; i++) {
+			const ht = hlTargets[i]
+			ht.shape.setAttr(ht.prop, ht.startVal + (ht.endVal - ht.startVal) * progress)
+			ht.shape.needsUpdate = true
+		}
+
+		if (raw >= 1.0) {
+			for (let i = 0; i < hlTargets.length; i++) {
+				hlTargets[i].shape.setAttr(hlTargets[i].prop, hlTargets[i].endVal)
+				hlTargets[i].shape.needsUpdate = true
+			}
+			hlCanvas!.render()
+			hlFrameId = null
+			hlTimerId = null
+			hlTargets = [] as ChartAnimTarget[]
+			hlCanvas = null
+			return
+		}
+
+		hlCanvas!.render()
+
+		// #ifdef APP||WEB
+		hlFrameId = requestAnimationFrame(animate)
+		// #endif
+		// #ifdef MP
+		hlTimerId = setTimeout(() => { animate(Date.now()) }, 16)
+		// #endif
+	}
+
+	// #ifdef APP||WEB
+	hlFrameId = requestAnimationFrame(animate)
+	// #endif
+	// #ifdef MP
+	hlTimerId = setTimeout(() => { animate(Date.now()) }, 16)
+	// #endif
+}
+
+const tmxEase = bezier(0.42, 0.38, 0.15, 0.93)!
+const chartEase = (t : number) : number => tmxEase(t)
+
+export const animateChartEntrance = (canvas : ICanvas, shapes : Shape[], duration : number) => {
+	cancelEntranceAnimation(canvas)
+
+	const targets = [] as ChartAnimTarget[]
+
+	for (let i = 0; i < shapes.length; i++) {
+		const shape = shapes[i]
+		const tp = shape.type
+
+		if (tp == 'IRect') {
+			if (shape.skipEntranceAnimation) continue
+			const targetY = shape.y
+			const targetH = shape.height
+			if (targetH <= 0) continue
+			shape.y = targetY + targetH
+			shape.height = 0
+			shape.needsUpdate = true
+			targets.push({ shape: shape, prop: 'y', startVal: targetY + targetH, endVal: targetY } as ChartAnimTarget)
+			targets.push({ shape: shape, prop: 'height', startVal: 0, endVal: targetH } as ChartAnimTarget)
+		} else if (tp == 'ISector') {
+			if (shape.skipEntranceAnimation) continue
+			const targetEnd = shape.endAngle
+			const startA = shape.startAngle
+			if (targetEnd <= startA) continue
+			shape.endAngle = startA
+			shape.needsUpdate = true
+			targets.push({ shape: shape, prop: 'endAngle', startVal: startA, endVal: targetEnd } as ChartAnimTarget)
+		} else if (tp == 'IArc') {
+			if (shape.skipEntranceAnimation) continue
+			const targetEnd = shape.endAngle
+			const startA = shape.startAngle
+			if (targetEnd <= startA) continue
+			shape.endAngle = startA
+			shape.needsUpdate = true
+			targets.push({ shape: shape, prop: 'endAngle', startVal: startA, endVal: targetEnd } as ChartAnimTarget)
+		} else if (tp == 'ILinePolygon') {
+			if (shape.gaugeRotationEnd != null) {
+				const endR = shape.gaugeRotationEnd!
+				const startR = shape.rotation
+				targets.push({ shape: shape, prop: 'rotation', startVal: startR, endVal: endR } as ChartAnimTarget)
+			}
+			// #ifdef WEB
+			else if (!shape.closed && (shape.stroke != '' || shape.strokeGradient.length > 0)) {
+				const pts = shape.points
+				let totalLen = 0
+				for (let pi = 2; pi < pts.length; pi += 2) {
+					const dx = pts[pi] - pts[pi - 2]
+					const dy = pts[pi + 1] - pts[pi - 1]
+					totalLen += Math.sqrt(dx * dx + dy * dy)
+				}
+				if (totalLen > 0) {
+					const dashLen = totalLen + 10
+					shape.lineDash = [dashLen]
+					shape.lineDashOffset = dashLen
+					shape.needsUpdate = true
+					targets.push({ shape: shape, prop: 'lineDashOffset', startVal: dashLen, endVal: 0 } as ChartAnimTarget)
+				}
+			} else if (shape.closed && !shape.skipEntranceAnimation) {
+				const targetOpacity = shape.opacity
+				if (targetOpacity > 0) {
+					shape.opacity = 0
+					shape.needsUpdate = true
+					targets.push({ shape: shape, prop: 'opacity', startVal: 0, endVal: targetOpacity } as ChartAnimTarget)
+				}
+			}
+			// #endif
+		}
+	}
+
+	if (targets.length == 0) {
+		canvas.render()
+		return
+	}
+
+	canvas.render()
+
+	const startTime = Date.now()
+
+	let animate : (task : number) => void = (_n : number) => {}
+	animate = (_task : number) => {
+		const elapsed = Date.now() - startTime
+		const raw = Math.min(1.0, elapsed / Math.max(1, duration))
+		const progress = chartEase(raw)
+
+		for (let i = 0; i < targets.length; i++) {
+			const t = targets[i]
+			const val = t.startVal + (t.endVal - t.startVal) * progress
+			t.shape.setAttr(t.prop, val)
+			t.shape.needsUpdate = true
+		}
+
+		if (raw >= 1.0) {
+			for (let i = 0; i < targets.length; i++) {
+				targets[i].shape.setAttr(targets[i].prop, targets[i].endVal)
+				targets[i].shape.needsUpdate = true
+				// #ifdef WEB
+				if (targets[i].prop == 'lineDashOffset') {
+					targets[i].shape.lineDash = [] as number[]
+					targets[i].shape.lineDashOffset = 0
+					targets[i].shape.needsUpdate = true
+				}
+				// #endif
+			}
+			canvas.render()
+			entranceRafByCanvasId.delete(canvas.id)
+			entranceTimerByCanvasId.delete(canvas.id)
+			return
+		}
+
+		canvas.render()
+
+		// #ifdef APP||WEB
+		const nextRaf = requestAnimationFrame(animate)
+		entranceRafByCanvasId.set(canvas.id, nextRaf)
+		// #endif
+		// #ifdef MP
+		const nextTid = setTimeout(() => { animate(Date.now()) }, 16) as number
+		entranceTimerByCanvasId.set(canvas.id, nextTid)
+		// #endif
+	}
+
+	// #ifdef APP||WEB
+	const firstRaf = requestAnimationFrame(animate)
+	entranceRafByCanvasId.set(canvas.id, firstRaf)
+	// #endif
+	// #ifdef MP
+	const firstTid = setTimeout(() => { animate(Date.now()) }, 16) as number
+	entranceTimerByCanvasId.set(canvas.id, firstTid)
+	// #endif
+}

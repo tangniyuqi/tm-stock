@@ -1,0 +1,47 @@
+import { HighlightConfig } from "../heightlight.uts"
+
+export function getHtmlConfig(): HighlightConfig {
+	const config = new HighlightConfig()
+	
+	// HTML 标签名（作为关键字）
+	config.keywords = [
+		'html', 'head', 'title', 'meta', 'link', 'style', 'script', 'base',
+		'body', 'header', 'nav', 'main', 'section', 'article', 'aside',
+		'footer', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+		'div', 'span', 'p', 'a', 'img', 'br', 'hr',
+		'ul', 'ol', 'li', 'dl', 'dt', 'dd',
+		'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td', 'caption',
+		'form', 'input', 'textarea', 'button', 'select', 'option', 'label',
+		'fieldset', 'legend', 'datalist', 'output',
+		'iframe', 'embed', 'object', 'param', 'video', 'audio', 'source',
+		'canvas', 'svg', 'path', 'circle', 'rect', 'line', 'polygon',
+		'strong', 'em', 'b', 'i', 'u', 's', 'mark', 'small', 'del', 'ins',
+		'sub', 'sup', 'code', 'pre', 'blockquote', 'cite', 'q', 'abbr',
+		'address', 'time', 'progress', 'meter', 'details', 'summary',
+		'dialog', 'template', 'slot'
+	]
+	
+	// HTML 属性名（作为内置）
+	config.builtins = [
+		'id', 'class', 'style', 'title', 'lang', 'dir', 'tabindex',
+		'href', 'src', 'alt', 'width', 'height', 'type', 'value', 'name',
+		'placeholder', 'required', 'disabled', 'readonly', 'checked',
+		'selected', 'multiple', 'autocomplete', 'autofocus', 'pattern',
+		'min', 'max', 'step', 'maxlength', 'minlength',
+		'action', 'method', 'enctype', 'target', 'rel', 'download',
+		'data-', 'aria-', 'role',
+		'onclick', 'onchange', 'onsubmit', 'onload', 'onerror',
+		'charset', 'content', 'http-equiv', 'viewport',
+		'async', 'defer', 'crossorigin', 'integrity',
+		'colspan', 'rowspan', 'scope', 'headers',
+		'autoplay', 'controls', 'loop', 'muted', 'preload', 'poster'
+	]
+	
+	// HTML 特殊字符
+	config.operators = [
+		'=', '<', '>', '/', '!', '&', ';', '#'
+	]
+	
+	return config
+}
+

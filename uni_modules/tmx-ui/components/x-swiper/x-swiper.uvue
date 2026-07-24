@@ -1,0 +1,927 @@
+<script lang="ts" setup>
+	import { ref, computed, watch, provide, onMounted, onBeforeUnmount, onActivated, onDeactivated, getCurrentInstance } from "vue"
+	import { getUid, rpx2px, checkIsCssUnit } from "../../core/util/xCoreUtil.uts"
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	import { SWIPER_ITEM, POSITON, SIZE } from "../x-swiper/interface.uts"
+
+	type DICR = "none" | "left" | "right" | "bottom" | "up"
+
+	/**
+	 * @name 轮播 xSwiper
+	 * @description 注意：本组件非官方的swiper轮播的封装，而是作者设计并开发的轮播，因此有些使用上的区别，请仔细看文档。
+	 * 之所以要重新设计轮播，是为了后期的功能扩展。当前的一些功能已经比官方的还更好。
+	 * 比如支持阻尼动效的设计，动效函数的设置。临界位置回弹的设置。指示点位置的偏移设置（这点非常有用，然官方不支持，而我的由于是自行开发的可以随意设置）
+	 * 如果你有更多需求，你只需要阅读源码后自行扩展更多的功能。
+	 * 内部只能放置子组件x-swiper-item
+	 * @page /pages/index/swiper
+	 * @category 展示组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({ name: "xSwiper" })
+
+	type xSwiperPropsType = {
+		/** 当前播放的索引值，可v-model动态更改。 */
+		modelValue : number,
+		/** 宽 */
+		width : string,
+		/** 高是必填，不可为auto。 */
+		height : string,
+		/** 当滑动时小于此值，会回弹到原位。 */
+		threshold : number,
+		/** 拖动阻尼值，越小拖越费劲,1是不限制 */
+		damping : number,
+		/** 当打开或者松开时的动画时间 */
+		animationDuration : number,
+		/** 露边出来的距离，px单位 */
+		spaceOffset : number,
+		/** 露边出来的间隙，px单位 */
+		space : number,
+		/** 模式：space/spaceIn/spaceOnly/card/空值 */
+		model : string,
+		/** 缓动动画函数 */
+		animationFun : string,
+		/** 轮播时的间隔 */
+		duration : number,
+		/** 是否竖向 */
+		vertical : boolean,
+		/** 圆角 */
+		round : string,
+		/** 指示点的颜色 */
+		dotColor : string,
+		/** 指示点的激活色 */
+		dotActiveColor : string,
+		/** 指示点距离边界的位置 */
+		dotOffset : string,
+		/** 指示点大小 */
+		dotSize : string,
+		/** 是否显示指示 */
+		showDot : boolean,
+		/** 是否开启自动播放 */
+		autoPlay : boolean,
+		/** 是否循环 */
+		loop : boolean,
+		/** 是否显示最后视图 */
+		showLastView : boolean,
+		/** 是否开启缩放动画 */
+		showScalAni : boolean,
+	}
+
+	const props = withDefaults(defineProps<xSwiperPropsType>(), {
+		modelValue: 0,
+		width: 'auto',
+		height: '150',
+		threshold: 30,
+		damping: 0.1,
+		animationDuration: 350,
+		spaceOffset: 0,
+		space: 0,
+		model: '',
+		animationFun: 'cubic-bezier(0, 0.55, 0.45, 1)',
+		duration: 5000,
+		vertical: false,
+		round: '10',
+		dotColor: 'rgba(255,255,255,0.5)',
+		dotActiveColor: 'rgba(255,255,255,1)',
+		dotOffset: '15',
+		dotSize: '6',
+		showDot: true,
+		autoPlay: true,
+		loop: true,
+		showLastView: false,
+		showScalAni: false,
+	})
+
+	const emits = defineEmits<{
+		/**
+		 * 切换变化时触发
+		 * @param {number} index - 当前的索引值。
+		 */
+		change : [index : number],
+		/**
+		 * 组件被点击时触发。
+		 * @param {number} index - 当前的索引值。
+		 */
+		click : [index : number],
+		/**
+		 * 当用户拖拉时，拖到最右侧最后一个后，还继续拉，拉不动时触发
+		 */
+		dragLastEnd : [index : number],
+		'update:modelValue' : [value : number],
+	}>()
+
+	type xSwiperSlotDotProps = {
+		current : number,
+		len : number,
+	}
+
+	defineSlots<{
+		dot : xSwiperSlotDotProps,
+		dotV : xSwiperSlotDotProps,
+	}>()
+
+	const instance = getCurrentInstance()
+
+	// Template refs
+	const xSwiperRef = ref<UniElement | null>(null)
+	const xSwiperWrapRef = ref<UniElement | null>(null)
+	const lastEndRightViewRef = ref<UniElement | null>(null)
+
+	// Reactive refs
+	const nowCureentIndex = ref<number>(0)
+	const containerSize = ref<SIZE>({ width: 0, height: 0 } as SIZE)
+	const list = ref<SWIPER_ITEM[]>([])
+	const isReady = ref<boolean>(false)
+	const isMoveing = ref<boolean>(false)
+	const isLastingAniMoveing = ref<boolean>(false)
+	const key = ref<number>(1)
+	const isSwiper = ref<string>('none')
+
+	// Internal variables
+	let id = ("xSwiperItem-" + getUid()) as string
+	let parentId = ("xSwiperParent-" + getUid()) as string
+	let status : string = 'runing'
+	let dirs : DICR = "none"
+	let swiperTouchMove = { x: 0, y: 0 } as POSITON
+	let touchStartPos = { x: 0, y: 0 } as POSITON
+	let nowPos = { x: 0, y: 0 } as POSITON
+	let swiperDiff = 0
+	let startLeft = 0
+	let startTop = 0
+	let tid = 0
+	let tid2 = 0
+	let isResert = false
+	let resizeObserver : UniResizeObserver | null = null
+	let dateIdff = 0
+	let _pos_x = 0
+	let _pos_y = 0
+
+	// Computed
+	const _height = computed((): string => checkIsCssUnit(props.height, xConfig.unit))
+	const _width = computed((): string => checkIsCssUnit(props.width, xConfig.unit))
+	const _round = computed((): string => checkIsCssUnit(props.round, xConfig.unit))
+	const _dotColor = computed((): string => getDefaultColor(props.dotColor))
+	const _dotActiveColor = computed((): string => getDefaultColor(props.dotActiveColor))
+	const _dotOffset = computed((): string => checkIsCssUnit(props.dotOffset, xConfig.unit))
+	const _dotSize = computed((): number => {
+		let p = parseInt(props.dotSize)
+		if (props.dotSize.lastIndexOf('rpx') > -1) {
+			p = rpx2px(p)
+		}
+		return Math.floor(p)
+	})
+	const boxHeight = computed((): number => {
+		if (!props.vertical) return containerSize.value.height
+		return containerSize.value.height * list.value.length
+	})
+	const boxWidth = computed((): number => {
+		if (props.vertical) return containerSize.value.width
+		return containerSize.value.width * list.value.length
+	})
+
+	// Methods
+	const pause = () => {
+		status = 'pause'
+		clearInterval(tid)
+	}
+
+	const getPageLeftPos = (page : number) : number => {
+		let pg = Math.max(0, Math.min(list.value.length - 1, page))
+		if (props.vertical) {
+			return pg * containerSize.value.height * -1
+		}
+		return pg * containerSize.value.width * -1
+	}
+
+	const setStylePos = (pos : number, isAni : boolean) => {
+		let node = uni.getElementById(id) as UniElement | null
+		if (node == null) return
+		if (isAni) {
+			node!.style.setProperty('transition-duration', props.animationDuration + 'ms')
+			node!.style.setProperty('transition-timing-function', props.animationFun)
+		} else {
+			node!.style.setProperty('transition-duration', '0ms')
+		}
+		if (props.vertical) {
+			node!.style.setProperty('transform', `translateY(${pos}px)`)
+			startTop = pos
+		} else {
+			node!.style.setProperty('transform', `translateX(${pos}px)`)
+			startLeft = pos
+		}
+		isLastingAniMoveing.value = false
+	}
+
+	const pushArrayChildrenComs = () => {
+		if (list.value.length == 0) return
+		list.value.forEach((el : SWIPER_ITEM) => {
+			el.ele.$callMethod('setConfig', containerSize.value)
+		})
+	}
+
+	const pushArrayChildrenList = (currentIndex : number, nextindex : number) => {
+		if (list.value.length == 0) return
+		try {
+			let ids = list.value.map((el : SWIPER_ITEM) : string => el.id)
+			let nowid = list.value[currentIndex].id
+			list.value.forEach((el : SWIPER_ITEM) => {
+				el.ele.$callMethod('setList', ids, nowid)
+				if (nextindex > -1) {
+					let nextid = list.value[nextindex].id
+					el.ele.$callMethod('setNextOrNext', nextid)
+				}
+			})
+		} catch (e) {
+			//TODO handle the exception
+		}
+	}
+
+	const updateEvents = (index : number) => {
+		if (index == nowCureentIndex.value) return
+		emits('change', index)
+		emits('update:modelValue', index)
+	}
+
+	const getNodeInfoNoInt = () => {
+		uni.createSelectorQuery().in(instance!.proxy)
+			.select(".xSwiper")
+			.boundingClientRect().exec((ret) => {
+				if (ret.length == 0) return
+				let nodeinfo = ret[0] as NodeInfo
+				containerSize.value.width = nodeinfo.width!
+				containerSize.value.height = nodeinfo.height!
+				pushArrayChildrenComs()
+			})
+	}
+
+	const gerRestHeight = () => {
+		clearTimeout(tid2)
+		tid2 = setTimeout(function () {
+			getNodeInfoNoInt()
+		}, 300)
+	}
+
+	const init = (isDefault : boolean) => {
+		if (containerSize.value.width == 0) return
+		clearInterval(tid)
+		status = 'pause'
+		if (isDefault) {
+			nowCureentIndex.value = Math.max(0, Math.min(list.value.length - 1, props.modelValue))
+		}
+		let post = getPageLeftPos(nowCureentIndex.value)
+		pushArrayChildrenList(nowCureentIndex.value, -1)
+		setStylePos(post, true)
+		if (!props.autoPlay) return
+		tid = setInterval(() => {
+			let pgs = nowCureentIndex.value + (isResert ? -1 : 1)
+			pgs = Math.max(0, pgs)
+			let anima = true
+			if (pgs >= list.value.length) {
+				pgs = 0
+				isLastingAniMoveing.value = true
+			}
+			updateEvents(pgs)
+			nowCureentIndex.value = pgs
+			let pos = getPageLeftPos(pgs)
+			setStylePos(pos, anima)
+			status = 'runing'
+			pushArrayChildrenList(nowCureentIndex.value, -1)
+			gerRestHeight()
+		}, props.duration)
+	}
+
+	const getNodeInfo = () => {
+		uni.createSelectorQuery().in(instance!.proxy)
+			.select(".xSwiper")
+			.boundingClientRect().exec((ret) => {
+				let nodeinfo = ret[0] as NodeInfo
+				containerSize.value.width = nodeinfo.width!
+				containerSize.value.height = nodeinfo.height!
+				pushArrayChildrenComs()
+				init(true)
+				key.value = key.value + 1
+				isReady.value = true
+			})
+	}
+
+	const resize = () => {
+		let ele = xSwiperRef.value
+		if (resizeObserver == null) {
+			resizeObserver = new UniResizeObserver((entries : Array<UniResizeObserverEntry>) => {
+				entries.forEach(entry => {
+					if (entry.target == ele) {
+						pause()
+						getNodeInfo()
+					}
+				})
+			})
+		}
+	}
+
+	const pauseInStart = () => {
+		init(false)
+	}
+
+	const getDICT = (x : number, y : number) : DICR => {
+		if (x == y && x == 0) return "none"
+		let dicr : DICR = "none"
+		if (Math.abs(x) >= Math.abs(y)) {
+			if (x > 0) {
+				dicr = "left"
+			} else {
+				dicr = "right"
+			}
+		}
+		if (Math.abs(x) < Math.abs(y)) {
+			if (y > 0) {
+				dicr = "up"
+			} else {
+				dicr = "bottom"
+			}
+		}
+		return dicr
+	}
+
+	const setHorizontalSwiper = (x : number, y : number) => {
+		let node = xSwiperWrapRef.value as UniElement
+		let lastRef = lastEndRightViewRef.value
+		let maxwidth = containerSize.value.width * (list.value.length - 1)
+		let diff_x = touchStartPos.x - x
+		let _x = -diff_x + startLeft
+		if (_x > 0) {
+			_x = _x * (props.damping)
+		}
+		let rightViewDiffx = 0
+		if (_x < maxwidth * -1 && _x < 0) {
+			const maxPullValue = maxwidth * -1
+			const decayRate = 1 - props.damping
+			_x = _x + (maxPullValue - _x) * decayRate
+			rightViewDiffx = maxPullValue - _x
+		}
+		if (lastRef != null) {
+			lastRef!.style.setProperty('transform', `translateX(${rightViewDiffx * -1}px)`)
+		}
+		node.style.setProperty('transform', `translateX(${_x}px)`)
+		nowPos.x = _x
+	}
+
+	const setVerticalSwiper = (x : number, y : number) => {
+		let node = xSwiperWrapRef.value as UniElement
+		let maxheight = containerSize.value.height * (list.value.length - 1)
+		let diff_x = touchStartPos.x - x
+		let diff_y = touchStartPos.y - y
+		let dirc : DICR = getDICT(diff_x, diff_y)
+		let _x = -diff_x + startLeft
+		let _y = -diff_y + startTop
+		if (_y > 0) {
+			_y = _y * (props.damping)
+		}
+		if (_y < maxheight * -1 && _y < 0) {
+			const maxPullValue = maxheight * -1
+			const decayRate = 1 - props.damping
+			_y = _y + (maxPullValue - _y) * decayRate
+		}
+		node.style.setProperty('transform', `translateY(${_y}px)`)
+		nowPos.y = _y
+	}
+
+	const translateMove = (x : number, y : number) => {
+		if (!props.vertical) {
+			setHorizontalSwiper(x, y)
+		} else {
+			setVerticalSwiper(x, y)
+		}
+	}
+
+	const getPageByX = (x : number, y : number, realLeftx : number) : number => {
+		let maxwidth = containerSize.value.width * (list.value.length - 1)
+		let minwidth = 0
+		if (realLeftx > minwidth) {
+			return 0
+		} else if (nowPos.x < maxwidth * -1) {
+			return list.value.length - 1
+		}
+		let page = Math.floor(Math.abs(realLeftx) / containerSize.value.width)
+		page = Math.max(0, Math.min(page, list.value.length - 1))
+		if (nowCureentIndex.value == page) {
+			let diffx = x - touchStartPos.x
+			let diffy = y - touchStartPos.x
+			let dirc = getDICT(diffx, diffy)
+			if (x > 0 && Math.abs(diffx) > props.threshold) {
+				page += 1
+			} else if (x < 0 && Math.abs(diffx) > props.threshold) {
+				page -= 1
+			}
+		}
+		page = Math.max(0, Math.min(page, list.value.length - 1))
+		return page
+	}
+
+	const getPageByY = (x : number, y : number, realLeftx : number) : number => {
+		let maxwidth = containerSize.value.height * (list.value.length - 1)
+		let minwidth = 0
+		if (realLeftx > minwidth) {
+			return 0
+		} else if (nowPos.x < maxwidth * -1) {
+			return list.value.length - 1
+		}
+		let page = Math.floor(Math.abs(realLeftx) / containerSize.value.height)
+		page = Math.max(0, Math.min(page, list.value.length - 1))
+		if (nowCureentIndex.value == page) {
+			let diffx = x - touchStartPos.x
+			let diffy = y - touchStartPos.x
+			let dirc = getDICT(diffx, diffy)
+			if (y > 0 && Math.abs(diffy) > props.threshold) {
+				page += 1
+			} else if (y < 0 && Math.abs(diffy) > props.threshold) {
+				page -= 1
+			}
+		}
+		page = Math.max(0, Math.min(page, list.value.length - 1))
+		return page
+	}
+
+	const setHorizontalSwiperMend = (x : number, y : number) => {
+		let page = getPageByX(x, y, nowPos.x)
+		if (nowCureentIndex.value == page && page != 0) {
+			if (props.loop) {
+				page = 0
+				isLastingAniMoveing.value = true
+			}
+			emits('dragLastEnd', page)
+		}
+		if (isSwiper.value != 'swiper') {
+			page = nowCureentIndex.value
+		}
+		if (nowCureentIndex.value != page) {
+			updateEvents(page)
+			nowCureentIndex.value = Math.abs(page)
+			pushArrayChildrenList(nowCureentIndex.value, -1)
+		}
+		setStylePos(getPageLeftPos(page), true)
+		gerRestHeight()
+		let lastRef = lastEndRightViewRef.value
+		if (lastRef != null) {
+			lastRef!.style.setProperty('transition-duration', `${props.animationDuration}ms`)
+			lastRef!.style.setProperty('transition-timing-function', props.animationFun)
+			lastRef!.style.setProperty('transform', `translateX(0px)`)
+		}
+	}
+
+	const setVerticalSwiperMend = (x : number, y : number) => {
+		let page = getPageByY(x, y, nowPos.y)
+		if (nowCureentIndex.value == page && page != 0) {
+			if (props.loop) {
+				page = 0
+				isLastingAniMoveing.value = true
+			}
+			emits('dragLastEnd', page)
+		}
+		if (isSwiper.value != 'swiper') {
+			page = nowCureentIndex.value
+		}
+		if (nowCureentIndex.value != page) {
+			updateEvents(page)
+			nowCureentIndex.value = Math.abs(page)
+			pushArrayChildrenList(nowCureentIndex.value, -1)
+		}
+		setStylePos(getPageLeftPos(page), true)
+		gerRestHeight()
+	}
+
+	const translateStart = async (x : number, y : number) : Promise<any> => {
+		let node = xSwiperWrapRef.value as UniElement
+		let parentNode = xSwiperRef.value as UniElement
+		let lastRef = lastEndRightViewRef.value
+		if (lastRef != null) {
+			lastRef!.style.setProperty('transition-duration', `0ms`)
+		}
+		let left = 0
+		let top = 0
+		// #ifdef APP || WEB
+		let rect = parentNode.getBoundingClientRect()
+		left = rect.left
+		top = rect.top
+		// #endif
+		// #ifdef MP
+		let rect2 = await parentNode.getBoundingClientRectAsync()
+		left = rect2.left
+		top = rect2.top
+		// #endif
+		let pos = { x, y } as POSITON
+		touchStartPos = pos
+		swiperTouchMove = {
+			x: x - left,
+			y: y - top
+		} as POSITON
+		node.style.setProperty('transition-duration', '0ms')
+		return Promise.resolve(true)
+	}
+
+	const dotClick = (index : number) => {
+		if (index != nowCureentIndex.value) {
+			updateEvents(index)
+		}
+		nowCureentIndex.value = index
+		pause()
+		setStylePos(getPageLeftPos(index), true)
+		pauseInStart()
+	}
+
+	const pushAdd = (item : SWIPER_ITEM) => {
+		list.value.push(item)
+		pushArrayChildrenComs()
+		init(true)
+	}
+
+	const delItem = (id : string) => {
+		if (list.value.length == 0) return
+		let index : number = list.value.findIndex((el : SWIPER_ITEM) : boolean => el.id == id)
+		if (index > -1) {
+			list.value.splice(index, 1)
+		}
+		nowCureentIndex.value = 0
+		pushArrayChildrenList(nowCureentIndex.value, -1)
+		init(false)
+	}
+
+	function swiperClick(currentPageIn : number | null = null) {
+		if (isLastingAniMoveing.value) return
+		updateEvents(currentPageIn!)
+		nowCureentIndex.value = currentPageIn!
+		setStylePos(getPageLeftPos(nowCureentIndex.value), true)
+		pushArrayChildrenList(nowCureentIndex.value, -1)
+		emits('click', nowCureentIndex.value)
+	}
+
+	function mStart(evt : UniTouchEvent, currentPageIn : number | null = null){
+		pause()
+		dateIdff = Date.now()
+		if (evt.changedTouches.length == 0) return
+		translateStart(evt.changedTouches[0].clientX, evt.changedTouches[0].clientY)
+		isMoveing.value = true
+		_pos_x = evt.touches[0].clientX
+		_pos_y = evt.touches[0].clientY
+		isSwiper.value = 'none'
+	}
+
+	function mMove(evt : UniTouchEvent, currentPageIn : number | null = null){
+		pause()
+		if (!isMoveing.value) return
+		if (evt.changedTouches.length == 0) return
+		const diffX = _pos_x - evt.changedTouches[0].clientX
+		const diffY = _pos_y - evt.changedTouches[0].clientY
+		const isHorizontal = Math.abs(diffX) > Math.abs(diffY)
+		const hasDirection = Math.max(Math.abs(diffX), Math.abs(diffY)) > 3
+		if (hasDirection && isSwiper.value == 'none') {
+			if (!props.vertical) {
+				if (isHorizontal) {
+					isSwiper.value = 'swiper'
+				} else {
+					isSwiper.value = 'off'
+				}
+			} else {
+				if (!isHorizontal) {
+					isSwiper.value = 'swiper'
+				} else {
+					isSwiper.value = 'off'
+				}
+			}
+		}
+		if (isSwiper.value == 'swiper') {
+			evt.preventDefault()
+			evt.stopPropagation()
+			translateMove(evt.changedTouches[0].clientX, evt.changedTouches[0].clientY)
+		}
+	}
+
+	function mEnd(evt : UniTouchEvent, currentPageIn : number | null = null){
+		isMoveing.value = false
+		pause()
+		if (props.autoPlay) {
+			tid = setTimeout(function () {
+				pauseInStart()
+			}, props.animationDuration)
+		}
+		if (!props.vertical) {
+			setHorizontalSwiperMend(evt.changedTouches[0].clientX, evt.changedTouches[0].clientY)
+		} else {
+			setVerticalSwiperMend(evt.changedTouches[0].clientX, evt.changedTouches[0].clientY)
+		}
+	}
+
+	// #ifdef WEB
+	const mmStart = (evt : UniMouseEvent, currentPageIn : number | null = null) => {
+		pause()
+		dateIdff = Date.now()
+		translateStart(evt.clientX, evt.clientY)
+		isMoveing.value = true
+		_pos_x = evt.clientX
+		_pos_y = evt.clientY
+		isSwiper.value = 'none'
+	}
+
+	const mmMove = (evt : UniMouseEvent, currentPageIn : number | null = null) => {
+		pause()
+		if (!isMoveing.value) return
+		const diffX = _pos_x - evt.clientX
+		const diffY = _pos_y - evt.clientY
+		const isHorizontal = Math.abs(diffX) > Math.abs(diffY)
+		const hasDirection = Math.max(Math.abs(diffX), Math.abs(diffY)) > 3
+		if (hasDirection && isSwiper.value == 'none') {
+			if (!props.vertical) {
+				if (isHorizontal) {
+					isSwiper.value = 'swiper'
+				} else {
+					isSwiper.value = 'off'
+				}
+			} else {
+				if (!isHorizontal) {
+					isSwiper.value = 'swiper'
+				} else {
+					isSwiper.value = 'off'
+				}
+			}
+		}
+		if (isSwiper.value == 'swiper') {
+			evt.preventDefault()
+			evt.stopPropagation()
+			translateMove(evt.clientX, evt.clientY)
+		}
+	}
+
+	const mmEnd = (evt : UniMouseEvent, currentPageIn : number | null = null) => {
+		isMoveing.value = false
+		pause()
+		if (props.autoPlay) {
+			tid = setTimeout(function () {
+				pauseInStart()
+			}, props.animationDuration)
+		}
+		if (!props.vertical) {
+			setHorizontalSwiperMend(evt.clientX, evt.clientY)
+		} else {
+			setVerticalSwiperMend(evt.clientX, evt.clientY)
+		}
+	}
+	// #endif
+
+	// Watches
+	watch((): boolean => props.autoPlay, () => {
+		pause()
+		init(true)
+	})
+
+	watch(list, () => {
+		pause()
+		init(true)
+	}, { deep: true })
+
+	watch((): number => props.modelValue, (newvalue : number) => {
+		if (newvalue == nowCureentIndex.value) return
+		nowCureentIndex.value = newvalue
+		pause()
+		init(false)
+	})
+
+	// Lifecycle
+	onMounted(() => {
+		if (props.vertical) {
+			dirs = "up"
+		}
+		// #ifdef APP
+		tid = setTimeout(function () {
+			getNodeInfo()
+		}, 200)
+		// #endif
+		// #ifdef WEB || MP
+		getNodeInfo()
+		// #endif
+		uni.$on('onHide', pause)
+		uni.$on('onShow', pauseInStart)
+	})
+
+	onBeforeUnmount(() => {
+		clearInterval(tid)
+		uni.$off('onHide', pause)
+		uni.$off('onShow', pauseInStart)
+		resizeObserver?.disconnect()
+	})
+
+	/**
+	 * web端sdk在切换下面时,此组件在上页时,所有动画及资源会被干掉
+	 * 这是已知sdk的缺陷
+	 */
+	onDeactivated(() => {
+		// #ifdef WEB
+		clearInterval(tid)
+		uni.$off('onHide', pause)
+		uni.$off('onShow', pauseInStart)
+		resizeObserver?.disconnect()
+		// #endif
+	})
+
+	onActivated(() => {
+		// #ifdef WEB
+		if (props.vertical) {
+			dirs = "up"
+		}
+		// #ifdef APP
+		tid = setTimeout(function () {
+			getNodeInfo()
+		}, 200)
+		// #endif
+		// #ifdef WEB || MP
+		getNodeInfo()
+		// #endif
+		uni.$on('onHide', pause)
+		uni.$on('onShow', pauseInStart)
+		// #endif
+	})
+
+	// Provide
+	provide('xSwiperRadius', checkIsCssUnit(props.round, xConfig.unit))
+	provide('xSwipershowScalAni', props.showScalAni)
+	provide('xSwiperSpace', props.space)
+	provide('xSwiperSpaceOffset', props.spaceOffset)
+	provide('xSwiperModel', props.model)
+	provide('xSwiperLoop', props.loop)
+
+	defineExpose({
+		pushAdd,
+		delItem,
+		mStart,
+		mMove,
+		mEnd,
+		swiperClick,
+		// #ifdef WEB
+		mmStart,
+		mmMove,
+		mmEnd,
+		// #endif
+		parentId,
+	})
+</script>
+<template>
+	<view 
+		
+		ref="xSwiperRef" class="xSwiper "
+		:style="{height:_height,width:_width,borderRadius:_round}"
+		>
+		<view 
+			
+			:id="id" 
+			ref="xSwiperWrapRef" 
+			class="xSwiperWrap" 
+			:class="[vertical?'xSwiperV':'xSwiperH']" 
+			:style="{
+			width:boxWidth+'px',
+			height:boxHeight+'px',
+			borderRadius:_round
+			}">
+			
+			
+			<template v-if="isReady">
+				<!--
+				 @slot 插槽内只允许放其子节点x-swiper-item
+				 -->
+				<slot></slot>
+			</template>
+			
+		</view>
+		<view v-if="showLastView" ref="lastEndRightViewRef" class="lastEndRightView">
+			<slot name="lastView">
+				<view style="width: 20px;margin-left: 5px;">
+					<x-text >不要再拉了</x-text>
+				</view>
+			</slot>
+		</view>
+
+		<view v-if="vertical&&showDot" class="xSwiperDotV" :style="{right:_dotOffset}" @clik.stop="">
+			<!-- 
+			@slot 竖向指示插槽,可完全自定义指示样式
+			@prop {number} current - 当前的索引
+			@prop {number} len - 总项目数量
+			 -->
+			<slot name="dotV" :current="nowCureentIndex" :len="list.length">
+				<view @click.stop="dotClick(index)" v-for="(item,index) in list" :key="index" class="xSwiperDotItemV"
+					:style="{
+					height:nowCureentIndex==index?(_dotSize*3)+'px':_dotSize+'px',
+					width:_dotSize+'px',
+					backgroundColor:nowCureentIndex==index?_dotActiveColor:_dotColor,
+					'transition-timing-function':animationFun
+				}"></view>
+			</slot>
+
+		</view>
+		<view v-if="!vertical&&showDot" class="xSwiperDotH" :style="{bottom:_dotOffset}">
+			<!--
+			@slot 横向指示插槽,可完全自定义指示样式
+			@prop {number} current - 当前的索引
+			@prop {number} len - 总项目数量
+			 -->
+			<slot name="dot" :current="nowCureentIndex" :len="list.length">
+				<view v-for="(_item,index) in list" :key="index" @click.stop="dotClick(index)" class="xSwiperDotItemH"
+					:style="{
+					width:nowCureentIndex==index?(_dotSize*3)+'px':_dotSize+'px',
+					height:_dotSize+'px',
+					backgroundColor:nowCureentIndex==index?_dotActiveColor:_dotColor,
+					'transition-timing-function':animationFun
+				}"></view>
+			</slot>
+
+		</view>
+	</view>
+</template>
+<style scoped>
+	.lastEndRightView{
+		height:100%;
+		width:80px;
+		right: -80px;
+		position:absolute;
+		z-index: 8;
+		transition-duration: 0ms;
+		transition-property: transform;
+		transition-timing-function: cubic-bezier(.42, .38, .15, .93);
+	}
+	.xSwiper {
+		transition-duration: 350ms;
+		transition-property: height;
+		transition-timing-function: cubic-bezier(.42, .38, .15, .93);
+		position: relative;
+		overflow: hidden;
+	}
+
+	.xSwiperH {
+		display: flex;
+		flex-direction: row;
+	}
+
+	.xSwiperV {
+		display: flex;
+		flex-direction: column;
+		
+	}
+
+	.xSwiperWrap {
+		display: flex;
+		transform:translate(0px);
+		transition-property: transform;
+		transition-duration: 0ms;
+		position: relative;
+		/* pointer-events: none; */
+		transition-timing-function: cubic-bezier(0, 0.55, 0.45, 1);
+		/* #ifdef WEB */
+		cursor: grab;
+		will-change: transform;
+		/* #endif */
+		overflow: hidden;
+	}
+
+	.xSwiperDotH {
+		position: absolute;
+		height: 32px;
+		width: 100%;
+		display: flex;
+		flex-direction: row;
+		align-items: flex-end;
+		justify-content: center;
+		z-index: 9;
+		pointer-events: none;
+	}
+
+	.xSwiperDotItemH {
+		width: 6px;
+		height: 6px;
+		margin: 0px 3px;
+		transition-property: width;
+		transition-duration: 300ms;
+		border-radius: 8px;
+		/* pointer-events: auto; */
+	}
+
+	.xSwiperDotV {
+		position: absolute;
+		height: 100%;
+		width: 30px;
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		justify-content: center;
+		z-index: 9;
+		pointer-events: none;
+	}
+
+	.xSwiperDotItemV {
+		width: 6px;
+		height: 6px;
+		margin: 5px 0rpx;
+		transition-property: height;
+		transition-duration: 300ms;
+		border-radius: 8px;
+		z-index: 9;
+	}
+</style>

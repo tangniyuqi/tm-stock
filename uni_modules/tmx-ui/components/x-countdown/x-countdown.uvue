@@ -1,0 +1,298 @@
+<script lang="ts" setup>
+	import { type PropType, ref, computed, watch, onMounted, onBeforeUnmount } from "vue"
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { checkIsCssUnit } from "../../core/util/xCoreUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+
+	type TIME_OBJ = {
+		ms : string,
+		ss : string,
+		mm : string,
+		hh : string,
+		dd : string,
+		format : string
+	}
+
+	/**
+	 * 
+	 * @name 倒计时 xCountdown
+	 * @description 倒计时，可以精确到秒，毫秒,记住
+	 * @page /pages/index/countdown
+	 * @category 展示组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({name:"xCountdown"})
+	defineSlots<{
+		 default(props: { 
+			 status: "initial" | "running" | "paused" | "finished",
+			 time: number,
+			 label: string,
+			 ms: string,
+			 ss: string,
+			 mm: string,
+			 hh: string,
+			 dd: string,
+		}): any
+	}>()
+	const emits = defineEmits([
+		/**
+		 * 时间变化时触发
+		 * @param {number} time - 当前剩余的时间
+		 */
+		"change",
+		/**
+		 * 暂停时触发
+		 */
+		'pause', 
+		/**
+		 * 开始时触发
+		 */
+		'start', 
+		/**
+		 * 结束时触发
+		 */
+		'complete'
+	])
+	
+	type xCountdownPropsType = {
+		/** */
+		time: number,
+		/**
+		 * 指令，可以通过变动此值来达到暂停，开始，结束的功能，当然也可以通过ref方法控制。"pause" | "play" | "reset" | ""
+		 */
+		actions: "pause" | "play" | "reset" | "",
+		/**
+		 * 显示格式
+		 * DD天，HH时，MM分，SS秒，MS毫秒
+		 */
+		format: string,
+		autoStart: boolean,
+		/**
+		 * 以秒还是毫秒为单位到计时。
+		 * ss|ms
+		 */
+		unit: "ss" | "ms",
+		/** 文本大小 */
+		fontSize: string,
+		/** 文本颜色 */
+		color: string,
+		/**
+		 * 是否使用验证码模式
+		 * 统一倒计时实例
+		 */
+		captcha: boolean
+	}
+
+	const props = withDefaults(defineProps<xCountdownPropsType>(), {
+		time: 0,
+		actions: "",
+		format: "DD天HH时MM分SS秒",
+		autoStart: false,
+		unit: "ss",
+		fontSize: "16",
+		color: "#333333",
+		captcha: false
+	})
+
+	// 状态
+	const intervalId = ref<number>(0)
+	const status = ref<"initial" | "running" | "paused" | "finished">("initial")
+	const totalTime = ref<number>(0)
+	function displayTime(): TIME_OBJ {
+		let milliseconds = totalTime.value;
+		let seconds = Math.floor(milliseconds / 1000);
+		let minutes = Math.floor(seconds / 60);
+		let hours = Math.floor(minutes / 60);
+		let days = Math.floor(hours / 24);
+	
+		milliseconds %= 1000;
+		seconds %= 60;
+		minutes %= 60;
+		hours %= 24;
+		let day_str = days < 10 ? "0" + days.toString() : days.toString()
+		let hours_str = hours < 10 ? "0" + hours.toString() : hours.toString()
+		let minutes_str = minutes < 10 ? "0" + minutes.toString() : minutes.toString()
+		let seconds_str = seconds < 10 ? "0" + seconds.toString() : seconds.toString()
+		let milliseconds_str = milliseconds < 10 ? "0" + milliseconds.toString() : milliseconds.toString()
+		let formattedTime = props.format.replace("DD", day_str)
+		formattedTime = formattedTime.replace("HH", hours_str)
+		formattedTime = formattedTime.replace("MM", minutes_str)
+		formattedTime = formattedTime.replace("SS", seconds_str)
+		formattedTime = formattedTime.replace("MS", milliseconds_str)
+	
+		return {
+			ms: milliseconds_str,
+			ss: seconds_str,
+			mm: minutes_str,
+			hh: hours_str,
+			dd: day_str,
+			format: formattedTime
+		} as TIME_OBJ;
+	}
+	
+	// 计算属性
+	const _label = computed((): TIME_OBJ => {
+		return displayTime();
+	})
+	const _time = computed((): number => props.time)
+	const _color = computed((): string => getDefaultColor(props.color))
+	const _fontSize = computed((): string => checkIsCssUnit(props.fontSize, xConfig.unit))
+	
+
+	// 工具函数与业务函数（被调用者在前）
+	function setCactcha(): void {
+		if (!props.captcha) return;
+		uni.setStorageSync("timeidLasttime", totalTime.value)
+	}
+
+
+	/**
+	 * 开始
+	 */
+	function start(): void {
+		let intms = props.unit == "ss" ? 1000 : 16
+		if (status.value === "initial" || status.value === "paused") {
+			status.value = "running";
+			/** 开始时触发 */
+			emits("start")
+			setCactcha()
+			intervalId.value = setInterval(() => {
+				totalTime.value -= intms;
+				if (props.captcha) {
+					uni.setStorageSync("timeidLasttime", totalTime.value)
+				}
+				/**
+				 * 时间变化时触发
+				 * @param time {number} 当前剩余的时间
+				 */
+				emits("change", totalTime.value)
+				if (totalTime.value < 0) {
+					totalTime.value = 0
+					if (props.captcha) {
+						uni.setStorageSync("timeidLasttime", totalTime.value)
+					}
+					clearInterval(intervalId.value);
+					status.value = "finished"; // 倒计时结束
+					/** 结束时触发 */
+					emits("complete")
+					return;
+				}
+			}, intms);
+		}
+	}
+
+	/**
+	 * 暂停
+	 */
+	function pause(): void {
+		if (status.value === "running") {
+			clearInterval(intervalId.value);
+			status.value = "paused"; // 暂停倒计时
+			setCactcha()
+			/** 暂停时触发 */
+			emits("pause")
+		}
+	}
+
+	/**
+	 * 重置
+	 */
+	function reset(): void {
+		clearInterval(intervalId.value);
+		status.value = "initial"; // 重置倒计时为未开始状态
+		totalTime.value = _time.value
+		if (props.captcha) {
+			uni.setStorageSync("timeidLasttime", 0)
+		}
+	}
+
+	/**
+	 * 获取当前运行状态
+	 */
+	function getStatus(): "initial" | "running" | "paused" | "finished" {
+		return status.value
+	}
+
+
+	// 生命周期
+	onMounted(() => {
+		totalTime.value = _time.value;
+		if (props.captcha) {
+			const oldTime = uni.getStorageSync("timeidLasttime")
+			if (oldTime != null && typeof oldTime == 'number') {
+				if (oldTime > 0) {
+					totalTime.value = oldTime;
+					start();
+					return;
+				}
+			}
+		}
+		if (props.autoStart) {
+			start();
+		}
+	})
+
+	onBeforeUnmount(() => {
+		clearInterval(intervalId.value);
+		if (status.value == 'running' || status.value == 'paused') {
+			setCactcha()
+		}
+	})
+
+	watch((): number => props.time, (): void => {
+		reset();
+	})
+	watch((): any => props.actions, (act:"pause" | "play" | "reset" | ""): void => {
+		if (act == 'reset') {
+			reset();
+		} else if (act == 'play') {
+			start();
+		} else if (act == 'pause') {
+			pause();
+		}
+	})
+
+	// 暴露可选方法
+	defineExpose({ 
+		/**
+		 * 开始
+		 */
+		start, 
+		/**
+		 * 暂停
+		 */
+		pause, 
+		/**
+		 * 重置
+		 */
+		reset, 
+		/**
+		 * 获取当前运行状态，返回值是："initial" | "running" | "paused" | "finished"
+		 */
+		getStatus 
+	})
+</script>
+<template>
+	<view>
+		<!-- 
+		 @slot 插槽
+		 @prop {string} status - 状态值可能为："initial" | "running" | "paused" | "finished"
+		 @prop {number} time - 当前剩余的时间：单位为毫秒
+		 @prop {string} label - 当前被属性format格式化后的文本
+		 @prop {string} ms - 剩余的毫秒数
+		 @prop {string} ss - 剩余的秒数
+		 @prop {string} mm - 剩余的分钟
+		 @prop {string} hh - 剩余的小时
+		 @prop {string} dd - 剩余的天数
+		 -->
+		<slot :status="status" :time="totalTime" :label="_label.format" :ms="_label.ms" :ss="_label.ss" :mm="_label.mm"
+			:hh="_label.hh" :dd="_label.dd">
+			<text :style="{color:_color,fontSize:_fontSize}">{{_label.format}}</text>
+		</slot>
+	</view>
+</template>
+<style scoped>
+</style>

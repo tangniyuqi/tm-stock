@@ -1,0 +1,780 @@
+<script lang="ts" setup>
+	import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick, toRaw, isProxy, getCurrentInstance } from "vue"
+	import { rpx2px, checkIsCssUnit } from "../../core/util/xCoreUtil.uts"
+	import { xUploadMedia } from "../../core/util/xUploadFileMedia.uts"
+	import { XUPLOADFILE_INFO, XUPLOADFILE_FILE_INFO, XUPLOADFILE_FILE_VALUE } from "../../interface.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	import { getNOOP_DEL, getNOOP_COMPLETE, getNOOP_UPLOAD, funcalldel, funbeforeCompelte, beforeUploadType } from "./noop.uts"
+
+	/**
+	 * @name 图片上传 xUploadMedia
+	 * @description 可以上传视频或者图片,注意不要混搭.要么上传视频,要么上传图片.当用户自行添加默认文件时可以给你的文件对象加status:0表示待上传,要确保你的上传文件路径是正确的
+	 * 否则安卓会引发io错误,并且uni.upload是无法捕捉到fail事件中,会导致整个程序不可用
+	 * @page /pages/index/upload-media
+	 * @category 表单组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({ name: "xUploadMedia" })
+
+	type xUploadMediaPropsType = {
+		/** 上传的类型,video,photo,默认是上传图片 */
+		mode : string,
+		/**
+		 * 当mode=video时,选择视频上传的参数,
+		 * 些参数为utsjson,所有字段为可选,具体字段为uni.chooseVideo(options)中的部分有效字段
+		 * pageOrientation,albumMode,compressed,compressed,maxDuration,camera
+		 */
+		videoOps : UTSJSONObject,
+		/** 最大的可上传数量 */
+		maxCount : number,
+		/** 上传地址 */
+		url : string,
+		/** 上传到服务器的名称字段 */
+		name : string,
+		/** 上传到服务器的头文件 */
+		header : UTSJSONObject,
+		/** 额外的表单数据。 */
+		formData : UTSJSONObject | null,
+		/** 图片高,此处不可使用%单位 */
+		imgHeight : string,
+		/** 一行显示几列 */
+		column : number,
+		/** 上传成功的文件是否允许删除 */
+		okFileIsDelete : boolean,
+		/** 上传中的文件是否允许删除 */
+		uploadingFileIsDelete : boolean,
+		/** 等同v-model */
+		modelValue : XUPLOADFILE_FILE_VALUE[],
+		/**
+		 * 图片被删除时触发
+		 * 如果返回Promise<false>删除失败否则成功
+		 */
+		beforeDel : funcalldel,
+		/**
+		 * 你需要原路返回参数提供的item
+		 * item可以自行修改响应内容，响应类型这样可以自己根据服务的内容判断
+		 * 是成功还是失败或者没有权限。示例见demo使用。
+		 */
+		beforeComplete : funbeforeCompelte,
+		/**
+		 * 上传前的最后一步执行,异步回调,函数返回一个item:XUPLOADFILE_FILE_INFO
+		 * 返回时要原样类型返回Promise<XUPLOADFILE_FILE_INFO>,你可以在这里修改文件参数跳过上传或者
+		 * 进行最后的头参数设置.demo有参考.
+		 */
+		beforeUpload : beforeUploadType,
+		/** 是否自动上传 */
+		autoStart : boolean,
+		/** 图片来源同官方的sourceType：'album','camera' */
+		sourceType : string[],
+		/** 是否压缩 */
+		compress : boolean,
+		/** 压缩后的缩放高，0表示不压缩高 */
+		compressedHeight : number,
+		/** 压缩后的缩放高，0表示不压缩宽 */
+		compressedWidth : number,
+		/** 压缩质量 */
+		quality : number,
+		/** 添加图片的位置 'before'出现在前面 'after'出现在后面 */
+		addPos : string,
+		/** 子项对齐方式，left左对齐默认，right:右对齐 */
+		align : string,
+	}
+
+	const props = withDefaults(defineProps<xUploadMediaPropsType>(), {
+		mode: 'photo',
+		videoOps: () : UTSJSONObject => {
+			return {
+				pageOrientation: 'auto',
+				albumMode: 'system',
+				sourceType: ['album', 'camera'] as string[],
+				compressed: true,
+				maxDuration: 60,
+				camera: 'back'
+			} as UTSJSONObject
+		},
+		maxCount: 9,
+		url: "https://mockapi.eolink.com/LRViGGZ8e6c1e8b4a636cd82bca1eb15d2635ed8c74e774/admin/upload_pic/",
+		name: "file",
+		header: () : UTSJSONObject => { return {} as UTSJSONObject },
+		formData: () : UTSJSONObject => { return {} as UTSJSONObject },
+		imgHeight: "80",
+		column: 5,
+		okFileIsDelete: true,
+		uploadingFileIsDelete: true,
+		modelValue: () : XUPLOADFILE_FILE_VALUE[] => [] as XUPLOADFILE_FILE_VALUE[],
+		beforeDel: getNOOP_DEL(),
+		beforeComplete: getNOOP_COMPLETE(),
+		beforeUpload: getNOOP_UPLOAD(),
+		autoStart: true,
+		sourceType: () : string[] => ['album', 'camera'] as string[],
+		compress: true,
+		compressedHeight: 0,
+		compressedWidth: 0,
+		quality: 80,
+		addPos: "after",
+		align: "left",
+	})
+
+	const emits = defineEmits<{
+		/**
+		 * 每次全部上传完时触发
+		 * @param {XUPLOADFILE_FILE_VALUE[]} 列表数据
+		 */
+		complete : [list : XUPLOADFILE_FILE_VALUE[]],
+		/**
+		 * 变化时触发
+		 * @param {XUPLOADFILE_FILE_VALUE[]} 列表数据
+		 */
+		change : [list : XUPLOADFILE_FILE_VALUE[]],
+		/**
+		 * 图片被删除时触发
+		 * @param {XUPLOADFILE_FILE_VALUE[]} 列表数据
+		 */
+		delete : [list : XUPLOADFILE_FILE_VALUE[]],
+		'update:modelValue' : [list : XUPLOADFILE_FILE_VALUE[]]
+	}>()
+
+	const instance = getCurrentInstance()
+	const i18n = xConfig.i18n
+
+	const xUploadMediaRef = ref<UniElement | null>(null)
+	const moveItemRef = ref<UniElement | null>(null)
+
+	const nowFileList = ref<XUPLOADFILE_FILE_INFO[]>([])
+	const itemWidth = ref<number>(0)
+	const _totalHeight = ref<number>(0)
+	const _nowIndex = ref<number>(-1)
+	const movexitem_x = ref<number>(0)
+	const movexitem_y = ref<number>(0)
+	const showMoveItem = ref<boolean>(false)
+	const _isDragging = ref<boolean>(false)
+	const nowshowClickMedioSrc = ref<string>('')
+	const showVideo = ref<boolean>(false)
+
+	const spaceGap = 4
+	let xupload : xUploadMedia | null = new xUploadMedia()
+	let mouse_x : number = 0
+	let mouse_y : number = 0
+	let _isLongPressCanDisableMove : boolean = false
+	let _newIndex : number = 0
+	let tempMoveIndex : number = -1
+	let diffY : number = 0
+	let diffX : number = 0
+	let tid2 : number = 0
+	let _dragOrder : number[] = []
+	let tid3 : number = 66
+
+	const _imgHeight = computed(() : string => checkIsCssUnit(props.imgHeight, xConfig.unit))
+	const _itemHeight = computed(() : number => {
+		let item = _imgHeight.value
+		let h : number = 0
+		if (item.lastIndexOf('rpx') > -1) {
+			h = parseFloat(item.replace(/[rpx]/g, ''))
+			h = rpx2px(h)
+		} else {
+			h = parseFloat(item.replace(/[px,%]/g, ''))
+		}
+		return h
+	})
+	const _borderColor = computed(() : string => {
+		if (xConfig.dark == 'dark') return xConfig.borderDarkColor
+		return '#eeeeee'
+	})
+	const _bgColor = computed(() : string => {
+		if (xConfig.dark == 'dark') return xConfig.inputDarkColor
+		return '#f5f5f5'
+	})
+	const _columnRatio = computed(() : string => {
+		return (100 / props.column).toString() + '%'
+	})
+
+	const cloneListData = (listReal : XUPLOADFILE_FILE_INFO[]) : XUPLOADFILE_FILE_VALUE[] => {
+		let list = listReal.map((el : XUPLOADFILE_FILE_INFO) : XUPLOADFILE_FILE_VALUE => {
+			return {
+				id: el.id,
+				url: el.path,
+				response: el.response
+			} as XUPLOADFILE_FILE_VALUE
+		})
+		return JSON.parseArray<XUPLOADFILE_FILE_VALUE>(JSON.stringify(list)!)!
+	}
+	const cloneListDataByValue = (list : any) : XUPLOADFILE_FILE_VALUE[] => {
+		return JSON.parseArray<XUPLOADFILE_FILE_VALUE>(JSON.stringify(list)!)!
+	}
+	const setConfig = () => {
+		xupload!.setConfig({
+			autoUpload: props.autoStart,
+			count: props.maxCount,
+			header: props.header as UTSJSONObject,
+			hostUrl: props.url,
+			name: props.name,
+			formData: props.formData,
+			sourceType: props.sourceType,
+			compress: props.compress,
+			quality: props.quality,
+			compressedWidth: props.compressedWidth == 0 ? null : props.compressedWidth,
+			compressedHeight: props.compressedHeight == 0 ? null : props.compressedHeight
+		} as XUPLOADFILE_INFO)
+	}
+	const totalHeight = () : number => {
+		let itemCount = nowFileList.value.length
+		if (itemCount < props.maxCount) itemCount++
+		let realItemHeight = _itemHeight.value + spaceGap
+		let row = Math.ceil(itemCount / props.column)
+		return Math.max(row * realItemHeight, realItemHeight)
+	}
+	const getNodeInfo = () => {
+		uni.createSelectorQuery().in(instance!.proxy)
+			.select(".xUploadMedia")
+			.boundingClientRect().exec((ret) => {
+				let nodeinfo = ret[0] as NodeInfo
+				let space = (props.column - 1) * spaceGap
+				// #ifdef APP-IOS
+				itemWidth.value = (nodeinfo.width! - space) / props.column - 0.28
+				// #endif
+				// #ifndef APP-IOS
+				itemWidth.value = (nodeinfo.width! - space) / props.column
+				// #endif
+				_totalHeight.value = totalHeight()
+			})
+	}
+	const resetInit = () => {
+		diffY = 0
+		diffX = 0
+		clearTimeout(tid3)
+		tid3 = setTimeout(() => {
+			getNodeInfo()
+		}, 200)
+	}
+	const getVisualPos = (fileIndex : number) : number => {
+		if (!_isDragging.value || _dragOrder.length == 0) return fileIndex
+		let pos = _dragOrder.indexOf(fileIndex)
+		return pos >= 0 ? pos : fileIndex
+	}
+	const getItemLeft = (fileIndex : number) : number => {
+		let vi = getVisualPos(fileIndex)
+		let col = vi % props.column
+		return col * (itemWidth.value + spaceGap)
+	}
+	const getItemTop = (fileIndex : number) : number => {
+		let vi = getVisualPos(fileIndex)
+		let row = Math.floor(vi / props.column)
+		return row * (_itemHeight.value + spaceGap)
+	}
+	const getAddBtnLeft = () : number => {
+		let pos = nowFileList.value.length
+		let col = pos % props.column
+		return col * (itemWidth.value + spaceGap)
+	}
+	const getAddBtnTop = () : number => {
+		let pos = nowFileList.value.length
+		let row = Math.floor(pos / props.column)
+		return row * (_itemHeight.value + spaceGap)
+	}
+	const getStatusColor = (item : XUPLOADFILE_FILE_INFO) : string => {
+		if (item.status == 1) return 'rgba(99, 83, 4, 0.5)'
+		if (item.status == 2) return 'rgba(0, 0, 0, 0.5)'
+		if (item.status == 3 || item.status == 4 || item.status == 5) return 'rgba(115, 26, 4, 0.7)'
+		return 'rgba(0, 0, 0, 0.5)'
+	}
+	const getTextStatus = (status : number) : string => {
+		let text = ""
+		if (status == 0) {
+			text = i18n.t("tmui4x.uploadFile.uploadStatus", 0)
+		} else if (status == 3) {
+			text = i18n.t("tmui4x.uploadFile.uploadStatus", 2)
+		} else if (status == 2) {
+			text = i18n.t("tmui4x.uploadFile.uploadStatus", 3)
+		} else if (status == 1) {
+			text = i18n.t("tmui4x.uploadFile.uploadStatus", 1)
+		} else if (status == 5) {
+			text = i18n.t("tmui4x.uploadFile.uploadStatus", 4)
+		}
+		return text
+	}
+	const delRemove = (item : XUPLOADFILE_FILE_INFO, index : number) => {
+		if (!props.okFileIsDelete) {
+			uni.showToast({ title: i18n.t("tmui4x.uploadFile.tips2"), mask: true, icon: 'none' })
+			return
+		}
+		if (item.status == 1 && !props.uploadingFileIsDelete) {
+			uni.showToast({ title: i18n.t("tmui4x.uploadFile.tips1"), mask: true, icon: 'none' })
+			return
+		}
+		if (props.beforeDel == getNOOP_DEL()) {
+			xupload!.delFile(item.id)
+			let clonelist = cloneListData(xupload!.fileList)
+			emits("update:modelValue", clonelist)
+			return
+		}
+		let call = props.beforeDel as funcalldel
+		call(index, item).then((res : boolean) => {
+			if (res) {
+				xupload!.delFile(item.id)
+				let recorelist = xupload!.fileList.slice(0)
+				let clonelist = cloneListData(recorelist)
+				emits('delete', clonelist)
+				emits("update:modelValue", clonelist)
+			}
+		}).catch(() => { })
+	}
+	const mStart = (index : number) => {
+		_nowIndex.value = index
+		_newIndex = index
+	}
+	const tempXy = (mvx : number, mvy : number) => {
+		let stepX = itemWidth.value + spaceGap
+		let stepY = _itemHeight.value + spaceGap
+		let maxRow = Math.ceil(nowFileList.value.length / props.column) - 1
+		let col = Math.floor(mvx / stepX)
+		let row = Math.floor(mvy / stepY)
+		col = Math.min(Math.max(col, 0), props.column - 1)
+		row = Math.min(Math.max(row, 0), maxRow)
+		if (row >= maxRow) {
+			col = Math.min(col, (nowFileList.value.length - 1) % props.column)
+		}
+		let targetIdx = col + row * props.column
+		targetIdx = Math.min(Math.max(targetIdx, 0), nowFileList.value.length - 1)
+		if (_isDragging.value && _dragOrder.length > 0) {
+			let currentPos = _dragOrder.indexOf(_nowIndex.value)
+			if (currentPos >= 0 && currentPos != targetIdx) {
+				_dragOrder.splice(currentPos, 1)
+				_dragOrder.splice(targetIdx, 0, _nowIndex.value)
+			}
+		}
+		tempMoveIndex = targetIdx
+	}
+	const xyIsInItem = (mvx : number, mvy : number) : boolean => {
+		let stepX = itemWidth.value + spaceGap
+		let stepY = _itemHeight.value + spaceGap
+		let maxRow = Math.ceil(nowFileList.value.length / props.column) - 1
+		let col = Math.floor(mvx / stepX)
+		let row = Math.floor(mvy / stepY)
+		if (col < 0 || row < 0 || col >= props.column) return false
+		if (row > maxRow) return false
+		if (row >= maxRow) {
+			let lastRowMaxCol = (nowFileList.value.length - 1) % props.column
+			if (col > lastRowMaxCol) return false
+		}
+		return true
+	}
+	const getUploadIngStatus = () : boolean => {
+		let UploadingOk = false
+		for (let i = 0; i < nowFileList.value.length; i++) {
+			if (nowFileList.value[i].status == 1) {
+				UploadingOk = true
+				break
+			}
+		}
+		return UploadingOk
+	}
+	const coverXy = (isJiaoHuan : boolean) => {
+		if (isJiaoHuan && _isDragging.value && _dragOrder.length > 0) {
+			let reorderedList : XUPLOADFILE_FILE_INFO[] = []
+			for (let i = 0; i < _dragOrder.length; i++) {
+				reorderedList.push(nowFileList.value[_dragOrder[i]])
+			}
+			nowFileList.value = reorderedList
+			_isDragging.value = false
+			_dragOrder = [] as number[]
+			_nowIndex.value = -1
+			_newIndex = -1
+			showMoveItem.value = false
+			tempMoveIndex = -1
+			nextTick(() => {
+				xupload!._addFilesByself(nowFileList.value)
+				let clonelist = cloneListData(nowFileList.value)
+				emits("update:modelValue", clonelist)
+			})
+		} else {
+			_dragOrder = [] as number[]
+			_nowIndex.value = -1
+			_newIndex = -1
+			showMoveItem.value = false
+			tempMoveIndex = -1
+			clearTimeout(tid2)
+			tid2 = setTimeout(() => {
+				_isDragging.value = false
+			}, 280)
+		}
+	}
+	const mMove = async (evt : UniTouchEvent) : Promise<boolean> => {
+		if (!_isLongPressCanDisableMove) return Promise.resolve(false)
+		evt.stopPropagation()
+		evt.preventDefault()
+		let selfEle = xUploadMediaRef.value as UniElement
+		let selfEeleBox : DOMRect | null = null
+		// #ifdef MP-WEIXIN
+		selfEeleBox = await selfEle.getBoundingClientRectAsync()
+		// #endif
+		// #ifndef MP-WEIXIN
+		selfEeleBox = selfEle.getBoundingClientRect()
+		// #endif
+		if (selfEeleBox == null) return Promise.resolve(false)
+		let x = evt.changedTouches[0].clientX - selfEeleBox.left
+		let y = evt.changedTouches[0].clientY - selfEeleBox.top
+		let offset_x = (x - itemWidth.value / 2) + spaceGap / 2
+		let offset_y = (y - _itemHeight.value / 2) + spaceGap / 2
+		movexitem_x.value = offset_x
+		movexitem_y.value = offset_y
+		mouse_x = offset_x
+		mouse_y = offset_y
+		tempXy(mouse_x, mouse_y)
+		return Promise.resolve(false)
+	}
+	const mEnd = (evt : UniTouchEvent) => {
+		if (!_isLongPressCanDisableMove) return
+		_isLongPressCanDisableMove = false
+		let maxxy = Math.max(Math.abs(evt.changedTouches[0].clientX - diffX), Math.abs(evt.changedTouches[0].clientY - diffY))
+		movexitem_x.value = mouse_x
+		movexitem_y.value = mouse_y
+		coverXy(maxxy > 10)
+	}
+	const mLongStart = async (evt : UniTouchEvent) : Promise<boolean | null> => {
+		if (getUploadIngStatus()) {
+			uni.showToast({ title: i18n.t("tmui4x.uploadMedia.tips1"), icon: 'none' })
+			return false
+		}
+		// #ifdef MP
+		_isLongPressCanDisableMove = true
+		// #endif
+		let selfEle = xUploadMediaRef.value as UniElement
+		let selfEeleBox : DOMRect | null = null
+		// #ifdef MP-WEIXIN
+		selfEeleBox = await selfEle.getBoundingClientRectAsync()
+		if (!_isLongPressCanDisableMove) return Promise.resolve(false)
+		// #endif
+		// #ifndef MP-WEIXIN
+		selfEeleBox = selfEle.getBoundingClientRect()
+		// #endif
+		if (selfEeleBox == null) {
+			// #ifdef MP
+			_isLongPressCanDisableMove = false
+			// #endif
+			return Promise.resolve(false)
+		}
+		let x = evt.changedTouches[0].clientX - selfEeleBox.left
+		let y = evt.changedTouches[0].clientY - selfEeleBox.top
+		mouse_x = x - selfEeleBox.left
+		mouse_y = y - selfEeleBox.top
+		diffY = y
+		diffX = x
+		let offset_x = (x - itemWidth.value / 2) + spaceGap / 2
+		let offset_y = (y - _itemHeight.value / 2) + spaceGap / 2
+		// #ifdef MP
+		if (!xyIsInItem(x, y)) {
+			_isLongPressCanDisableMove = false
+			return Promise.resolve(false)
+		}
+		// #endif
+		// #ifndef MP
+		if (!xyIsInItem(offset_x, offset_y)) return Promise.resolve(false)
+		// #endif
+		movexitem_x.value = offset_x
+		movexitem_y.value = offset_y
+		mouse_x = offset_x
+		mouse_y = offset_y
+		tempXy(mouse_x, mouse_y)
+		// #ifndef MP
+		_isLongPressCanDisableMove = true
+		// #endif
+		_dragOrder = [] as number[]
+		for (let i = 0; i < nowFileList.value.length; i++) {
+			_dragOrder.push(i)
+		}
+		_isDragging.value = true
+		nextTick(() => {
+			showMoveItem.value = true
+		})
+		return Promise.resolve(false)
+	}
+	const setItem = () => {
+		let newIndexItem = nowFileList.value.slice(0)[_newIndex]
+		let oldindexItem = nowFileList.value.slice(0)[_nowIndex.value]
+		nowFileList.value.splice(_newIndex, 1, oldindexItem)
+		nowFileList.value.splice(_nowIndex.value, 1, newIndexItem)
+		nextTick(() => {
+			xupload!._addFilesByself(nowFileList.value)
+			_nowIndex.value = -1
+			_newIndex = -1
+			let list = nowFileList.value.slice(0)
+			let clonelist = cloneListData(list)
+			emits("update:modelValue", clonelist)
+		})
+	}
+	const imgClickPrve = (index : number) => {
+		let urls = nowFileList.value.map((el) : string => el.path)
+		if (props.mode == 'photo') {
+			uni.previewImage({
+				current: index,
+				urls
+			})
+		} else if (props.mode == 'video') {
+			nowshowClickMedioSrc.value = nowFileList.value[index].path
+			nextTick(() => {
+				showVideo.value = true
+			})
+		}
+	}
+	const chooseFile = () => {
+		xupload!.setVideoOps(props.videoOps, props.mode)
+		xupload!.chooseMedia()
+	}
+	/**
+	 * 手动上传图片
+	 * @public
+	 */
+	const upload = () => {
+		xupload!.start()
+	}
+
+	watch(() : XUPLOADFILE_FILE_VALUE[] => props.modelValue, (newValue : XUPLOADFILE_FILE_VALUE[]) => {
+		if (nowFileList.value.length == 0 && newValue.length == 0) return
+		if (newValue.length == 0) {
+			xupload!.stop()
+			xupload!.clear()
+			nowFileList.value = [] as XUPLOADFILE_FILE_INFO[]
+			return
+		}
+		xupload!.addFile(JSON.parseArray<XUPLOADFILE_FILE_VALUE>(JSON.stringify(newValue)!)!)
+		clearTimeout(tid3)
+		tid3 = setTimeout(() => {
+			getNodeInfo()
+		}, 200)
+	})
+	watch(() : UTSJSONObject => props.header, () => { setConfig() })
+	watch(() : number => props.maxCount, () => { setConfig() })
+	watch(() : string => props.url, () => { setConfig() })
+	watch(() : string => props.name, () => { setConfig() })
+	watch(() : UTSJSONObject | null => props.formData, () => { setConfig() })
+
+	onMounted(() => {
+		setConfig()
+
+		xupload!.beforeUpload = (res : XUPLOADFILE_FILE_INFO) : Promise<XUPLOADFILE_FILE_INFO> => {
+			let call = props.beforeUpload as beforeUploadType
+			if (call == getNOOP_UPLOAD() || res.status == 1 || res.status == 2 || res.status == 4 || res.status == 5) {
+				return Promise.resolve(toRaw(res) as XUPLOADFILE_FILE_INFO)
+			}
+			let realcall = call as beforeUploadType
+			return realcall(toRaw(res) as XUPLOADFILE_FILE_INFO)
+		}
+		xupload!.addListenEvent('complete', (res : any) : Promise<any> => {
+			let result = res as XUPLOADFILE_FILE_INFO[]
+			let clonelist = cloneListData(result)
+			emits('complete', clonelist)
+			emits("update:modelValue", clonelist)
+			return Promise.resolve(res)
+		})
+
+		xupload!.beforeComplete = (res : XUPLOADFILE_FILE_INFO) : XUPLOADFILE_FILE_INFO => {
+			let result = res as XUPLOADFILE_FILE_INFO
+			if (props.beforeComplete != getNOOP_COMPLETE()) {
+				let bef = props.beforeComplete as funbeforeCompelte
+				result = bef(isProxy(result) ? toRaw(result) : result)
+			}
+			return result
+		}
+		xupload!.setChangeSync(function (res : XUPLOADFILE_FILE_INFO[]) {
+			nowFileList.value = res
+			_totalHeight.value = totalHeight()
+			let clonelist = cloneListData(res)
+			emits('change', clonelist)
+			emits("update:modelValue", clonelist)
+		})
+
+		if (props.modelValue.length > 0) {
+			let clonelist = cloneListDataByValue(props.modelValue)
+			xupload!.addFile(clonelist)
+		}
+		clearTimeout(tid3)
+		tid3 = setTimeout(() => {
+			getNodeInfo()
+		}, 200)
+		uni.$on('onResize', resetInit)
+	})
+
+	onBeforeUnmount(() => {
+		clearTimeout(tid3)
+		uni.$off('onResize', resetInit)
+		xupload = null
+	})
+
+	defineExpose({
+		upload,
+		chooseFile
+	})
+</script>
+<template>
+	<view>
+		<view @longpress="mLongStart"
+		<!-- #ifdef MP -->
+		@touchmove.stop="mMove"
+		<!-- #endif -->
+		<!-- #ifndef MP -->
+		@touchmove="mMove"
+		<!-- #endif -->
+		@touchend="mEnd" @touchcancel="mEnd" 
+		ref="xUploadMediaRef"
+		class="xUploadMedia"
+		:style="{height:_totalHeight+'px'}" :key="itemWidth"
+			>
+			<view v-for="(item,index) in nowFileList" :key="item.id"
+				class="xUploadMediaItemParent"
+				:style="{
+					width:itemWidth+'px',
+					height:_imgHeight,
+					left:getItemLeft(index)+'px',
+					top:getItemTop(index)+'px',
+					transitionDuration:_isDragging&&index==_nowIndex?'0ms':_isDragging?'250ms':'0ms',
+					opacity:_isDragging&&index==_nowIndex?0:1
+				}">
+				<view class="xUploadMediaItem" @click="imgClickPrve(index)" @touchstart="mStart(index)" :style="{height:'100%'}">
+					<view @click.stop="delRemove(item,index)" class="xUploadMediaClose" >
+						<x-icon color="rgba(255,255,255,0.6)" font-size="18" name="close-line"></x-icon>
+					</view>
+					<image v-if="mode=='photo'" class="xUploadMediaImg" mode="fi" :src="item.path" :key="item.id"></image>
+					<video v-if="mode=='video'" object-fit='fill' :enable-progress-gesture="false" :show-loading="false" :show-progress="false" :show-fullscreen-btn="false" :show-play-btn="false" class="xUploadMediaImg" width="100%" height="100%" :src="item.path" :key="item.id"></video>
+					<view class="xUploadMediaLabel" :style="{backgroundColor:getStatusColor(item)}">
+						<text class="xUploadMediaLabelText">
+						{{getTextStatus(item.status)}}
+						</text>
+					</view>
+				</view>
+			</view>
+			<view v-if="nowFileList.length < maxCount" @click="chooseFile"
+				class="xUploadMediaItemParent xUploadMediaItem"
+				:style="{width:itemWidth+'px',height:_imgHeight,left:getAddBtnLeft()+'px',top:getAddBtnTop()+'px'}" :key="itemWidth">
+				<!--
+				@slot 上传图片按钮插槽。
+				 -->
+				<slot>
+					<view class="xUploadMediaAddSlot"
+						:style="{border: `1px solid ${_borderColor}`,'backgroundColor': _bgColor}">
+						<x-icon font-size="36" color="#d6d6d6" dark-color="#4a4a4a" name="add-line"></x-icon>
+					</view>
+				</slot>
+			</view>
+			<view ref="moveItemRef" class="xUploadMediaMoveitem" v-show="_nowIndex>-1"
+				:style="{
+				left:movexitem_x+'px',top:movexitem_y+'px',width:itemWidth+'px',height:_imgHeight}">
+				<view v-if="showMoveItem"
+					:style="{backgroundColor:'rgba(0,0,0,0.3)',position:'relative',width:'100%',height:'100%',borderRadius:'6px'}">
+					<view class="xUploadMediaClose">
+						<x-icon style="opacity: 0.5;"  color="white" font-size="18" name="close-line"></x-icon>
+					</view>
+					<x-image v-if="mode=='photo'" style="opacity: 0.7;" width="100%" height="100%" :src="nowFileList[_nowIndex].path"
+						:key="nowFileList[_nowIndex].id"></x-image>
+					<view :style="{opacity: 0.5,backgroundColor:getStatusColor(nowFileList[_nowIndex])}" class="xUploadMediaLabel">
+						<text class="xUploadMediaLabelText">
+						{{getTextStatus(nowFileList[_nowIndex].status)}}
+						</text>
+					</view>
+				</view>
+			</view>
+		</view>
+		<!-- 视频预览  关闭-->
+		<x-modal  :title="i18n.t('tmui4x.uploadMedia.videoPreview')" 
+		:confirm-text="i18n.t('tmui4x.uploadMedia.close')" v-model:show="showVideo" height="360" :showCancel="false"  :overlay-click="false" :show-close="false" >
+			<video :src="nowshowClickMedioSrc" style="width: 100%;height: 200px;" v-if="nowshowClickMedioSrc!=''&&showVideo"></video>
+		</x-modal>
+	</view>
+</template>
+<style scoped>
+	.xUploadMediaAddSlot {
+		height: 100%;
+		width: 100%;
+		/* border: 1px solid #eeeeee; */
+		/* background-color: #f5f5f5; */
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+		align-items: center;
+	}
+
+	.xUploadMediaImg {
+		pointer-events: none;
+		width:100%;
+		height:100%;
+	}
+
+	.xUploadMediaMoveitem {
+		position: absolute;
+		left: 0px;
+		top: 0px;
+		z-index: 8;
+		pointer-events: none;
+	}
+
+	.xUploadMediaLabel {
+		position: absolute;
+		left: 0rpx;
+		bottom: 0rpx;
+		z-index: 5;
+		width: 100%;
+		padding: 4px 6px;
+		background-color: rgba(0, 0, 0, 0.6);
+		/* #ifdef WEB || MP-WEIXIN */
+		box-sizing:border-box;
+		/* #endif */
+	}
+
+	.xUploadMediaLabelText {
+		lines: 1;
+		text-overflow: ellipsis;
+		font-size: 10px;
+		color: rgba(255,255,255,0.8);
+		text-align: center;
+	}
+
+	.xUploadMediaClose {
+		position: absolute;
+		right: 0rpx;
+		top: 0rpx;
+		padding:0px;
+		width:20px;
+		height:20px;
+		background-color: rgba(0, 0, 0, 0.4);
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+		align-items: center;
+		z-index: 5;
+		border-bottom-left-radius: 6px;
+	}
+
+	.xUploadMediaItemParent {
+		position: absolute;
+		border-radius: 6px;
+		transition-property: top, left, opacity;
+		transition-timing-function: ease;
+	}
+
+	.xUploadMediaItem {
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+		align-items: center;
+		border-radius: 6px;
+		position: relative;
+		/* #ifdef WEB || MP-WEIXIN */
+		overflow:hidden;
+		/* #endif */
+	}
+
+	.xUploadMedia {
+		position: relative;
+	}
+
+	.xUploadMediaItemHover {
+		position: absolute;
+		z-index: 6;
+		width: 100%;
+		height: 100%;
+		border: 3px solid #1C84FF;
+		border-radius: 6px;
+	}
+</style>

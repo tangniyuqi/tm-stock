@@ -1,0 +1,119 @@
+<script lang="ts" setup>
+	import { type PropType } from "vue"
+	import { getUid } from "../../core/util/xCoreUtil.uts"
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { checkIsCssUnit } from "../../core/util/xCoreUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	import { CHIDREN_ITEM } from "../x-collapse/interface.uts"
+
+	/**
+	 * 
+	 * @name 折叠面板 xCollapse
+	 * @description 可单，可多开,内部只可放置x-collapse-item直接子节点组件，为了避免重复计算和性能x-collapse-item不能通过响应式修改内容。如果确实需要请通过刷新key解决
+	 * @page /pages/index/collapse 
+	 * @category 展示组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({ name: "xCollapse" })
+	const emits = defineEmits([
+		/**
+		 * 变换时触发
+		 * @param {String[]} value - 当前打开的值
+		 */
+		'change', 
+		'update:modelValue'
+	])
+	const props = defineProps({
+		/**
+		 * 当前打开的组。可v-model
+		 */
+		modelValue: {
+			type: Array as PropType<string[]>,
+			default: () : string[] => [] as string[]
+		},
+		/**
+		 * 是否允许打开多个。
+		 */
+		multiple: {
+			type: Boolean,
+			default: true
+		}
+	})
+	const list = ref<string[]>([])
+	const activeName = ref<string[]>(props.modelValue)
+	provide('xCollapseDefaultName',computed(():string[] => activeName.value))
+	
+	
+	const addItem = (id : string)=> {
+		let index = list.value.findIndex((el : string) : boolean => el == id)
+		if (index > -1) {
+			list.value.splice(index, 1, id)
+		} else {
+			list.value.push(id)
+		}
+	}
+	const delItem = (id : string)=> {
+		let index = list.value.findIndex((el : string) : boolean => el == id)
+		if (index > -1) {
+			list.value.splice(index, 1)
+		}
+	}
+	
+	
+	const addChange = (id : string) => {
+		if (props.multiple) {
+			let index = activeName.value.findIndex((el : string) : boolean => el == id)
+			if (index > -1) {
+				activeName.value.splice(index, 1)
+			} else {
+				activeName.value.push(id)
+			}
+		} else {
+			if (activeName.value.includes(id)) {
+				activeName.value = []
+			} else {
+				activeName.value = [id]
+			}
+		}
+
+		/**
+		 * 变换时触发
+		 * @param value {string[]} 当前打开的值
+		 */
+		emits('change', activeName.value)
+		/**
+		 * 等同v-model=""
+		 */
+		emits('update:modelValue', activeName.value)
+	}
+	
+	watch(():string[]=>props.modelValue,(newValue:string[])=>{
+		let newstr = newValue.join("")
+		if (newstr == activeName.value.join("")) return;
+		if (props.multiple) {
+			activeName.value = newValue;
+		} else {
+			if (newValue.length >= 1) {
+				activeName.value = [newValue[0]]
+			}else{
+				activeName.value = []
+			}
+		}
+	},{deep:true})
+	
+	
+	defineExpose({addItem,delItem,addChange})
+</script>
+<template>
+	<view>
+		<!-- 
+		@slot 默认插槽，仅可放置x-collapse-item子节点 
+		 -->
+		<slot></slot>
+	</view>
+</template>
+<style scoped>
+</style>

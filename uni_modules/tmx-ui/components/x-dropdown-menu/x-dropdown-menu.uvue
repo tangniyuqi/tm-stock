@@ -1,0 +1,496 @@
+<script lang="ts" setup>
+	import { PropType } from 'vue'
+	import { XDROPDOWN_LISTITEM_INFO_TYPE, NODE_INFO } from '../../interface.uts';
+	import { checkIsCssUnit, getUid, rpx2px, getUnit } from "../../core/util/xCoreUtil.uts"
+	import { getDefaultColor, colorAddDeepen } from "../../core/util/xCoreColorUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	type XDROPDOWN_LISTITEM_TYPE = {
+		id : string,
+		data : XDROPDOWN_LISTITEM_INFO_TYPE
+	}
+    
+	/**
+	 * @name 下拉菜单 xDropdownMenu
+	 * @description 下拉菜单，标签内只能放置子项目x-dropdown-item
+	 * @page /pages/index/dropdown-menu
+	 * @category 反馈组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({ name: "xDropdownMenu" })
+	const emit = defineEmits([
+		/**
+		 * 切换菜单时触发
+		 * @param index {number} - 当前被切换的索引值
+		 * @param keyName {string} - 菜单keyName标识
+		 * @param status {boolean} - 当前切换的状态：false表示关闭，true表示打开。
+		 */
+		'change',
+		'update:modelValue'
+	])
+	const props = defineProps({
+			/**
+			 * 位置，
+			 * static | fixed
+			 * 静态 | 展开后悬浮在顶部。
+			 */
+			position: {
+				type: String as PropType<"static" | 'fixed'>,
+				default: "fixed"
+			},
+			/**
+			 * 顶部的偏移量，针对你们自定标题导航时可能需要让出顶部位置。
+			 * 数字字符，prx,px等单位
+			 * 如果position=static此属性失效。
+			 */
+			offsetTop: {
+				type: String,
+				default: "0"
+			},
+			/**
+			 * 当前激活的索引
+			 * -1表示关闭。提供值时请大于-1,
+			 * 如果不想要变量控制，可不提供。交由内部自行处理。
+			 * 当你想要用变量控制开关时可v-model="索引"来控制关闭和打开。
+			 */
+			modelValue: {
+				type: Number,
+				default: -1
+			},
+			/**
+			 * 菜单栏的高度
+			 */
+			height: {
+				type: String,
+				default: "44"
+			},
+			/**
+			 * 宽度
+			 */
+			width: {
+				type: String,
+				default: "auto"
+			},
+			/**
+			 * 背景颜色
+			 */
+			color: {
+				type: String,
+				default: "white"
+			},
+			/**
+			 * 暗黑时的背景颜色
+			 */
+			darkColor: {
+				type: String,
+				default: ""
+			},
+			/**
+			 * 层级
+			 */
+			zIndex: {
+				type: Number,
+				default: 88
+			},
+			/**
+			 * 对于要把此组件嵌套在fiexd中时,并且position为static时
+			 * 请一定设置为true,否则在web端会出现层级混乱(这是css dom规则所定)
+			 * 为了全平台对齐请嵌套组件时一定注意使用事项.
+			 */
+			hidnMask:{
+				type:Boolean,
+				default:false
+			}
+
+		})
+	const _width = ref(0)
+	const _height = ref(0)
+	const menubarNodeino = ref<NODE_INFO|null>(null)
+	const nowIndex = ref(-1)
+	const opended = ref(false)
+	const cacheListItem = ref<XDROPDOWN_LISTITEM_TYPE[]>([])
+	const windtop = ref(0)
+	let tid = 23
+	const maskMoveX = ref(0)
+	const maskMoveY = ref(0)
+	let maskTouchTime = 0
+	const xDropMenuRef = ref<UniElement|null>(null)
+	
+	const proxy = getCurrentInstance()?.proxy
+	
+	const _cutomhHeight = computed(():string => checkIsCssUnit(props.height, xConfig.unit))
+	const _cutomWidth = computed(():string => checkIsCssUnit(props.width, xConfig.unit))
+	const _color = computed(():string => {
+		if (xConfig.dark == 'dark') {
+			if (props.darkColor != '') return getDefaultColor(props.darkColor)
+			return getDefaultColor(xConfig.sheetDarkColor)
+		}
+		return getDefaultColor(props.color)
+	})
+	
+	const _offsetTop = computed(():number => {
+		if (props.position == 'static') return windtop.value
+		let height = checkIsCssUnit(props.offsetTop, xConfig.unit)
+		let unit = getUnit(height)
+		let realheight = parseInt(height)
+		if (unit == 'rpx') {
+			realheight = rpx2px(realheight)
+		}
+		return realheight + windtop.value;
+	})
+	const menuLeft = computed(():string => {
+		if (menubarNodeino.value== null) return ""
+		if (props.position == 'fixed') {
+			return "0px";
+		}
+		return (menubarNodeino.value!.left).toString() + 'px';
+	})
+	
+	const menuWidth = computed(():string => {
+		if (menubarNodeino.value == null) return ""
+		if (props.position == 'fixed') {
+			return "100%"
+		}
+		return (menubarNodeino.value!.width).toString() + 'px';
+	})
+	const menuTop = computed(():string => {
+		if (menubarNodeino.value == null) return ""
+		if (props.position == 'fixed') {
+			return (_offsetTop.value)+"px";
+		}
+		let parentTop = menubarNodeino.value!.top
+		return parentTop.toString() + 'px';
+	})
+
+	const nowItemIsBtn = computed(():boolean => {
+		if (nowIndex.value <= -1 || nowIndex.value >= cacheListItem.value.length || cacheListItem.value.length == 0) return false;
+		let item = cacheListItem.value[nowIndex.value];
+		return item.data.isBtn
+	})
+	
+	const __height = computed(():string => {
+		let h = '100%';
+		// #ifdef WEB
+		h = `calc(100% - ${windtop.value}px)`
+		// #endif
+		return h;
+	})
+	
+	provide('xDropdownMenuNowKeyName',computed(():string => {
+		if(nowIndex.value == -1) return ''
+		if(nowIndex.value>cacheListItem.value.length-1) return ''
+		return cacheListItem.value[nowIndex.value].data.keyName
+	}))
+	
+	const getNodes = () => {
+		if(xDropMenuRef.value==null) return;
+		xDropMenuRef.value!.getBoundingClientRectAsync()?.then((nodeinfo:DOMRect)=>{
+			menubarNodeino.value = {
+				left: nodeinfo.left!,
+				width: nodeinfo.width!,
+				height: nodeinfo.height!,
+				bottom: nodeinfo.bottom!,
+				right: nodeinfo.right!,
+				top: nodeinfo.top!,
+			} as NODE_INFO
+		})
+	}
+	
+	watch(():number=>props.modelValue,(newValue : number)=>{
+		if (nowIndex.value == newValue) return;
+		if (newValue == -1) {
+			nowIndex.value = -1;
+			opended.value = false;
+			return;
+		}
+		nowIndex.value = newValue;
+	
+	})
+
+	
+	const addMenu = (obj : XDROPDOWN_LISTITEM_INFO_TYPE) => {
+		let index = cacheListItem.value.findIndex((el : XDROPDOWN_LISTITEM_TYPE) : boolean => el.id == obj.id)
+		if (index > -1) {
+			cacheListItem.value[index] = {
+				id: obj.id,
+				data: obj
+			} as XDROPDOWN_LISTITEM_TYPE
+		} else {
+			cacheListItem.value.push({
+				id: obj.id,
+				data: obj
+			} as XDROPDOWN_LISTITEM_TYPE);
+		}
+	
+	}
+	const delMenu = (id : string) => {
+		if (cacheListItem.value.length == 0) return;
+		let index : number = cacheListItem.value.findIndex((el : XDROPDOWN_LISTITEM_TYPE) : boolean => el.id == id);
+		if (index > -1) {
+			if (index == nowIndex.value) {
+				nowIndex.value = -1;
+			}
+			cacheListItem.value.splice(index, 1)
+		}
+	}
+	const maskerMove = (evt : UniTouchEvent) => {
+		// evt.preventDefault();
+	}
+	const closeMenu = () => {
+		let nkey = ""
+		try {
+			nkey = cacheListItem.value[nowIndex.value].data.keyName
+		} catch (e) {
+			//TODO handle the exception
+		}
+		/**
+		 * 切换菜单时触发
+		 * @param index {number} 当前被切换的索引值
+		 * @param keyName {string} 菜单keyName标识
+		 * @param status {boolean} 当前切换的状态：false表示关闭，true表示打开。
+		 */
+		emit("change", nowIndex.value, nkey, false)
+		nowIndex.value = -1;
+		opended.value = false;
+		/**
+		 * 等同v-model=""
+		 */
+		emit("update:modelValue", nowIndex.value)
+	
+		// #ifdef WEB
+		document.body.style.removeProperty("overflow")
+		// #endif
+	}
+	
+	const openMenu = (index : number) => {
+		getNodes();
+		nowIndex.value = index;
+		opended.value = true;
+		
+		/**
+		 * 等同v-model=""
+		 */
+		emit("update:modelValue", index)
+		
+		let nkey = ""
+		try {
+			nkey = cacheListItem.value[index].data.keyName
+		} catch (e) {
+			//TODO handle the exception
+		}
+	console.log(index)
+		emit("change", index, nkey, true)
+		// #ifdef WEB
+		document.body.style.setProperty("overflow","hidden")
+		// #endif
+	}
+	
+	const menuClick = (index : number) => {
+	
+		if (index == nowIndex.value) {
+			closeMenu();
+		} else {
+			openMenu(index);
+		}
+	}
+	
+	const maskmStart = (evt:UniTouchEvent) => {
+		evt.preventDefault()
+		maskMoveX.value = evt.changedTouches[0].clientX
+		maskMoveY.value = evt.changedTouches[0].clientY
+		maskTouchTime = Date.now()
+		
+		
+	}
+	const maskmMove = (evt:UniTouchEvent) =>{
+		// #ifdef WEB||MP-WEIXIN
+		evt.preventDefault()
+		evt.stopPropagation()
+		// #endif
+	}
+	const maskmEnd = (evt:UniTouchEvent) => {
+		let diffx = evt.changedTouches[0].clientX - maskMoveX.value
+		let diffy = evt.changedTouches[0].clientY - maskMoveY.value
+		let difftime =  Date.now() - maskTouchTime;
+		if(diffx==diffy&&difftime>50&&difftime<250){
+			closeMenu();
+		}
+		
+		
+	}
+	
+	
+	onMounted(()=>{
+		let sys = uni.getWindowInfo()
+		// #ifdef WEB
+		_width.value = sys.windowWidth
+		_height.value = sys.windowHeight;
+		windtop.value = sys.windowTop;
+		// #endif
+		// #ifdef APP || MP-WEIXIN
+		_width.value = sys.windowWidth
+		_height.value = sys.windowHeight + 44;
+		// #endif
+		
+		nowIndex.value = props.modelValue;
+		getNodes();
+		uni.$on("onResize", getNodes)
+	})
+	onBeforeUnmount(()=>{
+		uni.$off("onResize", getNodes)
+		clearTimeout(tid)
+	})
+	
+	
+	defineExpose({
+		addMenu,
+		delMenu
+	})
+
+</script>
+<template>
+
+	<view class="xDropMenu"  ref="xDropMenuRef":style="{
+		width:_cutomWidth,
+		height:_cutomhHeight,
+		backgroundColor:_color
+	}">
+
+		<view class="xDropMenuBarStatic"
+			:style="{height:_cutomhHeight,visibility:!opended||nowItemIsBtn?'visible':'hidden'}">
+			<view @click.stop="menuClick(index)" class="xDropMenuBaritem" v-for="(item,index) in cacheListItem"
+				:key="index">
+				<text :style="{
+					color:nowIndex==index? item.data.activeFontColor:item.data.fontColor,
+					fontSize:item.data.fontSize
+					}">{{item.data.title}}</text>
+				<x-icon style="margin-left:5px"
+					:color="(nowIndex==index? item.data.activeFontColor:item.data.fontColor)"
+					v-if="nowIndex==index&&item.data.activeIcon!=''" :name="item.data.activeIcon"></x-icon>
+				<x-icon style="margin-left:5px"
+					:color="(nowIndex==index? item.data.activeFontColor:item.data.fontColor)"
+					v-if="nowIndex!=index&&item.data.icon!=''" :name="item.data.icon"></x-icon>
+			</view>
+		</view>
+		<!-- #ifdef WEB -->
+		<teleport to="uni-app">
+		<!-- #endif -->
+		<!-- #ifdef MP-WEIXIN -->
+		<root-portal>
+		<!-- #endif -->
+		
+		<view v-if="!hidnMask" 
+		@touchstart="maskmStart"
+		@touchmove="maskmMove"
+		@touchend="maskmEnd"
+		
+		class="xDropMenuWrap" 
+		:style="{
+			width:'100%',
+			height:__height,
+			display:opended&&!nowItemIsBtn?'flex':'none',
+			top:_offsetTop+'px',
+			zIndex:zIndex.toString(),
+			position:'fixed'
+		}
+		">
+		</view>
+		<!-- #ifdef MP-WEIXIN -->
+		</root-portal>
+		<!-- #endif -->
+		<!-- #ifdef WEB -->
+		</teleport>
+		<!-- #endif -->
+		<view @click.stop="closeMenu" class="xDropMenuWrapContent" :style="{
+				width:menuWidth,
+				height:'100%',
+				left:menuLeft, 
+				top:menuTop,
+				zIndex:(zIndex+1).toString(),
+				display:opended&&!nowItemIsBtn?'flex':'none',
+				position: 'fixed'
+			}">
+			<view class="xDropMenuBarStatic xDropMenuBarAbs" :style="{
+					width:_cutomWidth,
+					height:_cutomhHeight,
+					backgroundColor:_color,
+					
+				}">
+				<view v-if="opended" @click.stop="menuClick(index)" class="xDropMenuBaritem"
+					v-for="(item,index) in cacheListItem" :key="index">
+					<text :style="{
+							color:nowIndex==index? item.data.activeFontColor:item.data.fontColor,
+							fontSize:item.data.fontSize
+							}">{{item.data.title}}</text>
+					<x-icon style="margin-left:5px"
+						:color="(nowIndex==index? item.data.activeFontColor:item.data.fontColor)"
+						v-if="nowIndex==index&&item.data.activeIcon!=''" :name="item.data.activeIcon"></x-icon>
+					<x-icon style="margin-left:5px"
+						:color="(nowIndex==index? item.data.activeFontColor:item.data.fontColor)"
+						v-if="nowIndex!=index&&item.data.icon!=''" :name="item.data.icon"></x-icon>
+				</view>
+			</view>
+		
+			<view class="xDropMenuBgColor" :style="{'background-color': opended?`rgba(0, 0, 0, 0.4)`:`rgba(0, 0, 0, 0)`}">
+				
+				<!--
+				@slot 默认插槽，只能放置子项目x-dropdown-item
+				 -->
+				<slot></slot>
+			</view>
+		</view>
+
+	</view>
+
+</template>
+<style scoped>
+	.xDropMenuBgColor{
+		transition-duration: 300ms;
+		transition-property: background-color;
+		transition-timing-function: linear;
+		overflow: hidden;position: relative;
+		background-color:rgba(0,0,0,0);
+		transition-delay: 50ms;
+		flex:1;
+	}
+
+	.xDropMenu {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.xDropMenuBaritem {
+		flex: 1;
+		height: 100%;
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.xDropMenuBarStatic {
+		display: flex;
+		flex-direction: row;
+		pointer-events: auto;
+	}
+
+	.xDropMenuWrap {
+		position: fixed;
+		/* z-index: 88; */
+		background-color: transparent;
+		left: 0px;
+		top: 0px;
+
+	}
+
+	.xDropMenuWrapContent {
+		/* position: fixed; */
+		/* z-index: 89; */
+		/* background-color: rgba(0, 0, 0, 0.4); */
+		left: 0px;
+		display: flex;
+		flex-direction: column;
+	}
+</style>

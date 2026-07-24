@@ -1,0 +1,1015 @@
+import { XTREEFLAT_CONFIG, XTREEFLAT_CHILDREN, XTREEFLAT_LAYOUT, XTREEFLAT_LINE_TYPE } from "./interface.uts"
+import { hexToRgb } from "../../core/util/xCoreColorUtil.uts"
+import { XTREEFLAT_NODES, XTreeFlatOpts } from "../../interface.uts"
+type XTREE_NODES_FLAT = {
+	node : XTREEFLAT_CHILDREN;
+	x : number;
+	y : number;
+	width : number;
+	height : number;
+	level : number;
+	parent ?: XTREEFLAT_CHILDREN;
+}
+
+/** 双指 pinch 缩放所需的坐标点 */
+export type XTREEFLAT_PINCH_POINT = {
+	x : number,
+	y : number
+}
+
+type XTREEFLAT_CONFIG_REAL = {
+	width : number,
+	height : number,
+	bgColor : string,
+	nodeBgColor : string,
+	fontColor : string,
+	fontSize : number,
+	/** 统一连线颜色,不配置取节点的背景,如果节点背景也没设置取#333 */
+	lineColor : string,
+	/** 画板对象,必填写 **/
+	canvas : CanvasContext,
+	nodeInfo : NodeInfo,
+	/** 绘制文本时的内边跑 */
+	padding : number,
+	/** 绘制项目是连接线上下项目或者左右项目的间距 */
+	gutter : number,
+	/** 父级与子级之间的连续长度 */
+	parentLineGutter : number,
+	/** 连线宽 */
+	lineWidth : number,
+	enbleOpenChildren : boolean,
+	nodeRadius : number,
+	/** 布局方式 */
+	layout : XTREEFLAT_LAYOUT,
+	/** 连线样式 */
+	lineType : XTREEFLAT_LINE_TYPE
+}
+type calculateNodeSize_return = { width : number, height : number }
+type xCalcListDataFun = (list : XTREEFLAT_NODES[]) => XTREEFLAT_CHILDREN[]
+type traverseFun = (node : XTREEFLAT_CHILDREN, level : number) => void
+type drawRealRect = { x : number, y : number, width : number, height : number }
+
+export class OrgChartRenderer {
+	private ctx : CanvasRenderingContext2D;
+	private nodes = [] as Array<XTREE_NODES_FLAT>;
+	private offsetX = 0;
+	private offsetY = 0;
+	private config : XTREEFLAT_CONFIG_REAL
+	private pixelRatio = 1;
+	private levelMaxWidth = {} as UTSJSONObject
+	private data = [] as XTREEFLAT_CHILDREN[]
+	public scaleXY = 1.0;
+	/** 缩放下限，低于该值视觉过小无意义 */
+	public scaleMin = 0.3;
+	/**
+	 * 缩放上限。原来是 3.0，但实测在 APP 端 native canvas 绘制大树 3 倍时内存压力较大，
+	 * 部分设备会触发闪退。降为 2.0 在视觉可用性和稳定性之间平衡。
+	 */
+	public scaleMax = 2.0;
+	/**
+	 * 缩放中心（canvas 像素坐标）。-1 表示未设置，fallback 到 canvas 几何中心。
+	 * pinch 手势松手时由外部传入"双指中心在 canvas 内的坐标"，让重绘以双指中心
+	 * 为原点，视觉上"捏哪儿放大哪儿"与 CSS transform-origin 保持一致。
+	 */
+	public scaleCenterX : number = -1;
+	public scaleCenterY : number = -1;
+	private nowSelectedNodes = null as null | XTREEFLAT_CHILDREN
+	private nodesClick = (item : XTREEFLAT_CHILDREN) => { }
+	/** 节点 id -> this.nodes 下标，绘制连线时 O(1) 查父节点 */
+	private idToNodeIndex = new Map<string, number>()
+	/** 父节点 id -> 子节点在 this.nodes 中的下标列表（与布局顺序一致） */
+	private parentIdToChildIndices = new Map<string, number[]>()
+	/** 根节点（level===0）在 this.nodes 中的下标 */
+	private rootIndices = [] as number[]
+	/** 根节点 id -> 在 rootIndices 中的序号，用于根之间互连线 */
+	private rootOrdinalById = new Map<string, number>()
+	/** 同一批数据内节点尺寸缓存（updateData 时清空） */
+	private cachedNodeSize = new Map<string, calculateNodeSize_return>()
+	/** 单次布局内子树高度/宽度缓存（calculateLayout 开始时清空；随 opened 变化） */
+	private cachedSubtreeH = new Map<string, number>()
+	private cachedSubtreeW = new Map<string, number>()
+
+	private nodeIdKey(id : string | number) : string {
+		return id.toString()
+	}
+
+	private clearSubtreeLayoutCache() {
+		this.cachedSubtreeH.clear()
+		this.cachedSubtreeW.clear()
+	}
+
+	private clearNodeSizeCache() {
+		this.cachedNodeSize.clear()
+	}
+
+	private lineIsCurve() : boolean {
+		return this.config.lineType == 'curve'
+	}
+
+	/** 水平方向贝塞尔张力（沿 x 方向拉控制点） */
+	private curveTensionX(gutter : number) : number {
+		const g = gutter > 0 ? gutter : 30
+		return Math.max(g * 0.42, 10)
+	}
+
+	/** 垂直方向贝塞尔张力 */
+	private curveTensionY(gutter : number) : number {
+		const g = gutter > 0 ? gutter : 30
+		return Math.max(g * 0.42, 10)
+	}
+
+	private rebuildDrawLookups() {
+		this.idToNodeIndex.clear()
+		this.parentIdToChildIndices.clear()
+		this.rootOrdinalById.clear()
+		this.rootIndices = [] as number[]
+		const n = this.nodes.length
+		for (let i = 0; i < n; i++) {
+			const m = this.nodes[i]
+			const idKey = this.nodeIdKey(m.node.id)
+			this.idToNodeIndex.set(idKey, i)
+			if (m.level == 0) {
+				this.rootOrdinalById.set(idKey, this.rootIndices.length)
+				this.rootIndices.push(i)
+			}
+			if (m.parent != null) {
+				const pid = this.nodeIdKey(m.parent.id)
+				let bucket = this.parentIdToChildIndices.get(pid)
+				if (bucket == null) {
+					bucket = [] as number[]
+					this.parentIdToChildIndices.set(pid, bucket)
+				}
+				bucket.push(i)
+			}
+		}
+	}
+	constructor(xconfig : XTREEFLAT_CONFIG) {
+		this.config = {
+			width: xconfig?.width ?? 1000,
+			height: xconfig?.height ?? 1000,
+			bgColor: xconfig?.bgColor ?? 'rgba(0,0,0,0)',
+			fontColor: xconfig?.fontColor ?? '#2f2943',
+			lineColor: xconfig?.lineColor ?? 'rgb(220, 215, 255)',
+			nodeBgColor: xconfig?.nodeBgColor ?? 'rgb(220, 215, 255)',
+			padding: xconfig?.padding ?? 10,
+			gutter: xconfig?.gutter ?? 12,
+			nodeRadius: xconfig?.nodeRadius ?? 8,
+			parentLineGutter: xconfig?.parentLineGutter ?? 30,
+			enbleOpenChildren: xconfig?.enbleOpenChildren ?? true,
+			lineWidth: xconfig?.lineWidth ?? 1.5,
+			canvas: xconfig.canvas,
+			nodeInfo: xconfig.nodeInfo,
+			fontSize: xconfig?.fontSize ?? 13,
+			layout: (xconfig?.layout ?? 'horizontal') as XTREEFLAT_LAYOUT,
+			lineType: (xconfig?.lineType ?? 'straight') as XTREEFLAT_LINE_TYPE,
+		} as XTREEFLAT_CONFIG_REAL
+
+		const canvasContext = this.config.canvas.getContext('2d')!;
+		const canvas = canvasContext.canvas;
+		// 处理高清屏逻辑
+		const dpr = uni.getWindowInfo().pixelRatio;
+		canvas.width = canvas.offsetWidth * dpr;
+		canvas.height = canvas.offsetHeight * dpr;
+		canvasContext.scale(dpr, dpr);
+		this.ctx = canvasContext;
+		this.pixelRatio = dpr;
+
+	}
+
+	public getDrawBounds() : drawRealRect {
+		if (this.nodes.length === 0) {
+			return {
+				x: 0,
+				y: 0,
+				width: 0,
+				height: 0
+			} as drawRealRect
+		}
+
+		let minX = Infinity, minY = Infinity;
+		let maxX = -Infinity, maxY = -Infinity;
+
+		this.nodes.forEach(({ x, y, width, height }) => {
+			// #ifndef APP-ANDROID
+			minX = Math.min(minX, x);
+			minY = Math.min(minY, y);
+			maxX = Math.max(maxX, (x + width));
+			maxY = Math.max(maxY, (y + height));
+			// #endif
+			// #ifdef APP-ANDROID
+			minX = Math.min(minX.toDouble(), x.toDouble()).toDouble();
+			minY = Math.min(minY.toDouble(), y.toDouble()).toDouble();
+			maxX = Math.max(maxX.toDouble(), (x + width).toDouble()).toDouble();
+			maxY = Math.max(maxY.toDouble(), (y + height).toDouble()).toDouble();
+			// #endif
+		});
+
+		// 加上偏移量得到实际绘制位置
+		return {
+			x: minX + this.offsetX,
+			y: minY + this.offsetY,
+			width: maxX - minX,
+			height: maxY - minY
+		} as drawRealRect
+	}
+
+	private wrapText(text : string, fontSize : number) : string[] {
+		this.ctx.font = `${fontSize}px Arial`;
+		const words = text.split('');
+		const lines : string[] = [];
+		let currentLine = '';
+		// 每行最多8个字符
+		const maxCharsPerLine = 8;
+		for (let i = 0; i < words.length; i++) {
+			if (currentLine.length >= maxCharsPerLine) {
+				lines.push(currentLine);
+				currentLine = '';
+			}
+			currentLine += words[i];
+		}
+		if (currentLine != '') {
+			lines.push(currentLine);
+		}
+		return lines;
+	}
+	private calcMeasureText(text : string, fontSize : number) : number {
+		let totalWidth = 0;
+		// #ifdef APP-HARMONY
+		for (let i = 0; i < text.length; i++) {
+			const char = text.charAt(i);
+			const charCode = char.charCodeAt(0);
+
+			// 判断是否为中文字符（包括中文标点符号）
+			// 中文字符的Unicode范围：0x4e00-0x9fff（基本汉字）
+			// 中文标点符号：0x3000-0x303f, 0xff00-0xffef
+			if ((charCode >= 0x4e00 && charCode <= 0x9fff) ||
+				(charCode >= 0x3000 && charCode <= 0x303f) ||
+				(charCode >= 0xff00 && charCode <= 0xffef)) {
+				// 中文字符时取字号大小
+				totalWidth += fontSize;
+			} else {
+				// 非中文符号时取字符数量*字号大小的一半
+				totalWidth += fontSize * 0.5;
+			}
+		}
+		// #endif
+		return totalWidth;
+	}
+	private calculateNodeSize(node : XTREEFLAT_CHILDREN) : calculateNodeSize_return {
+		const key = this.nodeIdKey(node.id)
+		const hit = this.cachedNodeSize.get(key)
+		if (hit != null) {
+			return hit
+		}
+		const lines = this.wrapText(node.title, node.fontSize);
+		this.ctx.font = `${node.fontSize}px Arial`;
+		// 计算最宽的行的宽度
+		let linesWidths : number[] = lines.map((line) : number => {
+			let w = this.ctx.measureText(line).width;
+			// #ifdef APP-HARMONY
+			w = this.calcMeasureText(line,node.fontSize);
+			// #endif
+			return w;
+		});
+		const maxWidth = Math.max(...linesWidths);
+		// 高度需要考虑行数和行间距
+		const lineHeight = node.fontSize * 1.2; // 添加1.2倍行高
+		const textHeight = lineHeight * lines.length;
+		const out = {
+			width: maxWidth + node.padding * 2,  // 两侧添加padding
+			height: textHeight + node.padding * 2 // 上下添加padding
+		} as calculateNodeSize_return;
+		this.cachedNodeSize.set(key, out)
+		return out;
+	}
+	// 计算节点及其子树需要的总高度
+	private calculateSubtreeHeight(node : XTREEFLAT_CHILDREN) : number {
+		const key = this.nodeIdKey(node.id)
+		const memo = this.cachedSubtreeH.get(key)
+		if (memo != null) {
+			return memo
+		}
+		const nodeSize = this.calculateNodeSize(node);
+		let out = nodeSize.height
+		if (node.opened && node.children.length > 0) {
+			const childrenHeight = node.children.reduce((total, child, index) => {
+				const childHeight = this.calculateSubtreeHeight(child);
+				return total + childHeight + (index < node.children.length - 1 ? node.gutter : 0);
+			}, 0);
+			out = Math.max(nodeSize.height, childrenHeight);
+		}
+		this.cachedSubtreeH.set(key, out)
+		return out;
+	}
+	// 收集各层级的最大宽度
+	private collectLevelMaxWidth() {
+		this.levelMaxWidth = {} as UTSJSONObject;
+		let traverse = null as traverseFun | null;
+		traverse = (node : XTREEFLAT_CHILDREN, level : number) => {
+			const size = this.calculateNodeSize(node);
+			const currentWidth = size.width;
+			if (this.levelMaxWidth.get(level.toString()) == null) {
+				this.levelMaxWidth.set(level.toString(), currentWidth)
+			}
+			let maxwidth = this.levelMaxWidth.get(level.toString())! as number;
+			if (currentWidth > maxwidth) {
+				this.levelMaxWidth.set(level.toString(), currentWidth)
+			}
+			if (node.opened && node.children.length > 0) {
+				node.children.forEach(child => traverse!(child, level + 1));
+			}
+		};
+		this.data.forEach(root => traverse!(root, 0));
+	}
+
+	private layoutNode(
+		node : XTREEFLAT_CHILDREN,
+		parentX : number,
+		parentY : number,
+		level : number,
+		parent : XTREEFLAT_CHILDREN | null = null
+	) {
+		const size = this.calculateNodeSize(node);
+		const nodeWidth = (this.levelMaxWidth.getNumber(level.toString()))!;
+		const subtreeHeight = this.calculateSubtreeHeight(node);
+		// 将节点添加到nodes数组，注意这里y坐标的计算
+		this.nodes.push({
+			node,
+			x: parentX,
+			y: parentY - size.height / 2, // 修改：直接使用节点自身高度居中
+			width: nodeWidth,
+			height: size.height,
+			level,
+			parent
+		} as XTREE_NODES_FLAT);
+		if (node.opened && node.children.length > 0) {
+			// 计算所有子节点的总高度
+			const totalChildrenHeight = node.children.reduce((total, child) => {
+				return total + this.calculateSubtreeHeight(child);
+			}, 0);
+			// 添加子节点之间的间距
+			const totalGutterHeight = (node.children.length - 1) * node.gutter;
+			const totalHeight = totalChildrenHeight + totalGutterHeight;
+			// 修改：计算子节点的起始y坐标，使其相对父节点居中
+			let childY = parentY - totalHeight / 2;
+			// 为每个子节点布局
+			node.children.forEach((child, index) => {
+				const childSubtreeHeight = this.calculateSubtreeHeight(child);
+				// 修改：将子节点放置在计算好的位置上
+				this.layoutNode(
+					child,
+					(parentX + nodeWidth + node.parentLineGutter),
+					(childY + childSubtreeHeight / 2), // 修改：确保子节点在其分配空间内居中
+					level + 1,
+					node
+				);
+				// 更新下一个子节点的y坐标
+				childY += childSubtreeHeight + node.gutter;
+			});
+		}
+	}
+
+	// 计算节点及其子树需要的总宽（用于垂直布局）
+	private calculateSubtreeWidth(node : XTREEFLAT_CHILDREN) : number {
+		const key = this.nodeIdKey(node.id)
+		const memo = this.cachedSubtreeW.get(key)
+		if (memo != null) {
+			return memo
+		}
+		const nodeSize = this.calculateNodeSize(node);
+		let out = nodeSize.width
+		if (node.opened && node.children.length > 0) {
+			const childrenWidth = node.children.reduce((total, child, index) => {
+				const childWidth = this.calculateSubtreeWidth(child);
+				return total + childWidth + (index < node.children.length - 1 ? node.gutter : 0);
+			}, 0);
+			out = Math.max(nodeSize.width, childrenWidth);
+		}
+		this.cachedSubtreeW.set(key, out)
+		return out;
+	}
+
+	// 垂直布局：同级左右排列，次级向下
+	private layoutNodeVertical(
+		node : XTREEFLAT_CHILDREN,
+		parentCenterX : number,
+		parentTopY : number,
+		level : number,
+		parent : XTREEFLAT_CHILDREN | null = null
+	) {
+		const size = this.calculateNodeSize(node);
+		const nodeLeftX = parentCenterX - size.width / 2;
+		this.nodes.push({
+			node,
+			x: nodeLeftX,
+			y: parentTopY,
+			width: size.width,
+			height: size.height,
+			level,
+			parent
+		} as XTREE_NODES_FLAT);
+
+		if (node.opened && node.children.length > 0) {
+			const totalChildrenWidth = node.children.reduce((total, child) => {
+				return total + this.calculateSubtreeWidth(child);
+			}, 0);
+			const totalGutterWidth = (node.children.length - 1) * node.gutter;
+			const totalWidth = totalChildrenWidth + totalGutterWidth;
+			let childLeft = parentCenterX - totalWidth / 2;
+			node.children.forEach((child) => {
+				const childSubtreeWidth = this.calculateSubtreeWidth(child);
+				const childCenterX = childLeft + childSubtreeWidth / 2;
+				this.layoutNodeVertical(
+					child,
+					childCenterX,
+					parentTopY + size.height + node.parentLineGutter,
+					level + 1,
+					node
+				);
+				childLeft += childSubtreeWidth + node.gutter;
+			});
+		}
+	}
+
+
+	private calculateLayout() {
+		this.clearSubtreeLayoutCache()
+		this.nodes = [];
+		if (this.config.layout == 'horizontal') {
+			this.collectLevelMaxWidth();
+			const totalHeight = this.data.reduce((total, root, index) => {
+				const subtreeHeight = this.calculateSubtreeHeight(root);
+				return total + subtreeHeight + (index < this.data.length - 1 ? root.gutter : 0);
+			}, 0);
+			let startY = -totalHeight / 2;
+			this.data.forEach((root) => {
+				const subtreeHeight = this.calculateSubtreeHeight(root);
+				this.layoutNode(
+					root,
+					0,
+					startY + subtreeHeight / 2,
+					0,
+					null
+				);
+				startY += subtreeHeight + root.gutter;
+			});
+		} else {
+			
+			const totalWidth = this.data.reduce((total, root, index) => {
+				const subtreeWidth = this.calculateSubtreeWidth(root);
+				return total + subtreeWidth + (index < this.data.length - 1 ? root.gutter : 0);
+			}, 0);
+			let startX = -totalWidth / 2;
+			this.data.forEach((root) => {
+				const subtreeWidth = this.calculateSubtreeWidth(root);
+				const rootCenterX = startX + subtreeWidth / 2;
+				this.layoutNodeVertical(
+					root,
+					rootCenterX,
+					0,
+					0,
+					null
+				);
+				startX += subtreeWidth + root.gutter;
+			});
+		}
+
+		// 计算边界框并设置偏移
+
+		let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
+		this.nodes.forEach(({ x, y, width, height }) => {
+			// #ifndef APP-ANDROID
+			minX = Math.min(minX, x);
+			minY = Math.min(minY, y);
+			maxX = Math.max(maxX, (x + width));
+			maxY = Math.max(maxY, (y + height));
+			// #endif
+			// #ifdef APP-ANDROID
+			minX = Math.min(minX.toDouble(), x.toDouble()).toDouble();
+			minY = Math.min(minY.toDouble(), y.toDouble()).toDouble();
+			maxX = Math.max(maxX.toDouble(), (x + width).toDouble()).toDouble();
+			maxY = Math.max(maxY.toDouble(), (y + height).toDouble()).toDouble();
+			// #endif
+		});
+
+		// 计算居中偏移
+		this.offsetX = (this.config.width - (maxX - minX)) / 2 - minX;
+		this.offsetY = (this.config.height - (maxY - minY)) / 2 - minY;
+
+		this.rebuildDrawLookups()
+	}
+
+	/**
+	 * 横向曲线：父右缘中心 → 每个子左缘中心，各一条三次贝塞尔。
+	 * 当父子 Y 相同（单子节点）时给控制点加弧度偏移，避免退化为直线。
+	 */
+	private drawHorizontalCurveParentToChildren(meta : XTREE_NODES_FLAT, cidxs : number[]) {
+		const parentRight = meta.x + meta.width
+		const parentCy = meta.y + meta.height / 2
+		for (let ci = 0; ci < cidxs.length; ci++) {
+			const child = this.nodes[cidxs[ci]]
+			const childLeft = child.x
+			const childCy = child.y + child.height / 2
+			const gap = childLeft - parentRight
+			const dx = gap / 2
+			this.ctx.beginPath()
+			this.ctx.moveTo(parentRight, parentCy)
+			if (Math.abs(parentCy - childCy) < 2) {
+				const arc = -Math.min(gap * 0.35, 25)
+				const midX = (parentRight + childLeft) / 2
+				this.ctx.bezierCurveTo(midX, parentCy + arc, midX, childCy + arc, childLeft, childCy)
+			} else {
+				this.ctx.bezierCurveTo(parentRight + dx, parentCy, childLeft - dx, childCy, childLeft, childCy)
+			}
+			this.ctx.stroke()
+		}
+	}
+
+	/**
+	 * 纵向曲线：父底部中心 → 每个子顶部中心，各一条三次贝塞尔。
+	 * 当父子 X 相同（单子节点）时给控制点加弧度偏移。
+	 */
+	private drawVerticalCurveParentToChildren(meta : XTREE_NODES_FLAT, cidxs : number[]) {
+		const parentCx = meta.x + meta.width / 2
+		const parentBottom = meta.y + meta.height
+		for (let ci = 0; ci < cidxs.length; ci++) {
+			const child = this.nodes[cidxs[ci]]
+			const childCx = child.x + child.width / 2
+			const childTop = child.y
+			const gap = childTop - parentBottom
+			const dy = gap / 2
+			this.ctx.beginPath()
+			this.ctx.moveTo(parentCx, parentBottom)
+			if (Math.abs(parentCx - childCx) < 2) {
+				const arc = -Math.min(gap * 0.35, 25)
+				const midY = (parentBottom + childTop) / 2
+				this.ctx.bezierCurveTo(parentCx + arc, midY, childCx + arc, midY, childCx, childTop)
+			} else {
+				this.ctx.bezierCurveTo(parentCx, parentBottom + dy, childCx, childTop - dy, childCx, childTop)
+			}
+			this.ctx.stroke()
+		}
+	}
+
+	private drawConnections(nodeMeta : XTREE_NODES_FLAT) {
+		const node = nodeMeta.node
+		const x = nodeMeta.x
+		const y = nodeMeta.y
+		const width = nodeMeta.width
+		const height = nodeMeta.height
+		const level = nodeMeta.level
+		const parent = nodeMeta.parent
+		this.ctx.strokeStyle = nodeMeta.node.bgColor;
+		this.ctx.lineWidth = this.config.lineWidth;
+
+		// 横向 + 直线：子节点绘制到父节点右侧的折线（与父节点绘制的竖干+横线配套，历史行为）
+		if (parent != null && this.config.layout == 'horizontal' && !this.lineIsCurve()) {
+			const pidx = this.idToNodeIndex.get(this.nodeIdKey(parent.id))
+			if (pidx != null) {
+				const parentMeta = this.nodes[pidx]
+				const startX = x;
+				const startY = y + height / 2;
+				const endX = parentMeta.x + parentMeta.width;
+				const endY = parentMeta.y + parentMeta.height / 2;
+
+				this.ctx.beginPath();
+				this.ctx.moveTo(startX, startY);
+				this.ctx.lineTo(startX - node.parentLineGutter / 2, startY);
+				this.ctx.lineTo(startX - node.parentLineGutter / 2, endY);
+				this.ctx.lineTo(endX, endY);
+				this.ctx.stroke();
+			}
+		}
+
+		// 多根节点：第一级之间的互连（单根时无此段）
+		if (this.config.layout == 'horizontal' && level == 0) {
+			const ord = this.rootOrdinalById.get(this.nodeIdKey(node.id))
+			if (ord != null && ord > 0 && this.rootIndices.length > 1) {
+				const prevNode = this.nodes[this.rootIndices[ord - 1]]
+				const midY = (prevNode.y + prevNode.height / 2 + y + height / 2) / 2
+				const p1x = prevNode.x + prevNode.width / 2
+				const p1y = prevNode.y + prevNode.height / 2
+				const p2x = x + width / 2
+				const p2y = y + height / 2
+
+				this.ctx.beginPath()
+				this.ctx.moveTo(p1x, p1y)
+				if (this.lineIsCurve()) {
+					const dy = p2y - p1y
+					const arcX = -Math.min(Math.abs(dy) * 0.25, 30)
+					this.ctx.bezierCurveTo(p1x + arcX, p1y + dy * 0.4, p2x + arcX, p2y - dy * 0.4, p2x, p2y)
+				} else {
+					this.ctx.lineTo(p1x, midY)
+					this.ctx.lineTo(p2x, midY)
+					this.ctx.lineTo(p2x, p2y)
+				}
+				this.ctx.stroke()
+			}
+		}
+
+		if (this.config.layout == 'vertical' && level == 0) {
+			const ord = this.rootOrdinalById.get(this.nodeIdKey(node.id))
+			if (ord != null && ord > 0 && this.rootIndices.length > 1) {
+				const prevNode = this.nodes[this.rootIndices[ord - 1]]
+				const midX = (prevNode.x + prevNode.width / 2 + x + width / 2) / 2
+				const p1x = prevNode.x + prevNode.width / 2
+				const p1y = prevNode.y + prevNode.height / 2
+				const p2x = x + width / 2
+				const p2y = y + height / 2
+
+				this.ctx.beginPath()
+				this.ctx.moveTo(p1x, p1y)
+				if (this.lineIsCurve()) {
+					const dx = p2x - p1x
+					const arcY = -Math.min(Math.abs(dx) * 0.25, 30)
+					this.ctx.bezierCurveTo(p1x + dx * 0.4, p1y + arcY, p2x - dx * 0.4, p2y + arcY, p2x, p2y)
+				} else {
+					this.ctx.lineTo(midX, p1y)
+					this.ctx.lineTo(midX, p2y)
+					this.ctx.lineTo(p2x, p2y)
+				}
+				this.ctx.stroke()
+			}
+		}
+
+		if (node.opened && node.children.length > 0 && this.config.layout == 'horizontal') {
+			const cidxs = this.parentIdToChildIndices.get(this.nodeIdKey(node.id))
+			if (cidxs != null && cidxs.length > 0) {
+				if (this.lineIsCurve()) {
+					this.drawHorizontalCurveParentToChildren(nodeMeta, cidxs)
+				} else {
+					const firstChild = this.nodes[cidxs[0]]
+					const lastChild = this.nodes[cidxs[cidxs.length - 1]]
+					const lineX = x + width + node.parentLineGutter / 2;
+
+					this.ctx.beginPath();
+					this.ctx.moveTo(lineX, firstChild.y + firstChild.height / 2);
+					this.ctx.lineTo(lineX, lastChild.y + lastChild.height / 2);
+					this.ctx.stroke();
+
+					for (let ci = 0; ci < cidxs.length; ci++) {
+						const child = this.nodes[cidxs[ci]]
+						const cy = child.y + child.height / 2
+						this.ctx.beginPath();
+						this.ctx.moveTo(lineX, cy);
+						this.ctx.lineTo(child.x, cy);
+						this.ctx.stroke();
+					}
+				}
+			}
+		}
+		if (node.opened && node.children.length > 0 && this.config.layout == 'vertical') {
+			const cidxs = this.parentIdToChildIndices.get(this.nodeIdKey(node.id))
+			if (cidxs != null && cidxs.length > 0) {
+				if (this.lineIsCurve()) {
+					this.drawVerticalCurveParentToChildren(nodeMeta, cidxs)
+				} else {
+					const firstChild = this.nodes[cidxs[0]]
+					const lastChild = this.nodes[cidxs[cidxs.length - 1]]
+					const midY = y + height + node.parentLineGutter / 2;
+					const parentCenterX = x + width / 2;
+					this.ctx.beginPath();
+					this.ctx.moveTo(parentCenterX, y + height);
+					this.ctx.lineTo(parentCenterX, midY);
+					this.ctx.stroke();
+					this.ctx.beginPath();
+					this.ctx.moveTo(firstChild.x + firstChild.width / 2, midY);
+					this.ctx.lineTo(lastChild.x + lastChild.width / 2, midY);
+					this.ctx.stroke();
+					for (let ci = 0; ci < cidxs.length; ci++) {
+						const child = this.nodes[cidxs[ci]]
+						const childCenterX = child.x + child.width / 2;
+						this.ctx.beginPath();
+						this.ctx.moveTo(childCenterX, midY);
+						this.ctx.lineTo(childCenterX, child.y);
+						this.ctx.stroke();
+					}
+				}
+			}
+		}
+	}
+	drawRoundedRect(x : number, y : number, width : number, height : number, radius : number) {
+		const ctx = this.ctx;
+		ctx.beginPath();
+		// 左上角开始
+		ctx.moveTo(x + radius, y);
+		// 上边 + 右上角圆弧
+		ctx.arcTo(x + width, y, x + width, y + height, radius);
+		// 右边 + 右下角圆弧
+		ctx.arcTo(x + width, y + height, x, y + height, radius);
+		// 下边 + 左下角圆弧
+		ctx.arcTo(x, y + height, x, y, radius);
+		// 左边 + 左上角圆弧
+		ctx.arcTo(x, y, x + width, y, radius);
+		ctx.closePath();
+		ctx.fill(); // 或使用 stroke() 绘制边框
+	}
+	private draw() {
+		this.ctx.clearRect(0, 0, this.config.width, this.config.height);
+		this.ctx.fillStyle = this.config.bgColor;
+		this.ctx.fillRect(0, 0, this.config.width, this.config.height);
+		this.ctx.save();
+
+		// 以"缩放中心"为原点对内容整体缩放后再应用居中偏移。
+		// scaleCenterX/Y 由 pinch 手势传入（双指中心），未设置时 fallback 到 canvas 几何中心。
+		const scale = this.scaleXY
+		if (scale != 1.0) {
+			const cx = this.scaleCenterX >= 0 ? this.scaleCenterX : this.config.width / 2
+			const cy = this.scaleCenterY >= 0 ? this.scaleCenterY : this.config.height / 2
+			this.ctx.translate(cx, cy)
+			this.ctx.scale(scale, scale)
+			this.ctx.translate(-cx, -cy)
+		}
+		this.ctx.translate(this.offsetX, this.offsetY);
+		// 先绘制连接线
+		this.nodes.forEach(nodeMeta => this.drawConnections(nodeMeta));
+		// 再绘制节点（确保节点在连接线上层）
+		this.nodes.forEach(nodeMeta => {
+			const { node, x, y, width, height } = nodeMeta;
+
+			// 绘制选中状态
+			if (node.selected) {
+				this.ctx.fillStyle = node.lineColor;
+				this.drawRoundedRect(x - 5, y - 5, width + 10, height + 10, this.config.nodeRadius)
+			}
+
+			// 绘制背景
+			this.ctx.fillStyle = node.bgColor;
+			this.drawRoundedRect(x, y, width, height, this.config.nodeRadius)
+
+			// 绘制文本（使用换行）
+			const lines = this.wrapText(node.title, node.fontSize);
+			this.ctx.fillStyle = node.fontColor;
+			this.ctx.font = `${node.fontSize}px Arial`;
+			this.ctx.textBaseline = 'middle';
+
+			const lineHeight = node.fontSize * 1.2;
+
+			const totalTextHeight = lineHeight * lines.length;
+			const textStartY = y + (height - totalTextHeight) / 2;
+
+			lines.forEach((line, index) => {
+
+				const lineY = textStartY + lineHeight * index + lineHeight / 2;
+				let textWidth = this.ctx.measureText(line).width;
+				// #ifdef APP-HARMONY
+				textWidth = this.calcMeasureText(line,node.fontSize);
+				// #endif
+				const textX = x + (width - textWidth) / 2;
+				this.ctx.fillText(line, textX, lineY);
+
+			});
+
+
+		});
+
+		this.ctx.restore();
+	}
+
+
+	// 处理数据
+	private updateData(list : XTREEFLAT_NODES[]) {
+		let calcListData = null as xCalcListDataFun | null;
+		let _this = this;
+		calcListData = (datas : XTREEFLAT_NODES[]) : XTREEFLAT_CHILDREN[] => {
+			if (datas.length == 0) return [] as XTREEFLAT_CHILDREN[];
+			let tem = [] as XTREEFLAT_CHILDREN[]
+			let calcfun = calcListData!
+			for (let i = 0; i < datas.length; i++) {
+				let item = datas[i];
+				let children = item?.children ?? ([] as XTREEFLAT_NODES[])
+
+				let bgcolor = item?.bgColor ?? _this.config.nodeBgColor
+				let rgba = hexToRgb(bgcolor)
+				let lineColor = `rgba(${rgba.getNumber('r')},${rgba.getNumber('g')},${rgba.getNumber('b')},0.4)`
+				tem.push({
+					title: item.title,
+					id: item?.id ?? ("xTreeFlatNodes-" + Math.random().toString(16).substring(4, 20)),
+					fontColor: item?.fontColor ?? _this.config.fontColor,
+					bgColor: bgcolor,
+					lineColor: lineColor,
+					padding: item?.padding ?? _this.config.padding,
+					gutter: item?.gutter ?? _this.config.gutter,
+					parentLineGutter: item?.parentLineGutter ?? _this.config.parentLineGutter,
+					opened: item?.opened ?? true,
+					disabled: item?.disabled ?? _this.config.enbleOpenChildren,
+					selected: item?.selected ?? false,
+					fontSize: item?.fontSize ?? _this.config.fontSize,
+					children: calcfun(children)
+				} as XTREEFLAT_CHILDREN)
+			}
+			return tem;
+		}
+		let calcfun = calcListData!
+		this.clearNodeSizeCache()
+		this.data = calcfun(list)
+	}
+
+	// 计算自动缩放比例（兼容旧行为，可能放大也可能缩小）
+	private calculateAutoScale() : number {
+		return this.calculateFitScale(false)
+	}
+
+	/**
+	 * 计算让内容完整显示在可视区域内所需的缩放比例。
+	 * @param shrinkOnly true 时仅在内容超出视口时缩小；内容已能完整显示则保持 1.0 不放大。
+	 */
+	public calculateFitScale(shrinkOnly : boolean = true) : number {
+		const bounds = this.getDrawBounds();
+		if (bounds.width == 0 || bounds.height == 0) return 1.0;
+		const vw = this.config.nodeInfo.width ?? 0
+		const vh = this.config.nodeInfo.height ?? 0
+		if (vw <= 0 || vh <= 0) return 1.0
+		// 考虑边距，留出 10% 的空间
+		const padding = 0.1
+		const containerWidth = vw * (1 - padding)
+		const containerHeight = vh * (1 - padding)
+		// 计算水平和垂直方向的缩放比例
+		const scaleX = containerWidth / bounds.width
+		const scaleY = containerHeight / bounds.height
+		// 取较小的缩放比例，确保完整显示
+		let s = Math.min(scaleX, scaleY)
+		if (shrinkOnly && s > 1.0) s = 1.0
+		if (s < this.scaleMin) s = this.scaleMin
+		if (s > this.scaleMax) s = this.scaleMax
+		return s
+	}
+
+	// 设置缩放比例的公共方法
+	public setScale(scale : number | null = null) {
+		// 如果没有提供缩放比例，则自动计算
+		let target = scale == null ? this.calculateAutoScale() : (scale!);
+		// clamp 到合法区间，避免手势异常造成的极端值
+		if (target < this.scaleMin) target = this.scaleMin
+		if (target > this.scaleMax) target = this.scaleMax
+		this.scaleXY = target;
+		this.draw();
+	}
+
+	/**
+	 * 重置缩放比例为 1.0 并重绘（供双击重置使用）
+	 */
+	public resetScale() {
+		if (this.scaleXY == 1.0 && this.scaleCenterX < 0 && this.scaleCenterY < 0) return;
+		this.scaleXY = 1.0
+		// 重置缩放中心，下次缩放从 canvas 中心开始，直到 pinch 重新设定
+		this.scaleCenterX = -1
+		this.scaleCenterY = -1
+		this.draw()
+	}
+
+	/**
+	 * 根据双指起止坐标计算并应用缩放。复用 x-image-resizer 的距离比率 + 阻尼思路。
+	 * @param initialPoints 本次 pinch 起始双指坐标（相对任意一致坐标系即可，本函数只用到两点距离）
+	 * @param currentPoints 本次 pinch 当前双指坐标
+	 * @param initialScale  pinch 开始瞬间的 scaleXY 值
+	 * @param centerX       （可选）缩放中心在 canvas 内部像素坐标的 x，-1 表示使用 canvas 几何中心
+	 * @param centerY       （可选）缩放中心在 canvas 内部像素坐标的 y，-1 表示使用 canvas 几何中心
+	 */
+	public applyPinchZoom(initialPoints : Array<XTREEFLAT_PINCH_POINT>, currentPoints : Array<XTREEFLAT_PINCH_POINT>, initialScale : number, centerX : number = -1, centerY : number = -1) {
+		if (initialPoints.length < 2 || currentPoints.length < 2) return
+		const d0x = initialPoints[1].x - initialPoints[0].x
+		const d0y = initialPoints[1].y - initialPoints[0].y
+		const d1x = currentPoints[1].x - currentPoints[0].x
+		const d1y = currentPoints[1].y - currentPoints[0].y
+		const d0 = Math.sqrt(d0x * d0x + d0y * d0y)
+		const d1 = Math.sqrt(d1x * d1x + d1y * d1y)
+		if (d0 <= 0 || d1 <= 0) return
+		// 阻尼系数，越小手感越缓，0.45 与 x-image-resizer 保持一致
+		const damping = 0.45
+		const ratio = d1 / d0
+		const damped = 1 + (ratio - 1) * damping
+		// 更新缩放中心（在 setScale 触发 draw 前），使重绘即时以双指中心为原点
+		if (centerX >= 0 && centerY >= 0) {
+			this.scaleCenterX = centerX
+			this.scaleCenterY = centerY
+		}
+		this.setScale(initialScale * damped)
+	}
+	public addEventClick(e : UniPointerEvent, scrollTop : number, scrollLeft : number) {
+		if (this.nodes.length == 0) return;
+		let wintop = uni.getWindowInfo().windowTop;
+		const containerX = e.clientX - (this.config.nodeInfo.left ?? 0)
+		const containerY = e.clientY - (this.config.nodeInfo.top ?? 0) - wintop
+
+		// 点击点在 canvas 内的像素坐标（未考虑缩放的画布坐标系）
+		const rawX = (containerX) + scrollLeft
+		const rawY = (containerY) + scrollTop
+		// 逆向缩放变换：以"缩放中心"为原点反推到逻辑坐标，缩放中心由 pinch 动态决定
+		const scale = this.scaleXY
+		let canvasX : number;
+		let canvasY : number;
+		if (scale == 1.0) {
+			canvasX = rawX - this.offsetX
+			canvasY = rawY - this.offsetY
+		} else {
+			const cx = this.scaleCenterX >= 0 ? this.scaleCenterX : this.config.width / 2
+			const cy = this.scaleCenterY >= 0 ? this.scaleCenterY : this.config.height / 2
+			canvasX = (rawX - cx) / scale + cx - this.offsetX
+			canvasY = (rawY - cy) / scale + cy - this.offsetY
+		}
+		//是否命中了节点.0未操作,1命中,
+		let isHit = false
+		//检测点击的节点
+		for (let i = 0; i < this.nodes.length; i++) {
+			const meta = this.nodes[i];
+			if (canvasX >= meta.x && canvasX <= meta.x + meta.width &&
+				canvasY >= meta.y && canvasY <= meta.y + meta.height) {
+				if (!meta.node.disabled) {
+					meta.node.opened = !meta.node.opened;
+					this.calculateLayout();
+				}
+				const selId = meta.node.id
+				for (let j = 0; j < this.nodes.length; j++) {
+					this.nodes[j].node.selected = (this.nodes[j].node.id == selId)
+				}
+				this.draw();
+				isHit = true;
+				this.nowSelectedNodes = meta.node
+				//命中的情况下触发选中事件.
+				this.nodesClick(meta.node)
+				break;
+			}
+		}
+		// 点击空白时,如果有选中的项目就清除所有选中,而且必须是未命中的情况
+		if (this.nowSelectedNodes != null && !isHit) {
+			for (let j = 0; j < this.nodes.length; j++) {
+				this.nodes[j].node.selected = false
+			}
+			this.draw();
+		}
+
+		if (!isHit) {
+			this.nowSelectedNodes = null
+		}
+
+	}
+	public onListen(call : (item : XTREEFLAT_CHILDREN) => void) {
+		this.nodesClick = call;
+	}
+
+	/**
+	 * 将外部 opts 合并进当前渲染配置（不重建 Canvas）。
+	 * 节点上的颜色/字号等需在 setData 时从 list 与 config 重新计算后才会一致。
+	 */
+	public mergeOpts(opts : XTreeFlatOpts | null) {
+		if (opts == null) {
+			return
+		}
+		const o = opts
+		if (o.bgColor != null) {
+			this.config.bgColor = o.bgColor as string
+		}
+		if (o.nodeBgColor != null) {
+			this.config.nodeBgColor = o.nodeBgColor as string
+		}
+		if (o.fontColor != null) {
+			this.config.fontColor = o.fontColor as string
+		}
+		if (o.fontSize != null) {
+			this.config.fontSize = o.fontSize as number
+		}
+		if (o.lineColor != null) {
+			this.config.lineColor = o.lineColor as string
+		}
+		if (o.lineWidth != null) {
+			this.config.lineWidth = o.lineWidth as number
+		}
+		if (o.padding != null) {
+			this.config.padding = o.padding as number
+		}
+		if (o.gutter != null) {
+			this.config.gutter = o.gutter as number
+		}
+		if (o.parentLineGutter != null) {
+			this.config.parentLineGutter = o.parentLineGutter as number
+		}
+		if (o.enbleOpenChildren != null) {
+			this.config.enbleOpenChildren = o.enbleOpenChildren as boolean
+		}
+		if (o.nodeRadius != null) {
+			this.config.nodeRadius = o.nodeRadius as number
+		}
+		if (o.layout != null) {
+			this.config.layout = o.layout as XTREEFLAT_LAYOUT
+		}
+		if (o.lineType != null) {
+			this.config.lineType = o.lineType as XTREEFLAT_LINE_TYPE
+		}
+	}
+
+	/** 在已有内存数据上重新量算布局并绘制（list 为空或未绑定时，仅改画布级配置后可用） */
+	public relayoutFromCurrentData() {
+		this.clearNodeSizeCache()
+		this.calculateLayout()
+		this.draw()
+	}
+
+	public setData(newData : XTREEFLAT_NODES[]) {
+		this.updateData(newData)
+		this.calculateLayout();
+		this.draw();
+		// this.setScale()
+	}
+}

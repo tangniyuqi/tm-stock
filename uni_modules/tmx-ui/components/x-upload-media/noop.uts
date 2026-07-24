@@ -1,0 +1,30 @@
+import { XUPLOADFILE_FILE_INFO } from "../../interface.uts"
+
+export type funcalldel = (index : number, item : XUPLOADFILE_FILE_INFO) => Promise<boolean>
+export type funbeforeCompelte = (item : XUPLOADFILE_FILE_INFO) => XUPLOADFILE_FILE_INFO
+export type beforeUploadType = (item : XUPLOADFILE_FILE_INFO) => Promise<XUPLOADFILE_FILE_INFO>
+
+let _noopDel : funcalldel | null = null
+let _noopComplete : funbeforeCompelte | null = null
+let _noopUpload : beforeUploadType | null = null
+
+export function getNOOP_DEL() : funcalldel {
+	if (_noopDel == null) {
+		_noopDel = (_ : number, item : XUPLOADFILE_FILE_INFO) : Promise<boolean> => Promise.resolve(true)
+	}
+	return _noopDel!
+}
+
+export function getNOOP_COMPLETE() : funbeforeCompelte {
+	if (_noopComplete == null) {
+		_noopComplete = (item : XUPLOADFILE_FILE_INFO) : XUPLOADFILE_FILE_INFO => item
+	}
+	return _noopComplete!
+}
+
+export function getNOOP_UPLOAD() : beforeUploadType {
+	if (_noopUpload == null) {
+		_noopUpload = (item : XUPLOADFILE_FILE_INFO) : Promise<XUPLOADFILE_FILE_INFO> => Promise.resolve(item)
+	}
+	return _noopUpload!
+}

@@ -1,0 +1,361 @@
+<script lang="ts" setup>
+	import { ref, computed, watch, onMounted } from "vue"
+	import { getDefaultColor } from "../../core/util/xCoreColorUtil.uts"
+	import { checkIsCssUnit, getUnit } from "../../core/util/xCoreUtil.uts"
+	import { xConfig } from "../../config/xConfig.uts"
+	
+	type POSITIONTYPE = "out" | "in"
+	/**
+	 * @name 标签输入框 xInputTag
+	 * @description 可通过键盘或者按钮，输入框输入字段回车保存标签词
+	 * @page /pages/index/input-tag
+	 * @category 表单组件
+	 * @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	 */
+	defineOptions({name:"xInputTag"})
+	
+	const emits = defineEmits<{
+		/**
+		 * 标签变化时触发
+		 * @param value - 当前的标签数组
+		 */
+		change: [value: string[]],
+		/**
+		 * 等同v-model
+		 * @param value - 当前的标签数组
+		 */
+		"update:modelValue": [value: string[]]
+	}>()
+	type xInputTagPropsType = {
+		/**
+		 * 输入框背景及标签背景
+		 */
+		bgColor: string,
+		/**
+		 * 输入框的暗黑背景色
+		 * 空值读取全局的Input暗黑背景色
+		 */
+		darkBgColor: string,
+		/**
+		 * 右边按钮主题色，空取全局主题色
+		 */
+		btnColor: string,
+		/**
+		 * 文本大小
+		 */
+		fontSize: string,
+		/**
+		 * 文本颜色，暗黑时取白
+		 */
+		fontColor: string,
+		/**
+		 * 宽
+		 */
+		width: string,
+		/**
+		 * 高
+		 */
+		height: string,
+		/**
+		 * 圆角
+		 */
+		round: string,
+		/**
+		 * 输入提示词，默认：请输入并回车
+		 */
+		placeholder: string,
+		/**
+		 * 双向绑定
+		 */
+		modelValue: string[],
+		/**
+		 * 标签在内还是在外
+		 */
+		postion: POSITIONTYPE,
+		/**
+		 * postion为in时,可以控制隐藏按钮.
+		 */
+		showBtn: boolean,
+		/**
+		 * 添加按钮的文本,默认：添加标签
+		 */
+		btnText: string,
+		/**
+		 * 设置键盘右下角按钮的文字，仅在 type为text 时生效。
+		 */
+		confirmType: string,
+		/**
+		 * 最佳输入标签数量,只有用户主动输入才会触发此限制
+		 * 你代码赋值不会限制.-1表示不限制
+		 */
+		maxCount: number
+	}
+
+	const props = withDefaults(defineProps<xInputTagPropsType>(), {
+		bgColor: "#f5f5f5",
+		darkBgColor: "",
+		btnColor: "",
+		fontSize: "16",
+		fontColor: "#1d1d1f",
+		width: "auto",
+		height: "40",
+		round: "",
+		placeholder: "",
+		modelValue: (): string[] => [] as string[],
+		postion: "out",
+		showBtn: true,
+		btnText: "",
+		confirmType: "done",
+		maxCount: -1
+	})
+
+	// 响应式数据
+	const nowValue = ref<string[]>([])
+	const keyword = ref<string>("")
+
+	// 计算属性
+	const _bgColor = computed((): string => {
+		let color = getDefaultColor(props.bgColor)
+		if (xConfig.dark == 'dark') {
+			if (props.darkBgColor == "") {
+				color = xConfig.inputDarkColor
+			} else {
+				color = getDefaultColor(props.darkBgColor)
+			}
+		}
+		return color
+	})
+	
+	const _intagBg = computed((): string => {
+		if (xConfig.dark == 'dark') return '#3a3a3c'
+		return "#fff"
+	})
+	
+	const _fontColor = computed((): string => {
+		if (xConfig.dark == 'dark') return '#f5f5f7'
+		return getDefaultColor(props.fontColor)
+	})
+	
+	const _placeholderStyle = computed((): string => {
+		return 'color:#f5f5f7'
+	})
+	
+	const _btnColor = computed((): string => {
+		if (props.btnColor == "") return getDefaultColor(xConfig.color)
+		return getDefaultColor(props.btnColor)
+	})
+	
+	const _round = computed((): string => {
+		if (props.round == "") return checkIsCssUnit(xConfig.buttonRadius, xConfig.unit)
+		return checkIsCssUnit(props.round, xConfig.unit)
+	})
+	
+	const _fontSize = computed((): string => {
+		let fontSize = checkIsCssUnit(props.fontSize, xConfig.unit);
+		if (xConfig.fontScale == 1) return fontSize;
+		let sizeNumber = parseInt(fontSize)
+		if (isNaN(sizeNumber)) {
+			sizeNumber = 16
+		}
+		return (sizeNumber * xConfig.fontScale).toString() + getUnit(fontSize)
+	})
+	
+	const _width = computed((): string => {
+		return checkIsCssUnit(props.width, xConfig.unit)
+	})
+	
+	const _height = computed((): string => {
+		return checkIsCssUnit(props.height, xConfig.unit)
+	})
+	
+	const _placeholder = computed((): string => {
+		if (props.placeholder == '') return xConfig.i18n.t("tmui4x.inputTag.placeholder")
+		return props.placeholder
+	})
+	
+	const _btnText = computed((): string => {
+		if (props.btnText == '') return xConfig.i18n.t("tmui4x.inputTag.btnText")
+		return props.btnText
+	})
+
+	// 方法
+	function okConfirm(): void {
+		let word = keyword.value.trim()
+
+		if (word == "") {
+			// 不能为空
+			uni.showToast({ title: xConfig.i18n.t("tmui4x.inputTag.tips"), icon: 'none' })
+			return;
+		}
+		if (props.maxCount > -1 && nowValue.value.length >= props.maxCount) {
+			// 超过限制最大数
+			uni.showToast({ title: xConfig.i18n.t("tmui4x.inputTag.tips2", props.maxCount), icon: 'none' })
+			return;
+		}
+		let isKey = nowValue.value.findIndex((el: string): boolean => el == word)
+		if (isKey == -1) {
+			if (props.postion == 'out') {
+				nowValue.value.unshift(word)
+			} else {
+				nowValue.value.push(word)
+			}
+			/**
+			 * 等同v-model
+			 */
+			emits('update:modelValue', nowValue.value)
+
+			/**
+			 * 标签变化时触发
+			 * @param value 当前的标签数组
+			 */
+			emits('change', nowValue.value)
+		}
+		keyword.value = ""
+	}
+	
+	function del(index: number): void {
+		nowValue.value.splice(index, 1)
+		/**
+		 * 等同v-model
+		 */
+		emits('update:modelValue', nowValue.value)
+
+		/**
+		 * 标签变化时触发
+		 * @param value 当前的标签数组
+		 */
+		emits('change', nowValue.value)
+	}
+	
+	// 生命周期
+	onMounted((): void => {
+		nowValue.value = props.modelValue;
+	})
+	
+	// 监听器
+	watch((): string[] => props.modelValue, (newValue: string[]) => {
+		if (newValue.join("") == nowValue.value.join("")) return;
+		nowValue.value = props.modelValue;
+	})
+</script>
+<template>
+	<view v-if="postion == 'out'">
+		<view class="xInputTag" :style="{width:_width,height:_height,borderRadius:_round,backgroundColor:_bgColor,}">
+			<input :placeholder-style="_placeholderStyle" :confirm-type="props.confirmType" v-model="keyword" @confirm="okConfirm" :placeholder="_placeholder" class="xInputTagWrap"
+				:style="{color:_fontColor,fontSize:_fontSize,height:_height}" type="text" />
+			<x-button v-if="props.showBtn" @click="okConfirm" :round="_round" :font-size="props.fontSize" :color="_btnColor" width="30%"
+				style="min-width:100px;max-width:190px" :height="_height">{{_btnText}}</x-button>
+		</view>
+		<view class="xInputTagGroup">
+			<!-- 
+			 @slot 标签插槽，如果对标签样式不喜欢可通过此修改。
+			 @prop {string[]} tags - 当前标签组件。
+			 -->
+			<slot name="tag" :tags="nowValue">
+				<view v-for="(item,index) in nowValue" :key="index" class="xInputTagTag"
+					:style="{backgroundColor:_bgColor,borderRadius:_round}">
+					<view style="flex: 1;">
+						<x-text :font-size="props.fontSize" class="xInputTagText">{{item}}</x-text>
+					</view>
+					<view @click="del(index)" class="xInputTagClose">
+						<x-icon color="#d0d0d0" font-size="16" name="close-circle-fill"></x-icon>
+					</view>
+				</view>
+			</slot>
+		</view>
+	</view>
+	<view v-if="postion == 'in'">
+		<view class="xInputTag xInputTagIntag" :style="{width:_width,minHeight:_height,borderRadius:_round,backgroundColor:_bgColor,}">
+			<!--
+			 @slot 标签插槽，如果对标签样式不喜欢可通过此修改。
+			 @prop {string[]} tags - 当前标签组件。
+			 -->
+			<slot name="tag" :tags="nowValue">
+				<view v-for="(item,index) in nowValue" :key="index" class="xInputTagTag xInputTagTagItemIn"
+					:style="{backgroundColor:_intagBg,borderRadius:_round}">
+					<view style="flex: 1;">
+						<x-text :font-size="props.fontSize" class="xInputTagText">{{item}}</x-text>
+					</view>
+					<view @click="del(index)" class="xInputTagClose">
+						<x-icon color="#d0d0d0" font-size="16" name="close-circle-fill"></x-icon>
+					</view>
+				</view>
+			</slot>
+			<input :placeholder-style="_placeholderStyle" :confirm-type="props.confirmType" :confirm-hold="true" v-model="keyword" @confirm="okConfirm" :placeholder="_placeholder" class="xInputTagWrap xInputTagWrapIn"
+				:style="{color:_fontColor,fontSize:_fontSize,height:postion == 'in'?'32px':'24px',marginBottom:'8px'}" type="text" />
+			
+		</view>
+
+	</view>
+
+</template>
+<style scoped>
+	.xInputTagIntag{
+		flex-wrap: wrap;
+		padding-top: 8px;
+		padding-left: 8px;
+		padding-right: 8px;
+		display: flex;
+		flex-direction: row;
+		/* justify-items: flex-start; */
+		justify-content: flex-start;
+		align-items: flex-start;
+		align-content: flex-start;
+	}
+	.xInputTagClose {
+		padding-left: 5px;
+	}
+
+	.xInputTagText {
+		/* font-size: 28rpx; */
+		color: #333;
+	}
+
+	.xInputTagGroupBox {
+		position: relative;
+	}
+
+	.xInputTagTag {
+		margin-bottom: 12px;
+		margin-right: 6px;
+		padding: 3px 10px;
+		position: relative;
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+		align-items: center;
+		flex-wrap: wrap;
+		
+	}
+	.xInputTagTagItemIn{
+		margin-bottom: 8px;
+	}
+	
+
+	.xInputTagGroup {
+		margin-top: 16px;
+		display: flex;
+		flex-direction: row;
+		justify-content: flex-start;
+		flex-wrap: wrap;
+	}
+
+	.xInputTag {
+		display: flex;
+		flex-direction: row;
+		justify-content: flex-start;
+		align-items: flex-start;
+	}
+
+	.xInputTagWrap {
+		padding: 0 12px;
+		flex: 1;
+	}
+	.xInputTagWrapIn{
+		min-width: 120px;
+		padding: 0px 0px;
+	}
+</style>

@@ -1,0 +1,186 @@
+<script lang="ts" setup>
+	
+
+	import { inject, getCurrentInstance, onMounted, watch, onBeforeUnmount, ref, computed } from "vue"
+	import type { Ref } from "vue"
+	import { getUid } from "../../core/util/xCoreUtil.uts"
+	import { xWaterfallDataItemType } from "../../interface.uts"
+	/**
+	* @name 瀑布流子组件 xWaterfallItem
+	* @description 注意事项：内容不可异步，不可直接修改本节点style上的margin,padding你可以通过在节点内套一个view来改变间隙。如果你放置了异步图片你应该写死图片的高。总之不可异步改变内容高，否则排版会失效和错乱。
+	* @page /pages/index/waterfall
+	* @category 展示组件
+	* @constant 平台兼容
+	 *	| Harmony | H5 | andriod | IOS | 小程序 | UTS | UNIAPP-X SDK | version |
+		| --- | --- | --- | --- | --- | --- | --- | --- |
+		| ☑ | ☑ | ☑️ | ☑️ | ☑️ | ☑️ | 4.76+ | 1.1.18 |
+	*/
+	defineOptions({name:"xWaterfallItem"})
+	
+	const props = defineProps({
+		/**
+		 * 循环时，请填写key同等index即可
+		 * 暂时无作用。
+		 */
+		order: {
+			type: Number,
+			default: -1
+		}
+	})
+	const proxy = getCurrentInstance()!.proxy!
+	const parent = (proxy.$parent) as XWaterfallComponentPublicInstance | null;
+	const isRender = ref(false)
+	const isCalcNodeInfo = ref(false)
+	const selfCol = ref(-1)
+	const selfTop = ref(-1)
+	const sefLeft = ref(-1)
+	const sefHeight = ref(-1)
+	const uid = ('xWm' + getUid()) as string
+	let tid = 0
+	let heightSyncTid = 0
+	let fallbackTid = 0
+	let _platformDelay = 10
+	// #ifdef APP-IOS || MP-WEIXIN
+	_platformDelay = 110
+	// #endif
+	// #ifdef APP-ANDROID
+	_platformDelay = 90
+	// #endif
+	// #ifdef MP-WEIXIN || APP-HARMONY
+	_platformDelay = 100
+	// #endif
+	const xWaterFallColumn = inject("xWaterFallColumn", computed(() : number => 2))
+	const xWaterGutter = inject("xWaterGutter", computed(() : number => 0))
+	const xWaterWidthParent = inject("xWaterWidthParent", computed(() : number => 0))
+	const xWaterFallRenderQueue = inject("xWaterFallRenderQueue", ref<Map<string, boolean>>(new Map())) as Ref<Map<string, boolean>>
+	
+	// 单个项目的宽度（数值），避免 getNodeinfo 中重复计算
+	const _widthItemNum = computed(() : number => {
+		if(xWaterWidthParent.value == 0) return 0
+		return (xWaterWidthParent.value - (xWaterFallColumn.value - 1) * xWaterGutter.value) / xWaterFallColumn.value
+	})
+
+	const _widthItem = computed(() : string => {
+		return _widthItemNum.value.toString() + 'px'
+	})
+
+	const boxwidth = computed(() : string => {
+		return (100 / xWaterFallColumn.value).toString() + "%"
+	})
+
+	function getNodeinfo(delay : number){
+		clearTimeout(heightSyncTid)
+		heightSyncTid = setTimeout(() => {
+			if (!isRender.value) return;
+			uni.createSelectorQuery()
+				.in(proxy)
+				.select(".xWaterFallItem")
+				.boundingClientRect()
+				.exec((res) => {
+					if (res.length == 0) return;
+					let node = res[0] as NodeInfo
+					sefHeight.value = node.height!;
+					let opts = {
+						id: uid,
+						top: node.top!,
+						left: node.left!,
+						width: node.width!,
+						height: node.height!,
+						col: -1,
+						isRender: isRender.value,
+						order: props.order
+					} as xWaterfallDataItemType
+					if (parent == null) {
+						console.error('xWaterFallItem组件不能单独使用。')
+						return;
+					}
+				
+					let datas = parent.pushChild(opts)
+					selfCol.value = datas[0]
+					selfTop.value = datas[1]
+					sefLeft.value = _widthItemNum.value * selfCol.value + selfCol.value * xWaterGutter.value
+					isCalcNodeInfo.value = true;
+					parent.notifyRendered?.(uid)
+					if (sefHeight.value <= 0) {
+						getNodeinfo(120)
+					}
+				})
+		}, delay)
+	}
+	const renderInit = () => {
+		let opts = {
+			id: uid as string,
+			top: 0,
+			left: 0,
+			width: 0,
+			height: 0,
+			col: -1,
+			isRender: false,
+			order: props.order as number
+		} as xWaterfallDataItemType
+		if (parent == null) {
+			console.error('xWaterFallItem组件不能单独使用。')
+			return;
+		}
+	
+		parent.pushChild(opts)
+
+	}
+	function triggerMeasure(delay : number = 10){
+		clearTimeout(tid)
+		clearTimeout(fallbackTid)
+		tid = setTimeout(function () {
+			getNodeinfo(80)
+		}, delay);
+		fallbackTid = setTimeout(() => {
+			if (isCalcNodeInfo.value) return;
+			getNodeinfo(80)
+		}, delay + 150)
+	}
+	watch([():boolean|null => xWaterFallRenderQueue.value.get(uid), ():number => xWaterWidthParent.value], () => {
+		const canRender:boolean = xWaterFallRenderQueue.value.get(uid)??false
+		const width = xWaterWidthParent.value
+		if (isRender.value || !canRender || width <= 0) return;
+		isRender.value = true;
+		triggerMeasure(_platformDelay)
+	}, { immediate: true })
+	watch([xWaterWidthParent, xWaterFallColumn, xWaterGutter], () => {
+		if (!isRender.value || !isCalcNodeInfo.value) return;
+		getNodeinfo(80)
+	})
+	onMounted(() => {
+		renderInit()
+	})
+	onBeforeUnmount(() => {
+		clearTimeout(tid)
+		clearTimeout(heightSyncTid)
+		clearTimeout(fallbackTid)
+		if (parent == null) return;
+		parent.removeChild(uid, sefHeight.value, selfCol.value)
+	})
+</script>
+<template>
+	<view v-if='isRender' class="xWaterFallItem" :ref="uid" :style="{
+			width:boxwidth,
+			visibility:isCalcNodeInfo?'visible':'hidden',opacity:isCalcNodeInfo?'1':'0',left:sefLeft+'px',top:selfTop+'px'}">
+		<view :style="{
+			width:_widthItem,
+			marginBottom:xWaterGutter+'px'
+		}">
+			<!-- 
+			@slot 默认内容插槽，不要有动态高或者异步加载内容的行为。 
+			@prop {number} default 当前所在列
+			 -->
+			<slot name="default" :col='selfCol'></slot>
+		</view>
+
+	</view>
+</template>
+<style scoped>
+	.xWaterFallItem {
+		position: absolute;
+		transition-duration: 200ms;
+		transition-property: opacity;
+		transition-timing-function: linear;
+	}
+</style>

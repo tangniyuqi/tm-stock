@@ -1,0 +1,109 @@
+
+type DebounceMapType = { timer : number | null; lastArgs : any | null }
+type ThrottleMapType = { timer : number | null; lastExecTime : number }
+
+
+export class useTool {
+	public static instanceReal : useTool | null = null;
+	// 存储防抖函数的键值映射
+	public static  debounceKeys = new Map<string, DebounceMapType>()
+	// 存储节流函数的键值映射
+	public static  throttleKeys = new Map<string, ThrottleMapType>()
+
+	public static getInstance() : useTool {
+		if (useTool.instanceReal == null) {
+			useTool.instanceReal = new useTool();
+		}
+		return useTool.instanceReal;
+	}
+	/**
+	 * @param prefix 标识前缀
+	 * @param isUseUquid 是否生成唯一标识，有时候可能需要全局相同的标识，可以设置为false
+	 */
+	public static getRandomKey(prefix : string = 'tmx', isUseUquid : boolean = true) : string {
+		const key = prefix + "-" + Math.random().toString(16).substring(4);
+		return isUseUquid ? key : prefix
+	}
+	/**
+	 * 防抖函数
+	 * @param key 唯一标识符，用于区分不同的防抖函数
+	 * @param func 需要防抖的函数
+	 * @param delay 延迟执行的时间（毫秒）
+	 * @param immediate 是否立即执行
+	 */
+	public static debounce(key : string, func : () => void, delay : number = 300, immediate : boolean = false) : void {
+		// 获取或创建该key对应的记录
+		const newRecord : DebounceMapType = { timer: null, lastArgs: null }
+		const record = useTool.debounceKeys.get(key) ?? newRecord
+
+		// 清除之前的定时器
+		if (record.timer != null) {
+			clearTimeout(record.timer!)
+			useTool.debounceKeys.delete(key)
+		}
+		// 如果需要立即执行
+		if (immediate) {
+			// 如果没有定时器，立即执行
+			if (record.timer == null) {
+				func()
+			}
+			// 设置新的定时器
+			record.timer = setTimeout(() => {
+				record.timer = null
+				useTool.debounceKeys.delete(key)
+			}, delay)
+		} else {
+			// 设置新的定时器
+			record.timer = setTimeout(() => {
+				func()
+				record.timer = null
+				useTool.debounceKeys.delete(key)
+			}, delay)
+		}
+		// 更新映射
+		useTool.debounceKeys.set(key, record)
+	}
+
+	/**
+	 * 节流函数
+	 * @param key 唯一标识符，用于区分不同的节流函数
+	 * @param func 需要节流的函数
+	 * @param delay 执行间隔时间（毫秒）
+	 */
+	public static throttle(key : string, func : () => void, delay : number = 300) : void {
+		const now = Date.now()
+		// 获取或创建该key对应的记录
+		const newRecord : ThrottleMapType = { timer: null, lastExecTime: 0 }
+		const record = useTool.throttleKeys.get(key) ?? newRecord
+	
+		// 如果距离上次执行时间不足delay，则不执行
+		if (now - record.lastExecTime < delay) {
+			return
+		}
+
+		// 清除之前的定时器
+		if (record.timer != null) {
+			clearTimeout(record.timer!)
+			useTool.throttleKeys.delete(key)
+		}
+
+		// 执行函数
+		func()
+		record.lastExecTime = now
+
+		// 更新映射
+		useTool.throttleKeys.set(key, record)
+	}
+
+
+	public static findParentVueComponent(parent : VueComponent | null, comName : string) : VueComponent | null {
+		if (parent == null) return null;
+		if ((parent.$parent?.$options?.name?.indexOf(comName) ?? -1) > -1) return parent.$parent;
+		let parents = useTool.findParentVueComponent(parent.$parent, comName)
+		if ((parents?.$options?.name?.indexOf(comName) ?? -1) > -1) return parents;
+		return null;
+	}
+	
+	
+
+}

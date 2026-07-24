@@ -1,0 +1,41 @@
+import { HighlightConfig } from "../heightlight.uts"
+
+export function getBashConfig(): HighlightConfig {
+	const config = new HighlightConfig()
+	
+	// Bash 关键字
+	config.keywords = [
+		'if', 'then', 'else', 'elif', 'fi', 'case', 'esac', 'for', 'select',
+		'while', 'until', 'do', 'done', 'in', 'function', 'time',
+		'coproc', 'nocasematch', 'declare', 'typeset', 'local', 'export',
+		'readonly', 'return', 'break', 'continue', 'shift', 'exit',
+		'source', 'alias', 'unalias', 'set', 'unset', 'trap'
+	]
+	
+	// Bash 内置命令和变量
+	config.builtins = [
+		'echo', 'printf', 'read', 'cd', 'pwd', 'pushd', 'popd', 'dirs',
+		'let', 'eval', 'exec', 'test', 'true', 'false',
+		'command', 'builtin', 'enable', 'help', 'logout',
+		'getopts', 'hash', 'type', 'ulimit', 'umask', 'wait',
+		'jobs', 'fg', 'bg', 'disown', 'suspend', 'kill',
+		'ls', 'cp', 'mv', 'rm', 'mkdir', 'rmdir', 'touch', 'cat', 'grep',
+		'sed', 'awk', 'cut', 'sort', 'uniq', 'wc', 'find', 'xargs',
+		'chmod', 'chown', 'chgrp', 'tar', 'gzip', 'gunzip', 'zip', 'unzip',
+		'$0', '$1', '$2', '$@', '$*', '$#', '$?', '$$', '$!', '$-',
+		'$HOME', '$PATH', '$PWD', '$OLDPWD', '$USER', '$SHELL', '$TERM',
+		'BASH', 'BASH_VERSION', 'HOSTNAME', 'IFS', 'RANDOM', 'SECONDS'
+	]
+	
+	// Bash 操作符
+	config.operators = [
+		'=', '==', '!=', '<', '>', '-eq', '-ne', '-lt', '-le', '-gt', '-ge',
+		'-z', '-n', '-e', '-f', '-d', '-r', '-w', '-x', '-s',
+		'&&', '||', '!', '|', '&', ';', ';;', ';&', ';;&',
+		'>', '>>', '<', '<<', '<<-', '<>', '>&', '<&', '>|',
+		'$(', '`', '${', '$((', '[[', ']]', '((', '))'
+	]
+	
+	return config
+}
+

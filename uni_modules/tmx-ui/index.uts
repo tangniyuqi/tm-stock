@@ -1,0 +1,83 @@
+import * as xStorex from "./config/xConfig.uts"
+import * as uToll from "./core/util/xCoreUtil.uts"
+import * as xColor from "./core/util/xCoreColorUtil.uts"
+import {
+	colors,
+	isValidColor,
+	getDefaultColor,
+	hexToRgb,
+	rgbToHsl,
+	hslToRgb,
+	rgbToHex,
+	rgbToHexNoAlpha,
+	hslaToCss,
+	hslaToRgbCss,
+	getLuminance,
+	colorAddDeepen,
+	colorAddBrighten,
+	colorGetThint,
+	colorGetHover,
+	getDefaultColorObj,
+	getTextColorObj,
+	getThinColorObj,
+	getOutlineColorObj,
+	setTextColorLightByDark,
+	setBgColorLightByDark,
+	isBlackAndWhite
+} from "./core/util/xCoreColorUtil.uts"
+import * as xComponentsStore from "./core/util/config.uts"
+
+import { xTween } from "./core/util/xTween.uts"
+import { xDate, createDate } from "./core/util/xDate.uts"
+import { xRequest } from "./core/util/xRequest.uts"
+import { xRequestCall } from "./core/util/config.uts"
+import { xAnimate } from "./core/util/xAnimate.uts"
+import { xUploadMedia } from "./core/util/xUploadFileMedia.uts"
+import xui from "./config/xui.uts"
+
+export {
+	xRequest,
+	xRequestCall,
+	xDate,
+	createDate,
+	xColor,
+	xAnimate,
+	xUploadMedia,
+	xTween,
+	xui,
+	
+	colors,
+	isValidColor,
+	getDefaultColor,
+	hexToRgb,
+	rgbToHsl,
+	hslToRgb,
+	rgbToHex,
+	rgbToHexNoAlpha,
+	hslaToCss,
+	hslaToRgbCss,
+	getLuminance,
+	colorAddDeepen,
+	colorAddBrighten,
+	colorGetThint,
+	colorGetHover,
+	getDefaultColorObj,
+	getTextColorObj,
+	getThinColorObj,
+	getOutlineColorObj,
+	setTextColorLightByDark,
+	setBgColorLightByDark,
+	isBlackAndWhite
+
+}
+export class xStore {
+	public static xConfig = xStorex.xConfig;
+	public static setConfig = xStorex.setConfig;
+	public static getDarkModel = xStorex.getDarkModel
+	public static setDarkModel = xStorex.setDarkModel
+	public static getThemePrimary = xStorex.getThemePrimary
+	public static setThemePrimary = xStorex.setThemePrimary
+	public static xProvitae = xStorex.xProvitae
+	public static xTabbarConfig = xStorex.xTabbarConfig
+	
+}

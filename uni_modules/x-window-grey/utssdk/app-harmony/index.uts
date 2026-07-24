@@ -1,0 +1,14 @@
+import window from '@ohos.window';
+
+// window.getLastWindow(UTSHarmony.getUIAbilityContext()).then((win:window.Window)=>{
+// 	win.setWindowColorSpace(window.ColorSpace.WIDE_GAMUT)
+// })
+
+export function setWindowGrey(ele:any|null=null) {
+	
+
+
+}
+export function removeWindowGrey(ele:any|null=null) {
+
+}

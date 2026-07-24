@@ -1,0 +1,14 @@
+import { X_MODAL_TYPE, X_MODAL_TYPE_PRIVATE } from "../interface.uts"
+import { defaultConfig, configCover } from "../libs/config.uts"
+import { hexToRgb } from "../libs/color.uts"
+import {xcloseModal,xshowModal} from "x_modal_s"
+
+
+export const close = (call : () => void, isClose : boolean) => {
+	if (!isClose) return;
+	xcloseModal(UTSHarmony.getCurrentWindow()!.getUIContext())
+}
+export function showModal(opts : X_MODAL_TYPE) {
+	let config = configCover(opts)
+	xshowModal(UTSHarmony.getCurrentWindow()!.getUIContext(),config)
+}

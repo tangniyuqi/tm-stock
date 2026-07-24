@@ -1,0 +1,170 @@
+import { ICanvas } from '@/uni_modules/tmx-ui/core/canvas/ICanvas.uts';
+import { Shape } from '../../shape.uts';
+
+// 透明度调整参数
+export type OpacityOptionsOpts = {
+    // 透明度值 (0-1)
+    opacity?: number;
+    // 是否启用
+    enabled?: boolean;
+}
+// 透明度调整参数
+export type OpacityOptions = {
+    // 透明度值 (0-1)
+    opacity: number;
+    // 是否启用
+    enabled: boolean;
+}
+
+// 默认透明度选项
+export const defaultOpacityOptions: OpacityOptions = {
+    opacity: 1.0,
+    enabled: true
+};
+
+/**
+ * 透明度调整特效
+ */
+export class OpacityFilter {
+    private canvas: ICanvas;
+    private options: OpacityOptions;
+
+    constructor(canvas: ICanvas, options?: OpacityOptionsOpts) {
+        this.canvas = canvas;
+        this.options = { 
+			opacity:options?.opacity??defaultOpacityOptions.opacity,
+			enabled:options?.enabled??defaultOpacityOptions.enabled,
+		} as OpacityOptions;
+    }
+
+    /**
+     * 设置透明度参数
+     */
+    setOptions(options: OpacityOptionsOpts): OpacityFilter {
+        this.options = {
+        	opacity:options?.opacity??this.options.opacity,
+        	enabled:options?.enabled??this.options.enabled,
+        } as OpacityOptions;
+        return this;
+    }
+
+    /**
+     * 应用透明度调整
+     */
+    private applyOpacityAdjustment(imageData: ImageData): ImageData {
+        const { width, height, data } = imageData;
+        const newData = new Uint8ClampedArray(data);
+
+        for (let i = 0; i < data.length; i += 4) {
+            newData[i] = data[i];         // Red
+            newData[i + 1] = data[i + 1]; // Green
+            newData[i + 2] = data[i + 2]; // Blue
+            newData[i + 3] = Math.round(data[i + 3] * this.options.opacity!); // Alpha
+        }
+
+        // 直接修改原始 ImageData 的 data 属性，而不是创建新的 ImageData
+        for (let i = 0; i < newData.length; i++) {
+            imageData.data[i] = newData[i];
+        }
+        
+        return imageData;
+    }
+
+    /**
+     * 应用透明度效果到指定区域
+     */
+    applyToArea(x: number, y: number, width: number, height: number): void {
+        if (!this.options.enabled || this.options.opacity === 1.0) return;
+
+        const ctx = this.canvas.ctx;
+        if (ctx==null) return;
+
+        // 保存当前状态
+        ctx.save();
+
+        // 设置裁剪区域
+        ctx.beginPath();
+        ctx.rect(x, y, width, height);
+        ctx.clip();
+
+        // 获取当前图像数据
+        const imageData = ctx.getImageData(x, y, width, height);
+        
+        // 应用透明度调整
+        const adjustedData = this.applyOpacityAdjustment(imageData);
+
+        // 将修改后的数据绘制回画布
+        ctx.putImageData(adjustedData, x, y);
+
+        // 恢复状态
+        ctx.restore();
+    }
+
+    /**
+     * 应用透明度效果到Shape
+     */
+    applyToShape(shape: Shape): void {
+        this.applyToArea(shape.x, shape.y, shape.width, shape.height);
+    }
+
+    /**
+     * 应用透明度效果到整个画布
+     */
+    applyToCanvas(): void {
+        this.applyToArea(0, 0, this.canvas.width, this.canvas.height);
+    }
+
+    /**
+     * 使用Canvas原生透明度绘制（更高效的方法）
+     */
+    applyToAreaNative(x: number, y: number, width: number, height: number): void {
+        if (!this.options.enabled || this.options.opacity === 1.0) return;
+
+        const ctx = this.canvas.ctx;
+        if (ctx==null) return;
+
+        // 保存当前状态
+        ctx.save();
+
+        // 设置全局透明度
+        ctx.globalAlpha = this.options.opacity!;
+
+        // 设置裁剪区域
+        ctx.beginPath();
+        ctx.rect(x, y, width, height);
+        ctx.clip();
+
+        // 获取当前图像数据并重新绘制
+        const imageData = ctx.getImageData(x, y, width, height);
+        
+        // 清除区域
+        ctx.clearRect(x, y, width, height);
+        
+        // 重新绘制图像
+        ctx.putImageData(imageData, x, y);
+
+        // 恢复状态
+        ctx.restore();
+    }
+
+    /**
+     * 使用Canvas原生透明度绘制到Shape
+     */
+    applyToShapeNative(shape: Shape): void {
+        this.applyToAreaNative(shape.x, shape.y, shape.width, shape.height);
+    }
+
+    /**
+     * 使用Canvas原生透明度绘制到整个画布
+     */
+    applyToCanvasNative(): void {
+        this.applyToAreaNative(0, 0, this.canvas.width, this.canvas.height);
+    }
+
+    /**
+     * 获取当前选项
+     */
+    getOptions(): OpacityOptions {
+        return { ...this.options };
+    }
+}

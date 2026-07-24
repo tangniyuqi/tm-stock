@@ -1,0 +1,16 @@
+export type xMiniProgramsInstallType = {
+	//1000
+	versionNumber:number,
+	//1.1.0
+	versionName:string,
+	//小程序应用id自己随便定义，只要不重复就行。
+	appid:string,
+	//下载安装包的地址(打包时记得内容在根目录，不要在二级目录内)
+	installUrl:string
+}
+
+export interface xMiniProgramsImpls {
+	checkAppInstall(id:string):Promise<xMiniProgramsInstallType|null>;
+	installApp(ini:xMiniProgramsInstallType,header:UTSJSONObject|null):Promise<boolean>;
+	openMiniProgramHostUrl(id:string):Promise<any|null>;
+}

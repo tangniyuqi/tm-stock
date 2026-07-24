@@ -1,0 +1,214 @@
+import { ICanvas } from '@/uni_modules/tmx-ui/core/canvas/ICanvas.uts';
+import { Shape } from '@/uni_modules/tmx-ui/core/canvas/lib/shape.uts';
+import { ILinePolygon } from '@/uni_modules/tmx-ui/core/canvas/lib/linePolygon.uts';
+import { ISector } from '@/uni_modules/tmx-ui/core/canvas/lib/sector.uts';
+
+import { PlotRect } from '../map.uts';
+import { getChartColor } from '../palette.uts';
+import { ChartDatum, ChartSeriesContext } from '../types.uts';
+
+const getNodeChildren = (node : ChartDatum) : ChartDatum[] => {
+	const raw = node.get('children')
+	if (raw == null) return [] as ChartDatum[]
+	if (raw instanceof Array) return raw as ChartDatum[]
+	return [] as ChartDatum[]
+}
+
+const getNodeName = (node : ChartDatum) : string => {
+	const v = node.get('name')
+	if (v == null) return ''
+	return `${v}`
+}
+
+function computeValue(node : ChartDatum, valueField : string) : number {
+	const v = node.get(valueField)
+	if (v != null && typeof v == 'number') return v as number
+	const children = getNodeChildren(node)
+	if (children.length == 0) return 0
+	let sum = 0
+	for (let i = 0; i < children.length; i++) {
+		sum += computeValue(children[i], valueField)
+	}
+	return sum
+}
+
+const buildArcPoints = (cx : number, cy : number, r : number, startDeg : number, endDeg : number, segments : number) : number[] => {
+	const pts = [] as number[]
+	const step = (endDeg - startDeg) / Math.max(1, segments)
+	for (let i = 0; i <= segments; i++) {
+		const angle = (startDeg + step * i) * Math.PI / 180
+		pts.push(cx + Math.cos(angle) * r)
+		pts.push(cy + Math.sin(angle) * r)
+	}
+	return pts
+}
+
+const buildRingSegment = (cx : number, cy : number, innerR : number, outerR : number, startDeg : number, endDeg : number) : number[] => {
+	const sweep = Math.abs(endDeg - startDeg)
+	const segs = Math.max(8, Math.round(sweep / 3))
+	const outer = buildArcPoints(cx, cy, outerR, startDeg, endDeg, segs)
+	const inner = buildArcPoints(cx, cy, innerR, endDeg, startDeg, segs)
+	const pts = [] as number[]
+	for (let i = 0; i < outer.length; i++) pts.push(outer[i])
+	for (let i = 0; i < inner.length; i++) pts.push(inner[i])
+	pts.push(outer[0])
+	pts.push(outer[1])
+	return pts
+}
+
+const lightenHex = (hex : string, depth : number) : string => {
+	if (hex.length < 7) return hex
+	const rr = parseInt(hex.substring(1, 3), 16)
+	const gg = parseInt(hex.substring(3, 5), 16)
+	const bb = parseInt(hex.substring(5, 7), 16)
+	if (isNaN(rr) || isNaN(gg) || isNaN(bb)) return hex
+	const mix = Math.min(0.7, depth * 0.18)
+	const r = Math.round(rr + (255 - rr) * mix)
+	const g = Math.round(gg + (255 - gg) * mix)
+	const b = Math.round(bb + (255 - bb) * mix)
+	const toHex = (n : number) : string => {
+		const s = n.toString(16)
+		return s.length < 2 ? '0' + s : s
+	}
+	return `#${toHex(r)}${toHex(g)}${toHex(b)}`
+}
+
+function getMaxDepth(nodes : ChartDatum[], valueField : string, depth : number) : number {
+	let max = depth
+	for (let i = 0; i < nodes.length; i++) {
+		const children = getNodeChildren(nodes[i])
+		if (children.length > 0) {
+			const d = getMaxDepth(children, valueField, depth + 1)
+			if (d > max) max = d
+		}
+	}
+	return max
+}
+
+let sbIdx = 0
+let _sbActiveHlPts : number[] = [] as number[]
+let _sbActiveHlColor = ''
+let _sbActiveBorderColor = ''
+let _sbActiveBorderWidth = 0
+
+function renderNode(
+	canvas : ICanvas,
+	shapes : Shape[],
+	node : ChartDatum,
+	valueField : string,
+	depth : number,
+	maxDepth : number,
+	startAngle : number,
+	endAngle : number,
+	cx : number,
+	cy : number,
+	baseR : number,
+	ringW : number,
+	rootColor : string,
+	siblingOffset : number,
+	ctx : ChartSeriesContext
+) : void {
+	if (depth > maxDepth) return
+	if (endAngle - startAngle < 0.5) return
+
+	const innerR = baseR + ringW * depth
+	const outerR = innerR + ringW - 1
+	const color = lightenHex(rootColor, depth + siblingOffset * 0.9)
+	const idx = sbIdx++
+	const isActive = ctx.activeType == 'sunburst' && ctx.activeIndex == idx
+
+	const pts = buildRingSegment(cx, cy, innerR, outerR, startAngle, endAngle)
+	shapes.push(new ILinePolygon({
+		points: pts, fill: color, stroke: '#ffffff', strokeWidth: 1, closed: true, tension: 0
+	}, canvas))
+
+	if (isActive) {
+		_sbActiveHlPts = buildRingSegment(cx, cy, Math.max(0, innerR - 2), outerR + 3, startAngle, endAngle)
+		_sbActiveHlColor = lightenHex(rootColor, Math.max(0, depth - 1))
+		_sbActiveBorderColor = ctx.activeStyle.borderColor
+		_sbActiveBorderWidth = ctx.activeStyle.borderWidth
+	}
+
+	const hit = new ISector({
+		x: cx, y: cy, radius: outerR, innerRadius: innerR,
+		startAngle: startAngle, endAngle: endAngle,
+		fill: 'rgba(0,0,0,0)', opacity: 0
+	}, canvas)
+	const nodeName = getNodeName(node)
+	const nodeVal = computeValue(node, valueField)
+	hit.addEventListener('click', () => {
+		const midA = (startAngle + endAngle) / 2 * Math.PI / 180
+		const midR = (innerR + outerR) / 2
+		ctx.onClickPoint('sunburst', idx, cx + Math.cos(midA) * midR, cy + Math.sin(midA) * midR, nodeName, `${nodeVal}`, rootColor)
+	})
+	shapes.push(hit)
+
+	const children = getNodeChildren(node)
+	if (children.length == 0) return
+
+	let totalChildVal = 0
+	for (let i = 0; i < children.length; i++) {
+		totalChildVal += computeValue(children[i], valueField)
+	}
+	if (totalChildVal <= 0) return
+
+	let childAngle = startAngle
+	const childCount = children.length
+	for (let i = 0; i < childCount; i++) {
+		const childVal = computeValue(children[i], valueField)
+		if (childVal <= 0) continue
+		const sweep = (childVal / totalChildVal) * (endAngle - startAngle)
+		const offset = childCount > 1 ? (i as number) / (childCount - 1) : 0
+		renderNode(canvas, shapes, children[i], valueField, depth + 1, maxDepth, childAngle, childAngle + sweep, cx, cy, baseR, ringW, rootColor, offset, ctx)
+		childAngle += sweep
+	}
+}
+
+export const renderSunburstSeries = (
+	canvas : ICanvas,
+	data : ChartDatum[],
+	rect : PlotRect,
+	valueField : string,
+	ctx : ChartSeriesContext
+) : Shape[] => {
+	const shapes = [] as Shape[]
+	if (data.length == 0) return shapes
+
+	const cx = (rect.left + rect.right) / 2
+	const cy = (rect.top + rect.bottom) / 2
+	const maxR = Math.min(rect.right - rect.left, rect.bottom - rect.top) / 2 * 0.88
+	const baseR = maxR * 0.18
+
+	const maxDepth = Math.min(4, getMaxDepth(data, valueField, 0))
+	const ringW = (maxR - baseR) / Math.max(1, maxDepth + 1)
+
+	let totalVal = 0
+	for (let i = 0; i < data.length; i++) {
+		totalVal += computeValue(data[i], valueField)
+	}
+	if (totalVal <= 0) return shapes
+
+	sbIdx = 0
+	_sbActiveHlPts = [] as number[]
+	let angle = -90 as number
+	for (let i = 0; i < data.length; i++) {
+		const nodeVal = computeValue(data[i], valueField)
+		if (nodeVal <= 0) continue
+		const sweep = (nodeVal / totalVal) * 360
+		const color = getChartColor(i)
+		renderNode(canvas, shapes, data[i], valueField, 0, maxDepth, angle, angle + sweep, cx, cy, baseR, ringW, color, 0, ctx)
+		angle += sweep
+	}
+
+	if (_sbActiveHlPts.length > 0) {
+		shapes.push(new ILinePolygon({
+			points: _sbActiveHlPts,
+			fill: _sbActiveHlColor,
+			stroke: _sbActiveBorderColor,
+			strokeWidth: _sbActiveBorderWidth,
+			closed: true, tension: 0
+		}, canvas))
+	}
+
+	return shapes
+}
