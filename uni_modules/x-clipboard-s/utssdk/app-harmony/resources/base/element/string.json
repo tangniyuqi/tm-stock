@@ -1,8 +1,0 @@
-{
-  "string": [
-    {
-      "name": "permission_read_pasteboard",
-      "value": "应用需要读取剪粘板进行应用的个性化需要"
-    }
-  ]
-}

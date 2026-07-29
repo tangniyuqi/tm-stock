@@ -1,6 +1,0 @@
-{
-  "minSdkVersion": "21",
-  "dependencies":[
-  	  "org.apache.commons:commons-compress:1.27.1"
-  	]
-}

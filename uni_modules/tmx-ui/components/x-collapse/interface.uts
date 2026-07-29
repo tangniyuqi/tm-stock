@@ -1,4 +1,0 @@
-export type CHIDREN_ITEM = {
-	id:string,
-	ele:XCollapseItemComponentPublicInstance
-}

@@ -1,6 +1,0 @@
-export type xBlurOpts = {
-	//UniNativeViewElement
-	ele:any;
-	bgColor:string;
-	blur:number;
-}

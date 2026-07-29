@@ -1,9 +1,0 @@
-type cacelCall = () => void;
-export const keyboardHeightChange = (callback : (h : number) => void) : cacelCall => {
-	
-	
-	
-	return () => {
-		
-	}
-}
