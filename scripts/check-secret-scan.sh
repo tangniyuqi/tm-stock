@@ -22,14 +22,15 @@ PATTERN='(pass(word|wd)?|pwd|secret|token|access_?key|api_?key|private_?key|cred
 # 放行：占位符、示例值、从环境/配置读取的写法
 # ★ 关键一条：值是【函数调用或属性访问】（= foo( / = foo.bar）不是明文密钥——
 #   否则第三方库里满地的 `const token = parser.fetch()` 会把门禁淹没成常红（实测踩过）。
-ALLOW='\$|your_|_here|example|placeholder|xxxx|fake-|test_|dummy|<.*>|\*\*\*|getenv|process\.env|viper\.|config\.|[=:][[:space:]]*[A-Za-z_][A-Za-z0-9_]*[.(]'
+#   另外：值以括号/方括号开头（= (expr) / = [..] / = {..}）同样是表达式而非字面量密钥。
+ALLOW='\$|your_|_here|example|placeholder|xxxx|fake-|test_|dummy|<.*>|\*\*\*|getenv|process\.env|viper\.|config\.|[=:][[:space:]]*[A-Za-z_][A-Za-z0-9_]*[.(]|[=:][[:space:]]*[({[]'
 
 if [ "$MODE" = "--all" ]; then
   # ★ 排除第三方与文档目录：uni_modules/hybrid/static 是三方库，.kiro/docs 是规范文档（含示例代码）
   CANDIDATES="$(grep -rnEi "$PATTERN" "$REPO_ROOT" \
       --include='*.go' --include='*.ts' --include='*.uts' --include='*.js' --include='*.vue' --include='*.uvue' \
       --include='*.yaml' --include='*.yml' --include='*.json' --include='*.env*' \
-      --include='*.sh' --include='*.sql' \
+      --include='*.sh' --include='*.sql' --include='*.py' \
       --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=vendor --exclude-dir=dist \
       --exclude-dir=uni_modules --exclude-dir=hybrid --exclude-dir=static \
       --exclude-dir=unpackage --exclude-dir=.kiro --exclude-dir=docs \

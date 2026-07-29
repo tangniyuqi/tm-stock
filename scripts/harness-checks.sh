@@ -58,6 +58,14 @@ else
   cd "$REPO_ROOT"
 fi
 
+# [3.5] Go 架构约定（分层守护）
+echo -e "\n${BLUE}[3.5/4] Go 架构约定...${NC}"
+if bash scripts/check-architecture.sh; then
+  echo -e "${GREEN}  ✅ 分层约定通过${NC}"
+else
+  echo -e "${RED}  ❌ 违反分层约定${NC}"; RESULT=1
+fi
+
 # [4] uni-app x 前端静态检查
 echo -e "\n${BLUE}[4/4] 前端（uni-app x）...${NC}"
 if [ -f pages.json ]; then

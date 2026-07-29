@@ -1,0 +1,186 @@
+name: CI
+
+# 为什么需要 CI：git hooks 需要每个人手动 install，不装就没约束。
+# CI 是最后一道、也是唯一无法绕过的防线（--no-verify 影响不到它）。
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  compliance:
+    name: 🔴 合规红线与密钥（最高优先级）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 合规禁用词扫描
+        run: bash scripts/check-compliance-words.sh --all
+
+      - name: 明文密钥扫描
+        run: bash scripts/check-secret-scan.sh --all
+
+      - name: 禁用词表未被削弱（只增不减）
+        run: |
+          COUNT=$(grep -vcE '^[[:space:]]*(#|$)' scripts/compliance-forbidden-words.txt)
+          echo "当前禁用词数量：$COUNT"
+          # 基线 30 —— 词表只允许增加。若因律师意见需减少，请同步下调此数字并在 PR 说明理由。
+          if [ "$COUNT" -lt 30 ]; then
+            echo "::error::禁用词表被削弱（$COUNT < 30）。删词必须有律师意见支撑，禁止为过门禁而删。"
+            exit 1
+          fi
+
+      - name: 密钥基线未膨胀（只减不增）
+        run: |
+          COUNT=$(grep -vcE '^[[:space:]]*(#|$)' scripts/secret-scan-baseline.txt || echo 0)
+          echo "当前豁免条目：$COUNT"
+          # 基线 0 —— 新项目不应有存量豁免。新增豁免须在 PR 里说明。
+          if [ "$COUNT" -gt 0 ]; then
+            echo "::warning::密钥扫描基线有 $COUNT 条豁免，请确认每条都是真实存量而非为过门禁而加。"
+          fi
+
+  backend:
+    name: Go 后端
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: false
+
+      - name: gofmt 格式检查
+        run: |
+          UNFMT=$(gofmt -l . | grep -v vendor || true)
+          if [ -n "$UNFMT" ]; then
+            echo "::error::以下文件未格式化，请跑 gofmt -w ."
+            echo "$UNFMT"
+            exit 1
+          fi
+
+      - name: 架构分层守护
+        working-directory: .
+        run: bash scripts/check-architecture.sh
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: 编译
+        run: go build ./...
+
+      - name: 单元测试（-race）
+        run: go test ./... -race -count=1
+
+  frontend:
+    name: 前端（uni-app x）静态检查
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 配置文件 JSON 合法性
+        run: |
+          for f in pages.json manifest.json platformConfig.json; do
+            [ -f "$f" ] || continue
+            node -e "
+              const fs=require('fs');
+              let s=fs.readFileSync('$f','utf8');
+              // uni-app 配置允许注释，校验前先剥离
+              s=s.replace(/\/\*[\s\S]*?\*\//g,'').replace(/^\s*\/\/.*$/gm,'');
+              try { JSON.parse(s); console.log('✅ $f 合法'); }
+              catch(e){ console.log('::error::$f 解析失败: '+e.message); process.exit(1); }
+            "
+          done
+
+      - name: 页面注册一致性（pages/ 下的页面应在 pages.json 注册）
+        run: |
+          node -e "
+            const fs=require('fs');
+            let s=fs.readFileSync('pages.json','utf8')
+              .replace(/\/\*[\s\S]*?\*\//g,'').replace(/^\s*\/\/.*\$/gm,'');
+            const cfg=JSON.parse(s);
+            const reg=new Set((cfg.pages||[]).map(p=>p.path));
+            const walk=(d,out=[])=>{
+              for(const e of fs.readdirSync(d,{withFileTypes:true})){
+                const p=d+'/'+e.name;
+                if(e.isDirectory()) walk(p,out);
+                else if(e.name.endsWith('.uvue')) out.push(p.replace(/^\.\//,'').replace(/\.uvue\$/,''));
+              }
+              return out;
+            };
+            if(!fs.existsSync('pages')){console.log('无 pages/ 目录，跳过');process.exit(0)}
+            const files=walk('pages');
+            const missing=files.filter(f=>!reg.has(f));
+            if(missing.length){
+              console.log('::warning::以下页面文件未在 pages.json 注册：');
+              missing.forEach(m=>console.log('  - '+m));
+            } else {
+              console.log('✅ 页面注册一致（共 '+files.length+' 个）');
+            }
+          "
+
+  docs:
+    name: 规范完整性
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 关键规范文件必须存在
+        run: |
+          MISSING=0
+          for f in \
+            CLAUDE.md AGENTS.md WORKFLOW.md README.md \
+            .claude/agents/compliance-redline.md \
+            .claude/agents/methodology.md \
+            .claude/agents/domain-glossary.md \
+            .claude/agents/known-pitfalls.md \
+            .claude/agents/task-completion-rule.md \
+            .claude/agents/api-contract-alignment.md \
+            .claude/agents/PIPELINE.md \
+            .claude/skills/requirement-pipeline/SKILL.md \
+            .claude/skills/code-change-workflow/SKILL.md \
+            scripts/check-architecture.sh \
+            scripts/autonomous/validate-task.sh \
+            .cursor/rules/tm-stock-compliance.mdc \
+            .cursor/rules/tm-stock-methodology.mdc \
+            scripts/compliance-forbidden-words.txt \
+            scripts/check-compliance-words.sh \
+            scripts/harness-checks.sh \
+            docs/GOALS.md ; do
+            if [ ! -f "$f" ]; then echo "::error::缺失关键规范文件: $f"; MISSING=1; fi
+          done
+          [ "$MISSING" -eq 0 ] && echo "✅ 关键规范文件齐全"
+          exit $MISSING
+
+      - name: Cursor 规则必须 alwaysApply（否则不会自动生效）
+        run: |
+          FAIL=0
+          for f in .cursor/rules/*.mdc; do
+            if ! grep -q '^alwaysApply: true' "$f"; then
+              echo "::error::$f 缺少 alwaysApply: true —— 规则不会自动注入，等于形同虚设"
+              FAIL=1
+            fi
+          done
+          [ "$FAIL" -eq 0 ] && echo "✅ 全部 Cursor 规则均自动生效"
+          exit $FAIL
+
+      - name: 禁止任务总结文档
+        run: |
+          FOUND=$(find docs -maxdepth 2 -type f \( \
+            -name "*完成报告*" -o -name "*实施总结*" -o -name "*开发总结*" \
+            -o -name "SUMMARY.md" -o -name "IMPLEMENTATION_REPORT.md" \) 2>/dev/null || true)
+          if [ -n "$FOUND" ]; then
+            echo "::error::检测到任务总结文档（违反 no-summary-docs 规范）："
+            echo "$FOUND"
+            exit 1
+          fi
+          echo "✅ 无任务总结文档"
