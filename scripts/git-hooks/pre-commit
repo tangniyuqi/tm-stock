@@ -1,0 +1,31 @@
+#!/bin/bash
+# =============================================================================
+# pre-commit —— 内循环·秒级门禁（L2）  tm-stock
+# ★ 只放秒级检查；重量级编译在 pre-push（慢钩子必被 --no-verify 绕过）
+# =============================================================================
+set -uo pipefail
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+
+echo "▶ pre-commit：合规禁用词检查..."
+if ! bash "$REPO_ROOT/scripts/check-compliance-words.sh"; then
+  echo ""; echo "✗ 拦截：用户可见文案含合规禁用词（公司级风险）。"
+  exit 1
+fi
+
+echo "▶ pre-commit：明文密钥扫描..."
+if ! bash "$REPO_ROOT/scripts/check-secret-scan.sh"; then
+  echo ""; echo "✗ 拦截：检测到明文密钥。"
+  exit 1
+fi
+
+echo "▶ pre-commit：Go 格式检查..."
+STAGED_GO="$(git diff --cached --name-only --diff-filter=ACM | grep '\.go$' || true)"
+if [ -n "$STAGED_GO" ] && command -v gofmt >/dev/null 2>&1; then
+  UNFMT="$(gofmt -l $STAGED_GO 2>/dev/null || true)"
+  if [ -n "$UNFMT" ]; then
+    echo "✗ 拦截：未格式化"; echo "$UNFMT"; echo "  修复：gofmt -w $UNFMT && git add ."
+    exit 1
+  fi
+fi
+
+echo "✓ pre-commit 通过"
