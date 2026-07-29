@@ -2,3 +2,25 @@ node_modules/
 unpackage/
 .hbuilderx/
 .DS_Store
+
+# ── 以下由地基脚手架追加 ──
+# 环境与密钥（红线：绝不入仓）
+.env
+.env.*
+!.env.example
+*-credentials
+*.pem
+*.key
+
+# Go
+server/coverage.out
+server/*.exe
+server/vendor/
+
+# IDE / 系统
+.idea/
+.vscode/
+Thumbs.db
+
+# Claude 本地设置
+.claude/settings.local.json

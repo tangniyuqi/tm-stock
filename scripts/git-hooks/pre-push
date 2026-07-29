@@ -1,0 +1,18 @@
+#!/bin/bash
+# =============================================================================
+# pre-push —— 外循环·重量级门禁（L2）
+# 编译 + 测试放这里，不放 pre-commit（保证提交手感流畅）。
+# 紧急绕过：git push --no-verify
+# =============================================================================
+set -uo pipefail
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+if [ -d server ] && command -v go >/dev/null 2>&1; then
+  echo "▶ pre-push：go build ./..."
+  (cd server && go build ./...) || { echo "✗ 编译失败，推送中止"; exit 1; }
+  echo "▶ pre-push：go test ./..."
+  (cd server && go test ./... -count=1) || { echo "✗ 测试失败，推送中止"; exit 1; }
+fi
+
+echo "✓ pre-push 通过"
