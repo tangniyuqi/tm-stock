@@ -8,19 +8,26 @@
 		></x-search>
   </x-sheet>
 
-  <x-sheet round="6" :padding="[12, 0, 12, 0]" :margin="[12, 24, 12, 12]">
+  <x-sheet :round="0" :padding="[12, 0, 12, 0]" :margin="[12, 24, 12, 12]">
 		<x-list padding="0">
 			<view 
 				v-for="(item, index) in newsList" 
 				:key="index"
 				class="news-item-wrapper px-4 py-12"
-				@click="goDetail(item)"
+				@click="toggleExpand(index)"
 			>
-				<view class="flex flex-row justify-between align-start flex-1 mr-12">
-          <view class="flex-1 mr-12">
-            <x-text color="#999" font-size="14" class="text-grey">{{ item.datetime }}</x-text>
-            <x-text color="#333" font-size="14" class="text-black text-overflow-2">{{ item.title }}</x-text>
-          </view>
+				<view>
+          <x-text 
+            :label="item.title" 
+            :highlight="searchValue != '' ? [searchValue] : []" 
+            highlightColor="#E93030" 
+            color="#333" 
+            fontSize="15"
+            lineHeight="1.5"
+            :lines="item.expanded ? 0 : 3"
+          />
+
+          <x-text :label="item.datetime" color="#999" font-size="13" class="mt-6" />
 				</view>
 			</view>
 		</x-list>
@@ -32,6 +39,14 @@
 import { ref } from 'vue';
 import { xConfig } from '@/uni_modules/tmx-ui/config/xConfig.uts';
 
+interface NewsItem {
+  title: string;
+  datetime: string;
+  isHot?: boolean;
+  cover?: string;
+  expanded?: boolean;
+}
+
 // 标签页数据
 const tabList = ref([
   { id: '1', title: '题材热点' },
@@ -41,26 +56,33 @@ const tabList = ref([
 
 const activeTab = ref('1');
 
-const newsList = ref([
+const newsList = ref<NewsItem[]>([
   {
-    title: '半导体设备国产化率创历史新高！关键零部件领域取得重大技术突破',
-    datetime: '2026-07-20',
+    title: '半导体设备国产化率创历史新高！关键零部件领域取得重大技术突破，这一成就标志着我国在高端制造领域迈出了坚实的一步，未来将进一步减少对外部供应链的依赖。',
+    datetime: '18:46:23',
     isHot: true,
-    cover: 'https://picsum.photos/200/140?random=1'
+    cover: 'https://picsum.photos/200/140?random=1',
+    expanded: false
   },
   {
-    title: '重磅！多部委联合发文推动新材料产业高质量发展，这些板块将迎来黄金期',
-    datetime: '2026-07-19',
+    title: '重磅！多部委联合发文推动新材料产业高质量发展，这些板块将迎来黄金期。新材料作为战略性新兴产业的基石，其发展速度直接关系到制造强国战略的实施效果。',
+    datetime: '18:46:23',
+    expanded: false
   },
   {
-    title: '如何评价当前人工智能在硬件整机领域的自主可控趋势？专家这样说...',
-    datetime: '2026-07-18',
+    title: '如何评价当前人工智能在硬件整机领域的自主可控趋势？专家这样说... 随着大模型的普及，底层算力芯片与服务器整机的国产化替代已成为行业共识。',
+    datetime: '18:46:23',
+    expanded: false
   }
 ]);
 
 const searchValue = ref('');
 
-const goDetail = (item: any) => {
+const toggleExpand = (index: number) => {
+  newsList.value[index].expanded = !newsList.value[index].expanded;
+};
+
+const goDetail = (item: NewsItem) => {
   console.log('跳转到新闻详情:', item.title);
 };
 
@@ -93,6 +115,10 @@ const handleTabChange = (item: any, index: number) => {
 
 .news-item-wrapper {
   border-bottom: 1px solid #f0f0f0;
+}
+
+.news-item-wrapper:last-child {
+  border-bottom: none;
 }
 
 .text-overflow-2 {

@@ -100,7 +100,11 @@
 		 * 给日期设定状态
 		 * 类型为：xCalendarDateStyleStatusType
 		 */
-		dateStatus:xCalendarDateStyleStatusType[]
+		dateStatus:xCalendarDateStyleStatusType[],
+		/**
+		 * 是否显示清空按钮
+		 */
+		showClear:boolean
 	}
 	
 	/**
@@ -163,7 +167,8 @@
 		headStyle: '',
 		renderOnly:true,
 		seekDay:0,
-		dateStatus:():xCalendarDateStyleStatusType[] => [] as xCalendarDateStyleStatusType[]
+		dateStatus:():xCalendarDateStyleStatusType[] => [] as xCalendarDateStyleStatusType[],
+		showClear:true
 	})
 	const xCalendarViewCalendarBodyRef = ref<UniElement|null>(null)
 	const bodyHeight = ref('auto')
@@ -428,7 +433,7 @@
 							<x-icon font-size="21" :color="_headFontColor" name="arrow-down-s-fill">下月</x-icon>
 						</view> -->
 						<!-- 清空 -->
-						<x-text @click="clear" :color="_headFontColor" style="padding: 10px 20px;">{{i18n.t('tmui4x.clear')}}</x-text>
+						<x-text v-if="props.showClear" @click="clear" :color="_headFontColor" style="padding: 10px 20px;">{{i18n.t('tmui4x.clear')}}</x-text>
 						<!-- 本月 -->
 						<x-text @click="nowMonth" :color="_headFontColor" style="padding: 10px 0px;">{{i18n.t('tmui4x.calendar.currentMonthTitle')}}</x-text>
 					</view>

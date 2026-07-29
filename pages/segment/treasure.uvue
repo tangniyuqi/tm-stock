@@ -1,0 +1,244 @@
+<template>
+	<view class="page-container" :style="pageStyle">
+		<!-- Header Section -->
+		<view class="header-section px-16 py-12">
+			<view class="flex flex-row justify-between align-center mb-16">
+				<view>
+					<x-text font-size="24" class="text-weight-b" color="var(--ink-1)">题材宝典</x-text>
+					<x-text font-size="12" color="var(--ink-3)" class="mt-4">实时挖掘 A 股最强主线与题材动态</x-text>
+				</view>
+				<x-icon name="ri-search-line" size="24" color="var(--ink-3)"></x-icon>
+			</view>
+			
+			<!-- Filter Tabs -->
+			<view class="filter-tabs flex flex-row">
+				<view 
+					v-for="(tab, index) in tabs" 
+					:key="index"
+					class="tab-item mr-16"
+					:class="{ 'active': activeTab === index }"
+					@click="activeTab = index"
+				>
+					<x-text 
+						:color="activeTab === index ? 'var(--accent)' : 'var(--ink-3)'"
+						:class="{ 'text-weight-b': activeTab === index }"
+						font-size="14"
+					>{{ tab }}</x-text>
+					<view v-if="activeTab === index" class="tab-line"></view>
+				</view>
+			</view>
+		</view>
+
+		<!-- KPI Section: Top Themes -->
+		<view class="kpi-section px-16 py-12">
+			<x-text font-size="14" class="text-weight-b mb-12" color="var(--ink-2)">今日热点题材</x-text>
+			<view class="flex flex-row justify-between" style="gap: 12px;">
+				<view 
+					v-for="(item, index) in topThemes" 
+					:key="index"
+					class="kpi-card flex-1 p-12"
+				>
+					<view class="flex flex-row justify-between align-center mb-8">
+						<view class="icon-chip" :style="{ backgroundColor: 'var(--accent-soft)' }">
+							<x-icon name="ri-fire-line" size="16" color="var(--accent)"></x-icon>
+						</view>
+						<x-text font-size="12" color="var(--up)" class="text-weight-b">+{{ item.change }}%</x-text>
+					</view>
+					<x-text font-size="12" color="var(--ink-3)" class="mb-4">NO.{{ index + 1 }}</x-text>
+					<x-text font-size="16" color="var(--ink-1)" class="text-weight-b">{{ item.name }}</x-text>
+				</view>
+			</view>
+		</view>
+
+		<!-- Main Table Section -->
+		<view class="table-section px-16 py-12">
+			<view class="card-wrapper p-0 overflow-hidden">
+				<view class="flex flex-row justify-between align-center px-16 py-12 border-b">
+					<x-text font-size="14" class="text-weight-b" color="var(--ink-2)">题材全景表</x-text>
+					<view class="flex flex-row align-center">
+						<x-text font-size="12" color="var(--ink-3)" class="mr-4">更新时间: 09:45</x-text>
+						<x-icon name="ri-refresh-line" size="14" color="var(--ink-3)"></x-icon>
+					</view>
+				</view>
+				
+				<x-table 
+					:columns="tableColumns" 
+					:list="themeList"
+					headerBgColor="var(--panel-2)"
+					headerFontColor="var(--ink-3)"
+					fontColor="var(--ink-2)"
+					:ripple="false"
+					cellHeight="64"
+				>
+					<!-- Custom slot for Theme Name -->
+					<template #name="{ sucore }">
+						<view class="flex flex-col py-8">
+							<x-text font-size="14" color="var(--ink-1)" class="text-weight-b">{{ sucore.getString('name') }}</x-text>
+							<view class="flex flex-row align-center mt-4">
+								<view class="heat-dot" :style="{ backgroundColor: getHeatColor(sucore.getNumber('heat')) }"></view>
+								<x-text font-size="10" color="var(--ink-3)" class="ml-4">热度 {{ sucore.getNumber('heat') }}</x-text>
+							</view>
+						</view>
+					</template>
+
+					<!-- Custom slot for Change -->
+					<template #change="{ sucore }">
+						<view class="flex flex-row align-center justify-end fulled">
+							<x-text 
+								font-size="14" 
+								:color="sucore.getNumber('change') >= 0 ? 'var(--up)' : 'var(--down)'"
+								class="text-weight-b"
+							>{{ sucore.getNumber('change') >= 0 ? '+' : '' }}{{ sucore.getNumber('change') }}%</x-text>
+						</view>
+					</template>
+
+					<!-- Custom slot for Leaders -->
+					<template #leaders="{ sucore }">
+						<view class="flex flex-row flex-wrap align-center" style="gap: 4px;">
+							<view 
+								v-for="(stock, idx) in sucore.getArray<string>('leaders')" 
+								:key="idx"
+								class="stock-tag"
+							>
+								<x-text font-size="10" color="var(--accent)">{{ stock }}</x-text>
+							</view>
+						</view>
+					</template>
+				</x-table>
+			</view>
+		</view>
+		
+		<!-- Footer -->
+		<view class="footer py-24 flex-center">
+			<x-text font-size="12" color="var(--ink-3)">—— 题材宝典 · 洞察市场主线 ——</x-text>
+		</view>
+	</view>
+</template>
+
+<script setup lang="ts">
+import { ref, computed } from 'vue';
+
+// Tabs
+const tabs = ['全部题材', '领涨题材', '热度最高', '新题材'];
+const activeTab = ref(0);
+
+// KPI Data
+const topThemes = ref([
+	{ name: '半导体', change: 5.24, heat: 98 },
+	{ name: '无人驾驶', change: 4.12, heat: 95 },
+	{ name: '低空经济', change: 3.85, heat: 92 }
+]);
+
+// Table Configuration
+const tableColumns = [
+	{ title: '题材名称', field: 'name', width: '120px', align: 'flex-start' },
+	{ title: '涨跌幅', field: 'change', width: '80px', align: 'flex-end' },
+	{ title: '领涨股', field: 'leaders', width: 'auto', align: 'flex-start' }
+];
+
+const themeList = ref([
+	{ name: '半导体设备', change: 5.24, heat: 98, leaders: ['茂莱光学', '波长光电'], id: '1' },
+	{ name: '无人驾驶', change: 4.12, heat: 95, leaders: ['大众交通', '金江车业'], id: '2' },
+	{ name: '低空经济', change: 3.85, heat: 92, leaders: ['万丰奥威', '中信海直'], id: '3' },
+	{ name: '新材料', change: 2.15, heat: 85, leaders: ['安诺其', '沃尔核材'], id: '4' },
+	{ name: '商业航天', change: 1.98, heat: 88, leaders: ['腾达科技', '航天晨光'], id: '5' },
+	{ name: '光刻机', change: -0.85, heat: 75, leaders: ['张江高科', '东方嘉盛'], id: '6' },
+	{ name: '消费电子', change: -1.24, heat: 72, leaders: ['领益智造', '立讯精密'], id: '7' }
+]);
+
+const getHeatColor = (heat: number): string => {
+	if (heat >= 90) return '#FF4D4F';
+	if (heat >= 80) return '#FA8C16';
+	return '#52C41A';
+};
+
+// CSS Variables based on Finesse UI - Amber Ops (Set 2)
+const pageStyle = computed(() => {
+	return {
+		'--page': '#f4f0e9',
+		'--bg': '#ffffff',
+		'--panel-2': '#faf6f0',
+		'--border': 'rgba(48, 32, 20, 0.07)',
+		'--ink-1': '#1f1710',
+		'--ink-2': '#4a3f34',
+		'--ink-3': '#82715f',
+		'--accent': '#D9642A',
+		'--accent-soft': 'rgba(217, 100, 42, 0.11)',
+		'--up': '#EB4436', // Finance Red
+		'--down': '#2F7A55', // Finance Green
+		'--shadow': '0 1px 3px rgba(60, 38, 20, 0.05)',
+		'background-color': 'var(--page)',
+		'min-height': '100vh'
+	};
+});
+</script>
+
+<style scoped lang="scss">
+.page-container {
+	padding-bottom: 40px;
+}
+
+.header-section {
+	background-color: var(--bg);
+	border-bottom: 1px solid var(--border);
+}
+
+.tab-item {
+	position: relative;
+	padding: 8px 0;
+}
+
+.tab-line {
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	width: 100%;
+	height: 2px;
+	background-color: var(--accent);
+	border-radius: 2px;
+}
+
+.kpi-card {
+	background-color: var(--bg);
+	border-radius: 16px;
+	border: 1px solid var(--border);
+	box-shadow: var(--shadow);
+}
+
+.icon-chip {
+	width: 32px;
+	height: 32px;
+	border-radius: 10px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.card-wrapper {
+	background-color: var(--bg);
+	border-radius: 20px;
+	border: 1px solid var(--border);
+	box-shadow: var(--shadow);
+}
+
+.heat-dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+}
+
+.stock-tag {
+	padding: 2px 8px;
+	background-color: var(--accent-soft);
+	border-radius: 4px;
+}
+
+.border-b {
+	border-bottom: 1px solid var(--border);
+}
+
+/* Ensure table header has correct tint */
+:deep(.x-table-header) {
+	background-color: var(--panel-2) !important;
+}
+</style>

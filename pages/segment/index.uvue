@@ -1,8 +1,8 @@
 <template>
 	<view class="page">
-		<x-sheet color="#FFFBE6" >
-			<x-text font-size="16" class="text-weight-b mb-8">OCS</x-text>
-			<x-text color="#999" font-size="12">
+		<x-sheet color="transparent">
+			<x-text fontSize="16" class="text-weight-b mb-8">OCS</x-text>
+			<x-text color="#666" fontSize="12">
 			PCB 全称印制电路板，是所有电子产品的核心载体：在绝缘基材上通过蚀刻铜箔形成固定导电线路，实现元器件机械支撑 + 电气互连,是电子设备的 "骨架 + 神经线路"。
 			</x-text>
 		</x-sheet>
@@ -16,14 +16,15 @@
 					:key="index"
 					:name="'field-' + index" 
 					:title="item.segment.name + '（+' + (5.5-index) + '%）'"
-					activeColor="rgba(255, 10, 10, 1)"
+					activeColor="#000"
+					:show-bottom-line="index !== items.length - 1"
 				>
 					<view class="pa-12 d-flex flex-wrap" style="gap: 8px;">
 						<x-tag 
 							v-for="(symbol, idx) in item.symbols" 
 							:key="idx"
 							size="large"
-							round="0"
+							:round="0"
 							:color="symbol.leader === 1 ? 'warn' : 'info'"
 						>{{ symbol.name }}</x-tag>
 					</view>

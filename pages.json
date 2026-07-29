@@ -3,9 +3,13 @@
     {
       "path": "pages/index/index",
       "style": {
-        "navigationBarTitleText": "题材宝典",
-        "navigationBarTextStyle": "white",
-        "navigationBarBackgroundColor": "#DDA927"
+        "navigationBarTitleText": "题材宝典"
+      }
+    },
+    {
+      "path": "pages/ai/index",
+      "style": {
+        "navigationBarTitleText": "AI分析"
       }
     },
     {
@@ -17,7 +21,7 @@
     {
       "path": "pages/news/index",
       "style": {
-        "navigationBarTitleText": "724聚合快讯"
+        "navigationBarTitleText": "7x24全球财经快讯"
       }
     },
     {
@@ -29,35 +33,41 @@
   ],
   "globalStyle": {
     "navigationBarTitleText": "题材宝典",
-    "navigationBarTextStyle": "black",
-    "navigationBarBackgroundColor": "#FFFFFF",
+    "navigationBarTextStyle": "white",
+    "navigationBarBackgroundColor": "#E93030",
     "backgroundColor": "#FFFFFF",
     "backgroundColorTop": "#F5F5F5",
     "backgroundColorBottom": "#FFFFFF"
   },
   "tabBar": {
     "color": "#999999",
-    "selectedColor": "#DDA927",
+    "selectedColor": "#E93030",
     "backgroundColor": "#FFFFFF",
-    "borderStyle": "black",
+    "borderStyle": "white",
     "list": [
       {
         "pagePath": "pages/index/index",
-        "text": "题材",
+        "text": "首页",
         "iconPath": "static/tabbar/home.png",
-        "selectedIconPath": "static/tabbar/home-orange.png"
+        "selectedIconPath": "static/tabbar/home-red.png"
       },
       {
         "pagePath": "pages/news/index",
-        "text": "快讯",
+        "text": "7x24快讯",
         "iconPath": "static/tabbar/discover.png",
-        "selectedIconPath": "static/tabbar/discover-orange.png"
+        "selectedIconPath": "static/tabbar/discover-red.png"
+      },
+      {
+        "pagePath": "pages/ai/index",
+        "text": "AI分析",
+        "iconPath": "static/tabbar/notice.png",
+        "selectedIconPath": "static/tabbar/notice-red.png"
       },
       {
         "pagePath": "pages/member/index",
         "text": "我的",
         "iconPath": "static/tabbar/member.png",
-        "selectedIconPath": "static/tabbar/member-orange.png"
+        "selectedIconPath": "static/tabbar/member-red.png"
       }
     ]
   },

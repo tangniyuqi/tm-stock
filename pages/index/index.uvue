@@ -1,47 +1,82 @@
 <template>
 <view class="page">
-	<view class="mb-12">
-		<x-tabs 
-			:list="tabList" 
-			v-model="activeTab" 
-			@change="handleTabChange"
-			color="#FFF"
-			:line-full="false"
-      activeFontSize="17"
-			:line-width="28"
-			:line-color="xConfig.color"
-      titleColor="#333"
-      class="px-12"
-		>
-		</x-tabs>
-	</view>
-	
-	<x-sheet class="m-12" :padding="[12, 0, 12, 0]">
+  <x-sticky>
+    <view class="my-tabs px-6 pt-4 pb-2">
+      <x-tabs :list="tabList" v-model="activeTab" color="#FFF" :line-full="false" activeFontSize="18" :line-width="28" :line-color="xConfig.color" titleColor="#333" @change="handleTabChange" />
+    </view>
+  </x-sticky>
+
+  <!-- 日期切换 -->
+  <view class="flex flex-row align-center justify-between px-25 py-12 bg-white date-switcher">
+    <x-text :color="isPrevDisabled ? '#CCC' : '#666'" fontSize="14" @click="prevDay">上一日</x-text>
+
+    <view class="flex-1"></view>
+
+    <view class="flex flex-row align-center flex-row-center-between" @click="showCalendar = true">
+      <x-icon name="calendar-line" size="14" color="#999" />
+      <x-text color="#666" fontSize="15" class="font-weight-b ml-4">{{ currentDate }}</x-text>
+    </view>
+
+    <view class="flex-1"></view>
+
+    <x-text :color="isNextDisabled ? '#CCC' : '#666'" fontSize="14" @click="nextDay">下一日</x-text>
+  </view>
+
+  <!-- 日历弹窗 -->
+  <x-drawer v-model:show="showCalendar" title="选择日期" :showFooter="false" size="540" round="24">
+    <view class="calendar-drawer-content">
+      <x-calendar-view 
+        v-model="currentDate" 
+        :startDate="minDateStr" 
+        :endDate="maxDateStr" 
+        :showClear="false" 
+        activeFontColor="#FFFFFF"
+        headBgColor="#F7F8FA"
+        headFontColor="#333333"
+        headStyle="border-radius: 12px; padding: 4px 0;"
+        @change="onCalendarChange"
+      ></x-calendar-view>
+    </view>
+  </x-drawer>
+
+  <x-sheet :padding="[12, 0, 12, 0]" :margin="[12, 0, 12, 0]">
 		<x-list padding="0">
-			<view 
-				v-for="(item, index) in newsList" 
-				:key="index"
-				class="news-item-wrapper px-4 py-24"
-				@click="goDetail(item)"
-			>
-				<view class="flex flex-row justify-between align-start">
-          <view class="text-area flex-1 mr-24">
-            <x-text color="#333" font-size="15" class="text-base text-black font-weight-b text-overflow-2">{{ item.title }}</x-text>
-            
-            <view class="flex flex-row align-center mt-auto mt-10">
-              <text class="text-xs text-grey">{{ item.datetime }}</text>
+			<view v-for="(item, index) in newsList" class="news-item-wrapper px-4 py-12" @click="goDetail(item)" :key="index">
+				<view class="flex flex-row align-start">
+          <x-text :color="getIndexColor(index)" fontSize="24" class="mr-12 news-index">{{ index + 1 }}</x-text>
+          
+          <view class="flex-1">
+            <x-text color="#333" fontSize="15" lineHeight="1.5" class="flex-1 text-base text-black font-weight-b text-overflow-2">{{ item.title }}</x-text>
+          
+            <view class="flex flex-row align-center mt-10">
+              <view class="flex flex-row flex-row-center-start">
+                <x-tag skin="thin" color="primary" class="mr-10">{{ item.tag }}</x-tag>
+                <x-text :color="getChangeColor(item.change)" fontSize="13" class="font-weight-b">{{ item.change }}</x-text>
+              </view>
+
+              <view class="flex-1"></view>
+
+              <x-text color="#999" fontSize="13" class="ml-10">{{ item.datetime }}</x-text>
             </view>
           </view>
 				</view>
 			</view>
 		</x-list>
 	</x-sheet>
+
+  <!-- Footer -->
+  <view class="footer py-20 flex-center">
+    <x-text fontSize="12" color="#CCC">题材宝典 · 洞察市场主线</x-text>
+    <x-text fontSize="12" color="#DDD" class="mt-6">所有数据仅供参考，不作收益保证，据此操作风险自负。</x-text>
+    <x-text fontSize="12" color="#DDD">— 投资有风险，入市须谨慎 —</x-text>
+  </view>
 </view>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { xConfig } from '@/uni_modules/tmx-ui/config/xConfig.uts';
+import { xDate } from '@/uni_modules/tmx-ui/core/util/xDate.uts';
 
 // 标签页数据
 const tabList = ref([
@@ -52,25 +87,70 @@ const tabList = ref([
 
 const activeTab = ref('1');
 
+// 日期限制
+const minDateStr = '2026-07-21';
+const maxDateStr = new xDate().format("YYYY-MM-DD");
+
+// 当前选中的日期
+const currentDate = ref(maxDateStr);
+const showCalendar = ref(false);
+
+// 是否禁用上一日/下一日
+const isPrevDisabled = computed(() : boolean => currentDate.value <= minDateStr);
+const isNextDisabled = computed(() : boolean => currentDate.value >= maxDateStr);
+
 const newsList = ref([
   {
     title: '半导体设备国产化率创历史新高！关键零部件领域取得重大技术突破',
-    datetime: '2026-07-20',
+    tag: '半导体设备',
+    change: '+3.25%',
+    datetime: '07-20 01:00',
     isHot: true,
     cover: 'https://picsum.photos/200/140?random=1'
   },
   {
     title: '重磅！多部委联合发文推动新材料产业高质量发展，这些板块将迎来黄金期',
-    datetime: '2026-07-19',
+    tag: '新材料',
+    change: '+2.18%',
+    datetime: '07-19 01:00',
   },
   {
-    title: '如何评价当前人工智能在硬件整机领域的自主可控趋势？专家这样说...',
-    datetime: '2026-07-18',
+    title: '如何评价当前人工智能在硬件整机领域的自主可控趋势？专家这样说',
+    tag: '人工智能',
+    change: '+1.56%',
+    datetime: '07-18 01:00',
+  },
+  {
+    title: '如何评价当前人工智能在硬件整机领域的自主可控趋势？专家这样说',
+    tag: '算力租赁',
+    change: '+4.12%',
+    datetime: '07-18 01:00',
+  },
+  {
+    title: '如何评价当前人工智能在硬件整机领域的自主可控趋势？专家这样说',
+    tag: 'CPO概念',
+    change: '-0.85%',
+    datetime: '07-18 01:00',
   }
 ]);
 
 const goDetail = (item: any) => {
-  console.log('跳转到新闻详情:', item.title);
+  uni.navigateTo({
+    url: '/pages/segment/index'
+  });
+};
+
+const getIndexColor = (index: number): string => {
+  if (index == 0) return '#FF4D4F'; // 1st - Red
+  if (index == 1) return '#FA8C16'; // 2nd - Orange
+  if (index == 2) return '#FADB14'; // 3rd - Yellow
+  return '#BBB'; // Others - Grey
+};
+
+const getChangeColor = (change: string): string => {
+  if (change.startsWith('+')) return '#FF4D4F';
+  if (change.startsWith('-')) return '#52C41A';
+  return '#999';
 };
 
 const handleTabChange = (item: any, index: number) => {
@@ -86,6 +166,34 @@ const handleTabChange = (item: any, index: number) => {
       break;
   }
 };
+
+// 日期操作
+const prevDay = () => {
+  if (isPrevDisabled.value) return;
+  const d = new xDate(currentDate.value);
+  d.subtraction(1, 'd');
+  currentDate.value = d.format("YYYY-MM-DD");
+  loadData();
+};
+
+const nextDay = () => {
+  if (isNextDisabled.value) return;
+  const d = new xDate(currentDate.value);
+  d.add(1, 'd');
+  currentDate.value = d.format("YYYY-MM-DD");
+  loadData();
+};
+
+const onCalendarChange = (val: string) => {
+  if (!val) return;
+  currentDate.value = val;
+  showCalendar.value = false;
+  loadData();
+};
+
+const loadData = () => {
+  console.log('加载日期数据:', currentDate.value);
+};
 </script>
 
 <style scoped>
@@ -93,14 +201,30 @@ const handleTabChange = (item: any, index: number) => {
   padding: 0 0 0 0;
 }
 
+.my-tabs {
+  background: #FFF;
+}
+
+.date-switcher {
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.calendar-drawer-content {
+  padding: 10px 15px 30px 15px;
+}
+
 .news-item-wrapper {
   border-bottom: 1px solid #f0f0f0;
 }
 
-.text-area {
-  display: flex;
-  flex-direction: column;
-  min-height: 140rpx; /* 与图片高度一致 */
+.news-item-wrapper:last-child {
+  border-bottom: none;
+}
+
+.news-index {
+  font-family: Georgia, "Times New Roman", Times, serif;;
+  font-style: italic;
+  font-weight: bold;
 }
 
 .text-overflow-2 {
