@@ -1,0 +1,41 @@
+---
+description: tm-stock 开发规则（uni-app x 前端 + Go 后端的可执行约束）
+alwaysApply: true
+---
+
+# tm-stock 开发规则
+
+## 通用
+
+- 中文注释、中文提交信息。
+- **先检查已有实现**再动手，不要重复造轮子、不要绕过既有抽象另起一套。
+- 明确改动边界：改哪些文件、**明确不动什么**。
+- 密钥只从环境变量读（`TM_*`），仓库内**只允许占位符**；真实密钥放 `~/.tmstock-credentials`。
+
+## 前端（uni-app x）
+
+- **写页面前先查 `.kiro/skills/tmui4x-dev/`**（组件目录 / CSS 系统 / 页面开发指南）。
+- 页面 `.uvue`、逻辑 `.uts`；**新页面必须在 `pages.json` 注册**。
+- uts 是**强类型**，不是 TypeScript：可空显式声明，不用 any 兜底。
+- **接口时间字段统一毫秒时间戳（number）**，前端统一函数格式化；
+  ❌ 不要声明成 string（int→string 会直接崩，同类项目踩过）。
+- **三态齐全**：加载骨架 / 空态（区分无数据 vs 无结果）/ 错误可重试。
+- 移动端：375px 基准、点击区 ≥44px、注意安全区。
+- 页面文案是**合规重灾区**，逐字对照禁用词表。
+
+## 后端（Go）
+
+- 分层：`handler → service → repository`，**单向依赖**，禁止反向或跨层。
+- **Handler 是薄层**：只做参数绑定 → 调 service → 返回；❌ 禁止写业务、❌ 禁止直连 DB。
+- 错误必须 `%w` 包装带上下文；❌ 禁止吞错。
+- 所有外部调用（DB/HTTP/MQ）**必须传 ctx 并设超时**；禁止裸 `go func()`。
+- 统一响应 `{code,msg,data}`；对外时间字段 **毫秒时间戳 int64**。
+- 迁移脚本 `migrations/YYYYMMDD_<操作>_<描述>.sql`。
+
+## 完成前必做
+
+```bash
+bash scripts/harness-checks.sh      # 合规词 + 密钥 + Go + pages.json
+```
+
+**门禁绿灯才算完成，自述不算数。** 前端还需在 HBuilderX 内实际编译验证。

@@ -1,0 +1,44 @@
+---
+description: 题材宝典 tm-stock 项目上下文（定位、技术栈、目录、已有资产、当前阶段）
+alwaysApply: true
+---
+
+# tm-stock 项目上下文
+
+## 定位
+
+面向 A 股散户的**题材 / 行业信息查询与通俗解读**移动端应用。
+一期：**免费快讯引流 + 付费题材查询**（只到题材/行业/产业链环节层）。
+
+## 技术栈（实地核实，勿凭想象）
+
+| 端 | 技术 | 注意 |
+|---|------|------|
+| 前端 | **uni-app x**（`.uvue` / `.uts`）+ tmx-ui | HBuilderX 构建，**无 package.json / pnpm / eslint CLI** |
+| 后端 | **Go + Gin**（`server/`） | 本机可能未装 Go，门禁会自动跳过 |
+| 存储 | MySQL / Redis；检索预留 Meilisearch | |
+
+**仓库根目录就是前端工程**（不是 web/ 子目录）。
+
+## 目录
+
+```
+App.uvue · main.uts · pages.json     前端入口
+pages/    index · news(快讯) · segment(题材) · member · express
+uni_modules/                          三方组件（含 tmx-ui）——不要改
+.kiro/skills/tmui4x-dev/              ★ 已有 tmui4x 技能库：写页面前先查
+.claude/agents/                       规范单一事实源
+server/                               Go 后端
+scripts/                              质量门禁 + git hooks
+docs/                                 GOALS · adr · specs
+```
+
+## 已有资产（复用，不要重复造轮子）
+
+`.kiro/skills/tmui4x-dev/` 含：组件目录、CSS 系统、页面开发指南、几十份组件文档。
+**写任何页面前先查它**，不要凭空写组件用法、不要另立一套组件规范。
+
+## 当前阶段（重要）
+
+一期以 **无开发付费验证** 为先（内容 + 私域测付费意愿），**暂不追求正式上线**。
+详见 `docs/GOALS.md`。判断"要不要做某功能"时，先问它是否服务于当前阶段目标。
