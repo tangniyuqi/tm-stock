@@ -74,8 +74,23 @@ jobs:
       - name: 编译
         run: go build ./...
 
-      - name: 单元测试（-race）
-        run: go test ./... -race -count=1
+      - name: 单元测试（-race）+ 执行数下限守卫
+        run: |
+          # 为什么要数：`go test ./...` 在【没有任何测试】时也返回 0。
+          # 只看退出码无法区分「测试全过」与「一个都没跑」，
+          # 而 Actions 日志需 admin 权限才能读 —— 于是把判据做成门禁，绿灯即证明。
+          set -o pipefail
+          go test ./... -race -count=1 -v 2>&1 | tee /tmp/gotest.log | tail -40
+          PASS=$(grep -c '^[[:space:]]*--- PASS' /tmp/gotest.log || true)
+          FAIL=$(grep -c '^[[:space:]]*--- FAIL' /tmp/gotest.log || true)
+          echo "通过 $PASS 项 / 失败 $FAIL 项"
+          echo "### Go 单测：通过 $PASS 项，失败 $FAIL 项" >> "$GITHUB_STEP_SUMMARY"
+          # 下限只增不减。新增测试后请同步上调；调低必须在 PR 说明理由。
+          MIN=15
+          if [ "$PASS" -lt "$MIN" ]; then
+            echo "::error::实际执行 $PASS 项测试，低于下限 $MIN —— 要么测试没被执行，要么有测试被删。"
+            exit 1
+          fi
 
   frontend:
     name: 前端（uni-app x）静态检查
