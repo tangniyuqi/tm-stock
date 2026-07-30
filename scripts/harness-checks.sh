@@ -47,7 +47,21 @@ else
   [ -n "$UNFMT" ] && { echo -e "${RED}  ❌ 未格式化：${NC}"; echo "$UNFMT"; RESULT=1; }
   if go build ./... 2>&1 | tail -15; then echo -e "${GREEN}  ✅ 编译通过${NC}"; else echo -e "${RED}  ❌ 编译失败${NC}"; RESULT=1; fi
   go vet ./... 2>&1 | tail -15 && echo -e "${GREEN}  ✅ vet 通过${NC}" || { echo -e "${RED}  ❌ vet 未通过${NC}"; RESULT=1; }
-  if go test ./... -race -count=1 2>&1 | tail -20; then echo -e "${GREEN}  ✅ 测试通过${NC}"; else echo -e "${RED}  ❌ 测试失败${NC}"; RESULT=1; fi
+  # ★ -race 需要 cgo，而 cgo 需要 C 编译器。Windows 开发机通常没有 gcc/clang，
+  #   此时 `go test -race` 直接报 "-race requires cgo" —— 那是【环境限制】，不是测试失败。
+  #   照原样标红会让本地门禁长期红灯，按 P9 就等于门禁失效。
+  #   → 本地自动降级为不带 -race；CI（Linux）仍然强制 -race，不放宽标准。
+  RACE_FLAG="-race"
+  if [ "$(go env CGO_ENABLED 2>/dev/null)" != "1" ] \
+     || ! { command -v gcc >/dev/null 2>&1 || command -v clang >/dev/null 2>&1; }; then
+    RACE_FLAG=""
+    echo -e "${YELLOW}  本机无 C 编译器 → 降级为不带 -race（CI 在 Linux 上仍强制 -race）${NC}"
+  fi
+  if go test ./... $RACE_FLAG -count=1 2>&1 | tail -20; then
+    echo -e "${GREEN}  ✅ 测试通过${NC}"
+  else
+    echo -e "${RED}  ❌ 测试失败${NC}"; RESULT=1
+  fi
   if [ "$WITH_LINT" = true ] && command -v golangci-lint >/dev/null 2>&1; then
     golangci-lint run ./... 2>&1 | tail -20 || { echo -e "${RED}  ❌ lint 未通过${NC}"; RESULT=1; }
   fi
