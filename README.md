@@ -7,7 +7,9 @@
 
 **[`.claude/agents/compliance-redline.md`](.claude/agents/compliance-redline.md) — 合规红线**
 
-> 不荐股 · 不预测 · AI 只分析到「题材/行业/事件」层 · 一期不含个股 · 用户自主判断。
+> 不评价 · 不预测 · 不荐买卖 · 个股只做「客观事实」层（分类归属 + 涨跌幅，**依据可溯源**）·
+> 一期不做个股详情 · 用户自主判断。
+> **分界线是「事实 vs 我方观点」，不是「有没有出现个股」**（见 [ADR-0003](docs/adr/0003-个股客观事实层可做.md)）。
 > 违反 = 公司级法律风险（无牌证券投资咨询）。
 
 AI 协作入口：**[CLAUDE.md](CLAUDE.md)**；研发流程：[WORKFLOW.md](WORKFLOW.md)。
