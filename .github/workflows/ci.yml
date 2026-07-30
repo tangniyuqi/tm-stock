@@ -173,6 +173,18 @@ jobs:
           [ "$FAIL" -eq 0 ] && echo "✅ 全部 Cursor 规则均自动生效"
           exit $FAIL
 
+      - name: 上线前置授权义务（保持可见，不阻断）
+        run: |
+          F="docs/上线前置授权清单.md"
+          if [ ! -f "$F" ]; then echo "::error::缺失 $F"; exit 1; fi
+          # 口径：只数「- **状态**：⛔ 未开始」这种条目行，不要把顶部图例行也数进来
+          OPEN=$(grep -c '^- \*\*状态\*\*：⛔ 未开始' "$F" || true)
+          echo "未闭环的上线前置义务：$OPEN 项"
+          grep -B3 '^- \*\*状态\*\*：⛔ 未开始' "$F" | grep '^## ' | sed 's/^## /  ⛔ /' || true
+          if [ "$OPEN" -gt 0 ]; then
+            echo "::warning::有 $OPEN 项上线前置授权未完成。开发不受影响，但公网上线前必须全部闭环（漏掉即侵权/违规）。"
+          fi
+
       - name: 禁止任务总结文档
         run: |
           FOUND=$(find docs -maxdepth 2 -type f \( \
