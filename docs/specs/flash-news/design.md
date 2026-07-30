@@ -54,6 +54,19 @@ FlashItem {
 | 出参 | `{ list: FlashItem[], total: int64, hasMore: bool }`，正文中命中词用 `<em>` 包裹 |
 | 鉴权 | 否 |
 
+> ⚠️ **`relevance` 在这里指「文本匹配相关度」（搜索引擎打分），
+> 与 `theme-query` 中被禁止的「投资相关度排序」是两回事。**
+> 前者是检索技术指标，后者是对证券的价值排序。不要因为词一样就误删。
+
+### 🔴 契约层面的合规约束
+
+1. `FlashItem` **不得**包含个股字段（`stocks` / `stockCodes` / `relatedStocks`）。
+2. `FlashItem` **不得**包含我方定性字段（`sentiment` / `impact` / `importance` /
+   `isPositive` / `level`）。
+3. `source` **不得**为空——来源缺失的条目不入库、不返回。
+4. `themeTags` 是**编辑性归类**，允许；但不得演变为个股关联的跳板
+   （即不得出现 `themeTags` 之外的证券维度字段）。
+
 ### 错误码
 | 码 | 含义 |
 |---|------|
