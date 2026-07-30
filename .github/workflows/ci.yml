@@ -22,6 +22,11 @@ jobs:
       - name: 明文密钥扫描
         run: bash scripts/check-secret-scan.sh --all
 
+      # 给门禁本身写测试：门禁失效是【静默】的——它照样打印 [OK]，只是什么都没拦住。
+      # 已实测到两例这样的失效（见 known-pitfalls P16），故必须自测。
+      - name: 密钥扫描器自测（13 项正反例）
+        run: bash scripts/dev/verify-secret-scan.sh
+
       - name: 禁用词表未被削弱（只增不减）
         run: |
           COUNT=$(grep -vcE '^[[:space:]]*(#|$)' scripts/compliance-forbidden-words.txt)
@@ -86,7 +91,8 @@ jobs:
           echo "通过 $PASS 项 / 失败 $FAIL 项"
           echo "### Go 单测：通过 $PASS 项，失败 $FAIL 项" >> "$GITHUB_STEP_SUMMARY"
           # 下限只增不减。新增测试后请同步上调；调低必须在 PR 说明理由。
-          MIN=15
+          # 当前本地实测 22 项（15 个顶层 + 7 个子测试），下限留 2 项余量。
+          MIN=20
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项测试，低于下限 $MIN —— 要么测试没被执行，要么有测试被删。"
             exit 1
