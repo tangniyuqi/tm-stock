@@ -8,19 +8,17 @@
 #   MySQL 5.7 会【静默忽略】CHECK 子句；8.0.16 之前也不强制。
 #   "写了约束"和"约束生效"是两件事，只有真插一条脏数据才知道。
 #
-# 2026-07-30 首次实测结果（MySQL 8.0.45，两种拒绝各自点名了机制）：
-#   证据字段为空串 → ERROR 3819 (HY000): Check constraint 'chk_evidence_not_blank' is violated.
-#   证据字段为 NULL → ERROR 1048 (23000): Column 'source_type' cannot be null
-#   同环节重复股票 → 唯一键 uk_node_stock 拒绝
-#   → 6 条 INSERT 只有 1 条（证据齐全的）进库，status 默认 DRAFT。约束确认生效。
+# 2026-07-30 实测（MySQL 8.0.45），两种拒绝各自点名了机制：
+#   证据字段为空串 → ERROR 3819: Check constraint ... is violated.
+#   证据字段为 NULL → ERROR 1048: Column ... cannot be null
+#
+# ⚠️ 上游两表（addon_quant_theme / addon_quant_base_stock）由【现有系统】维护
+#    （ADR-0007），本仓库不含其建表脚本。下面的 UPSTREAM_DDL 是【测试专用】的
+#    最小复刻，仅为让关联表能建起来，**不是 schema 权威来源**。
 #
 # ★ 设计要点：宿主机进程数压到最少（约 5 个）。
-#   初版在每次探测都 docker exec，共 ~80 个宿主进程，
-#   在内存吃紧的 Windows 上直接把 Git Bash 的 fork 打崩
-#   （cygheap read copy failed / Resource temporarily unavailable）。
-#   改法：① 就绪等待放进容器内循环，宿主只调一次
-#         ② 断言用 mysql --force 一次性跑完，再【查表看实际落库结果】——
-#            这比逐条判断退出码更强：它验的是最终状态，不是中间信号。
+#   初版每次探测都 docker exec，共 ~80 个宿主进程，
+#   在内存吃紧的 Windows 上直接把 Git Bash 的 fork 打崩。
 #
 # 用法：
 #   bash scripts/dev/verify-migrations.sh          # 跑完自动清理
@@ -73,8 +71,7 @@ docker run -d --name "$CONTAINER" \
 #    mysql 镜像首次初始化时会先起一个【临时服务器】（--skip-networking，只走 socket），
 #    ping 对它立刻成功；随后临时服务器关闭、真服务器启动。
 #    探测撞进这个切换窗口 → 后续查询全部返回空，而脚本却以为已就绪。
-#    → 改用 TCP 连接（--protocol=TCP -h 127.0.0.1）：
-#      初始化期不监听网络，只有真服务器起来 TCP 才通，这才是可靠判据。
+#    → 改用 TCP 连接：初始化期不监听网络，TCP 通了才是真服务器起来了。
 echo "▶ 等待 MySQL 就绪（TCP 探测，循环在容器内执行）..."
 if ! docker exec "$CONTAINER" bash -c '
     for i in $(seq 1 90); do
@@ -88,9 +85,11 @@ if ! docker exec "$CONTAINER" bash -c '
   exit 1
 fi
 
-VER="$(docker exec "$CONTAINER" mysql -h 127.0.0.1 --protocol=TCP \
-        -uroot -p"$ROOT_PW" -N -B -e 'SELECT VERSION()' 2>/dev/null | tr -d '\r')"
-# ★ 空结果守卫：初版没有这条，于是拿着空 TABLES 一路跑出 9 个假失败，
+MYSQL_RUN() { docker exec -i "$CONTAINER" mysql -h 127.0.0.1 --protocol=TCP \
+                -uroot -p"$ROOT_PW" --force -N -B "$DB" 2>&1 | tr -d '\r'; }
+
+VER="$(printf 'SELECT VERSION();\n' | MYSQL_RUN | grep -v Warning | head -1)"
+# ★ 空结果守卫：初版没有这条，于是拿着空结果一路跑出一堆假失败，
 #   把「连不上」误报成「表全缺失 + 约束全失效」。空结果必须当错误处理。
 if [ -z "$VER" ]; then
   echo "[X] 已就绪但取不到版本号 —— 连接异常，中止（不带着空结果继续断言）"
@@ -99,110 +98,144 @@ if [ -z "$VER" ]; then
 fi
 echo "  MySQL 版本：$VER"
 
-# ── 3) 跑迁移 + 断言，全部在【一次 docker exec】里完成 ──
-echo ""
-echo "▶ 执行迁移并实测约束（单次 exec，--force 使脏数据逐条被拒后继续）"
+# ── 3) 上游两表的【测试专用】最小复刻 ──
+UPSTREAM_DDL="
+CREATE TABLE addon_quant_theme (
+  id bigint UNSIGNED NOT NULL AUTO_INCREMENT, name varchar(100) DEFAULT NULL,
+  code varchar(100) DEFAULT NULL, level tinyint DEFAULT 0, parent_id bigint DEFAULT 0,
+  description varchar(250) DEFAULT NULL, remark varchar(250) DEFAULT NULL,
+  source tinyint DEFAULT 0, sort int DEFAULT 0, status tinyint DEFAULT 1,
+  created_at datetime(3) DEFAULT NULL, updated_at datetime(3) DEFAULT NULL,
+  deleted_at datetime(3) DEFAULT NULL,
+  PRIMARY KEY (id), UNIQUE KEY uk_source_code (source, code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE addon_quant_base_stock (
+  id bigint UNSIGNED NOT NULL AUTO_INCREMENT, ts_code varchar(20) DEFAULT NULL,
+  symbol varchar(10) DEFAULT NULL, name varchar(50) DEFAULT NULL,
+  industry varchar(50) DEFAULT NULL, cnspell varchar(50) DEFAULT NULL,
+  market varchar(20) DEFAULT NULL, exchange varchar(10) DEFAULT NULL,
+  list_status varchar(10) DEFAULT NULL,
+  created_at datetime(3) DEFAULT NULL, updated_at datetime(3) DEFAULT NULL,
+  deleted_at datetime(3) DEFAULT NULL,
+  PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+INSERT INTO addon_quant_theme(id,name,level,parent_id,created_at,updated_at)
+  VALUES (100001,'光刻机',1,0,NOW(3),NOW(3)),(100010,'光源',2,100001,NOW(3),NOW(3));
+INSERT INTO addon_quant_base_stock(id,ts_code,symbol,name,created_at,updated_at)
+  VALUES (1,'688502.SH','688502','茂莱光学',NOW(3),NOW(3)),
+         (2,'000001.SZ','000001','平安银行',NOW(3),NOW(3));
+"
 
 shopt -s nullglob
 MIGS=("$REPO_ROOT"/server/migrations/*.sql)
 [ ${#MIGS[@]} -eq 0 ] && { echo "[跳过] 无迁移脚本"; exit 0; }
-echo "  迁移文件：${#MIGS[@]} 个"
 
-FULL_SQL="$(cat "${MIGS[@]}")
--- ══════════ 以下为断言用数据 ══════════
-INSERT INTO stock(code,name,market,delisted,created_at,updated_at)
-  VALUES('688502','样例股','SH',0,NOW(),NOW());
+echo ""
+echo "▶ 建上游测试表 + 执行 ${#MIGS[@]} 个迁移 + 实测约束（单次 exec）"
 
--- 正例：证据齐全 → 应成功（node 100）
-INSERT INTO theme_stock_mapping
- (theme_id,chain_node_id,stock_code,source_type,source_excerpt,source_url,collected_at,created_at,updated_at)
- VALUES (1,100,'688502','年报','该业务收入占比 34.2%','https://example.com/r',NOW(),NOW(),NOW());
+# ── 4) 断言用数据 ──
+# 判据是【实际落库结果】而不是逐条退出码：验最终状态比验中间信号更强。
+ASSERT_SQL="
+-- 正例：证据齐全 → 应成功（环节 100010）
+INSERT INTO addon_quant_theme_stock
+ (theme_id,stock_id,ts_code,source_type,source_excerpt,source_url,collected_at,created_at)
+ VALUES (100010,1,'688502.SH',2,'光源模组业务收入占比34.2%','https://e.com/r',NOW(3),NOW(3));
+-- 正例：同一股票挂到【另一个】题材 → 应成功（多对多的核心诉求）
+INSERT INTO addon_quant_theme_stock
+ (theme_id,stock_id,ts_code,source_type,source_excerpt,source_url,collected_at,created_at)
+ VALUES (100001,1,'688502.SH',2,'公司属光刻机产业链','https://e.com/r3',NOW(3),NOW(3));
+-- 反例：摘录空串 → CHECK 应拒
+INSERT INTO addon_quant_theme_stock
+ (theme_id,stock_id,ts_code,source_type,source_excerpt,source_url,collected_at,created_at)
+ VALUES (100010,2,'000001.SZ',2,'','https://e.com/r',NOW(3),NOW(3));
+-- 反例：链接空串 → CHECK 应拒
+INSERT INTO addon_quant_theme_stock
+ (theme_id,stock_id,ts_code,source_type,source_excerpt,source_url,collected_at,created_at)
+ VALUES (100010,2,'000001.SZ',2,'摘录','',NOW(3),NOW(3));
+-- 反例：source_type=0 → CHECK 应拒
+INSERT INTO addon_quant_theme_stock
+ (theme_id,stock_id,ts_code,source_type,source_excerpt,source_url,collected_at,created_at)
+ VALUES (100010,2,'000001.SZ',0,'摘录','https://e.com/r',NOW(3),NOW(3));
+-- 反例：摘录为 NULL → NOT NULL 应拒
+INSERT INTO addon_quant_theme_stock
+ (theme_id,stock_id,ts_code,source_type,source_excerpt,source_url,collected_at,created_at)
+ VALUES (100010,2,'000001.SZ',2,NULL,'https://e.com/r',NOW(3),NOW(3));
+-- 反例：同环节重复挂同一股票 → 唯一键应拒
+INSERT INTO addon_quant_theme_stock
+ (theme_id,stock_id,ts_code,source_type,source_excerpt,source_url,collected_at,created_at)
+ VALUES (100010,1,'688502.SH',1,'另一段摘录','https://e.com/r2',NOW(3),NOW(3));
 
--- 反例 201：source_type 为空串 → CHECK 应拒
-INSERT INTO theme_stock_mapping
- (theme_id,chain_node_id,stock_code,source_type,source_excerpt,source_url,collected_at,created_at,updated_at)
- VALUES (1,201,'688502','','摘录','https://example.com/r',NOW(),NOW(),NOW());
-
--- 反例 202：source_excerpt 为空串 → CHECK 应拒
-INSERT INTO theme_stock_mapping
- (theme_id,chain_node_id,stock_code,source_type,source_excerpt,source_url,collected_at,created_at,updated_at)
- VALUES (1,202,'688502','年报','','https://example.com/r',NOW(),NOW(),NOW());
-
--- 反例 203：source_url 为空串 → CHECK 应拒
-INSERT INTO theme_stock_mapping
- (theme_id,chain_node_id,stock_code,source_type,source_excerpt,source_url,collected_at,created_at,updated_at)
- VALUES (1,203,'688502','年报','摘录','',NOW(),NOW(),NOW());
-
--- 反例 204：source_type 为 NULL → NOT NULL 应拒
-INSERT INTO theme_stock_mapping
- (theme_id,chain_node_id,stock_code,source_type,source_excerpt,source_url,collected_at,created_at,updated_at)
- VALUES (1,204,'688502',NULL,'摘录','https://example.com/r',NOW(),NOW(),NOW());
-
--- 反例：同环节同股票重复（node 100 再插一次）→ 唯一键应拒
-INSERT INTO theme_stock_mapping
- (theme_id,chain_node_id,stock_code,source_type,source_excerpt,source_url,collected_at,created_at,updated_at)
- VALUES (1,100,'688502','年报','另一段摘录','https://example.com/r2',NOW(),NOW(),NOW());
-
--- ══════════ 输出实际落库结果供断言 ══════════
 SELECT 'TABLES', GROUP_CONCAT(table_name ORDER BY table_name)
   FROM information_schema.tables WHERE table_schema=DATABASE();
-SELECT 'MAPPING_ROWS', IFNULL(GROUP_CONCAT(CONCAT(chain_node_id,'/',status) ORDER BY chain_node_id),'NONE')
-  FROM theme_stock_mapping;
-SELECT 'MAPPING_COUNT', COUNT(*) FROM theme_stock_mapping;
+SELECT 'ROWS', IFNULL(GROUP_CONCAT(CONCAT(theme_id,'/',audit_status) ORDER BY theme_id),'NONE')
+  FROM addon_quant_theme_stock WHERE deleted_at IS NULL;
+SELECT 'COUNT', COUNT(*) FROM addon_quant_theme_stock;
+
+-- 软删除后重新添加同一对 → 应成功（生成列 alive 的价值）
+UPDATE addon_quant_theme_stock SET deleted_at=NOW(3) WHERE theme_id=100010 AND stock_id=1;
+INSERT INTO addon_quant_theme_stock
+ (theme_id,stock_id,ts_code,source_type,source_excerpt,source_url,collected_at,created_at)
+ VALUES (100010,1,'688502.SH',2,'重新收录','https://e.com/r4',NOW(3),NOW(3));
+SELECT 'AFTER_READD', COUNT(*) FROM addon_quant_theme_stock;
+
+-- C 端三重过滤：未审核时应为 0
+SELECT 'CSIDE_BEFORE_AUDIT', COUNT(*) FROM addon_quant_theme_stock ts
+  JOIN addon_quant_base_stock s ON s.id=ts.stock_id AND s.deleted_at IS NULL
+  JOIN addon_quant_theme      t ON t.id=ts.theme_id AND t.deleted_at IS NULL
+ WHERE ts.deleted_at IS NULL AND ts.audit_status=2 AND ts.status=1;
+UPDATE addon_quant_theme_stock SET audit_status=2 WHERE deleted_at IS NULL;
+SELECT 'CSIDE_AFTER_AUDIT', COUNT(*) FROM addon_quant_theme_stock ts
+  JOIN addon_quant_base_stock s ON s.id=ts.stock_id AND s.deleted_at IS NULL
+  JOIN addon_quant_theme      t ON t.id=ts.theme_id AND t.deleted_at IS NULL
+ WHERE ts.deleted_at IS NULL AND ts.audit_status=2 AND ts.status=1;
 "
 
-OUT="$(printf '%s\n' "$FULL_SQL" | docker exec -i "$CONTAINER" \
-        mysql -h 127.0.0.1 --protocol=TCP -uroot -p"$ROOT_PW" --force -N -B "$DB" 2>&1 | tr -d '\r')"
+OUT="$( { printf '%s\n' "$UPSTREAM_DDL"; cat "${MIGS[@]}"; printf '%s\n' "$ASSERT_SQL"; } | MYSQL_RUN )"
 
-# 空结果守卫（同上）：拿不到 TABLES 说明连接或执行整体失败，不要继续断言
 if ! printf '%s\n' "$OUT" | grep -q '^TABLES'; then
   echo "[X] SQL 执行未返回结果，中止。原始输出前 20 行："
   printf '%s\n' "$OUT" | head -20
   exit 1
 fi
 
-TABLES="$(printf '%s\n' "$OUT" | awk -F'\t' '$1=="TABLES"{print $2}')"
-ROWS="$(printf '%s\n' "$OUT"   | awk -F'\t' '$1=="MAPPING_ROWS"{print $2}')"
-COUNT="$(printf '%s\n' "$OUT"  | awk -F'\t' '$1=="MAPPING_COUNT"{print $2}')"
+f() { printf '%s\n' "$OUT" | awk -F'\t' -v k="$1" '$1==k{print $2}'; }
+TABLES="$(f TABLES)"; ROWS="$(f ROWS)"; COUNT="$(f COUNT)"
+AFTER_READD="$(f AFTER_READD)"; C_BEFORE="$(f CSIDE_BEFORE_AUDIT)"; C_AFTER="$(f CSIDE_AFTER_AUDIT)"
 
-# ── 4) 断言 ──
+# ── 5) 断言 ──
 echo ""
 echo "▶ 表结构"
-for t in theme_category theme theme_chain_node stock theme_stock_mapping theme_event; do
+for t in addon_quant_theme addon_quant_base_stock addon_quant_theme_stock; do
   case ",$TABLES," in *",$t,"*) ok "表 $t 存在" ;; *) bad "表 $t 缺失（TABLES=$TABLES）" ;; esac
 done
 
 echo ""
-echo "▶ 🔴 合规约束实测（判据 = 实际落库结果，不是中间退出码）"
-echo "  实际落库：$ROWS   行数：$COUNT"
+echo "▶ 🔴 合规约束实测（判据 = 实际落库结果）"
+echo "  存活行：$ROWS   总行数：$COUNT"
 
-if [ "$COUNT" = "1" ]; then
-  ok "6 条 INSERT 只有 1 条进库 —— 5 条脏数据全部被拒"
-else
-  bad "应只有 1 条进库，实际 $COUNT 条。进库的是：$ROWS"
-  case "$ROWS" in
-    *201*) bad "  └ node 201（source_type 空串）竟然进库 → CHECK 未生效！MySQL $VER" ;;
-  esac
-  case "$ROWS" in
-    *202*) bad "  └ node 202（source_excerpt 空串）竟然进库 → CHECK 未生效！" ;;
-  esac
-  case "$ROWS" in
-    *203*) bad "  └ node 203（source_url 空串）竟然进库 → CHECK 未生效！" ;;
-  esac
-  case "$ROWS" in
-    *204*) bad "  └ node 204（source_type NULL）竟然进库 → NOT NULL 未生效！" ;;
-  esac
-fi
+[ "$COUNT" = "2" ] && ok "7 条 INSERT 只有 2 条进库 —— 5 条脏数据全部被拒" \
+                   || bad "应只有 2 条进库，实际 $COUNT 条。进库的是：$ROWS"
 
 case "$ROWS" in
-  100/*) ok "证据齐全的映射成功入库（正例，约束没过严）" ;;
-  *)     bad "证据齐全的映射未能入库（约束过严）：$ROWS" ;;
+  *100010*) ok "证据齐全的映射成功入库（正例，约束没过严）" ;;
+  *)        bad "证据齐全的映射未能入库（约束过严）：$ROWS" ;;
+esac
+case "$ROWS" in
+  *100001*) ok "同一股票可挂多个题材（多对多成立）" ;;
+  *)        bad "跨题材映射未入库：$ROWS" ;;
+esac
+case "$ROWS" in
+  *"/0"*) ok "audit_status 默认 0=草稿（fail-safe：误插入的行不对外可见）" ;;
+  *)      bad "audit_status 默认值不是草稿：$ROWS" ;;
 esac
 
-case "$ROWS" in
-  *"/DRAFT"*) ok "status 默认 DRAFT（fail-safe：误插入的行不会直接对外可见）" ;;
-  *)          bad "status 默认值不是 DRAFT：$ROWS" ;;
-esac
+[ "$AFTER_READD" = "3" ] && ok "软删除后可重新添加同一对（生成列 alive 生效）" \
+                         || bad "软删后重加失败，总行数 $AFTER_READD（期望 3）"
+
+echo ""
+echo "▶ C 端三重过滤"
+[ "$C_BEFORE" = "0" ] && ok "未审核时 C 端查到 0 条" || bad "未审核却能查到 $C_BEFORE 条 —— 过滤失效！"
+[ "$C_AFTER" = "2" ]  && ok "审核通过后 C 端查到 2 条" || bad "审核后应查到 2 条，实际 $C_AFTER"
 
 echo ""
 echo "═══════════════════════════════"

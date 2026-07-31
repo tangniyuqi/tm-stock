@@ -52,7 +52,10 @@ type ChainNodeResp struct {
 // 刻意【只有】标识 + 涨跌幅 + 依据标记三类字段。
 // 任何"评价""排名""推荐"维度都不得加入——那是荐股定义的核心要件。
 type StockItemResp struct {
+	// Code 是 6 位代码（symbol），给用户看；
+	// TsCode 是 000001.SZ 形式的唯一标识，用于调依据接口与行情接口。
 	Code   string `json:"code"`
+	TsCode string `json:"tsCode"`
 	Name   string `json:"name"`
 	Market string `json:"market"`
 
@@ -77,10 +80,13 @@ type ThemeEventResp struct {
 // 四项字段缺一不可：服务层保证不会返回不完整的依据，
 // 宁可返回 404 也不返回"空依据"——空依据等于承认"我们也不知道为什么"。
 type EvidenceResp struct {
-	StockCode     string `json:"stockCode"`
+	TsCode        string `json:"tsCode"`
+	StockCode     string `json:"stockCode"` // 6 位 symbol
 	StockName     string `json:"stockName"`
 	ChainNodeName string `json:"chainNodeName"`
 
+	// SourceType 返回中文名而非枚举数字：这段文案会直接展示给用户，
+	// 让前端去维护一份「1=公告 2=年报」的映射表，两边迟早不同步。
 	SourceType    string `json:"sourceType"`
 	SourceExcerpt string `json:"sourceExcerpt"`
 	SourceURL     string `json:"sourceUrl"`

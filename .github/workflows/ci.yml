@@ -91,8 +91,8 @@ jobs:
           echo "通过 $PASS 项 / 失败 $FAIL 项"
           echo "### Go 单测：通过 $PASS 项，失败 $FAIL 项" >> "$GITHUB_STEP_SUMMARY"
           # 下限只增不减。新增测试后请同步上调；调低必须在 PR 说明理由。
-          # 当前本地实测 22 项（15 个顶层 + 7 个子测试），下限留 2 项余量。
-          MIN=20
+          # 当前本地实测 31 项（含 repository 的 SQL 守护），下限留 3 项余量。
+          MIN=28
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项测试，低于下限 $MIN —— 要么测试没被执行，要么有测试被删。"
             exit 1

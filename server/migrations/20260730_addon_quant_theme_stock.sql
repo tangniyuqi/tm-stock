@@ -4,10 +4,13 @@
 -- 配套现有表：addon_quant_theme（题材，层级树）、addon_quant_base_stock（股票，5497 条）
 -- 命名、字段风格、软删除与操作人字段均沿用这两张表的约定。
 --
--- ⚠️ 状态：提案。tm-stock 是否与 addon_quant_* 共库尚未拍板
---    （tm-stock 自己的 server/migrations/20260730_create_theme_tables.sql
---      建了功能重复的 theme / stock / theme_stock_mapping，二者必须二选一）。
---    定了之后本文件移到 server/migrations/ 正式目录。
+-- ✅ 状态：已采纳（ADR-0007）。tm-stock 与现有系统【共库】，以 addon_quant_* 为准；
+--    此前自建的 theme / theme_category / theme_chain_node / stock / theme_event
+--    五张表已废弃删除。本表是唯一真正缺失、且由 tm-stock 负责的表。
+--
+-- ⚠️ 上游两表（addon_quant_theme / addon_quant_base_stock）由现有系统维护，
+--    本仓库【不含】它们的建表脚本。本地测试用的建表语句在
+--    scripts/dev/verify-migrations.sh 内联，仅供测试，勿当作 schema 权威来源。
 --
 -- 🔴 本表承载 ADR-0003 的【合规命门】：
 --    "凭什么把这家公司归到这个题材" 必须有可溯源的客观依据。
