@@ -55,9 +55,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # 版本从 go.mod 读，不写死。
+      # 写死过一次 '1.22'，随后 go get 拉驱动时把 go.mod 顶到 1.24，
+      # 两边就对不上了 —— 单一事实源能避免这类漂移。
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version-file: server/go.mod
           cache: false
 
       - name: gofmt 格式检查
@@ -96,6 +99,67 @@ jobs:
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项测试，低于下限 $MIN —— 要么测试没被执行，要么有测试被删。"
             exit 1
+          fi
+
+  # 单独一个 job：需要 MySQL 服务，且比其他检查慢，不拖累主路径。
+  # 为什么必须有：单测里的 SQL 断言只能查"字符串含某片段"，
+  # 查不出列名拼错 / 类型不匹配 / JOIN 写反 / Scan 顺序错位 —— 只有真执行才暴露。
+  integration:
+    name: 集成测试（真连 MySQL）
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: fake-ci-only-not-a-secret
+          MYSQL_DATABASE: tm_stock_it
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 --silent"
+          --health-interval=10s --health-timeout=5s --health-retries=15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+          cache: false
+
+      # ★ 不能只信 service 的 mysqladmin ping：
+      #   mysql 镜像首次初始化会先起一个 --skip-networking 的临时服务器，
+      #   ping 对它立刻成功，而真服务器还没起来。撞进这个窗口后续全查空。
+      #   → 用 TCP 连接再确认一次（本地实测踩过这个坑）。
+      - name: 等待 MySQL 真就绪（TCP 探测）
+        run: |
+          for i in $(seq 1 60); do
+            if mysql -h 127.0.0.1 -P 3306 --protocol=TCP \
+                 -uroot -p"fake-ci-only-not-a-secret" -N -B -e "SELECT 1" >/dev/null 2>&1; then
+              echo "MySQL 就绪（第 $i 次探测）"; exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::MySQL 120 秒内未就绪"; exit 1
+
+      - name: 执行集成测试 + 执行数下限守卫
+        working-directory: server
+        env:
+          TM_TEST_DSN: "root:fake-ci-only-not-a-secret@tcp(127.0.0.1:3306)/tm_stock_it?parseTime=true&multiStatements=true&charset=utf8mb4&loc=Local"
+        run: |
+          set -o pipefail
+          go test -tags=integration ./internal/repository/... -count=1 -v 2>&1 | tee /tmp/it.log | tail -40
+          PASS=$(grep -c '^[[:space:]]*--- PASS' /tmp/it.log || true)
+          SKIP=$(grep -c '^[[:space:]]*--- SKIP' /tmp/it.log || true)
+          echo "通过 $PASS 项 / 跳过 $SKIP 项"
+          echo "### 集成测试：通过 $PASS 项，跳过 $SKIP 项" >> "$GITHUB_STEP_SUMMARY"
+          # SKIP 不能冒充通过：DSN 没配时测试会整体 skip，那等于没测。
+          if [ "$SKIP" -gt 0 ]; then
+            echo "::error::有 $SKIP 项被跳过 —— TM_TEST_DSN 未生效，等于没测到"; exit 1
+          fi
+          # 下限只增不减。本地实测 15 项（8 集成 + 7 静态断言）。
+          MIN=13
+          if [ "$PASS" -lt "$MIN" ]; then
+            echo "::error::实际执行 $PASS 项，低于下限 $MIN —— 要么没跑，要么有测试被删。"; exit 1
           fi
 
   frontend:
