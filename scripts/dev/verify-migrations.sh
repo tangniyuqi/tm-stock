@@ -85,8 +85,13 @@ if ! docker exec "$CONTAINER" bash -c '
   exit 1
 fi
 
+# ★ --default-character-set=utf8mb4 不能省（实测踩过）：
+#   不指定时 mysql CLI 按系统 locale 协商连接字符集，管道进来的 UTF-8 中文
+#   会被当 latin1 再编一次存进库（双重编码）。列本身是 utf8mb4 也救不了。
+#   症状很隐蔽：ID 与计数类断言全绿，只有中文取出来是乱码。
 MYSQL_RUN() { docker exec -i "$CONTAINER" mysql -h 127.0.0.1 --protocol=TCP \
-                -uroot -p"$ROOT_PW" --force -N -B "$DB" 2>&1 | tr -d '\r'; }
+                -uroot -p"$ROOT_PW" --default-character-set=utf8mb4 \
+                --force -N -B "$DB" 2>&1 | tr -d '\r'; }
 
 VER="$(printf 'SELECT VERSION();\n' | MYSQL_RUN | grep -v Warning | head -1)"
 # ★ 空结果守卫：初版没有这条，于是拿着空结果一路跑出一堆假失败，

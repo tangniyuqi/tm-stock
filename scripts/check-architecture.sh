@@ -14,20 +14,32 @@ RESULT=0
 
 fail() { echo "[X] $1"; echo "    位置：$2"; RESULT=1; }
 
+# imports_of <目录> <路径正则> —— 只匹配【真正的 import 行】，不匹配注释里的提及。
+#
+# ★ 为什么不能用裸 grep（2026-07-31 实测踩过）：
+#   原规则 2 写作 grep -rln "internal/repository"，结果把 handler 包里
+#   一句「本层不得 import internal/repository」的**注释**当成了违规。
+#   而那句注释恰恰是有价值的——天真的修法是删注释，那是把文档改坏去迁就工具。
+#   正确修法是让规则认得 Go 的 import 语法：
+#   行首空白 + 可选别名（_ / . / 标识符）+ 引号包裹的路径。
+imports_of() {
+  grep -rlnE "^[[:space:]]*([_.]|[A-Za-z][A-Za-z0-9_]*)?[[:space:]]*\"[^\"]*($2)\"" "$1" 2>/dev/null || true
+}
+
 # ── 规则 1：handler 不得直连数据库 ──
-HITS="$(grep -rlnE '"(database/sql|gorm\.io/gorm|github\.com/jmoiron/sqlx)"' "$SRV/internal/handler" 2>/dev/null || true)"
+HITS="$(imports_of "$SRV/internal/handler" 'database/sql|gorm\.io/gorm|github\.com/jmoiron/sqlx')"
 [ -n "$HITS" ] && fail "handler 层直连数据库（必须经 service → repository）" "$HITS"
 
 # ── 规则 2：handler 不得跨层直接引用 repository ──
-HITS="$(grep -rln "internal/repository" "$SRV/internal/handler" 2>/dev/null || true)"
+HITS="$(imports_of "$SRV/internal/handler" 'internal/repository')"
 [ -n "$HITS" ] && fail "handler 跨层引用 repository（应只依赖 service）" "$HITS"
 
 # ── 规则 3：service 不得依赖 HTTP 框架（业务层与传输层解耦）──
-HITS="$(grep -rln "github.com/gin-gonic/gin" "$SRV/internal/service" 2>/dev/null || true)"
-[ -n "$HITS" ] && fail "service 依赖 gin（业务层不应知道 HTTP）" "$HITS"
+HITS="$(imports_of "$SRV/internal/service" 'github\.com/gin-gonic/gin|net/http')"
+[ -n "$HITS" ] && fail "service 依赖 HTTP 框架/net.http（业务层不应知道 HTTP）" "$HITS"
 
 # ── 规则 4：repository 不得反向依赖 service ──
-HITS="$(grep -rln "internal/service" "$SRV/internal/repository" 2>/dev/null || true)"
+HITS="$(imports_of "$SRV/internal/repository" 'internal/service')"
 [ -n "$HITS" ] && fail "repository 反向依赖 service（依赖必须单向）" "$HITS"
 
 # ── 规则 5：禁止在代码里硬编码密钥（与密钥扫描互补，这里查 Go 常量）──
