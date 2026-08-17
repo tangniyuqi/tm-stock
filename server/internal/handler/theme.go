@@ -15,6 +15,7 @@ import (
 // ThemeQueryService 是 handler 对 service 的依赖抽象。
 // 按 Go 惯例定义在【消费方】，这样 handler 可以用假实现做单测，不需要数据库。
 type ThemeQueryService interface {
+	Search(ctx context.Context, keyword string, limit int) ([]dto.ThemeBriefResp, error)
 	GetDetail(ctx context.Context, themeID int64, access service.Access) (*dto.ThemeDetailResp, error)
 	GetEvidence(ctx context.Context, themeID int64, tsCode string, access service.Access) (*dto.EvidenceResp, error)
 }
@@ -61,8 +62,32 @@ func NewThemeHandler(svc ThemeQueryService, access AccessResolver) *ThemeHandler
 
 // Register 注册路由。用 Go 1.22+ 的方法+通配模式。
 func (h *ThemeHandler) Register(mux *http.ServeMux) {
+	mux.HandleFunc("GET /api/v1/theme/search", h.Search)
 	mux.HandleFunc("GET /api/v1/theme/{id}", h.Detail)
 	mux.HandleFunc("GET /api/v1/theme/{id}/stock/{tsCode}/evidence", h.Evidence)
+}
+
+// Search GET /api/v1/theme/search?kw=&limit=
+//
+// 只搜索题材本身，不搜索产业链环节；该接口不需要订阅权限。
+func (h *ThemeHandler) Search(w http.ResponseWriter, r *http.Request) {
+	keyword := strings.TrimSpace(r.URL.Query().Get("kw"))
+	if keyword == "" {
+		fail(w, http.StatusBadRequest, codeBadRequest, "搜索关键词不能为空")
+		return
+	}
+	limit, valid := parseSearchLimit(r.URL.Query().Get("limit"))
+	if !valid {
+		fail(w, http.StatusBadRequest, codeBadRequest, "limit 必须是 1 到 50 的整数")
+		return
+	}
+
+	resp, err := h.svc.Search(r.Context(), keyword, limit)
+	if err != nil {
+		h.mapError(w, "ThemeSearch", err)
+		return
+	}
+	ok(w, resp)
 }
 
 // Detail GET /api/v1/theme/{id}
@@ -129,6 +154,14 @@ func parseID(s string) (int64, bool) {
 		return 0, false
 	}
 	return id, true
+}
+
+func parseSearchLimit(s string) (int, bool) {
+	if strings.TrimSpace(s) == "" {
+		return 20, true
+	}
+	limit, err := strconv.Atoi(s)
+	return limit, err == nil && limit >= 1 && limit <= 50
 }
 
 // validTsCode 校验 000001.SZ 这种形式。

@@ -11,10 +11,11 @@ import (
 // ── 测试替身 ──────────────────────────────────────────────────────────────
 
 type fakeRepo struct {
-	themes   map[int64]model.Theme
-	nodes    []model.Theme
-	mappings []model.ThemeStockMapping
-	stocks   map[int64]model.Stock
+	themes       map[int64]model.Theme
+	searchThemes []model.Theme
+	nodes        []model.Theme
+	mappings     []model.ThemeStockMapping
+	stocks       map[int64]model.Stock
 }
 
 func (f *fakeRepo) GetTheme(_ context.Context, id int64) (*model.Theme, error) {
@@ -22,6 +23,9 @@ func (f *fakeRepo) GetTheme(_ context.Context, id int64) (*model.Theme, error) {
 		return &t, nil
 	}
 	return nil, nil
+}
+func (f *fakeRepo) SearchThemes(_ context.Context, _ string, _ int) ([]model.Theme, error) {
+	return f.searchThemes, nil
 }
 func (f *fakeRepo) ListChainNodes(_ context.Context, _ int64) ([]model.Theme, error) {
 	return f.nodes, nil
@@ -89,6 +93,33 @@ func baseRepo() *fakeRepo {
 			1: {ID: 1, TsCode: "688502.SH", Symbol: "688502", Name: "茂莱光学", Market: "科创板"},
 			2: {ID: 2, TsCode: "000001.SZ", Symbol: "000001", Name: "样例股", Market: "主板"},
 		},
+	}
+}
+
+func TestSearch_ReturnsOnlyEnabledTopLevelThemes(t *testing.T) {
+	repo := baseRepo()
+	repo.searchThemes = []model.Theme{
+		{ID: 1, Name: "光刻机", Description: "客观说明", Level: 1, Status: model.StatusEnabled},
+		{ID: 2, Name: "光源", Level: 2, Status: model.StatusEnabled},
+		{ID: 3, Name: "停用题材", Level: 1, Status: model.StatusDisabled},
+	}
+
+	got, err := NewThemeService(repo, nil, QuoteConfig{}).Search(context.Background(), " 光 ", 10)
+	if err != nil {
+		t.Fatalf("搜索不应报错: %v", err)
+	}
+	if len(got) != 1 || got[0].ID != 1 || got[0].Description != "客观说明" {
+		t.Fatalf("应只返回启用的顶层题材，得到 %+v", got)
+	}
+}
+
+func TestSearch_EmptyKeywordDoesNotQuery(t *testing.T) {
+	repo := baseRepo()
+	repo.searchThemes = []model.Theme{{ID: 1, Name: "不应返回", Level: 1, Status: model.StatusEnabled}}
+
+	got, err := NewThemeService(repo, nil, QuoteConfig{}).Search(context.Background(), "  ", 20)
+	if err != nil || len(got) != 0 {
+		t.Fatalf("空关键词不应产生全表搜索，got=%+v err=%v", got, err)
 	}
 }
 

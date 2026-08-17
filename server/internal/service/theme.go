@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/tangniyuqi/tm-stock/server/internal/dto"
@@ -49,6 +50,7 @@ var sourceTypeNames = map[int8]string{
 // 若做成 ListMappings(status) 让调用方传参，漏传一次就是一次泄漏。
 type ThemeRepository interface {
 	GetTheme(ctx context.Context, id int64) (*model.Theme, error)
+	SearchThemes(ctx context.Context, kw string, limit int) ([]model.Theme, error)
 	ListChainNodes(ctx context.Context, themeID int64) ([]model.Theme, error)
 	ListVisibleMappings(ctx context.Context, themeIDs []int64) ([]model.ThemeStockMapping, error)
 	FindVisibleMapping(ctx context.Context, themeID int64, tsCode string) (*model.ThemeStockMapping, error)
@@ -90,6 +92,46 @@ type ThemeService struct {
 // NewThemeService 构造。quote 允许为 nil（cfg.Enabled=false 时不会被调用）。
 func NewThemeService(repo ThemeRepository, quote QuoteProvider, cfg QuoteConfig) *ThemeService {
 	return &ThemeService{repo: repo, quote: quote, cfg: cfg}
+}
+
+// Search 返回题材搜索结果。空关键词不下沉为 LIKE "%%" 的全表扫描；
+// handler 会将它作为 400 处理，这里保留空切片以保证其他调用方也不会误查全表。
+func (s *ThemeService) Search(ctx context.Context, keyword string, limit int) ([]dto.ThemeBriefResp, error) {
+	keyword = strings.TrimSpace(keyword)
+	if keyword == "" {
+		return []dto.ThemeBriefResp{}, nil
+	}
+
+	themes, err := s.repo.SearchThemes(ctx, keyword, normalizeSearchLimit(limit))
+	if err != nil {
+		return nil, err
+	}
+
+	// repository 已将这两个条件写进 SQL；service 再校验一次，避免替换
+	// repository 或测试替身时把产业链环节、停用题材泄露给搜索结果。
+	resp := make([]dto.ThemeBriefResp, 0, len(themes))
+	for _, theme := range themes {
+		if theme.Level > 1 || theme.Status != model.StatusEnabled {
+			continue
+		}
+		resp = append(resp, dto.ThemeBriefResp{
+			ID:          theme.ID,
+			Name:        theme.Name,
+			Description: theme.Description,
+		})
+	}
+	return resp, nil
+}
+
+func normalizeSearchLimit(limit int) int {
+	const defaultLimit, maxLimit = 20, 50
+	if limit <= 0 {
+		return defaultLimit
+	}
+	if limit > maxLimit {
+		return maxLimit
+	}
+	return limit
 }
 
 // GetDetail 组装题材详情。

@@ -13,19 +13,62 @@ import (
 )
 
 type fakeSvc struct {
+	search      []dto.ThemeBriefResp
+	searchErr   error
 	detail      *dto.ThemeDetailResp
 	detailErr   error
 	evidence    *dto.EvidenceResp
 	evidenceErr error
 
+	gotKeyword string
+	gotLimit   int
 	gotThemeID int64
 	gotTsCode  string
 	gotAccess  service.Access
 }
 
+func (f *fakeSvc) Search(_ context.Context, keyword string, limit int) ([]dto.ThemeBriefResp, error) {
+	f.gotKeyword, f.gotLimit = keyword, limit
+	return f.search, f.searchErr
+}
+
 func (f *fakeSvc) GetDetail(_ context.Context, id int64, a service.Access) (*dto.ThemeDetailResp, error) {
 	f.gotThemeID, f.gotAccess = id, a
 	return f.detail, f.detailErr
+}
+
+func TestSearch_ValidRequest(t *testing.T) {
+	f := &fakeSvc{search: []dto.ThemeBriefResp{{ID: 100001, Name: "光刻机", Description: "客观说明"}}}
+	h := NewThemeHandler(f, DenyAllAccess{})
+	rec := do(h, http.MethodGet, "/api/v1/theme/search?kw=%E5%85%89&limit=10")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("期望 200，得到 %d：%s", rec.Code, rec.Body.String())
+	}
+	if f.gotKeyword != "光" || f.gotLimit != 10 {
+		t.Errorf("搜索参数未正确传递: keyword=%q limit=%d", f.gotKeyword, f.gotLimit)
+	}
+	data, _ := decode(t, rec)["data"].([]any)
+	if len(data) != 1 {
+		t.Errorf("期望一个搜索结果，得到 %#v", data)
+	}
+}
+
+func TestSearch_RejectsInvalidQuery(t *testing.T) {
+	for _, path := range []string{
+		"/api/v1/theme/search",
+		"/api/v1/theme/search?kw=%20",
+		"/api/v1/theme/search?kw=%E5%85%89&limit=0",
+		"/api/v1/theme/search?kw=%E5%85%89&limit=51",
+		"/api/v1/theme/search?kw=%E5%85%89&limit=abc",
+	} {
+		t.Run(path, func(t *testing.T) {
+			f := &fakeSvc{}
+			rec := do(NewThemeHandler(f, DenyAllAccess{}), http.MethodGet, path)
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf("期望 400，得到 %d：%s", rec.Code, rec.Body.String())
+			}
+		})
+	}
 }
 func (f *fakeSvc) GetEvidence(_ context.Context, id int64, code string, a service.Access) (*dto.EvidenceResp, error) {
 	f.gotThemeID, f.gotTsCode, f.gotAccess = id, code, a

@@ -10,6 +10,14 @@
 // 第 4 条由规则 6 守护。
 package dto
 
+// ThemeBriefResp 是题材搜索结果。只返回题材的客观标识与说明，
+// 不返回产业链环节、更不返回任何个股信息。
+type ThemeBriefResp struct {
+	ID          int64  `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
 // ThemeDetailResp 题材详情。付费内容在无权限时置 nil 并 Locked=true，
 // 不返回"空壳字段"——避免前端误以为"有数据但为空"。
 type ThemeDetailResp struct {

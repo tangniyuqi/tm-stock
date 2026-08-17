@@ -1,4 +1,4 @@
-# tm-stock 后端（Go + Gin）
+# tm-stock 后端（Go + 标准库 net/http）
 
 ## 分层（强制）
 
@@ -23,6 +23,7 @@ migrations/         SQL 迁移：YYYYMMDD_<操作>_<描述>.sql
 cd server
 go mod tidy
 go run ./cmd/api        # 默认 :8080，healthz 可探活
+go run ./cmd/schema-check  # 只读核对目标库结构；不执行迁移、不写数据
 gofmt -w . && go vet ./... && go test ./... -race
 ```
 
@@ -36,4 +37,5 @@ gofmt -w . && go vet ./... && go test ./... -race
 ## 🔴 合规
 
 后端返回的**任何文案字段**同样受合规红线约束（禁用词表机器检查）。
-一期**不提供个股相关接口**，见 [`../.claude/agents/compliance-redline.md`](../.claude/agents/compliance-redline.md)。
+一期**不提供个股详情接口**（基本面、财务、K 线、技术指标等）；仅可通过题材路径查询
+成分股的客观归属依据，见 [`../.claude/agents/compliance-redline.md`](../.claude/agents/compliance-redline.md)。
