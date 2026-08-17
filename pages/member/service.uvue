@@ -1,0 +1,183 @@
+<script setup lang="ts">
+import PageHeader from '@/pages/components/PageHeader.uvue'
+</script>
+
+<template>
+	<view class="shell">
+		<PageHeader title="服务说明" :showBack="true"></PageHeader>
+		<scroll-view class="page" scroll-y="true">
+			<view class="hero-card">
+				<text class="eyebrow">账号服务</text>
+				<text class="hero-title">服务尚在准备阶段</text>
+				<text class="hero-copy">正式服务开放前，账号、会员权益与兑换码规则将以发布页面的说明为准。</text>
+			</view>
+
+			<view class="section-heading">
+				<view class="heading-mark"></view>
+				<text class="heading-copy">当前状态</text>
+			</view>
+			<view class="status-card">
+				<view class="status-row">
+					<view class="status-index"><text class="status-index-copy">1</text></view>
+					<view class="status-copy-wrap">
+						<text class="status-title">账号登录</text>
+						<text class="status-copy">等待协议、隐私政策、短信服务和后端能力就绪。</text>
+					</view>
+				</view>
+				<view class="status-row">
+					<view class="status-index"><text class="status-index-copy">2</text></view>
+					<view class="status-copy-wrap">
+						<text class="status-title">服务权益</text>
+						<text class="status-copy">服务规则、有效期及使用范围将在正式开放时说明。</text>
+					</view>
+				</view>
+				<view class="status-row">
+					<view class="status-index"><text class="status-index-copy">3</text></view>
+					<view class="status-copy-wrap">
+						<text class="status-title">兑换码服务</text>
+						<text class="status-copy">相关能力尚未开放，本页面不提供支付或收款入口。</text>
+					</view>
+				</view>
+			</view>
+
+			<view class="tip-card">
+				<text class="tip-title">使用原则</text>
+				<text class="tip-copy">题材查询和资讯展示均以可查来源及审核状态为前提，不提供对具体证券的评价、预测或交易建议。</text>
+			</view>
+
+			<view class="notice">
+				<text class="notice-copy">本平台为公开信息聚合与历史数据统计，不构成任何投资建议。</text>
+			</view>
+		</scroll-view>
+	</view>
+</template>
+
+<style scoped>
+.shell,
+.page {
+	flex: 1;
+}
+
+.page {
+	background-color: #f5f6f8;
+}
+
+.hero-card,
+.status-card,
+.tip-card {
+	margin: 16px;
+	padding: 20px;
+	border-radius: 18px;
+	background-color: #ffffff;
+}
+
+.hero-card {
+	padding-top: 26px;
+	padding-bottom: 26px;
+}
+
+.eyebrow {
+	font-size: 13px;
+	font-weight: 600;
+	color: #e93030;
+}
+
+.hero-title {
+	margin-top: 8px;
+	font-size: 23px;
+	font-weight: 700;
+	color: #292d34;
+}
+
+.hero-copy,
+.status-copy,
+.tip-copy {
+	margin-top: 9px;
+	font-size: 14px;
+	line-height: 21px;
+	color: #757c86;
+}
+
+.section-heading {
+	margin: 22px 16px 12px;
+	flex-direction: row;
+	align-items: center;
+}
+
+.heading-mark {
+	width: 4px;
+	height: 18px;
+	margin-right: 8px;
+	border-radius: 2px;
+	background-color: #e93030;
+}
+
+.heading-copy {
+	font-size: 17px;
+	font-weight: 700;
+	color: #2c3037;
+}
+
+.status-card {
+	margin-top: 0;
+	padding: 0 20px;
+	overflow: hidden;
+}
+
+.status-row {
+	min-height: 82px;
+	padding: 16px 0;
+	flex-direction: row;
+	align-items: flex-start;
+	border-bottom-width: 1px;
+	border-bottom-color: #f0f1f3;
+}
+
+.status-index {
+	width: 28px;
+	height: 28px;
+	margin: 2px 12px 0 0;
+	justify-content: center;
+	align-items: center;
+	border-radius: 14px;
+	background-color: #fff0f0;
+}
+
+.status-index-copy {
+	font-size: 14px;
+	font-weight: 700;
+	color: #e93030;
+}
+
+.status-copy-wrap {
+	flex: 1;
+}
+
+.status-title,
+.tip-title {
+	font-size: 16px;
+	font-weight: 600;
+	color: #343942;
+}
+
+.status-copy {
+	margin-top: 5px;
+	font-size: 13px;
+	line-height: 19px;
+}
+
+.tip-card {
+	margin-top: 16px;
+}
+
+.notice {
+	margin: 24px;
+}
+
+.notice-copy {
+	font-size: 12px;
+	line-height: 18px;
+	color: #9aa1aa;
+	text-align: center;
+}
+</style>

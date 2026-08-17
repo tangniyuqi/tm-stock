@@ -1,131 +1,284 @@
-<template>
-<view class="page">
-	<x-sheet :round="[0, 0, 16, 16]" :padding="[12, 24]" margin="0">
-		<x-search
-			v-model="searchValue"
-			placeholder="快讯搜索"
-			@confirm="handleSearch"
-		></x-search>
-  </x-sheet>
-
-  <x-sheet :round="0" :padding="[12, 0, 12, 0]" :margin="[12, 24, 12, 12]">
-		<x-list padding="0">
-			<view 
-				v-for="(item, index) in newsList" 
-				:key="index"
-				class="news-item-wrapper px-4 py-12"
-				@click="toggleExpand(index)"
-			>
-				<view>
-          <x-text 
-            :label="item.title" 
-            :highlight="searchValue != '' ? [searchValue] : []" 
-            highlightColor="#E93030" 
-            color="#333" 
-            fontSize="15"
-            lineHeight="1.5"
-            :lines="item.expanded ? 0 : 3"
-          />
-
-          <x-text :label="item.datetime" color="#999" font-size="13" class="mt-6" />
-				</view>
-			</view>
-		</x-list>
-	</x-sheet>
-</view>
-</template>
-
 <script setup lang="ts">
-import { ref } from 'vue';
-import { xConfig } from '@/uni_modules/tmx-ui/config/xConfig.uts';
+import { computed, onMounted, ref } from 'vue'
+import PageHeader from '@/pages/components/PageHeader.uvue'
 
-interface NewsItem {
-  title: string;
-  datetime: string;
-  isHot?: boolean;
-  cover?: string;
-  expanded?: boolean;
+const keyword = ref<string>('')
+const searchSubmitted = ref<boolean>(false)
+const isLoading = ref<boolean>(true)
+const errorMessage = ref<string>('')
+
+const openHome = () : void => {
+	uni.switchTab({ url: '/pages/index/index' })
 }
 
-// 标签页数据
-const tabList = ref([
-  { id: '1', title: '题材热点' },
-  { id: '2', title: '题材动态' },
-  { id: '3', title: '题材轮动' }
-]);
+const openThemeQuery = () : void => {
+	uni.navigateTo({ url: '/pages/segment/index' })
+}
 
-const activeTab = ref('1');
+const emptyMessage = computed(() : string => {
+	if (searchSubmitted.value && keyword.value.trim().length > 0) {
+		return '快讯搜索服务尚未接入'
+	}
+	return '暂无已授权快讯'
+})
 
-const newsList = ref<NewsItem[]>([
-  {
-    title: '半导体设备国产化率创历史新高！关键零部件领域取得重大技术突破，这一成就标志着我国在高端制造领域迈出了坚实的一步，未来将进一步减少对外部供应链的依赖。',
-    datetime: '18:46:23',
-    isHot: true,
-    cover: 'https://picsum.photos/200/140?random=1',
-    expanded: false
-  },
-  {
-    title: '重磅！多部委联合发文推动新材料产业高质量发展，这些板块将迎来黄金期。新材料作为战略性新兴产业的基石，其发展速度直接关系到制造强国战略的实施效果。',
-    datetime: '18:46:23',
-    expanded: false
-  },
-  {
-    title: '如何评价当前人工智能在硬件整机领域的自主可控趋势？专家这样说... 随着大模型的普及，底层算力芯片与服务器整机的国产化替代已成为行业共识。',
-    datetime: '18:46:23',
-    expanded: false
-  }
-]);
+const stateCopy = computed(() : string => {
+	if (searchSubmitted.value && keyword.value.trim().length > 0) {
+		return '当前无法判断是否存在匹配内容；搜索接口与授权资讯数据源完成接入后才会展示结果。'
+	}
+	return '资讯数据源完成商用授权后，会在这里按来源与时间展示。'
+})
 
-const searchValue = ref('');
+const finishInitialLoad = () : void => {
+	isLoading.value = false
+}
 
-const toggleExpand = (index: number) => {
-  newsList.value[index].expanded = !newsList.value[index].expanded;
-};
+const submitSearch = () : void => {
+	searchSubmitted.value = true
+	errorMessage.value = ''
+}
 
-const goDetail = (item: NewsItem) => {
-  console.log('跳转到新闻详情:', item.title);
-};
+const clearSearch = () : void => {
+	keyword.value = ''
+	searchSubmitted.value = false
+	errorMessage.value = ''
+}
 
-const handleSearch = (value: string) => {
-  console.log('搜索:', value);
-  // 这里可以添加搜索逻辑，比如过滤 newsList
-};
+const retryLoad = () : void => {
+	errorMessage.value = ''
+	finishInitialLoad()
+}
 
-const handleTabChange = (item: any, index: number) => {
-  console.log('切换到标签:', item.title, '索引:', index);
-  // 这里可以根据选中的标签切换显示不同的内容
-  switch(item.id) {
-    case '1':
-      // 显示题材热点内容
-      break;
-    case '2':
-      // 显示题材动态内容
-      break;
-    case '3':
-      // 显示题材轮动内容
-      break;
-  }
-};
+onMounted(() => {
+	finishInitialLoad()
+})
 </script>
 
+<template>
+	<view class="shell">
+		<PageHeader title="快讯" :showBack="false"></PageHeader>
+		<scroll-view class="page" scroll-y="true">
+		<view class="header">
+			<view class="section-tabs">
+				<view class="section-tab" @click="openHome"><text class="section-tab-copy">首页</text></view>
+				<view class="section-tab section-tab-active"><text class="section-tab-copy active-copy">快讯</text></view>
+				<view class="section-tab" @click="openThemeQuery"><text class="section-tab-copy">题材库</text></view>
+			</view>
+			<text class="title">已授权资讯</text>
+			<text class="subtitle">仅展示来源授权和出处信息齐全的客观资讯。</text>
+		</view>
+
+		<view class="search-card">
+			<input
+				v-model="keyword"
+				class="search-input"
+				confirm-type="search"
+				maxlength="50"
+				placeholder="搜索快讯"
+				@confirm="submitSearch"
+			/>
+			<view class="search-actions">
+				<text v-if="keyword.length > 0" class="clear-action" @click="clearSearch">清除</text>
+				<text class="search-action" @click="submitSearch">搜索</text>
+			</view>
+		</view>
+
+		<view v-if="isLoading" class="skeleton-list">
+			<view v-for="item in 5" :key="item" class="skeleton-card">
+				<view class="skeleton skeleton-title"></view>
+				<view class="skeleton skeleton-line"></view>
+				<view class="skeleton skeleton-line short"></view>
+			</view>
+		</view>
+
+		<view v-else-if="errorMessage.length > 0" class="state-card">
+			<text class="state-title">加载失败</text>
+			<text class="state-copy">{{ errorMessage }}</text>
+			<text class="retry-action" @click="retryLoad">重新加载</text>
+		</view>
+
+		<view v-else class="state-card">
+			<text class="state-title">{{ emptyMessage }}</text>
+			<text class="state-copy">{{ stateCopy }}</text>
+		</view>
+
+		<view class="notice">
+			<text class="notice-copy">本平台为公开信息聚合与历史数据统计，不构成任何投资建议。</text>
+		</view>
+		</scroll-view>
+	</view>
+</template>
+
 <style scoped>
+.shell,
 .page {
-  padding: 0 0 0 0;
+	flex: 1;
 }
 
-.news-item-wrapper {
-  border-bottom: 1px solid #f0f0f0;
+.page {
+	padding-bottom: 64px;
+	background-color: #f5f6f8;
 }
 
-.news-item-wrapper:last-child {
-  border-bottom: none;
+.header {
+	padding: 0 20px 22px;
+	background-color: #ffffff;
 }
 
-.text-overflow-2 {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
-  line-height: 1.4;
+.section-tabs {
+	height: 58px;
+	flex-direction: row;
+	align-items: center;
+}
+
+.section-tab {
+	min-width: 58px;
+	height: 58px;
+	margin-right: 28px;
+	justify-content: center;
+	align-items: center;
+	border-bottom-width: 3px;
+	border-bottom-color: transparent;
+}
+
+.section-tab-copy {
+	font-size: 16px;
+	font-weight: 600;
+	color: #60656e;
+}
+
+.section-tab-active {
+	border-bottom-color: #e93030;
+}
+
+.active-copy {
+	color: #e93030;
+}
+
+.title {
+	font-size: 24px;
+	font-weight: 700;
+	color: #1f2329;
+}
+
+.subtitle {
+	margin-top: 8px;
+	font-size: 14px;
+	line-height: 21px;
+	color: #6b7280;
+}
+
+.search-card {
+	margin: 16px 16px 0;
+	padding: 0 14px;
+	flex-direction: row;
+	align-items: center;
+	min-height: 48px;
+	border-radius: 16px;
+	background-color: #ffffff;
+	border-width: 1px;
+	border-color: #e5e7eb;
+}
+
+.search-input {
+	flex: 1;
+	font-size: 15px;
+	color: #1f2329;
+}
+
+.search-actions {
+	flex-direction: row;
+	align-items: center;
+}
+
+.clear-action {
+	min-width: 44px;
+	padding: 12px 8px;
+	font-size: 14px;
+	color: #6b7280;
+	text-align: center;
+}
+
+.search-action {
+	min-width: 44px;
+	padding: 12px 0 12px 8px;
+	font-size: 15px;
+	font-weight: 600;
+	color: #e93030;
+	text-align: right;
+}
+
+.state-card,
+.skeleton-list {
+	margin: 16px;
+}
+
+.state-card {
+	padding: 24px 20px;
+	align-items: center;
+	border-radius: 18px;
+	background-color: #ffffff;
+}
+
+.skeleton-card {
+	margin-bottom: 12px;
+	padding: 20px;
+	border-radius: 18px;
+	background-color: #ffffff;
+}
+
+.state-title {
+	font-size: 16px;
+	font-weight: 600;
+	color: #30343b;
+	text-align: center;
+}
+
+.state-copy {
+	margin-top: 8px;
+	font-size: 14px;
+	line-height: 21px;
+	color: #7a818c;
+	text-align: center;
+}
+
+.retry-action {
+	min-height: 44px;
+	margin-top: 12px;
+	padding: 12px 16px;
+	font-size: 14px;
+	color: #e93030;
+}
+
+.skeleton {
+	border-radius: 6px;
+	background-color: #edf0f3;
+}
+
+.skeleton-title {
+	width: 96px;
+	height: 18px;
+}
+
+.skeleton-line {
+	width: 100%;
+	height: 14px;
+	margin-top: 14px;
+}
+
+.short {
+	width: 68%;
+	margin-top: 10px;
+}
+
+.notice {
+	margin: 24px;
+}
+
+.notice-copy {
+	font-size: 12px;
+	line-height: 18px;
+	color: #9aa1aa;
+	text-align: center;
 }
 </style>

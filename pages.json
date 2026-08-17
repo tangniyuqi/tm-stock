@@ -3,31 +3,71 @@
     {
       "path": "pages/index/index",
       "style": {
-        "navigationBarTitleText": "题材宝典"
-      }
-    },
-    {
-      "path": "pages/ai/index",
-      "style": {
-        "navigationBarTitleText": "AI分析"
+        "navigationBarTitleText": "题材宝典",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/segment/index",
       "style": {
-        "navigationBarTitleText": "题材"
+        "navigationBarTitleText": "题材",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/segment/detail",
+      "style": {
+        "navigationBarTitleText": "题材详情",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/news/index",
       "style": {
-        "navigationBarTitleText": "7x24全球财经快讯"
+        "navigationBarTitleText": "7x24全球财经快讯",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/news/detail",
+      "style": {
+        "navigationBarTitleText": "快讯详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/ai/index",
+      "style": {
+        "navigationBarTitleText": "AI分析",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/member/index",
       "style": {
-        "navigationBarTitleText": "我的"
+        "navigationBarTitleText": "我的",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/member/login",
+      "style": {
+        "navigationBarTitleText": "登录",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/member/service",
+      "style": {
+        "navigationBarTitleText": "服务说明",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/member/privacy",
+      "style": {
+        "navigationBarTitleText": "协议与隐私",
+        "navigationStyle": "custom"
       }
     }
   ],

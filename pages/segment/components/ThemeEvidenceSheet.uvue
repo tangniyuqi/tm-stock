@@ -1,0 +1,155 @@
+<script setup lang="ts">
+import { computed } from 'vue'
+import { Evidence, formatMillis } from '@/pages/libs/theme.uts'
+
+type ThemeEvidenceSheetProps = {
+	visible : boolean,
+	evidence : Evidence
+}
+
+const props = defineProps<ThemeEvidenceSheetProps>()
+
+const emits = defineEmits<{
+	close : []
+}>()
+
+const isVisible = computed(() : boolean => {
+	return props.visible
+})
+
+const stockName = computed(() : string => {
+	return props.evidence.stockName
+})
+
+const chainNodeName = computed(() : string => {
+	return props.evidence.chainNodeName
+})
+
+const sourceType = computed(() : string => {
+	return props.evidence.sourceType
+})
+
+const sourceExcerpt = computed(() : string => {
+	return props.evidence.sourceExcerpt
+})
+
+const sourceURL = computed(() : string => {
+	return props.evidence.sourceUrl
+})
+
+const collectedAt = computed(() : string => {
+	return formatMillis(props.evidence.collectedAt)
+})
+
+const close = () : void => {
+	emits('close')
+}
+</script>
+
+<template>
+	<view v-if="isVisible" class="overlay" @click="close">
+		<view class="sheet" @click.stop>
+			<view class="sheet-header">
+				<view class="header-copy">
+					<text class="title">归属依据</text>
+					<text class="subtitle">{{ stockName }} · {{ chainNodeName }}</text>
+				</view>
+				<text class="close-action" @click="close">关闭</text>
+			</view>
+
+			<view class="field">
+				<text class="label">来源类型</text>
+				<text class="value">{{ sourceType }}</text>
+			</view>
+			<view class="field">
+				<text class="label">原文摘录</text>
+				<text class="excerpt">{{ sourceExcerpt }}</text>
+			</view>
+			<view class="field">
+				<text class="label">原文链接</text>
+				<text class="url">{{ sourceURL }}</text>
+			</view>
+			<view class="field">
+				<text class="label">采集时点</text>
+				<text class="value">{{ collectedAt }}</text>
+			</view>
+		</view>
+	</view>
+</template>
+
+<style scoped>
+.overlay {
+	position: fixed;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	padding: 24px;
+	justify-content: flex-end;
+	background-color: rgba(0, 0, 0, 0.42);
+	z-index: 20;
+}
+
+.sheet {
+	padding: 20px;
+	border-radius: 16px;
+	background-color: #ffffff;
+}
+
+.sheet-header {
+	flex-direction: row;
+	align-items: flex-start;
+}
+
+.header-copy {
+	flex: 1;
+}
+
+.title {
+	font-size: 18px;
+	font-weight: 700;
+	color: #1f2329;
+}
+
+.subtitle {
+	margin-top: 6px;
+	font-size: 13px;
+	color: #7a818c;
+}
+
+.close-action {
+	min-width: 44px;
+	padding: 10px 0 10px 10px;
+	font-size: 14px;
+	color: #e93030;
+	text-align: right;
+}
+
+.field {
+	margin-top: 20px;
+}
+
+.label {
+	font-size: 12px;
+	color: #89909a;
+}
+
+.value,
+.excerpt,
+.url {
+	margin-top: 6px;
+	font-size: 14px;
+	line-height: 21px;
+	color: #30343b;
+}
+
+.excerpt {
+	padding: 12px;
+	border-radius: 8px;
+	background-color: #f6f7f9;
+}
+
+.url {
+	color: #366bd8;
+}
+</style>

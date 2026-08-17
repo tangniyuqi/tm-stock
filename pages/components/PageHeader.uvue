@@ -1,0 +1,59 @@
+<script setup lang="ts">
+type PageHeaderProps = {
+	title : string,
+	showBack : boolean
+}
+
+const props = withDefaults(defineProps<PageHeaderProps>(), {
+	showBack: false
+})
+
+const goBack = () : void => {
+	if (props.showBack) {
+		uni.navigateBack()
+	}
+}
+</script>
+
+<template>
+	<view class="page-header">
+		<text v-if="showBack" class="page-header-back" @click="goBack">‹</text>
+		<view v-else class="page-header-side-placeholder"></view>
+		<text class="page-header-title">{{ title }}</text>
+		<view class="page-header-side-placeholder"></view>
+	</view>
+</template>
+
+<style scoped>
+.page-header {
+	min-height: 56px;
+	padding: 0 16px;
+	padding-top: env(safe-area-inset-top);
+	flex-direction: row;
+	align-items: center;
+	background-color: #e93030;
+	border-bottom-width: 1px;
+	border-bottom-color: rgba(255, 255, 255, 0.16);
+}
+
+.page-header-back,
+.page-header-side-placeholder {
+	width: 44px;
+	height: 44px;
+}
+
+.page-header-back {
+	padding-top: 4px;
+	font-size: 36px;
+	line-height: 36px;
+	color: #ffffff;
+}
+
+.page-header-title {
+	flex: 1;
+	font-size: 21px;
+	font-weight: 700;
+	color: #ffffff;
+	text-align: center;
+}
+</style>

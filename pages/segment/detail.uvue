@@ -1,0 +1,278 @@
+<script setup lang="ts">
+import { onMounted, ref } from 'vue'
+import PageHeader from '@/pages/components/PageHeader.uvue'
+import ThemeEvidenceSheet from './components/ThemeEvidenceSheet.uvue'
+import { Evidence, StockItem, ThemeDetail, formatChangePct, formatMillis } from '@/pages/libs/theme.uts'
+
+type DetailState = 'loading' | 'empty' | 'error' | 'ready'
+
+const pageState = ref<DetailState>('loading')
+const errorMessage = ref<string>('')
+const theme = ref<ThemeDetail | null>(null)
+const evidence = ref<Evidence | null>(null)
+const evidenceVisible = ref<boolean>(false)
+
+const finishInitialLoad = () : void => {
+	pageState.value = 'empty'
+}
+
+const retryLoad = () : void => {
+	errorMessage.value = ''
+	finishInitialLoad()
+}
+
+const showEvidence = (stock : StockItem) : void => {
+	if (!stock.hasEvidence) {
+		return
+	}
+	uni.showToast({ title: '归属依据将在数据接入后展示', icon: 'none' })
+}
+
+const closeEvidence = () : void => {
+	evidenceVisible.value = false
+}
+
+onMounted(() => {
+	finishInitialLoad()
+})
+</script>
+
+<template>
+	<view class="shell">
+		<PageHeader title="题材详情" :showBack="true"></PageHeader>
+		<scroll-view class="page" scroll-y="true">
+		<view v-if="pageState == 'loading'" class="state-card">
+			<view class="skeleton skeleton-title"></view>
+			<view class="skeleton skeleton-line"></view>
+		</view>
+
+		<view v-else-if="pageState == 'error'" class="state-card">
+			<text class="state-title">加载失败</text>
+			<text class="state-copy">{{ errorMessage }}</text>
+			<text class="retry-action" @click="retryLoad">重新加载</text>
+		</view>
+
+		<view v-else-if="pageState == 'empty' || theme == null" class="state-card">
+			<text class="state-title">暂无题材数据</text>
+			<text class="state-copy">题材内容完成审核并接入后，将在这里展示客观信息与归属依据。</text>
+		</view>
+
+		<view v-else class="detail-content">
+			<view class="header-card">
+				<text class="theme-name">{{ theme.name }}</text>
+				<text class="theme-summary">{{ theme.summary }}</text>
+				<text class="updated-at">更新时间：{{ formatMillis(theme.updatedAt) }}</text>
+			</view>
+
+			<view v-if="theme.locked" class="locked-card">
+				<text class="state-title">完整内容暂不可查看</text>
+				<text class="state-copy">完成订阅或试吃判定后，可查看产业链环节与归属依据。</text>
+			</view>
+
+			<view v-else-if="theme.chainNodes == null || theme.chainNodes.length == 0" class="state-card">
+				<text class="state-title">暂无产业链数据</text>
+			</view>
+
+			<view v-else class="chain-list">
+				<view v-for="node in theme.chainNodes" :key="node.id" class="chain-card">
+					<view class="chain-header">
+						<view class="chain-copy">
+							<text class="chain-name">{{ node.name }}</text>
+							<text v-if="node.description.length > 0" class="chain-description">{{ node.description }}</text>
+						</view>
+						<text class="change-value">{{ formatChangePct(node.changePct) }}</text>
+					</view>
+					<text v-if="node.caliber.length > 0" class="caliber">{{ node.caliber }}</text>
+
+					<view v-if="node.stocks.length == 0" class="stock-empty">
+						<text class="stock-empty-copy">暂无已收录公司</text>
+					</view>
+					<view v-else class="stock-list">
+						<view v-for="stock in node.stocks" :key="stock.tsCode" class="stock-item" @click="showEvidence(stock)">
+							<view class="stock-copy">
+								<text class="stock-name">{{ stock.name }}</text>
+								<text class="stock-code">{{ stock.code }} · {{ stock.market }}</text>
+							</view>
+							<text class="change-value">{{ formatChangePct(stock.changePct) }}</text>
+						</view>
+					</view>
+				</view>
+			</view>
+		</view>
+
+		<view class="notice">
+			<text class="notice-copy">本平台为公开信息聚合与历史数据统计，不构成任何投资建议。</text>
+		</view>
+
+		<ThemeEvidenceSheet v-if="evidence != null" :visible="evidenceVisible" :evidence="evidence" @close="closeEvidence"></ThemeEvidenceSheet>
+		</scroll-view>
+	</view>
+</template>
+
+<style scoped>
+.shell,
+.page {
+	flex: 1;
+}
+
+.page {
+	background-color: #f5f6f8;
+}
+
+.detail-content,
+.state-card {
+	margin: 16px;
+}
+
+.state-card,
+.header-card,
+.locked-card,
+.chain-card {
+	padding: 20px;
+	border-radius: 18px;
+	background-color: #ffffff;
+}
+
+.state-card {
+	align-items: center;
+}
+
+.state-title {
+	font-size: 16px;
+	font-weight: 600;
+	color: #30343b;
+	text-align: center;
+}
+
+.state-copy {
+	margin-top: 8px;
+	font-size: 14px;
+	line-height: 21px;
+	color: #7a818c;
+	text-align: center;
+}
+
+.retry-action {
+	min-height: 44px;
+	margin-top: 12px;
+	padding: 12px 16px;
+	font-size: 14px;
+	color: #e93030;
+}
+
+.skeleton {
+	border-radius: 6px;
+	background-color: #edf0f3;
+}
+
+.skeleton-title {
+	width: 128px;
+	height: 20px;
+}
+
+.skeleton-line {
+	width: 100%;
+	height: 14px;
+	margin-top: 16px;
+}
+
+.header-card {
+	padding-bottom: 18px;
+}
+
+.theme-name {
+	font-size: 24px;
+	font-weight: 700;
+	color: #1f2329;
+}
+
+.theme-summary {
+	margin-top: 12px;
+	font-size: 15px;
+	line-height: 23px;
+	color: #505762;
+}
+
+.updated-at,
+.caliber,
+.chain-description,
+.stock-code {
+	margin-top: 8px;
+	font-size: 12px;
+	line-height: 18px;
+	color: #89909a;
+}
+
+.locked-card {
+	margin-top: 12px;
+	align-items: center;
+}
+
+.chain-list {
+	margin-top: 12px;
+}
+
+.chain-card {
+	margin-bottom: 12px;
+	padding: 16px;
+}
+
+.chain-header,
+.stock-item {
+	flex-direction: row;
+	align-items: center;
+}
+
+.chain-copy,
+.stock-copy {
+	flex: 1;
+}
+
+.chain-name,
+.stock-name {
+	font-size: 16px;
+	font-weight: 600;
+	color: #30343b;
+}
+
+.change-value {
+	margin-left: 12px;
+	font-size: 14px;
+	color: #505762;
+	text-align: right;
+}
+
+.stock-list {
+	margin-top: 12px;
+	border-top-width: 1px;
+	border-top-color: #f0f1f3;
+}
+
+.stock-item {
+	min-height: 58px;
+	border-bottom-width: 1px;
+	border-bottom-color: #f0f1f3;
+}
+
+.stock-empty {
+	margin-top: 12px;
+	padding: 14px 0;
+	align-items: center;
+}
+
+.stock-empty-copy {
+	font-size: 13px;
+	color: #89909a;
+}
+
+.notice {
+	margin: 24px 24px 32px;
+}
+
+.notice-copy {
+	font-size: 12px;
+	line-height: 18px;
+	color: #9aa1aa;
+	text-align: center;
+}
+</style>

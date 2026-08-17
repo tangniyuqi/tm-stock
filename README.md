@@ -1,6 +1,6 @@
 # 题材宝典 tm-stock
 
-为投资者提供**题材 / 行业信息查询与通俗解读**的移动端应用。
+提供**题材 / 行业公开信息查询与整理**的移动端应用。
 一期定位：**免费快讯引流 + 付费题材查询**（只到题材/行业/产业链环节层）。
 
 ## 🔴 开工前必读
@@ -19,14 +19,14 @@ AI 协作入口：**[CLAUDE.md](CLAUDE.md)**；研发流程：[WORKFLOW.md](WORK
 | 端 | 技术 |
 |---|------|
 | 前端 | **uni-app x**（`.uvue` / `.uts`）+ tmx-ui，HBuilderX 构建；一期只发 **H5** |
-| 后端 | **Go + Gin**（`server/`） |
+| 后端 | **Go + 标准库 net/http**（`server/`） |
 | 存储 | MySQL / Redis（按需）；全文检索预留 Meilisearch |
 
 ## 目录
 
 ```
 ├── App.uvue · main.uts · pages.json    # 前端入口（仓库根即前端工程）
-├── pages/         index · news(快讯) · segment(题材) · member · express
+├── pages/         index · news(快讯) · segment(题材) · member
 ├── uni_modules/   组件依赖（含 tmx-ui）
 ├── .kiro/skills/tmui4x-dev/            # ★ tmui4x 开发技能库（写页面前先查）
 ├── .claude/       AI 协作：settings · hooks · agents(规范)

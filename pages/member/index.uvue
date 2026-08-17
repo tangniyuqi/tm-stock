@@ -1,21 +1,262 @@
-<template>
-  <view class="container">
-    <text class="title">我的页面</text>
-  </view>
-</template>
+<script lang="ts" setup>
+import PageHeader from '@/pages/components/PageHeader.uvue'
 
-<script lang="uts" setup>
+const openLogin = () : void => {
+	uni.navigateTo({ url: '/pages/member/login' })
+}
+
+const openService = () : void => {
+	uni.navigateTo({ url: '/pages/member/service' })
+}
+
+const openPrivacy = () : void => {
+	uni.navigateTo({ url: '/pages/member/privacy' })
+}
 </script>
 
-<style lang="css">
-.container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
+<template>
+	<view class="shell">
+		<PageHeader title="我的" :showBack="false"></PageHeader>
+		<scroll-view class="page" scroll-y="true">
+			<view class="profile-card">
+				<view class="avatar"><text class="avatar-copy">题</text></view>
+				<view class="profile-copy">
+					<text class="profile-title">尚未登录</text>
+					<text class="profile-subtitle">账号服务准备中，暂不收集个人信息。</text>
+				</view>
+				<text class="login-action" @click="openLogin">登录</text>
+			</view>
+
+			<view class="section-heading">
+				<view class="heading-mark"></view>
+				<text class="heading-copy">账号服务</text>
+			</view>
+			<view class="menu-card">
+				<view class="menu-row" @click="openLogin">
+					<view class="menu-icon account-icon"><text class="menu-icon-copy">登</text></view>
+					<text class="menu-title">登录与注册</text>
+					<text class="menu-status">准备中</text>
+					<text class="menu-arrow">›</text>
+				</view>
+				<view class="menu-row">
+					<view class="menu-icon code-icon"><text class="menu-icon-copy">码</text></view>
+					<text class="menu-title">兑换码服务</text>
+					<text class="menu-status">未开放</text>
+				</view>
+			</view>
+
+			<view class="section-heading">
+				<view class="heading-mark"></view>
+				<text class="heading-copy">服务说明</text>
+			</view>
+			<view class="menu-card">
+				<view class="menu-row" @click="openService">
+					<view class="menu-icon info-icon"><text class="menu-icon-copy">说</text></view>
+					<text class="menu-title">如何开通</text>
+					<text class="menu-note">以正式说明为准</text>
+					<text class="menu-arrow">›</text>
+				</view>
+				<view class="menu-row" @click="openPrivacy">
+					<view class="menu-icon privacy-icon"><text class="menu-icon-copy">隐</text></view>
+					<text class="menu-title">协议与隐私</text>
+					<text class="menu-note">待正式发布</text>
+					<text class="menu-arrow">›</text>
+				</view>
+			</view>
+
+			<view class="status-card">
+				<text class="status-title">服务准备中</text>
+				<text class="status-copy">登录、兑换码和账号注销会在相关服务与协议准备完成后开放。本应用不提供在线支付入口。</text>
+			</view>
+
+			<view class="notice">
+				<text class="notice-copy">本平台为公开信息聚合与历史数据统计，不构成任何投资建议。</text>
+			</view>
+		</scroll-view>
+	</view>
+</template>
+
+<style scoped>
+.shell,
+.page {
+	flex: 1;
 }
-.title {
-  font-size: 36px;
-  color: #333;
+
+.page {
+	padding-bottom: 64px;
+	background-color: #f5f6f8;
+}
+
+.profile-card {
+	margin: 16px;
+	padding: 20px;
+	min-height: 96px;
+	flex-direction: row;
+	align-items: center;
+	border-radius: 18px;
+	background-color: #ffffff;
+}
+
+.avatar,
+.menu-icon {
+	justify-content: center;
+	align-items: center;
+	border-radius: 50%;
+}
+
+.avatar {
+	width: 56px;
+	height: 56px;
+	margin-right: 14px;
+	background-color: #fff0f0;
+}
+
+.avatar-copy {
+	font-size: 23px;
+	font-weight: 700;
+	color: #e93030;
+}
+
+.profile-copy,
+.menu-title {
+	flex: 1;
+}
+
+.profile-title {
+	font-size: 18px;
+	font-weight: 700;
+	color: #292d34;
+}
+
+.profile-subtitle {
+	margin-top: 7px;
+	font-size: 13px;
+	color: #858b94;
+}
+
+.login-action {
+	min-width: 44px;
+	padding: 12px 0 12px 12px;
+	font-size: 15px;
+	font-weight: 600;
+	color: #e93030;
+	text-align: right;
+}
+
+.section-heading {
+	margin: 22px 16px 12px;
+	flex-direction: row;
+	align-items: center;
+}
+
+.heading-mark {
+	width: 4px;
+	height: 18px;
+	margin-right: 8px;
+	border-radius: 2px;
+	background-color: #e93030;
+}
+
+.heading-copy {
+	font-size: 17px;
+	font-weight: 700;
+	color: #2c3037;
+}
+
+.menu-card,
+.status-card {
+	margin: 0 16px;
+	border-radius: 18px;
+	background-color: #ffffff;
+	overflow: hidden;
+}
+
+.menu-row {
+	min-height: 68px;
+	padding: 12px 16px;
+	flex-direction: row;
+	align-items: center;
+	border-bottom-width: 1px;
+	border-bottom-color: #f0f1f3;
+}
+
+.menu-icon {
+	width: 34px;
+	height: 34px;
+	margin-right: 12px;
+}
+
+.account-icon {
+	background-color: #fff0f0;
+}
+
+.code-icon {
+	background-color: #fff6e7;
+}
+
+.info-icon {
+	background-color: #edf5ff;
+}
+
+.privacy-icon {
+	background-color: #f2f1ff;
+}
+
+.menu-icon-copy {
+	font-size: 14px;
+	font-weight: 700;
+	color: #e93030;
+}
+
+.menu-title {
+	font-size: 15px;
+	color: #3d424a;
+}
+
+.menu-status,
+.menu-note {
+	font-size: 12px;
+	color: #a0a5ad;
+}
+
+.menu-status {
+	padding: 4px 8px;
+	border-radius: 10px;
+	background-color: #f5f6f8;
+}
+
+.menu-arrow {
+	margin-left: 8px;
+	font-size: 22px;
+	color: #bec2c8;
+}
+
+.status-card {
+	margin-top: 16px;
+	padding: 18px;
+}
+
+.status-title {
+	font-size: 16px;
+	font-weight: 600;
+	color: #30343b;
+}
+
+.status-copy {
+	margin-top: 8px;
+	font-size: 14px;
+	line-height: 21px;
+	color: #7a818c;
+}
+
+.notice {
+	margin: 24px;
+}
+
+.notice-copy {
+	font-size: 12px;
+	line-height: 18px;
+	color: #9aa1aa;
+	text-align: center;
 }
 </style>

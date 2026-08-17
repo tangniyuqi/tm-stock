@@ -1,0 +1,131 @@
+<script setup lang="ts">
+import PageHeader from '@/pages/components/PageHeader.uvue'
+</script>
+
+<template>
+	<view class="shell">
+		<PageHeader title="协议与隐私" :showBack="true"></PageHeader>
+		<scroll-view class="page" scroll-y="true">
+			<view class="hero-card">
+				<view class="hero-icon"><text class="hero-icon-copy">隐</text></view>
+				<text class="hero-title">正式文本审阅中</text>
+				<text class="hero-copy">用户协议与隐私政策将在律师审阅、版本确认后正式发布。</text>
+			</view>
+
+			<view class="info-card">
+				<text class="info-title">当前处理方式</text>
+				<view class="info-row">
+					<view class="row-mark"></view>
+					<text class="info-copy">登录页面保持关闭，不收集手机号、验证码或其他个人信息。</text>
+				</view>
+				<view class="info-row">
+					<view class="row-mark"></view>
+					<text class="info-copy">在协议正式发布前，不提供账号注册、登录或注销操作。</text>
+				</view>
+				<view class="info-row">
+					<view class="row-mark"></view>
+					<text class="info-copy">正式发布后，登录页将以用户可见的版本文本为准。</text>
+				</view>
+			</view>
+
+			<view class="notice">
+				<text class="notice-copy">本平台为公开信息聚合与历史数据统计，不构成任何投资建议。</text>
+			</view>
+		</scroll-view>
+	</view>
+</template>
+
+<style scoped>
+.shell,
+.page {
+	flex: 1;
+}
+
+.page {
+	background-color: #f5f6f8;
+}
+
+.hero-card,
+.info-card {
+	margin: 16px;
+	padding: 24px 20px;
+	align-items: center;
+	border-radius: 18px;
+	background-color: #ffffff;
+}
+
+.hero-icon {
+	width: 52px;
+	height: 52px;
+	justify-content: center;
+	align-items: center;
+	border-radius: 16px;
+	background-color: #f2f1ff;
+}
+
+.hero-icon-copy {
+	font-size: 22px;
+	font-weight: 700;
+	color: #705ee5;
+}
+
+.hero-title {
+	margin-top: 14px;
+	font-size: 18px;
+	font-weight: 700;
+	color: #2b3037;
+	text-align: center;
+}
+
+.hero-copy {
+	margin-top: 9px;
+	font-size: 14px;
+	line-height: 22px;
+	color: #7d838c;
+	text-align: center;
+}
+
+.info-card {
+	margin-top: 0;
+	padding: 20px;
+	align-items: stretch;
+}
+
+.info-title {
+	font-size: 16px;
+	font-weight: 700;
+	color: #30343b;
+}
+
+.info-row {
+	margin-top: 14px;
+	flex-direction: row;
+	align-items: flex-start;
+}
+
+.row-mark {
+	width: 6px;
+	height: 6px;
+	margin: 7px 9px 0 0;
+	border-radius: 3px;
+	background-color: #705ee5;
+}
+
+.info-copy {
+	flex: 1;
+	font-size: 14px;
+	line-height: 21px;
+	color: #737983;
+}
+
+.notice {
+	margin: 24px;
+}
+
+.notice-copy {
+	font-size: 12px;
+	line-height: 18px;
+	color: #9aa1aa;
+	text-align: center;
+}
+</style>

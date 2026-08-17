@@ -1,0 +1,71 @@
+export type ThemeBrief = {
+	id : number,
+	name : string,
+	description : string
+}
+
+export type StockItem = {
+	code : string,
+	tsCode : string,
+	name : string,
+	market : string,
+	changePct : number | null,
+	hasEvidence : boolean
+}
+
+export type ChainNode = {
+	id : number,
+	name : string,
+	description : string,
+	changePct : number | null,
+	caliber : string,
+	stocks : StockItem[]
+}
+
+export type ThemeDetail = {
+	id : number,
+	name : string,
+	summary : string,
+	updatedAt : number,
+	quoteEnabled : boolean,
+	quoteDelayMin : number,
+	quoteAt : number,
+	quoteIsMock : boolean,
+	locked : boolean,
+	trialLeft : number,
+	chainNodes : ChainNode[] | null
+}
+
+export type Evidence = {
+	tsCode : string,
+	stockCode : string,
+	stockName : string,
+	chainNodeName : string,
+	sourceType : string,
+	sourceExcerpt : string,
+	sourceUrl : string,
+	collectedAt : number
+}
+
+export const formatChangePct = (changePct : number | null) : string => {
+	if (changePct == null) {
+		return '—'
+	}
+	return changePct.toFixed(2) + '%'
+}
+
+export const formatMillis = (timestamp : number) : string => {
+	if (timestamp <= 0) {
+		return '暂无更新时间'
+	}
+	let date = new Date(timestamp)
+	let month = date.getMonth() + 1
+	let day = date.getDate()
+	let hour = date.getHours()
+	let minute = date.getMinutes()
+	let monthText = month < 10 ? '0' + month.toString() : month.toString()
+	let dayText = day < 10 ? '0' + day.toString() : day.toString()
+	let hourText = hour < 10 ? '0' + hour.toString() : hour.toString()
+	let minuteText = minute < 10 ? '0' + minute.toString() : minute.toString()
+	return date.getFullYear().toString() + '-' + monthText + '-' + dayText + ' ' + hourText + ':' + minuteText
+}

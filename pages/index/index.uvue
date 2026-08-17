@@ -1,237 +1,285 @@
-<template>
-<view class="page">
-  <x-sticky>
-    <view class="my-tabs px-6 pt-4 pb-2">
-      <x-tabs :list="tabList" v-model="activeTab" color="#FFF" :line-full="false" activeFontSize="18" :line-width="28" :line-color="xConfig.color" titleColor="#333" @change="handleTabChange" />
-    </view>
-  </x-sticky>
-
-  <!-- 日期切换 -->
-  <view class="flex flex-row align-center justify-between px-25 py-12 bg-white date-switcher">
-    <x-text :color="isPrevDisabled ? '#CCC' : '#666'" fontSize="14" @click="prevDay">上一日</x-text>
-
-    <view class="flex-1"></view>
-
-    <view class="flex flex-row align-center flex-row-center-between" @click="showCalendar = true">
-      <x-icon name="calendar-line" size="14" color="#999" />
-      <x-text color="#666" fontSize="15" class="font-weight-b ml-4">{{ currentDate }}</x-text>
-    </view>
-
-    <view class="flex-1"></view>
-
-    <x-text :color="isNextDisabled ? '#CCC' : '#666'" fontSize="14" @click="nextDay">下一日</x-text>
-  </view>
-
-  <!-- 日历弹窗 -->
-  <x-drawer v-model:show="showCalendar" title="选择日期" :showFooter="false" size="540" round="24">
-    <view class="calendar-drawer-content">
-      <x-calendar-view 
-        v-model="currentDate" 
-        :startDate="minDateStr" 
-        :endDate="maxDateStr" 
-        :showClear="false" 
-        activeFontColor="#FFFFFF"
-        headBgColor="#F7F8FA"
-        headFontColor="#333333"
-        headStyle="border-radius: 12px; padding: 4px 0;"
-        @change="onCalendarChange"
-      ></x-calendar-view>
-    </view>
-  </x-drawer>
-
-  <x-sheet :padding="[12, 0, 12, 0]" :margin="[12, 0, 12, 0]">
-		<x-list padding="0">
-			<view v-for="(item, index) in newsList" class="news-item-wrapper px-4 py-12" @click="goDetail(item)" :key="index">
-				<view class="flex flex-row align-start">
-          <x-text :color="getIndexColor(index)" fontSize="24" class="mr-12 news-index">{{ index + 1 }}</x-text>
-          
-          <view class="flex-1">
-            <x-text color="#333" fontSize="15" lineHeight="1.5" class="flex-1 text-base text-black font-weight-b text-overflow-2">{{ item.title }}</x-text>
-          
-            <view class="flex flex-row align-center mt-10">
-              <view class="flex flex-row flex-row-center-start">
-                <x-tag skin="thin" color="primary" class="mr-10">{{ item.tag }}</x-tag>
-                <x-text :color="getChangeColor(item.change)" fontSize="13" class="font-weight-b">{{ item.change }}</x-text>
-              </view>
-
-              <view class="flex-1"></view>
-
-              <x-text color="#999" fontSize="13" class="ml-10">{{ item.datetime }}</x-text>
-            </view>
-          </view>
-				</view>
-			</view>
-		</x-list>
-	</x-sheet>
-
-  <!-- Footer -->
-  <view class="footer py-20 flex-center">
-    <x-text fontSize="12" color="#CCC">题材宝典 · 洞察市场主线</x-text>
-    <x-text fontSize="12" color="#DDD" class="mt-6">所有数据仅供参考，不作收益保证，据此操作风险自负。</x-text>
-    <x-text fontSize="12" color="#DDD">— 投资有风险，入市须谨慎 —</x-text>
-  </view>
-</view>
-</template>
-
 <script setup lang="ts">
-import { ref, computed } from 'vue';
-import { xConfig } from '@/uni_modules/tmx-ui/config/xConfig.uts';
-import { xDate } from '@/uni_modules/tmx-ui/core/util/xDate.uts';
+import PageHeader from '@/pages/components/PageHeader.uvue'
 
-// 标签页数据
-const tabList = ref([
-  { id: 2, title: '题材动态' },
-  { id: 3, title: '题材轮动' },
-  { id: 4, title: '题材库' }
-]);
+const openThemeQuery = () : void => {
+	uni.navigateTo({ url: '/pages/segment/index' })
+}
 
-const activeTab = ref('1');
+const openNews = () : void => {
+	uni.switchTab({ url: '/pages/news/index' })
+}
 
-// 日期限制
-const minDateStr = '2026-07-21';
-const maxDateStr = new xDate().format("YYYY-MM-DD");
-
-// 当前选中的日期
-const currentDate = ref(maxDateStr);
-const showCalendar = ref(false);
-
-// 是否禁用上一日/下一日
-const isPrevDisabled = computed(() : boolean => currentDate.value <= minDateStr);
-const isNextDisabled = computed(() : boolean => currentDate.value >= maxDateStr);
-
-const newsList = ref([
-  {
-    title: '半导体设备国产化率创历史新高！关键零部件领域取得重大技术突破',
-    tag: '半导体设备',
-    change: '+3.25%',
-    datetime: '07-20 01:00',
-    isHot: true,
-    cover: 'https://picsum.photos/200/140?random=1'
-  },
-  {
-    title: '重磅！多部委联合发文推动新材料产业高质量发展，这些板块将迎来黄金期',
-    tag: '新材料',
-    change: '+2.18%',
-    datetime: '07-19 01:00',
-  },
-  {
-    title: '如何评价当前人工智能在硬件整机领域的自主可控趋势？专家这样说',
-    tag: '人工智能',
-    change: '+1.56%',
-    datetime: '07-18 01:00',
-  },
-  {
-    title: '如何评价当前人工智能在硬件整机领域的自主可控趋势？专家这样说',
-    tag: '算力租赁',
-    change: '+4.12%',
-    datetime: '07-18 01:00',
-  },
-  {
-    title: '如何评价当前人工智能在硬件整机领域的自主可控趋势？专家这样说',
-    tag: 'CPO概念',
-    change: '-0.85%',
-    datetime: '07-18 01:00',
-  }
-]);
-
-const goDetail = (item: any) => {
-  uni.navigateTo({
-    url: '/pages/segment/index'
-  });
-};
-
-const getIndexColor = (index: number): string => {
-  if (index == 0) return '#FF4D4F'; // 1st - Red
-  if (index == 1) return '#FA8C16'; // 2nd - Orange
-  if (index == 2) return '#FADB14'; // 3rd - Yellow
-  return '#BBB'; // Others - Grey
-};
-
-const getChangeColor = (change: string): string => {
-  if (change.startsWith('+')) return '#FF4D4F';
-  if (change.startsWith('-')) return '#52C41A';
-  return '#999';
-};
-
-const handleTabChange = (item: any, index: number) => {
-  switch(item.id) {
-    case '1':
-      // 显示题材热点内容
-      break;
-    case '2':
-      // 显示题材动态内容
-      break;
-    case '3':
-      // 显示题材轮动内容
-      break;
-  }
-};
-
-// 日期操作
-const prevDay = () => {
-  if (isPrevDisabled.value) return;
-  const d = new xDate(currentDate.value);
-  d.subtraction(1, 'd');
-  currentDate.value = d.format("YYYY-MM-DD");
-  loadData();
-};
-
-const nextDay = () => {
-  if (isNextDisabled.value) return;
-  const d = new xDate(currentDate.value);
-  d.add(1, 'd');
-  currentDate.value = d.format("YYYY-MM-DD");
-  loadData();
-};
-
-const onCalendarChange = (val: string) => {
-  if (!val) return;
-  currentDate.value = val;
-  showCalendar.value = false;
-  loadData();
-};
-
-const loadData = () => {
-  console.log('加载日期数据:', currentDate.value);
-};
+const openMember = () : void => {
+	uni.switchTab({ url: '/pages/member/index' })
+}
 </script>
 
+<template>
+	<view class="shell">
+		<PageHeader title="题材宝典" :showBack="false"></PageHeader>
+		<scroll-view class="page" scroll-y="true">
+			<view class="section-tabs">
+				<view class="section-tab section-tab-active"><text class="section-tab-copy active-copy">首页</text></view>
+				<view class="section-tab" @click="openNews"><text class="section-tab-copy">快讯</text></view>
+				<view class="section-tab" @click="openThemeQuery"><text class="section-tab-copy">题材库</text></view>
+			</view>
+
+			<view class="intro">
+				<text class="eyebrow">公开信息服务</text>
+				<text class="title">把可查资料整理成清晰路径</text>
+				<text class="subtitle">题材、资讯和归属依据会在来源确认、内容审核完成后展示。</text>
+			</view>
+
+			<view class="section-heading">
+				<view class="heading-mark"></view>
+				<text class="heading-copy">服务入口</text>
+			</view>
+			<view class="entry-list">
+				<view class="entry-card" @click="openThemeQuery">
+					<view class="entry-icon topic-icon"><text class="entry-icon-copy">题</text></view>
+					<view class="entry-copy">
+						<text class="entry-title">题材查询</text>
+						<text class="entry-description">按题材查看客观说明、产业链环节和可查归属依据。</text>
+					</view>
+					<text class="entry-arrow">›</text>
+				</view>
+				<view class="entry-card" @click="openNews">
+					<view class="entry-icon news-icon"><text class="entry-icon-copy">讯</text></view>
+					<view class="entry-copy">
+						<text class="entry-title">资讯快讯</text>
+						<text class="entry-description">展示来源授权和出处信息齐全的客观资讯。</text>
+					</view>
+					<text class="entry-arrow">›</text>
+				</view>
+			</view>
+
+			<view class="data-card">
+				<view class="data-card-header">
+					<text class="data-card-title">内容状态</text>
+					<text class="data-card-status">准备中</text>
+				</view>
+				<text class="data-card-copy">未取得授权或未经审核的资料不会以演示内容代替。内容接入后将在相应服务中展示来源与时间。</text>
+			</view>
+
+			<view class="member-link" @click="openMember">
+				<text class="member-link-copy">账号与服务说明</text>
+				<text class="entry-arrow">›</text>
+			</view>
+
+			<view class="notice">
+				<text class="notice-copy">本平台为公开信息聚合与历史数据统计，不构成任何投资建议。</text>
+			</view>
+		</scroll-view>
+	</view>
+</template>
+
 <style scoped>
+.shell,
 .page {
-  padding: 0 0 0 0;
+	flex: 1;
 }
 
-.my-tabs {
-  background: #FFF;
+.page {
+	padding-bottom: 64px;
+	background-color: #f5f6f8;
 }
 
-.date-switcher {
-  border-bottom: 1px solid #f5f5f5;
+.section-tabs {
+	min-height: 58px;
+	padding: 0 16px;
+	flex-direction: row;
+	align-items: center;
+	background-color: #ffffff;
 }
 
-.calendar-drawer-content {
-  padding: 10px 15px 30px 15px;
+.section-tab {
+	min-width: 76px;
+	height: 58px;
+	margin-right: 18px;
+	justify-content: center;
+	align-items: center;
 }
 
-.news-item-wrapper {
-  border-bottom: 1px solid #f0f0f0;
+.section-tab-active {
+	border-bottom-width: 3px;
+	border-bottom-color: #e93030;
 }
 
-.news-item-wrapper:last-child {
-  border-bottom: none;
+.section-tab-copy {
+	font-size: 17px;
+	font-weight: 600;
+	color: #373b42;
 }
 
-.news-index {
-  font-family: Georgia, "Times New Roman", Times, serif;;
-  font-style: italic;
-  font-weight: bold;
+.active-copy {
+	color: #e93030;
 }
 
-.text-overflow-2 {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
-  line-height: 1.4;
+.intro {
+	padding: 28px 20px 24px;
+	background-color: #ffffff;
+}
+
+.eyebrow {
+	font-size: 13px;
+	font-weight: 600;
+	color: #e93030;
+}
+
+.title {
+	margin-top: 8px;
+	font-size: 24px;
+	font-weight: 700;
+	color: #20242b;
+}
+
+.subtitle {
+	margin-top: 10px;
+	font-size: 14px;
+	line-height: 22px;
+	color: #737983;
+}
+
+.section-heading {
+	margin: 22px 16px 12px;
+	flex-direction: row;
+	align-items: center;
+}
+
+.heading-mark {
+	width: 4px;
+	height: 18px;
+	margin-right: 8px;
+	border-radius: 2px;
+	background-color: #e93030;
+}
+
+.heading-copy {
+	font-size: 17px;
+	font-weight: 700;
+	color: #2c3037;
+}
+
+.entry-list,
+.data-card,
+.member-link {
+	margin: 0 16px;
+	border-radius: 18px;
+	background-color: #ffffff;
+}
+
+.entry-list {
+	overflow: hidden;
+}
+
+.entry-card {
+	min-height: 90px;
+	padding: 16px;
+	flex-direction: row;
+	align-items: center;
+	border-bottom-width: 1px;
+	border-bottom-color: #f0f1f3;
+}
+
+.entry-icon {
+	width: 42px;
+	height: 42px;
+	margin-right: 12px;
+	justify-content: center;
+	align-items: center;
+	border-radius: 12px;
+}
+
+.topic-icon {
+	background-color: #fff0f0;
+}
+
+.news-icon {
+	background-color: #fff6e7;
+}
+
+.entry-icon-copy {
+	font-size: 18px;
+	font-weight: 700;
+	color: #e93030;
+}
+
+.entry-copy {
+	flex: 1;
+}
+
+.entry-title {
+	font-size: 17px;
+	font-weight: 600;
+	color: #282c33;
+}
+
+.entry-description {
+	margin-top: 6px;
+	font-size: 13px;
+	line-height: 19px;
+	color: #7c838d;
+}
+
+.entry-arrow {
+	margin-left: 12px;
+	font-size: 24px;
+	color: #bec2c8;
+}
+
+.data-card {
+	margin-top: 16px;
+	padding: 18px;
+}
+
+.data-card-header,
+.member-link {
+	flex-direction: row;
+	align-items: center;
+}
+
+.data-card-title {
+	flex: 1;
+	font-size: 16px;
+	font-weight: 600;
+	color: #30343b;
+}
+
+.data-card-status {
+	padding: 4px 9px;
+	border-radius: 10px;
+	background-color: #fff1ed;
+	font-size: 12px;
+	color: #d46b45;
+}
+
+.data-card-copy {
+	margin-top: 10px;
+	font-size: 14px;
+	line-height: 21px;
+	color: #7c838d;
+}
+
+.member-link {
+	min-height: 58px;
+	margin-top: 16px;
+	padding: 0 18px;
+}
+
+.member-link-copy {
+	flex: 1;
+	font-size: 15px;
+	color: #535a65;
+}
+
+.notice {
+	margin: 24px 24px 36px;
+}
+
+.notice-copy {
+	font-size: 12px;
+	line-height: 18px;
+	color: #9aa1aa;
+	text-align: center;
 }
 </style>

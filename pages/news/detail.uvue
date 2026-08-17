@@ -1,0 +1,127 @@
+<script setup lang="ts">
+import PageHeader from '@/pages/components/PageHeader.uvue'
+</script>
+
+<template>
+	<view class="shell">
+		<PageHeader title="快讯详情" :showBack="true"></PageHeader>
+		<scroll-view class="page" scroll-y="true">
+			<view class="content-card">
+				<view class="content-icon"><text class="content-icon-copy">讯</text></view>
+				<text class="content-title">暂无可展示的快讯内容</text>
+				<text class="content-copy">快讯详情仅在内容来源完成授权、出处信息齐全且审核通过后展示。</text>
+			</view>
+
+			<view class="source-card">
+				<text class="source-title">内容展示规则</text>
+				<view class="source-row">
+					<view class="row-dot"></view>
+					<text class="source-copy">展示内容时会标明来源与发布时间。</text>
+				</view>
+				<view class="source-row">
+					<view class="row-dot"></view>
+					<text class="source-copy">未获授权、出处缺失或未经审核的内容不会展示。</text>
+				</view>
+			</view>
+
+			<view class="notice">
+				<text class="notice-copy">本平台为公开信息聚合与历史数据统计，不构成任何投资建议。</text>
+			</view>
+		</scroll-view>
+	</view>
+</template>
+
+<style scoped>
+.shell,
+.page {
+	flex: 1;
+}
+
+.page {
+	background-color: #f5f6f8;
+}
+
+.content-card,
+.source-card {
+	margin: 16px;
+	padding: 24px 20px;
+	align-items: center;
+	border-radius: 18px;
+	background-color: #ffffff;
+}
+
+.content-icon {
+	width: 52px;
+	height: 52px;
+	justify-content: center;
+	align-items: center;
+	border-radius: 16px;
+	background-color: #fff0f0;
+}
+
+.content-icon-copy {
+	font-size: 22px;
+	font-weight: 700;
+	color: #e93030;
+}
+
+.content-title {
+	margin-top: 14px;
+	font-size: 17px;
+	font-weight: 700;
+	color: #2b3037;
+	text-align: center;
+}
+
+.content-copy {
+	margin-top: 9px;
+	font-size: 14px;
+	line-height: 22px;
+	color: #7d838c;
+	text-align: center;
+}
+
+.source-card {
+	margin-top: 0;
+	padding: 20px;
+	align-items: stretch;
+}
+
+.source-title {
+	font-size: 16px;
+	font-weight: 700;
+	color: #30343b;
+}
+
+.source-row {
+	margin-top: 14px;
+	flex-direction: row;
+	align-items: flex-start;
+}
+
+.row-dot {
+	width: 6px;
+	height: 6px;
+	margin: 7px 9px 0 0;
+	border-radius: 3px;
+	background-color: #e93030;
+}
+
+.source-copy {
+	flex: 1;
+	font-size: 14px;
+	line-height: 21px;
+	color: #737983;
+}
+
+.notice {
+	margin: 24px;
+}
+
+.notice-copy {
+	font-size: 12px;
+	line-height: 18px;
+	color: #9aa1aa;
+	text-align: center;
+}
+</style>
