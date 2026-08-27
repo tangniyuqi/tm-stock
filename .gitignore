@@ -1,4 +1,5 @@
 node_modules/
+.vite/
 uni_modules/
 unpackage/
 .hbuilderx/

@@ -1,0 +1,118 @@
+import { Evidence, ThemeBrief, ThemeDailyPage, ThemeDetail } from './theme.uts'
+
+// C 端仅请求本项目后端。H5 发布时由同源反向代理转发 /api/v1，
+// 不允许页面直接访问未经字段收敛的上游量化接口。
+const apiOrigin = ''
+
+type ThemeApiEnvelope<T> = {
+	code : number,
+	msg : string,
+	data : T | null
+}
+
+type ThemeApiPayload = UTSJSONObject | string
+
+export type ThemeApiResult<T> = {
+	code : number,
+	message : string,
+	data : T | null
+}
+
+const networkFailure = <T>() : ThemeApiResult<T> => {
+	return {
+		code: 50001,
+		message: '网络连接失败，请稍后重试',
+		data: null
+	} as ThemeApiResult<T>
+}
+
+const serviceFailure = <T>() : ThemeApiResult<T> => {
+	return {
+		code: 50001,
+		message: '服务暂不可用，请稍后重试',
+		data: null
+	} as ThemeApiResult<T>
+}
+
+const parseResult = <T>(data : ThemeApiPayload | null, statusCode : number) : ThemeApiResult<T> => {
+	if (data == null) {
+		return serviceFailure<T>()
+	}
+	try {
+		const responseText = (typeof data == 'string' ? data : JSON.stringify(data)).trim()
+		if (responseText.length == 0 || responseText.charAt(0) != '{') {
+			return serviceFailure<T>()
+		}
+		const envelope = JSON.parse<ThemeApiEnvelope<T> | null>(responseText)
+		if (envelope == null || typeof envelope.code != 'number' || typeof envelope.msg != 'string') {
+			return serviceFailure<T>()
+		}
+		if (statusCode < 200 || statusCode >= 300) {
+			return {
+				code: envelope.code,
+				message: envelope.msg.length > 0 ? envelope.msg : '服务暂不可用，请稍后重试',
+				data: null
+			} as ThemeApiResult<T>
+		}
+		if (envelope.code != 0) {
+			return {
+				code: envelope.code,
+				message: envelope.msg.length > 0 ? envelope.msg : '请求失败，请稍后重试',
+				data: null
+			} as ThemeApiResult<T>
+		}
+		return {
+			code: 0,
+			message: '',
+			data: envelope.data
+		} as ThemeApiResult<T>
+	} catch (_) {
+		return serviceFailure<T>()
+	}
+}
+
+export const getApi = <T>(path : string, data : UTSJSONObject) : Promise<ThemeApiResult<T>> => {
+	return new Promise<ThemeApiResult<T>>((resolve) => {
+		uni.request<ThemeApiPayload>({
+			url: apiOrigin + path,
+			method: 'GET',
+			data: data,
+			// 按文本接收，避免开发服务器返回 HTML 时运行时先行 JSON.parse；响应由下方白名单解析器处理。
+			dataType: 'text',
+			responseType: 'text',
+			timeout: 10000,
+			success: (res : RequestSuccess<ThemeApiPayload>) => {
+				resolve(parseResult<T>(res.data, res.statusCode))
+			},
+			fail: () => {
+				resolve(networkFailure<T>())
+			}
+		})
+	})
+}
+
+export class ThemeApi {
+	public static dailyList(date : string, page : number, size : number) : Promise<ThemeApiResult<ThemeDailyPage>> {
+		return getApi<ThemeDailyPage>('/api/v1/theme-daily/list', {
+			date: date,
+			sort: 'publishAt',
+			page: page,
+			size: size
+		} as UTSJSONObject)
+	}
+
+	public static search(keyword : string) : Promise<ThemeApiResult<ThemeBrief[]>> {
+		return getApi<ThemeBrief[]>('/api/v1/theme/search', {
+			kw: keyword,
+			limit: 50
+		} as UTSJSONObject)
+	}
+
+	public static detail(themeID : number) : Promise<ThemeApiResult<ThemeDetail>> {
+		return getApi<ThemeDetail>('/api/v1/theme/' + themeID.toString(), {} as UTSJSONObject)
+	}
+
+	public static evidence(themeID : number, tsCode : string) : Promise<ThemeApiResult<Evidence>> {
+		return getApi<Evidence>('/api/v1/theme/' + themeID.toString() + '/stock/' + tsCode + '/evidence', {} as UTSJSONObject)
+	}
+}

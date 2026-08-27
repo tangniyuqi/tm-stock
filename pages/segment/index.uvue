@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import PageHeader from '@/pages/components/PageHeader.uvue'
+import { ThemeApi } from '@/pages/libs/theme-api.uts'
 import { ThemeBrief } from '@/pages/libs/theme.uts'
 
 const keyword = ref<string>('')
@@ -8,6 +9,83 @@ const searchSubmitted = ref<boolean>(false)
 const isLoading = ref<boolean>(true)
 const errorMessage = ref<string>('')
 const themes = ref<ThemeBrief[]>([])
+
+const isPublishableTheme = (item : ThemeBrief) : boolean => {
+	return item != null
+		&& typeof item.id == 'number'
+		&& typeof item.name == 'string'
+		&& typeof item.description == 'string'
+		&& item.id > 0
+		&& item.name.trim().length > 0
+		&& item.description.trim().length > 0
+}
+
+const filterPublishableThemes = (items : ThemeBrief[]) : ThemeBrief[] => {
+	if (!Array.isArray(items)) {
+		return []
+	}
+	const result : ThemeBrief[] = []
+	for (let index = 0; index < items.length; index++) {
+		if (isPublishableTheme(items[index])) {
+			result.push(items[index])
+		}
+	}
+	return result
+}
+
+const emptyMessage = computed(() : string => {
+	if (searchSubmitted.value && keyword.value.trim().length > 0) {
+		return '未找到匹配题材'
+	}
+	return '暂无已审核题材'
+})
+
+const stateCopy = computed(() : string => {
+	if (searchSubmitted.value && keyword.value.trim().length > 0) {
+		return '没有匹配结果时不会用其他题材或示例数据代替。'
+	}
+	return '可输入题材名称查询；未通过审核的内容不会进入题材库。'
+})
+
+const loadThemes = async () : Promise<void> => {
+	const trimmedKeyword = keyword.value.trim()
+	if (trimmedKeyword.length == 0) {
+		themes.value = []
+		errorMessage.value = ''
+		isLoading.value = false
+		return
+	}
+	isLoading.value = true
+	errorMessage.value = ''
+	const result = await ThemeApi.search(trimmedKeyword)
+	isLoading.value = false
+	if (result.code != 0 || result.data == null) {
+		themes.value = []
+		errorMessage.value = result.message
+		return
+	}
+	themes.value = filterPublishableThemes(result.data)
+}
+
+const submitSearch = () : void => {
+	searchSubmitted.value = true
+	loadThemes()
+}
+
+const clearSearch = () : void => {
+	keyword.value = ''
+	searchSubmitted.value = false
+	errorMessage.value = ''
+	loadThemes()
+}
+
+const retryLoad = () : void => {
+	loadThemes()
+}
+
+const openTheme = (theme : ThemeBrief) : void => {
+	uni.navigateTo({ url: '/pages/segment/detail?id=' + theme.id.toString() })
+}
 
 const openHome = () : void => {
 	uni.switchTab({ url: '/pages/index/index' })
@@ -17,48 +95,8 @@ const openNews = () : void => {
 	uni.switchTab({ url: '/pages/news/index' })
 }
 
-const emptyMessage = computed(() : string => {
-	if (searchSubmitted.value && keyword.value.trim().length > 0) {
-		return '题材搜索服务尚未接入'
-	}
-	return '暂无题材数据'
-})
-
-const stateCopy = computed(() : string => {
-	if (searchSubmitted.value && keyword.value.trim().length > 0) {
-		return '当前无法判断是否存在匹配题材；题材搜索接口完成接入后才会展示结果。'
-	}
-	return '数据接入完成后，可在这里搜索并浏览题材信息。'
-})
-
-const finishInitialLoad = () : void => {
-	isLoading.value = false
-}
-
-const submitSearch = () : void => {
-	searchSubmitted.value = true
-	errorMessage.value = ''
-}
-
-const clearSearch = () : void => {
-	keyword.value = ''
-	searchSubmitted.value = false
-	errorMessage.value = ''
-}
-
-const retryLoad = () : void => {
-	errorMessage.value = ''
-	finishInitialLoad()
-}
-
-const openTheme = (theme : ThemeBrief) : void => {
-	uni.navigateTo({
-		url: '/pages/segment/detail?id=' + theme.id
-	})
-}
-
 onMounted(() => {
-	finishInitialLoad()
+	loadThemes()
 })
 </script>
 
@@ -66,282 +104,94 @@ onMounted(() => {
 	<view class="shell">
 		<PageHeader title="题材库" :showBack="true"></PageHeader>
 		<scroll-view class="page" scroll-y="true">
-		<view class="hero">
-			<view class="section-tabs">
-				<view class="section-tab" @click="openHome"><text class="section-tab-copy">首页</text></view>
-				<view class="section-tab" @click="openNews"><text class="section-tab-copy">快讯</text></view>
-				<view class="section-tab section-tab-active"><text class="section-tab-copy active-copy">题材库</text></view>
-			</view>
-			<text class="eyebrow">公开资料整理</text>
-			<text class="title">从公开资料中查找题材</text>
-			<text class="subtitle">题材内容与归属依据将在数据审核通过后展示。</text>
-		</view>
-
-		<view class="search-card">
-			<input
-				v-model="keyword"
-				class="search-input"
-				confirm-type="search"
-				maxlength="50"
-				placeholder="输入题材名称"
-				@confirm="submitSearch"
-			/>
-			<view class="search-actions">
-				<text v-if="keyword.length > 0" class="clear-action" @click="clearSearch">清除</text>
-				<text class="search-action" @click="submitSearch">搜索</text>
-			</view>
-		</view>
-
-		<view v-if="isLoading" class="skeleton-list">
-			<view v-for="item in 3" :key="item" class="skeleton-card">
-				<view class="skeleton skeleton-title"></view>
-				<view class="skeleton skeleton-line"></view>
-				<view class="skeleton skeleton-line short"></view>
-			</view>
-		</view>
-
-		<view v-else-if="errorMessage.length > 0" class="state-card">
-			<text class="state-title">加载失败</text>
-			<text class="state-copy">{{ errorMessage }}</text>
-			<text class="retry-action" @click="retryLoad">重新加载</text>
-		</view>
-
-		<view v-else-if="themes.length == 0" class="state-card">
-			<text class="state-title">{{ emptyMessage }}</text>
-			<text class="state-copy">{{ stateCopy }}</text>
-		</view>
-
-		<view v-else class="theme-list">
-			<view v-for="theme in themes" :key="theme.id" class="theme-card" @click="openTheme(theme)">
-				<view class="theme-content">
-					<text class="theme-name">{{ theme.name }}</text>
-					<text class="theme-description">{{ theme.description }}</text>
+			<view class="hero">
+				<view class="section-tabs">
+					<view class="section-tab" @click="openHome"><text class="section-tab-copy">首页</text></view>
+					<view class="section-tab" @click="openNews"><text class="section-tab-copy">资讯</text></view>
+					<view class="section-tab section-tab-active"><text class="section-tab-copy active-copy">题材库</text></view>
 				</view>
-				<text class="arrow">›</text>
+				<text class="eyebrow">公开资料整理</text>
+				<text class="title">从公开资料中查找题材</text>
+				<text class="subtitle">题材内容、产业链与归属依据均以审核状态和可查来源为前提。</text>
 			</view>
-		</view>
 
-		<view class="notice">
-			<text class="notice-copy">本平台为公开信息聚合与历史数据统计，不构成任何投资建议。</text>
-		</view>
+			<view class="search-card">
+				<input v-model="keyword" class="search-input" confirm-type="search" maxlength="50" placeholder="输入题材名称" @confirm="submitSearch" />
+				<view class="search-actions">
+					<text v-if="keyword.length > 0" class="clear-action" @click="clearSearch">清除</text>
+					<text class="search-action" @click="submitSearch">搜索</text>
+				</view>
+			</view>
+
+			<view v-if="isLoading" class="skeleton-list">
+				<view v-for="item in 3" :key="item" class="skeleton-card">
+					<view class="skeleton skeleton-title"></view>
+					<view class="skeleton skeleton-line"></view>
+				</view>
+			</view>
+
+			<view v-else-if="errorMessage.length > 0" class="state-card">
+				<text class="state-title">加载失败</text>
+				<text class="state-copy">{{ errorMessage }}</text>
+				<text class="retry-action" @click="retryLoad">重新加载</text>
+			</view>
+
+			<view v-else-if="themes.length == 0" class="state-card">
+				<text class="state-title">{{ emptyMessage }}</text>
+				<text class="state-copy">{{ stateCopy }}</text>
+			</view>
+
+			<view v-else class="theme-list">
+				<view v-for="theme in themes" :key="theme.id" class="theme-card" @click="openTheme(theme)">
+					<view class="theme-content">
+						<text class="theme-name">{{ theme.name }}</text>
+						<text class="theme-description">{{ theme.description }}</text>
+					</view>
+					<text class="arrow">›</text>
+				</view>
+			</view>
+
+			<view class="notice">
+				<text class="notice-copy">本平台为公开信息聚合与历史数据统计，不构成任何投资建议。</text>
+			</view>
 		</scroll-view>
 	</view>
 </template>
 
 <style scoped>
-.shell,
-.page {
-	flex: 1;
-}
-
-.page {
-	background-color: #f5f6f8;
-}
-
-.hero {
-	padding: 0 20px 24px;
-	background-color: #ffffff;
-}
-
-.section-tabs {
-	height: 58px;
-	flex-direction: row;
-	align-items: center;
-}
-
-.section-tab {
-	min-width: 58px;
-	height: 58px;
-	margin-right: 28px;
-	justify-content: center;
-	align-items: center;
-	border-bottom-width: 3px;
-	border-bottom-color: transparent;
-}
-
-.section-tab-copy {
-	font-size: 16px;
-	font-weight: 600;
-	color: #60656e;
-}
-
-.section-tab-active {
-	border-bottom-color: #e93030;
-}
-
-.active-copy {
-	color: #e93030;
-}
-
-.eyebrow {
-	font-size: 12px;
-	color: #e93030;
-	font-weight: 600;
-}
-
-.title {
-	margin-top: 8px;
-	font-size: 24px;
-	color: #1f2329;
-	font-weight: 700;
-}
-
-.subtitle {
-	margin-top: 8px;
-	font-size: 14px;
-	line-height: 21px;
-	color: #6b7280;
-}
-
-.search-card {
-	margin: 16px 16px 0;
-	padding: 0 14px;
-	flex-direction: row;
-	align-items: center;
-	min-height: 48px;
-	border-radius: 16px;
-	background-color: #ffffff;
-	border-width: 1px;
-	border-color: #e5e7eb;
-}
-
-.search-input {
-	flex: 1;
-	font-size: 15px;
-	color: #1f2329;
-}
-
-.search-actions {
-	flex-direction: row;
-	align-items: center;
-}
-
-.clear-action {
-	min-width: 44px;
-	padding: 12px 8px;
-	font-size: 14px;
-	color: #6b7280;
-	text-align: center;
-}
-
-.search-action {
-	min-width: 44px;
-	padding: 12px 0 12px 8px;
-	font-size: 15px;
-	color: #e93030;
-	font-weight: 600;
-	text-align: right;
-}
-
-.state-card,
-.theme-list,
-.skeleton-list {
-	margin: 16px;
-}
-
-.state-card {
-	padding: 24px 20px;
-	align-items: center;
-	border-radius: 18px;
-	background-color: #ffffff;
-}
-
-.skeleton-card {
-	margin-bottom: 12px;
-	padding: 20px;
-	border-radius: 18px;
-	background-color: #ffffff;
-}
-
-.state-title {
-	font-size: 16px;
-	color: #30343b;
-	font-weight: 600;
-	text-align: center;
-}
-
-.state-copy {
-	margin-top: 8px;
-	font-size: 14px;
-	line-height: 21px;
-	color: #7a818c;
-	text-align: center;
-}
-
-.retry-action {
-	min-height: 44px;
-	margin-top: 12px;
-	padding: 12px 16px;
-	font-size: 14px;
-	color: #e93030;
-}
-
-.skeleton {
-	border-radius: 6px;
-	background-color: #edf0f3;
-}
-
-.skeleton-title {
-	width: 96px;
-	height: 18px;
-}
-
-.skeleton-line {
-	width: 100%;
-	height: 14px;
-	margin-top: 14px;
-}
-
-.short {
-	width: 68%;
-	margin-top: 10px;
-}
-
-.theme-list {
-	border-radius: 18px;
-	background-color: #ffffff;
-	overflow: hidden;
-}
-
-.theme-card {
-	padding: 16px;
-	flex-direction: row;
-	align-items: center;
-	border-bottom-width: 1px;
-	border-bottom-color: #f0f1f3;
-}
-
-.theme-content {
-	flex: 1;
-}
-
-.theme-name {
-	font-size: 16px;
-	color: #1f2329;
-	font-weight: 600;
-}
-
-.theme-description {
-	margin-top: 6px;
-	font-size: 13px;
-	line-height: 19px;
-	color: #7a818c;
-}
-
-.arrow {
-	margin-left: 12px;
-	font-size: 24px;
-	color: #b6bbc2;
-}
-
-.notice {
-	margin: 24px 24px 32px;
-}
-
-.notice-copy {
-	font-size: 12px;
-	line-height: 18px;
-	color: #9aa1aa;
-	text-align: center;
-}
+.shell, .page { flex: 1; }
+.page { padding-bottom: 64px; background-color: #f5f6f8; }
+.hero { padding: 0 20px 24px; background-color: #ffffff; }
+.section-tabs { height: 58px; flex-direction: row; align-items: center; }
+.section-tab { min-width: 58px; height: 58px; margin-right: 28px; justify-content: center; align-items: center; border-bottom-width: 3px; border-bottom-color: transparent; }
+.section-tab-copy { font-size: 16px; font-weight: 600; color: #60656e; }
+.section-tab-active { border-bottom-color: #e93030; }
+.active-copy { color: #e93030; }
+.eyebrow { font-size: 12px; font-weight: 600; color: #e93030; }
+.title { margin-top: 8px; font-size: 24px; font-weight: 700; color: #1f2329; }
+.subtitle { margin-top: 8px; font-size: 14px; line-height: 21px; color: #6b7280; }
+.search-card { min-height: 50px; margin: 16px 16px 0; padding: 0 14px; flex-direction: row; align-items: center; border-width: 1px; border-color: #e5e7eb; border-radius: 16px; background-color: #ffffff; }
+.search-input { flex: 1; min-height: 44px; font-size: 15px; color: #1f2329; }
+.search-actions { flex-direction: row; align-items: center; }
+.clear-action, .search-action { min-width: 44px; min-height: 44px; padding-top: 12px; font-size: 14px; text-align: right; }
+.clear-action { color: #6b7280; }
+.search-action { margin-left: 8px; font-weight: 700; color: #e93030; }
+.skeleton-list, .state-card, .theme-list { margin: 16px; }
+.skeleton-card, .state-card, .theme-list { border-radius: 18px; background-color: #ffffff; }
+.skeleton-card { margin-bottom: 12px; padding: 20px; }
+.skeleton { border-radius: 6px; background-color: #edf0f3; }
+.skeleton-title { width: 42%; height: 18px; }
+.skeleton-line { width: 88%; height: 14px; margin-top: 14px; }
+.state-card { padding: 24px 20px; align-items: center; }
+.state-title { font-size: 16px; font-weight: 700; color: #30343b; text-align: center; }
+.state-copy { margin-top: 8px; font-size: 14px; line-height: 21px; color: #7a818c; text-align: center; }
+.retry-action { min-height: 44px; margin-top: 12px; padding: 12px 16px; font-size: 14px; font-weight: 600; color: #e93030; }
+.theme-list { overflow: hidden; }
+.theme-card { min-height: 82px; padding: 16px; flex-direction: row; align-items: center; border-bottom-width: 1px; border-bottom-color: #f0f1f3; }
+.theme-content { flex: 1; }
+.theme-name { font-size: 16px; font-weight: 700; color: #1f2329; }
+.theme-description { margin-top: 6px; font-size: 13px; line-height: 19px; color: #7a818c; }
+.arrow { margin-left: 12px; font-size: 25px; color: #b6bbc2; }
+.notice { margin: 24px 24px 32px; }
+.notice-copy { font-size: 12px; line-height: 18px; color: #9aa1aa; text-align: center; }
 </style>

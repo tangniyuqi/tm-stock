@@ -1,5 +1,13 @@
 <script setup lang="ts">
 import PageHeader from '@/pages/components/PageHeader.uvue'
+
+const openService = () : void => {
+	uni.navigateTo({ url: '/pages/member/service' })
+}
+
+const openPrivacy = () : void => {
+	uni.navigateTo({ url: '/pages/member/privacy' })
+}
 </script>
 
 <template>
@@ -7,9 +15,10 @@ import PageHeader from '@/pages/components/PageHeader.uvue'
 		<PageHeader title="登录" :showBack="true"></PageHeader>
 		<scroll-view class="page" scroll-y="true">
 			<view class="hero">
+				<view class="hero-icon"><text class="hero-icon-copy">题</text></view>
 				<text class="eyebrow">账号服务</text>
 				<text class="title">登录服务准备中</text>
-				<text class="subtitle">账号服务将在隐私政策、用户协议、短信服务和后端能力完成后开放。</text>
+				<text class="subtitle">在用户协议、隐私政策、短信服务与账号后端完成前，登录入口保持关闭，当前不会收集个人信息。</text>
 			</view>
 
 			<view class="form-card">
@@ -27,14 +36,19 @@ import PageHeader from '@/pages/components/PageHeader.uvue'
 					<view class="checkbox"></view>
 					<text class="agreement-copy">服务开放后，需阅读并同意正式发布的用户协议与隐私政策。</text>
 				</view>
-				<view class="login-button">
-					<text class="login-button-copy">暂未开放登录</text>
-				</view>
+				<view class="login-button disabled-button"><text class="login-button-copy">暂未开放登录</text></view>
 			</view>
 
-			<view class="tip-card">
-				<text class="tip-title">当前不会收集个人信息</text>
-				<text class="tip-copy">页面仅展示后续登录流程的界面结构；手机号、验证码与提交操作均已关闭。</text>
+			<view class="link-card">
+				<text class="link-title">登录前请先了解</text>
+				<view class="link-row" @click="openService">
+					<text class="link-copy">服务说明</text>
+					<text class="link-arrow">›</text>
+				</view>
+				<view class="link-row" @click="openPrivacy">
+					<text class="link-copy">协议与隐私</text>
+					<text class="link-arrow">›</text>
+				</view>
 			</view>
 
 			<view class="notice">
@@ -45,140 +59,30 @@ import PageHeader from '@/pages/components/PageHeader.uvue'
 </template>
 
 <style scoped>
-.shell,
-.page {
-	flex: 1;
-}
-
-.page {
-	background-color: #f5f6f8;
-}
-
-.hero {
-	padding: 30px 20px 26px;
-	background-color: #ffffff;
-}
-
-.eyebrow {
-	font-size: 13px;
-	font-weight: 600;
-	color: #e93030;
-}
-
-.title {
-	margin-top: 8px;
-	font-size: 24px;
-	font-weight: 700;
-	color: #20242b;
-}
-
-.subtitle {
-	margin-top: 9px;
-	font-size: 14px;
-	line-height: 22px;
-	color: #737983;
-}
-
-.form-card,
-.tip-card {
-	margin: 16px;
-	padding: 20px;
-	border-radius: 18px;
-	background-color: #ffffff;
-}
-
-.form-title,
-.tip-title {
-	font-size: 17px;
-	font-weight: 700;
-	color: #292d34;
-}
-
-.field {
-	min-height: 54px;
-	margin-top: 16px;
-	padding: 0 14px;
-	flex-direction: row;
-	align-items: center;
-	border-radius: 10px;
-	background-color: #f7f8fa;
-}
-
-.field-label {
-	width: 58px;
-	font-size: 14px;
-	color: #606773;
-}
-
-.field-input {
-	flex: 1;
-	font-size: 14px;
-	color: #a0a5ad;
-}
-
-.code-action {
-	min-width: 84px;
-	font-size: 13px;
-	color: #b4b8bf;
-	text-align: right;
-}
-
-.agreement {
-	margin-top: 18px;
-	flex-direction: row;
-	align-items: flex-start;
-}
-
-.checkbox {
-	width: 16px;
-	height: 16px;
-	margin: 2px 8px 0 0;
-	border-width: 1px;
-	border-color: #c9cdd3;
-	border-radius: 3px;
-}
-
-.agreement-copy,
-.tip-copy {
-	flex: 1;
-	font-size: 12px;
-	line-height: 19px;
-	color: #8a9099;
-}
-
-.login-button {
-	min-height: 48px;
-	margin-top: 20px;
-	justify-content: center;
-	align-items: center;
-	border-radius: 24px;
-	background-color: #d9dce1;
-}
-
-.login-button-copy {
-	font-size: 16px;
-	font-weight: 600;
-	color: #ffffff;
-}
-
-.tip-card {
-	margin-top: 0;
-}
-
-.tip-copy {
-	margin-top: 8px;
-	font-size: 14px;
-	line-height: 21px;
-}
-
-.notice {
-	margin: 24px;
-}
-
-.notice-copy {
-	font-size: 12px;
-	line-height: 18px;
-	color: #9ba1aa;
-	text-align: center;
-}
+.shell, .page { flex: 1; }
+.page { padding-bottom: 64px; background-color: #f5f6f8; }
+.hero { padding: 28px 20px 26px; align-items: center; background-color: #ffffff; }
+.hero-icon { width: 54px; height: 54px; margin-bottom: 14px; justify-content: center; align-items: center; border-radius: 16px; background-color: #fff0f0; }
+.hero-icon-copy { font-size: 22px; font-weight: 700; color: #e93030; }
+.eyebrow { font-size: 13px; font-weight: 600; color: #e93030; }
+.title { margin-top: 7px; font-size: 24px; font-weight: 700; color: #20242b; }
+.subtitle { margin-top: 8px; font-size: 14px; line-height: 21px; color: #737983; text-align: center; }
+.form-card, .link-card { margin: 16px; padding: 20px; border-radius: 18px; background-color: #ffffff; }
+.form-title, .link-title { font-size: 17px; font-weight: 700; color: #292d34; }
+.field { min-height: 54px; margin-top: 16px; padding: 0 14px; flex-direction: row; align-items: center; border-radius: 10px; background-color: #f7f8fa; }
+.field-label { width: 58px; font-size: 14px; color: #606773; }
+.field-input { flex: 1; font-size: 14px; color: #a0a5ad; }
+.code-action { min-width: 84px; font-size: 13px; color: #b4b8bf; text-align: right; }
+.agreement { margin-top: 18px; flex-direction: row; align-items: flex-start; }
+.checkbox { width: 16px; height: 16px; margin: 2px 8px 0 0; border-width: 1px; border-color: #c9cdd3; border-radius: 3px; }
+.agreement-copy { flex: 1; font-size: 12px; line-height: 19px; color: #8a9099; }
+.login-button { min-height: 48px; margin-top: 20px; justify-content: center; align-items: center; border-radius: 24px; }
+.disabled-button { background-color: #d9dce1; }
+.login-button-copy { font-size: 16px; font-weight: 600; color: #ffffff; }
+.link-card { padding: 8px 20px; }
+.link-row { min-height: 54px; flex-direction: row; align-items: center; border-bottom-width: 1px; border-bottom-color: #f0f1f3; }
+.link-copy { flex: 1; font-size: 14px; color: #3d424a; }
+.link-arrow { min-width: 32px; min-height: 44px; padding-top: 9px; font-size: 22px; color: #bec2c8; text-align: right; }
+.notice { margin: 24px; }
+.notice-copy { font-size: 12px; line-height: 18px; color: #9aa1aa; text-align: center; }
 </style>

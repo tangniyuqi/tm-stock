@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { isSafeExternalUrl, openSafeExternalUrl } from '@/pages/libs/external-link.uts'
 import { Evidence, formatMillis } from '@/pages/libs/theme.uts'
 
 type ThemeEvidenceSheetProps = {
@@ -7,149 +7,73 @@ type ThemeEvidenceSheetProps = {
 	evidence : Evidence
 }
 
-const props = defineProps<ThemeEvidenceSheetProps>()
+defineProps<ThemeEvidenceSheetProps>()
 
 const emits = defineEmits<{
 	close : []
 }>()
 
-const isVisible = computed(() : boolean => {
-	return props.visible
-})
-
-const stockName = computed(() : string => {
-	return props.evidence.stockName
-})
-
-const chainNodeName = computed(() : string => {
-	return props.evidence.chainNodeName
-})
-
-const sourceType = computed(() : string => {
-	return props.evidence.sourceType
-})
-
-const sourceExcerpt = computed(() : string => {
-	return props.evidence.sourceExcerpt
-})
-
-const sourceURL = computed(() : string => {
-	return props.evidence.sourceUrl
-})
-
-const collectedAt = computed(() : string => {
-	return formatMillis(props.evidence.collectedAt)
-})
-
 const close = () : void => {
 	emits('close')
+}
+
+const openSource = (url : string) : void => {
+	openSafeExternalUrl(url)
 }
 </script>
 
 <template>
-	<view v-if="isVisible" class="overlay" @click="close">
+	<view v-if="visible" class="overlay" @click="close">
 		<view class="sheet" @click.stop>
+			<view class="grabber"></view>
 			<view class="sheet-header">
 				<view class="header-copy">
 					<text class="title">归属依据</text>
-					<text class="subtitle">{{ stockName }} · {{ chainNodeName }}</text>
+					<text class="subtitle">{{ evidence.stockName }} · {{ evidence.chainNodeName }}</text>
 				</view>
 				<text class="close-action" @click="close">关闭</text>
 			</view>
 
-			<view class="field">
-				<text class="label">来源类型</text>
-				<text class="value">{{ sourceType }}</text>
-			</view>
-			<view class="field">
-				<text class="label">原文摘录</text>
-				<text class="excerpt">{{ sourceExcerpt }}</text>
-			</view>
-			<view class="field">
-				<text class="label">原文链接</text>
-				<text class="url">{{ sourceURL }}</text>
-			</view>
-			<view class="field">
-				<text class="label">采集时点</text>
-				<text class="value">{{ collectedAt }}</text>
-			</view>
+			<scroll-view class="sheet-scroll" scroll-y="true">
+				<view class="field">
+					<text class="label">来源类型</text>
+					<text class="value">{{ evidence.sourceType }}</text>
+				</view>
+				<view class="field">
+					<text class="label">原文摘录</text>
+					<text class="excerpt">{{ evidence.sourceExcerpt }}</text>
+				</view>
+				<view class="field">
+					<text class="label">原文链接</text>
+					<text v-if="isSafeExternalUrl(evidence.sourceUrl)" class="url-action" @click="openSource(evidence.sourceUrl)">查看已校验的 HTTPS 原文</text>
+					<text v-else class="url-unavailable">原文链接暂不可用</text>
+				</view>
+				<view class="field field-last">
+					<text class="label">采集时点</text>
+					<text class="value">{{ formatMillis(evidence.collectedAt) }}</text>
+				</view>
+				<text class="sheet-note">缺少来源类型、原文摘录、原文链接或采集时点的记录不会在题材详情中展示。</text>
+			</scroll-view>
 		</view>
 	</view>
 </template>
 
 <style scoped>
-.overlay {
-	position: fixed;
-	top: 0;
-	right: 0;
-	bottom: 0;
-	left: 0;
-	padding: 24px;
-	justify-content: flex-end;
-	background-color: rgba(0, 0, 0, 0.42);
-	z-index: 20;
-}
-
-.sheet {
-	padding: 20px;
-	border-radius: 16px;
-	background-color: #ffffff;
-}
-
-.sheet-header {
-	flex-direction: row;
-	align-items: flex-start;
-}
-
-.header-copy {
-	flex: 1;
-}
-
-.title {
-	font-size: 18px;
-	font-weight: 700;
-	color: #1f2329;
-}
-
-.subtitle {
-	margin-top: 6px;
-	font-size: 13px;
-	color: #7a818c;
-}
-
-.close-action {
-	min-width: 44px;
-	padding: 10px 0 10px 10px;
-	font-size: 14px;
-	color: #e93030;
-	text-align: right;
-}
-
-.field {
-	margin-top: 20px;
-}
-
-.label {
-	font-size: 12px;
-	color: #89909a;
-}
-
-.value,
-.excerpt,
-.url {
-	margin-top: 6px;
-	font-size: 14px;
-	line-height: 21px;
-	color: #30343b;
-}
-
-.excerpt {
-	padding: 12px;
-	border-radius: 8px;
-	background-color: #f6f7f9;
-}
-
-.url {
-	color: #366bd8;
-}
+.overlay { position: fixed; top: 0; right: 0; bottom: 0; left: 0; padding: 16px; justify-content: flex-end; background-color: rgba(0, 0, 0, 0.42); z-index: 20; }
+.sheet { height: 76%; min-height: 360px; padding: 0 20px 18px; flex-direction: column; border-radius: 20px 20px 14px 14px; background-color: #ffffff; }
+.grabber { width: 38px; height: 4px; margin: 10px auto 4px; border-radius: 2px; background-color: #d9dde3; }
+.sheet-header { min-height: 60px; flex-direction: row; align-items: flex-start; }
+.header-copy { flex: 1; padding-top: 8px; }
+.title { font-size: 19px; font-weight: 700; color: #1f2329; }
+.subtitle { margin-top: 6px; font-size: 13px; color: #7a818c; }
+.close-action { min-width: 44px; min-height: 44px; padding-top: 12px; font-size: 14px; font-weight: 700; color: #e93030; text-align: right; }
+.sheet-scroll { flex: 1; border-top-width: 1px; border-top-color: #f0f1f3; }
+.field { margin-top: 20px; }
+.field-last { padding-bottom: 12px; }
+.label { font-size: 12px; font-weight: 600; color: #89909a; }
+.value, .excerpt, .url-action, .url-unavailable { margin-top: 7px; font-size: 14px; line-height: 21px; color: #30343b; }
+.excerpt { padding: 12px; border-radius: 10px; background-color: #f6f7f9; }
+.url-action { min-height: 44px; padding-top: 12px; font-weight: 700; color: #e93030; }
+.url-unavailable { color: #89909a; }
+.sheet-note { margin: 8px 0 20px; font-size: 12px; line-height: 18px; color: #89909a; }
 </style>

@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>题材数据接入整改 · 高保真原型</title>
+  <style>
+    :root {
+      --ink: #1f2329;
+      --muted: #6f7b91;
+      --line: #e5e9f1;
+      --paper: #ffffff;
+      --canvas: #f3f6fb;
+      --navy: #e93030;
+      --blue: #e93030;
+      --amber: #d58d24;
+      --amber-soft: #fff7e9;
+      --blue-soft: #fff0f0;
+      --danger: #bd4a42;
+      --shadow: 0 20px 48px rgba(21, 36, 61, .14);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--canvas);
+      font-family: "PingFang SC", "Microsoft YaHei", ui-sans-serif, system-ui, sans-serif;
+    }
+    .board {
+      max-width: 1480px;
+      margin: 0 auto;
+      padding: 44px 34px 56px;
+    }
+    .board-header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 28px;
+      margin-bottom: 32px;
+    }
+    .eyebrow {
+      margin: 0 0 10px;
+      color: var(--blue);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .12em;
+    }
+    h1 { margin: 0; font-size: 30px; letter-spacing: -.03em; }
+    .board-copy { max-width: 570px; margin: 10px 0 0; color: var(--muted); line-height: 1.65; }
+    .prototype-note {
+      flex: none;
+      padding: 10px 14px;
+      border: 1px solid #f2d29a;
+      border-radius: 12px;
+      background: var(--amber-soft);
+      color: #8b5b14;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    .phones { display: grid; grid-template-columns: repeat(3, minmax(300px, 1fr)); gap: 28px; }
+    .prototype { min-width: 0; }
+    .prototype-label { display: flex; align-items: center; gap: 8px; margin: 0 0 12px 12px; color: var(--muted); font-size: 13px; font-weight: 700; }
+    .prototype-label b { color: var(--ink); font-size: 15px; }
+    .step { display: inline-grid; width: 22px; height: 22px; place-items: center; border-radius: 50%; background: var(--blue-soft); color: var(--blue); font-size: 12px; }
+    .phone {
+      position: relative;
+      min-height: 748px;
+      overflow: hidden;
+      border: 10px solid #3a2424;
+      border-radius: 38px;
+      background: #f7f9fc;
+      box-shadow: var(--shadow);
+    }
+    .statusbar { display: flex; align-items: center; justify-content: space-between; height: 31px; padding: 0 18px; background: var(--navy); color: #fff; font-size: 11px; font-weight: 800; }
+    .header { display: flex; align-items: center; min-height: 61px; padding: 0 18px; background: var(--navy); color: #fff; }
+    .header-title { flex: 1; font-size: 19px; font-weight: 800; text-align: center; }
+    .header-side { width: 28px; font-size: 24px; line-height: 1; }
+    .header-side:last-child { color: transparent; }
+    .screen { padding: 16px; }
+    .tabs { display: flex; gap: 18px; padding: 0 4px 13px; border-bottom: 1px solid var(--line); }
+    .tab { padding-bottom: 8px; color: var(--muted); font-size: 14px; font-weight: 700; }
+    .tab.active { margin-bottom: -14px; border-bottom: 3px solid var(--blue); color: var(--ink); }
+    .date-bar { display: flex; align-items: center; justify-content: space-between; margin: 15px 0 12px; padding: 10px 11px; border: 1px solid var(--line); border-radius: 14px; background: #fff; color: var(--navy); font-size: 13px; font-weight: 700; }
+    .date-bar span:nth-child(2) { color: var(--ink); }
+    .sort-row { display: flex; align-items: center; justify-content: space-between; margin: 2px 3px 12px; color: var(--muted); font-size: 12px; }
+    .sort-chip, .tag, .soft-tag { display: inline-flex; align-items: center; gap: 4px; border-radius: 999px; font-weight: 700; }
+    .sort-chip { padding: 6px 9px; background: var(--blue-soft); color: var(--blue); }
+    .callout { display: flex; gap: 9px; margin-bottom: 12px; padding: 11px; border: 1px solid #f1d39e; border-radius: 13px; background: var(--amber-soft); color: #805719; font-size: 12px; line-height: 1.5; }
+    .callout-icon { font-weight: 900; }
+    .feed-card, .detail-card, .event-card { margin-bottom: 10px; padding: 14px; border: 1px solid #e7ebf2; border-radius: 16px; background: var(--paper); }
+    .feed-time { color: var(--blue); font-size: 12px; font-weight: 800; }
+    .feed-title { margin: 7px 0 12px; font-size: 15px; font-weight: 800; line-height: 1.45; }
+    .feed-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 11px; }
+    .tag { padding: 5px 8px; background: var(--blue-soft); color: var(--blue); }
+    .source-link { color: var(--navy); font-weight: 700; }
+    .notice { margin: 15px 3px 0; color: #8c98a9; font-size: 11px; line-height: 1.55; text-align: center; }
+    .theme-top { padding: 16px; border-radius: 18px; background: linear-gradient(145deg, #eaf1ff, #fff); }
+    .theme-top .micro { color: var(--blue); font-size: 12px; font-weight: 800; }
+    .theme-name { margin: 7px 0 6px; font-size: 25px; letter-spacing: -.04em; }
+    .theme-summary { margin: 0; color: #53627b; font-size: 13px; line-height: 1.65; }
+    .meta { display: flex; justify-content: space-between; gap: 8px; margin-top: 12px; color: var(--muted); font-size: 11px; }
+    .quote-off { display: flex; align-items: center; justify-content: space-between; margin: 11px 0; padding: 10px 12px; border-radius: 13px; background: #f0f3f8; color: #617088; font-size: 12px; }
+    .quote-off b { color: #45536a; }
+    .section-title { display: flex; align-items: center; justify-content: space-between; margin: 17px 3px 10px; color: var(--ink); font-size: 14px; font-weight: 800; }
+    .chain-head { display: flex; align-items: center; gap: 9px; font-size: 15px; font-weight: 800; }
+    .chevron { color: var(--blue); font-size: 15px; }
+    .chain-caption { margin: 7px 0 12px 24px; color: var(--muted); font-size: 12px; }
+    .stock-row { display: flex; align-items: center; gap: 9px; padding: 11px 0; border-top: 1px solid var(--line); }
+    .stock-icon { display: grid; flex: none; width: 31px; height: 31px; place-items: center; border-radius: 10px; background: var(--blue-soft); color: var(--blue); font-size: 12px; font-weight: 900; }
+    .stock-info { flex: 1; min-width: 0; }
+    .stock-name { display: block; font-size: 13px; font-weight: 800; }
+    .stock-code { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; }
+    .evidence-button { min-height: 34px; padding: 0 10px; border: 1px solid #bfd1f8; border-radius: 9px; background: #fff; color: var(--blue); font-size: 12px; font-weight: 800; }
+    .collapsed { display: flex; align-items: center; justify-content: space-between; min-height: 52px; color: #3d4f6c; }
+    .event-card { color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .sheet-dim { position: absolute; inset: 92px 0 0; background: linear-gradient(to bottom, rgba(12, 28, 53, .06), rgba(12, 28, 53, .56)); }
+    .sheet { position: absolute; right: 0; bottom: 0; left: 0; padding: 12px 16px 23px; border-radius: 25px 25px 0 0; background: #fff; box-shadow: 0 -12px 36px rgba(14, 30, 52, .18); }
+    .grab { width: 36px; height: 4px; margin: 0 auto 16px; border-radius: 5px; background: #d8dee8; }
+    .sheet-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .sheet-title { font-size: 18px; font-weight: 900; }
+    .sheet-close { color: var(--blue); font-size: 13px; font-weight: 800; }
+    .sheet-subtitle { margin-top: 4px; color: var(--muted); font-size: 12px; }
+    .evidence-field { margin-top: 15px; }
+    .evidence-label { display: block; margin-bottom: 6px; color: var(--muted); font-size: 11px; font-weight: 700; }
+    .evidence-value { color: #31415c; font-size: 13px; line-height: 1.55; }
+    .excerpt { padding: 10px; border-radius: 10px; background: #f5f7fb; }
+    .open-link { display: inline-flex; min-height: 36px; align-items: center; margin-top: 7px; color: var(--blue); font-size: 13px; font-weight: 800; }
+    .sheet-notice { margin-top: 14px; color: #8b97a8; font-size: 11px; line-height: 1.55; }
+    @media (max-width: 1080px) { .phones { grid-template-columns: repeat(2, minmax(300px, 1fr)); } }
+    @media (max-width: 700px) { .board { padding: 28px 16px 40px; } .board-header { display: block; } .prototype-note { display: inline-block; margin-top: 16px; white-space: normal; } .phones { grid-template-columns: minmax(0, 390px); justify-content: center; } }
+  </style>
+</head>
+<body>
+  <main class="board">
+    <header class="board-header">
+      <div>
+        <p class="eyebrow">题材宝典 · 设计基线</p>
+        <h1>题材数据接入整改 · 高保真原型</h1>
+        <p class="board-copy">将首页动态、题材详情和归属依据设计为一条可审计的信息路径。原型故意隐藏未获授权的行情，并将来源、时间与依据置于一等信息层级。</p>
+      </div>
+      <div class="prototype-note">界面示意，非生产数据 · 不代表任何题材、公司或行情</div>
+    </header>
+
+    <section class="phones" aria-label="移动端页面原型">
+      <article class="prototype">
+        <p class="prototype-label"><span class="step">01</span><b>首页 · 题材动态</b>免费信息流</p>
+        <div class="phone">
+          <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+          <div class="header"><span class="header-side">‹</span><span class="header-title">题材动态</span><span class="header-side">•</span></div>
+          <div class="screen">
+            <div class="tabs"><span class="tab active">题材动态</span><span class="tab">题材库</span></div>
+            <div class="date-bar"><span>‹ 上一日</span><span>⌄ 2026-08-18</span><span>下一日 ›</span></div>
+            <div class="sort-row"><span>当前展示</span><span class="sort-chip">按发布时间排序</span></div>
+            <div class="callout"><span class="callout-icon">i</span><span>仅展示来源、原文链接与审核状态齐全的公开信息；行情信息尚未授权时不显示。</span></div>
+            <section class="feed-card">
+              <span class="feed-time">23:50</span>
+              <h2 class="feed-title">公开披露的产业信息更新</h2>
+              <div class="feed-footer"><span class="tag">题材名称示例</span><span class="source-link">来源 · 查看原文 ↗</span></div>
+            </section>
+            <section class="feed-card">
+              <span class="feed-time">22:42</span>
+              <h2 class="feed-title">经审核的公开资料摘要</h2>
+              <div class="feed-footer"><span class="tag">题材名称示例</span><span class="source-link">来源 · 查看原文 ↗</span></div>
+            </section>
+            <section class="feed-card">
+              <span class="feed-time">22:28</span>
+              <h2 class="feed-title">公开机构发布的业务进展信息</h2>
+              <div class="feed-footer"><span class="tag">题材名称示例</span><span class="source-link">来源 · 查看原文 ↗</span></div>
+            </section>
+            <p class="notice">本平台为公开信息聚合与历史数据统计，不构成任何投资建议。</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="prototype">
+        <p class="prototype-label"><span class="step">02</span><b>题材详情</b>受控展开</p>
+        <div class="phone">
+          <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+          <div class="header"><span class="header-side">‹</span><span class="header-title">题材详情</span><span class="header-side">•</span></div>
+          <div class="screen">
+            <section class="theme-top">
+              <span class="micro">公开资料整理</span>
+              <h2 class="theme-name">题材名称示例</h2>
+              <p class="theme-summary">这里展示经过审核的客观说明。内容不包含价值判断、价格推演或交易提示。</p>
+              <div class="meta"><span>更新于 2026-08-18</span><span>来源可查</span></div>
+            </section>
+            <div class="quote-off"><span>行情信息</span><b>授权完成后展示</b></div>
+            <div class="section-title"><span>产业链环节</span><span class="soft-tag">已获访问权限</span></div>
+            <section class="detail-card">
+              <div class="chain-head"><span class="chevron">⌄</span><span>环节名称示例</span></div>
+              <p class="chain-caption">客观分工说明；展开后仅展示已具备归属依据的成分信息。</p>
+              <div class="stock-row">
+                <span class="stock-icon">甲</span>
+                <span class="stock-info"><span class="stock-name">公司甲（示例）</span><span class="stock-code">000000 · 市场示例</span></span>
+                <button class="evidence-button">查看依据</button>
+              </div>
+              <div class="stock-row">
+                <span class="stock-icon">乙</span>
+                <span class="stock-info"><span class="stock-name">公司乙（示例）</span><span class="stock-code">000000 · 市场示例</span></span>
+                <button class="evidence-button">查看依据</button>
+              </div>
+            </section>
+            <section class="detail-card collapsed"><span><span class="chevron">›</span>&nbsp;另一环节名称示例</span><span class="stock-code">点击展开</span></section>
+            <div class="section-title"><span>关联动态</span><span class="stock-code">仅展示审核条目</span></div>
+            <section class="event-card">来源与原文链接齐全的动态会在这里出现；没有数据时不使用示例内容补齐。</section>
+            <p class="notice">本平台为公开信息聚合与历史数据统计，不构成任何投资建议。</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="prototype">
+        <p class="prototype-label"><span class="step">03</span><b>归属依据</b>不进入个股详情</p>
+        <div class="phone">
+          <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+          <div class="header"><span class="header-side">‹</span><span class="header-title">题材详情</span><span class="header-side">•</span></div>
+          <div class="screen">
+            <section class="theme-top"><span class="micro">题材名称示例</span><h2 class="theme-name">环节名称示例</h2><p class="theme-summary">用户点击“查看依据”后，在当前页面查看该归属的原文证据。</p></section>
+            <section class="detail-card"><div class="chain-head"><span class="chevron">⌄</span><span>环节名称示例</span></div><div class="stock-row"><span class="stock-icon">甲</span><span class="stock-info"><span class="stock-name">公司甲（示例）</span><span class="stock-code">000000 · 市场示例</span></span></div></section>
+          </div>
+          <div class="sheet-dim"></div>
+          <section class="sheet" aria-label="归属依据浮层">
+            <div class="grab"></div>
+            <div class="sheet-header"><div><div class="sheet-title">归属依据</div><div class="sheet-subtitle">公司甲（示例） · 环节名称示例</div></div><span class="sheet-close">关闭</span></div>
+            <div class="evidence-field"><span class="evidence-label">来源类型</span><span class="evidence-value">公开披露文件（示意）</span></div>
+            <div class="evidence-field"><span class="evidence-label">原文摘录</span><div class="evidence-value excerpt">“与该归属有关的公开原文摘录将在审核通过后展示。”</div></div>
+            <div class="evidence-field"><span class="evidence-label">原文链接</span><span class="open-link">查看原文 ↗</span></div>
+            <div class="evidence-field"><span class="evidence-label">采集时点</span><span class="evidence-value">2026-08-18 23:50（示意）</span></div>
+            <p class="sheet-notice">缺少来源类型、原文摘录、链接或采集时点的记录，不会在详情页显示。</p>
+          </section>
+        </div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { ref } from 'vue'
 import PageHeader from '@/pages/components/PageHeader.uvue'
 import ThemeEvidenceSheet from './components/ThemeEvidenceSheet.uvue'
-import { Evidence, StockItem, ThemeDetail, formatChangePct, formatMillis } from '@/pages/libs/theme.uts'
+import { isSafeExternalUrl, openSafeExternalUrl } from '@/pages/libs/external-link.uts'
+import { ThemeApi } from '@/pages/libs/theme-api.uts'
+import { ChainNode, Evidence, StockItem, ThemeDetail, ThemeEvent, formatChangePct, formatMillis, getChangePctClass } from '@/pages/libs/theme.uts'
 
 type DetailState = 'loading' | 'empty' | 'error' | 'ready'
 
@@ -11,29 +13,251 @@ const errorMessage = ref<string>('')
 const theme = ref<ThemeDetail | null>(null)
 const evidence = ref<Evidence | null>(null)
 const evidenceVisible = ref<boolean>(false)
+const currentThemeID = ref<number>(0)
+const expandedNodeID = ref<number>(0)
+const evidenceLoadingCode = ref<string>('')
 
-const finishInitialLoad = () : void => {
-	pageState.value = 'empty'
+const isSafeTsCode = (value : string) : boolean => {
+	if (value.length < 6 || value.length > 20 || value.indexOf('.') < 0) {
+		return false
+	}
+	for (let index = 0; index < value.length; index++) {
+		const character = value.charAt(index)
+		const isDigit = character >= '0' && character <= '9'
+		const isUpper = character >= 'A' && character <= 'Z'
+		if (!isDigit && !isUpper && character != '.') {
+			return false
+		}
+	}
+	return true
+}
+
+const isPublishableStock = (stock : StockItem) : boolean => {
+	return stock != null
+		&& typeof stock.code == 'string'
+		&& typeof stock.tsCode == 'string'
+		&& typeof stock.name == 'string'
+		&& typeof stock.market == 'string'
+		&& typeof stock.hasEvidence == 'boolean'
+		&& (stock.changePct == null || typeof stock.changePct == 'number')
+		&& stock.hasEvidence
+		&& stock.code.trim().length > 0
+		&& isSafeTsCode(stock.tsCode)
+		&& stock.name.trim().length > 0
+		&& stock.market.trim().length > 0
+}
+
+const visibleStocks = (stocks : StockItem[]) : StockItem[] => {
+	if (!Array.isArray(stocks)) {
+		return []
+	}
+	const result : StockItem[] = []
+	for (let index = 0; index < stocks.length; index++) {
+		if (isPublishableStock(stocks[index])) {
+			result.push(stocks[index])
+		}
+	}
+	return result
+}
+
+const isPublishableNode = (node : ChainNode) : boolean => {
+	return node != null
+		&& typeof node.id == 'number'
+		&& typeof node.name == 'string'
+		&& typeof node.description == 'string'
+		&& typeof node.caliber == 'string'
+		&& (node.changePct == null || typeof node.changePct == 'number')
+		&& Array.isArray(node.stocks)
+		&& node.id > 0
+		&& node.name.trim().length > 0
+}
+
+const visibleChainNodes = (nodes : ChainNode[] | null) : ChainNode[] => {
+	if (nodes == null || !Array.isArray(nodes)) {
+		return []
+	}
+	const result : ChainNode[] = []
+	for (let index = 0; index < nodes.length; index++) {
+		if (isPublishableNode(nodes[index])) {
+			result.push(nodes[index])
+		}
+	}
+	return result
+}
+
+const isPublishableEvent = (event : ThemeEvent) : boolean => {
+	return event != null
+		&& typeof event.id == 'number'
+		&& typeof event.title == 'string'
+		&& typeof event.publishAt == 'number'
+		&& typeof event.source == 'string'
+		&& typeof event.sourceUrl == 'string'
+		&& event.id > 0
+		&& event.title.trim().length > 0
+		&& event.publishAt > 0
+		&& event.source.trim().length > 0
+		&& isSafeExternalUrl(event.sourceUrl)
+}
+
+const visibleEvents = (events : ThemeEvent[] | null) : ThemeEvent[] => {
+	if (events == null || !Array.isArray(events)) {
+		return []
+	}
+	const result : ThemeEvent[] = []
+	for (let index = 0; index < events.length; index++) {
+		if (isPublishableEvent(events[index])) {
+			result.push(events[index])
+		}
+	}
+	return result
+}
+
+const isThemeDetailValid = (item : ThemeDetail) : boolean => {
+	if (item == null
+		|| typeof item.id != 'number'
+		|| typeof item.name != 'string'
+		|| typeof item.categoryPath != 'string'
+		|| typeof item.summary != 'string'
+		|| typeof item.updatedAt != 'number'
+		|| typeof item.dataSource != 'string'
+		|| typeof item.quoteEnabled != 'boolean'
+		|| typeof item.quoteDelayMin != 'number'
+		|| typeof item.quoteAt != 'number'
+		|| typeof item.quoteIsMock != 'boolean'
+		|| typeof item.locked != 'boolean'
+		|| typeof item.trialLeft != 'number') {
+		return false
+	}
+	if ((item.chainNodes != null && !Array.isArray(item.chainNodes)) || (item.events != null && !Array.isArray(item.events))) {
+		return false
+	}
+	if (item.id <= 0 || item.name.trim().length == 0 || item.summary.trim().length == 0 || item.updatedAt <= 0 || item.trialLeft < 0) {
+		return false
+	}
+	return !item.quoteEnabled || (item.quoteDelayMin > 0 && item.quoteAt > 0)
+}
+
+const isPublishableEvidence = (item : Evidence) : boolean => {
+	return item != null
+		&& typeof item.tsCode == 'string'
+		&& typeof item.stockCode == 'string'
+		&& typeof item.stockName == 'string'
+		&& typeof item.chainNodeName == 'string'
+		&& typeof item.sourceType == 'string'
+		&& typeof item.sourceExcerpt == 'string'
+		&& typeof item.sourceUrl == 'string'
+		&& typeof item.collectedAt == 'number'
+		&& isSafeTsCode(item.tsCode)
+		&& item.stockCode.trim().length > 0
+		&& item.stockName.trim().length > 0
+		&& item.chainNodeName.trim().length > 0
+		&& item.sourceType.trim().length > 0
+		&& item.sourceExcerpt.trim().length > 0
+		&& isSafeExternalUrl(item.sourceUrl)
+		&& item.collectedAt > 0
+}
+
+const loadTheme = async (themeID : number) : Promise<void> => {
+	pageState.value = 'loading'
+	errorMessage.value = ''
+	evidence.value = null
+	evidenceVisible.value = false
+	evidenceLoadingCode.value = ''
+	const result = await ThemeApi.detail(themeID)
+	if (result.code != 0 || result.data == null) {
+		theme.value = null
+		errorMessage.value = result.message
+		pageState.value = 'error'
+		return
+	}
+	if (!isThemeDetailValid(result.data)) {
+		theme.value = null
+		errorMessage.value = '服务返回的数据不完整，请稍后重试'
+		pageState.value = 'error'
+		return
+	}
+	theme.value = result.data
+	const nodes = visibleChainNodes(result.data.chainNodes)
+	if (!result.data.locked && nodes.length > 0) {
+		expandedNodeID.value = nodes[0].id
+	} else {
+		expandedNodeID.value = 0
+	}
+	pageState.value = 'ready'
 }
 
 const retryLoad = () : void => {
-	errorMessage.value = ''
-	finishInitialLoad()
+	if (currentThemeID.value > 0) {
+		loadTheme(currentThemeID.value)
+	}
 }
 
-const showEvidence = (stock : StockItem) : void => {
-	if (!stock.hasEvidence) {
+const openThemeQuery = () : void => {
+	uni.navigateTo({ url: '/pages/segment/index' })
+}
+
+const toggleNode = (nodeID : number) : void => {
+	expandedNodeID.value = expandedNodeID.value == nodeID ? 0 : nodeID
+}
+
+const openService = () : void => {
+	uni.navigateTo({ url: '/pages/member/service' })
+}
+
+const showAccessUnavailable = () : void => {
+	uni.showModal({
+		title: '暂不可查看归属依据',
+		content: '完整内容由服务端统一判定访问权限，可查看服务说明了解当前开放状态。',
+		confirmText: '查看说明',
+		cancelText: '暂不查看',
+		success: (result) => {
+			if (result.confirm == true) {
+				openService()
+			}
+		}
+	})
+}
+
+const showEvidence = async (stock : StockItem) : Promise<void> => {
+	if (!isPublishableStock(stock) || theme.value == null || evidenceLoadingCode.value.length > 0) {
 		return
 	}
-	uni.showToast({ title: '归属依据将在数据接入后展示', icon: 'none' })
+	evidenceLoadingCode.value = stock.tsCode
+	const result = await ThemeApi.evidence(theme.value.id, stock.tsCode)
+	evidenceLoadingCode.value = ''
+	if (result.code == 0 && result.data != null && isPublishableEvidence(result.data)) {
+		evidence.value = result.data
+		evidenceVisible.value = true
+		return
+	}
+	if (result.code == 0) {
+		uni.showToast({ title: '归属依据不完整，暂不展示', icon: 'none' })
+		return
+	}
+	if (result.code == 40100 || result.code == 40301) {
+		showAccessUnavailable()
+		return
+	}
+	uni.showToast({ title: result.message, icon: 'none' })
 }
 
 const closeEvidence = () : void => {
 	evidenceVisible.value = false
 }
 
-onMounted(() => {
-	finishInitialLoad()
+const openEventSource = (event : ThemeEvent) : void => {
+	openSafeExternalUrl(event.sourceUrl)
+}
+
+onLoad((options : OnLoadOptions) => {
+	const routeID = Number(options['id'])
+	if (isNaN(routeID) || routeID <= 0) {
+		errorMessage.value = '题材参数无效'
+		pageState.value = 'error'
+		return
+	}
+	currentThemeID.value = routeID
+	loadTheme(routeID)
 })
 </script>
 
@@ -41,238 +265,168 @@ onMounted(() => {
 	<view class="shell">
 		<PageHeader title="题材详情" :showBack="true"></PageHeader>
 		<scroll-view class="page" scroll-y="true">
-		<view v-if="pageState == 'loading'" class="state-card">
-			<view class="skeleton skeleton-title"></view>
-			<view class="skeleton skeleton-line"></view>
-		</view>
-
-		<view v-else-if="pageState == 'error'" class="state-card">
-			<text class="state-title">加载失败</text>
-			<text class="state-copy">{{ errorMessage }}</text>
-			<text class="retry-action" @click="retryLoad">重新加载</text>
-		</view>
-
-		<view v-else-if="pageState == 'empty' || theme == null" class="state-card">
-			<text class="state-title">暂无题材数据</text>
-			<text class="state-copy">题材内容完成审核并接入后，将在这里展示客观信息与归属依据。</text>
-		</view>
-
-		<view v-else class="detail-content">
-			<view class="header-card">
-				<text class="theme-name">{{ theme.name }}</text>
-				<text class="theme-summary">{{ theme.summary }}</text>
-				<text class="updated-at">更新时间：{{ formatMillis(theme.updatedAt) }}</text>
+			<view v-if="pageState == 'loading'" class="state-card">
+				<view class="skeleton skeleton-title"></view>
+				<view class="skeleton skeleton-line"></view>
+				<view class="skeleton skeleton-line skeleton-short"></view>
 			</view>
 
-			<view v-if="theme.locked" class="locked-card">
-				<text class="state-title">完整内容暂不可查看</text>
-				<text class="state-copy">完成订阅或试吃判定后，可查看产业链环节与归属依据。</text>
+			<view v-else-if="pageState == 'error'" class="state-card">
+				<text class="state-title">加载失败</text>
+				<text class="state-copy">{{ errorMessage }}</text>
+				<view class="state-actions">
+					<text class="retry-action" @click="retryLoad">重新加载</text>
+					<text class="secondary-action" @click="openThemeQuery">返回题材库</text>
+				</view>
 			</view>
 
-			<view v-else-if="theme.chainNodes == null || theme.chainNodes.length == 0" class="state-card">
-				<text class="state-title">暂无产业链数据</text>
+			<view v-else-if="pageState == 'empty' || theme == null" class="state-card">
+				<text class="state-title">暂无题材数据</text>
+				<text class="state-copy">题材内容完成审核并接入后，将在这里展示客观信息与归属依据。</text>
 			</view>
 
-			<view v-else class="chain-list">
-				<view v-for="node in theme.chainNodes" :key="node.id" class="chain-card">
-					<view class="chain-header">
-						<view class="chain-copy">
-							<text class="chain-name">{{ node.name }}</text>
-							<text v-if="node.description.length > 0" class="chain-description">{{ node.description }}</text>
-						</view>
-						<text class="change-value">{{ formatChangePct(node.changePct) }}</text>
+			<view v-else class="detail-content">
+				<view class="header-card">
+					<text v-if="theme.categoryPath.length > 0" class="category-path">{{ theme.categoryPath }}</text>
+					<text class="theme-name">{{ theme.name }}</text>
+					<text class="theme-summary">{{ theme.summary }}</text>
+					<view class="meta-row">
+						<text class="meta-copy">更新时间：{{ formatMillis(theme.updatedAt) }}</text>
+						<text v-if="theme.dataSource.length > 0" class="meta-copy">来源：{{ theme.dataSource }}</text>
 					</view>
-					<text v-if="node.caliber.length > 0" class="caliber">{{ node.caliber }}</text>
+				</view>
 
-					<view v-if="node.stocks.length == 0" class="stock-empty">
-						<text class="stock-empty-copy">暂无已收录公司</text>
+				<view v-if="theme.quoteEnabled" class="quote-card">
+					<text class="quote-copy">行情延时 {{ theme.quoteDelayMin }} 分钟 · 数据时点 {{ formatMillis(theme.quoteAt) }}</text>
+					<text v-if="theme.quoteIsMock" class="quote-mock">示例数据，非真实行情</text>
+				</view>
+
+				<view v-if="theme.locked" class="locked-card">
+					<text class="state-title">完整内容暂不可查看</text>
+					<text class="state-copy">产业链、成分公司和归属依据由服务端统一判定访问权限。</text>
+					<text v-if="theme.trialLeft > 0" class="trial-copy">本次剩余试读：{{ theme.trialLeft }} 次</text>
+					<text class="service-action" @click="openService">查看服务说明</text>
+				</view>
+
+				<view v-else-if="visibleChainNodes(theme.chainNodes).length == 0" class="state-card chain-empty">
+					<text class="state-title">暂无产业链数据</text>
+					<text class="state-copy">没有完整归属依据的条目不会作为成分公司展示。</text>
+				</view>
+
+				<view v-else class="chain-section">
+					<view class="section-heading">
+						<text class="section-title">产业链环节</text>
+						<text class="section-note">默认展开第一个环节</text>
 					</view>
-					<view v-else class="stock-list">
-						<view v-for="stock in node.stocks" :key="stock.tsCode" class="stock-item" @click="showEvidence(stock)">
-							<view class="stock-copy">
-								<text class="stock-name">{{ stock.name }}</text>
-								<text class="stock-code">{{ stock.code }} · {{ stock.market }}</text>
+					<view v-for="node in visibleChainNodes(theme.chainNodes)" :key="node.id" class="chain-card">
+						<view class="chain-header" @click="toggleNode(node.id)">
+							<view class="chain-copy">
+								<text class="chain-name">{{ node.name }}</text>
+								<text v-if="node.description.length > 0" class="chain-description">{{ node.description }}</text>
 							</view>
-							<text class="change-value">{{ formatChangePct(stock.changePct) }}</text>
+							<text v-if="theme.quoteEnabled" class="change-value" :class="getChangePctClass(node.changePct)">{{ formatChangePct(node.changePct) }}</text>
+							<text class="fold-icon">{{ expandedNodeID == node.id ? '⌃' : '⌄' }}</text>
+						</view>
+
+						<view v-if="expandedNodeID == node.id" class="chain-body">
+							<text v-if="node.caliber.length > 0" class="caliber">{{ node.caliber }}</text>
+							<view v-if="visibleStocks(node.stocks).length == 0" class="stock-empty">
+								<text class="stock-empty-copy">暂无已收录公司</text>
+							</view>
+							<view v-else class="stock-list">
+								<view v-for="stock in visibleStocks(node.stocks)" :key="stock.tsCode" class="stock-item">
+									<view class="stock-copy">
+										<text class="stock-name">{{ stock.name }}</text>
+										<text class="stock-code">{{ stock.code }} · {{ stock.market }}</text>
+									</view>
+									<text v-if="theme.quoteEnabled" class="change-value" :class="getChangePctClass(stock.changePct)">{{ formatChangePct(stock.changePct) }}</text>
+									<text v-if="evidenceLoadingCode == stock.tsCode" class="evidence-loading">加载中</text>
+									<text v-else class="evidence-action" @click="showEvidence(stock)">查看依据</text>
+								</view>
+							</view>
+						</view>
+					</view>
+				</view>
+
+				<view v-if="visibleEvents(theme.events).length > 0" class="event-section">
+					<view class="section-heading">
+						<text class="section-title">关联动态</text>
+						<text class="section-note">仅展示来源审核条目</text>
+					</view>
+					<view v-for="event in visibleEvents(theme.events)" :key="event.id" class="event-card">
+						<text class="event-title">{{ event.title }}</text>
+						<view class="event-footer">
+							<text class="event-meta">{{ event.source }} · {{ formatMillis(event.publishAt) }}</text>
+							<text class="event-action" @click="openEventSource(event)">查看原文</text>
 						</view>
 					</view>
 				</view>
 			</view>
-		</view>
 
-		<view class="notice">
-			<text class="notice-copy">本平台为公开信息聚合与历史数据统计，不构成任何投资建议。</text>
-		</view>
-
-		<ThemeEvidenceSheet v-if="evidence != null" :visible="evidenceVisible" :evidence="evidence" @close="closeEvidence"></ThemeEvidenceSheet>
+			<view class="notice">
+				<text class="notice-copy">本平台为公开信息聚合与历史数据统计，不构成任何投资建议。</text>
+			</view>
 		</scroll-view>
+		<ThemeEvidenceSheet v-if="evidence != null" :visible="evidenceVisible" :evidence="evidence" @close="closeEvidence"></ThemeEvidenceSheet>
 	</view>
 </template>
 
 <style scoped>
-.shell,
-.page {
-	flex: 1;
-}
-
-.page {
-	background-color: #f5f6f8;
-}
-
-.detail-content,
-.state-card {
-	margin: 16px;
-}
-
-.state-card,
-.header-card,
-.locked-card,
-.chain-card {
-	padding: 20px;
-	border-radius: 18px;
-	background-color: #ffffff;
-}
-
-.state-card {
-	align-items: center;
-}
-
-.state-title {
-	font-size: 16px;
-	font-weight: 600;
-	color: #30343b;
-	text-align: center;
-}
-
-.state-copy {
-	margin-top: 8px;
-	font-size: 14px;
-	line-height: 21px;
-	color: #7a818c;
-	text-align: center;
-}
-
-.retry-action {
-	min-height: 44px;
-	margin-top: 12px;
-	padding: 12px 16px;
-	font-size: 14px;
-	color: #e93030;
-}
-
-.skeleton {
-	border-radius: 6px;
-	background-color: #edf0f3;
-}
-
-.skeleton-title {
-	width: 128px;
-	height: 20px;
-}
-
-.skeleton-line {
-	width: 100%;
-	height: 14px;
-	margin-top: 16px;
-}
-
-.header-card {
-	padding-bottom: 18px;
-}
-
-.theme-name {
-	font-size: 24px;
-	font-weight: 700;
-	color: #1f2329;
-}
-
-.theme-summary {
-	margin-top: 12px;
-	font-size: 15px;
-	line-height: 23px;
-	color: #505762;
-}
-
-.updated-at,
-.caliber,
-.chain-description,
-.stock-code {
-	margin-top: 8px;
-	font-size: 12px;
-	line-height: 18px;
-	color: #89909a;
-}
-
-.locked-card {
-	margin-top: 12px;
-	align-items: center;
-}
-
-.chain-list {
-	margin-top: 12px;
-}
-
-.chain-card {
-	margin-bottom: 12px;
-	padding: 16px;
-}
-
-.chain-header,
-.stock-item {
-	flex-direction: row;
-	align-items: center;
-}
-
-.chain-copy,
-.stock-copy {
-	flex: 1;
-}
-
-.chain-name,
-.stock-name {
-	font-size: 16px;
-	font-weight: 600;
-	color: #30343b;
-}
-
-.change-value {
-	margin-left: 12px;
-	font-size: 14px;
-	color: #505762;
-	text-align: right;
-}
-
-.stock-list {
-	margin-top: 12px;
-	border-top-width: 1px;
-	border-top-color: #f0f1f3;
-}
-
-.stock-item {
-	min-height: 58px;
-	border-bottom-width: 1px;
-	border-bottom-color: #f0f1f3;
-}
-
-.stock-empty {
-	margin-top: 12px;
-	padding: 14px 0;
-	align-items: center;
-}
-
-.stock-empty-copy {
-	font-size: 13px;
-	color: #89909a;
-}
-
-.notice {
-	margin: 24px 24px 32px;
-}
-
-.notice-copy {
-	font-size: 12px;
-	line-height: 18px;
-	color: #9aa1aa;
-	text-align: center;
-}
+.shell, .page { flex: 1; }
+.page { padding-bottom: 64px; background-color: #f5f6f8; }
+.detail-content, .state-card { margin: 16px; }
+.state-card, .header-card, .locked-card, .chain-card, .event-card { border-radius: 18px; background-color: #ffffff; }
+.state-card { padding: 24px 20px; align-items: center; }
+.state-title { font-size: 16px; font-weight: 700; color: #30343b; text-align: center; }
+.state-copy { margin-top: 8px; font-size: 14px; line-height: 21px; color: #7a818c; text-align: center; }
+.state-actions { margin-top: 12px; flex-direction: row; align-items: center; }
+.retry-action, .service-action, .secondary-action { min-height: 44px; padding: 12px 16px; font-size: 14px; font-weight: 700; }
+.retry-action, .service-action { color: #e93030; }
+.secondary-action { margin-left: 4px; color: #60656e; }
+.skeleton { border-radius: 6px; background-color: #edf0f3; }
+.skeleton-title { width: 128px; height: 20px; }
+.skeleton-line { width: 100%; height: 14px; margin-top: 16px; }
+.skeleton-short { width: 68%; }
+.header-card { padding: 20px; }
+.category-path { font-size: 12px; font-weight: 600; color: #e93030; }
+.theme-name { margin-top: 8px; font-size: 24px; font-weight: 700; color: #1f2329; }
+.theme-summary { margin-top: 12px; font-size: 15px; line-height: 23px; color: #505762; }
+.meta-row { margin-top: 14px; flex-direction: row; align-items: flex-start; flex-wrap: wrap; }
+.meta-copy { margin-right: 14px; margin-bottom: 4px; font-size: 12px; line-height: 18px; color: #89909a; }
+.quote-card { margin-top: 12px; padding: 14px 16px; border-radius: 14px; background-color: #fff8f5; }
+.quote-copy, .quote-mock { font-size: 12px; line-height: 18px; color: #7a5b4c; }
+.quote-mock { margin-top: 4px; color: #c2522f; }
+.locked-card { margin-top: 12px; padding: 22px 20px; align-items: center; }
+.trial-copy { margin-top: 8px; font-size: 13px; color: #7a818c; }
+.chain-empty { margin-top: 12px; }
+.chain-section, .event-section { margin-top: 18px; }
+.section-heading { margin: 0 2px 10px; flex-direction: row; align-items: center; }
+.section-title { flex: 1; font-size: 17px; font-weight: 700; color: #2d3239; }
+.section-note { font-size: 12px; color: #89909a; text-align: right; }
+.chain-card { margin-bottom: 12px; overflow: hidden; }
+.chain-header { min-height: 68px; padding: 14px 16px; flex-direction: row; align-items: center; }
+.chain-copy, .stock-copy { flex: 1; }
+.chain-name, .stock-name { font-size: 16px; font-weight: 700; color: #30343b; }
+.chain-description { margin-top: 5px; font-size: 13px; line-height: 19px; color: #7e858e; }
+.fold-icon { width: 28px; min-height: 44px; margin-left: 8px; padding-top: 11px; font-size: 18px; color: #e93030; text-align: right; }
+.chain-body { padding: 0 16px 4px; border-top-width: 1px; border-top-color: #f0f1f3; }
+.caliber { margin-top: 10px; font-size: 12px; line-height: 18px; color: #89909a; }
+.stock-list { margin-top: 4px; }
+.stock-item { min-height: 64px; flex-direction: row; align-items: center; border-bottom-width: 1px; border-bottom-color: #f0f1f3; }
+.stock-code { margin-top: 5px; font-size: 12px; color: #89909a; }
+.change-value { margin-left: 12px; font-size: 14px; font-weight: 700; text-align: right; }
+.change-positive { color: #e93030; }
+.change-negative { color: #1d9554; }
+.change-neutral { color: #505762; }
+.evidence-action, .evidence-loading { min-width: 68px; min-height: 44px; margin-left: 10px; padding: 13px 0; border-width: 1px; border-color: #f0b4b4; border-radius: 10px; font-size: 12px; font-weight: 700; color: #e93030; text-align: center; }
+.evidence-loading { border-color: #e3e6ea; color: #89909a; }
+.stock-empty { min-height: 58px; justify-content: center; align-items: center; }
+.stock-empty-copy { font-size: 13px; color: #89909a; }
+.event-card { margin-bottom: 10px; padding: 16px; }
+.event-title { font-size: 15px; font-weight: 700; line-height: 22px; color: #30343b; }
+.event-footer { margin-top: 10px; flex-direction: row; align-items: center; }
+.event-meta { flex: 1; font-size: 12px; line-height: 18px; color: #89909a; }
+.event-action { min-height: 44px; margin-left: 10px; padding-top: 13px; font-size: 12px; font-weight: 700; color: #e93030; text-align: right; }
+.notice { margin: 24px 24px 32px; }
+.notice-copy { font-size: 12px; line-height: 18px; color: #9aa1aa; text-align: center; }
 </style>

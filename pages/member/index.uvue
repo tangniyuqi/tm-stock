@@ -1,4 +1,4 @@
-<script lang="ts" setup>
+<script setup lang="ts">
 import PageHeader from '@/pages/components/PageHeader.uvue'
 
 const openLogin = () : void => {
@@ -12,6 +12,10 @@ const openService = () : void => {
 const openPrivacy = () : void => {
 	uni.navigateTo({ url: '/pages/member/privacy' })
 }
+
+const showUnavailable = () : void => {
+	uni.showToast({ title: '该服务尚未开放', icon: 'none' })
+}
 </script>
 
 <template>
@@ -22,9 +26,9 @@ const openPrivacy = () : void => {
 				<view class="avatar"><text class="avatar-copy">题</text></view>
 				<view class="profile-copy">
 					<text class="profile-title">尚未登录</text>
-					<text class="profile-subtitle">账号服务准备中，暂不收集个人信息。</text>
+					<text class="profile-subtitle">账号服务准备中，当前不会收集个人信息。</text>
 				</view>
-				<text class="login-action" @click="openLogin">登录</text>
+				<text class="login-action" @click="openLogin">查看</text>
 			</view>
 
 			<view class="section-heading">
@@ -38,10 +42,11 @@ const openPrivacy = () : void => {
 					<text class="menu-status">准备中</text>
 					<text class="menu-arrow">›</text>
 				</view>
-				<view class="menu-row">
+				<view class="menu-row" @click="showUnavailable">
 					<view class="menu-icon code-icon"><text class="menu-icon-copy">码</text></view>
 					<text class="menu-title">兑换码服务</text>
 					<text class="menu-status">未开放</text>
+					<text class="menu-arrow">›</text>
 				</view>
 			</view>
 
@@ -59,14 +64,14 @@ const openPrivacy = () : void => {
 				<view class="menu-row" @click="openPrivacy">
 					<view class="menu-icon privacy-icon"><text class="menu-icon-copy">隐</text></view>
 					<text class="menu-title">协议与隐私</text>
-					<text class="menu-note">待正式发布</text>
+					<text class="menu-note">版本审阅中</text>
 					<text class="menu-arrow">›</text>
 				</view>
 			</view>
 
 			<view class="status-card">
-				<text class="status-title">服务准备中</text>
-				<text class="status-copy">登录、兑换码和账号注销会在相关服务与协议准备完成后开放。本应用不提供在线支付入口。</text>
+				<text class="status-title">服务边界</text>
+				<text class="status-copy">登录、兑换码和账号注销会在协议、数据保护机制及相关服务准备完成后开放。本应用不提供在线支付入口。</text>
 			</view>
 
 			<view class="notice">
@@ -77,186 +82,33 @@ const openPrivacy = () : void => {
 </template>
 
 <style scoped>
-.shell,
-.page {
-	flex: 1;
-}
-
-.page {
-	padding-bottom: 64px;
-	background-color: #f5f6f8;
-}
-
-.profile-card {
-	margin: 16px;
-	padding: 20px;
-	min-height: 96px;
-	flex-direction: row;
-	align-items: center;
-	border-radius: 18px;
-	background-color: #ffffff;
-}
-
-.avatar,
-.menu-icon {
-	justify-content: center;
-	align-items: center;
-	border-radius: 50%;
-}
-
-.avatar {
-	width: 56px;
-	height: 56px;
-	margin-right: 14px;
-	background-color: #fff0f0;
-}
-
-.avatar-copy {
-	font-size: 23px;
-	font-weight: 700;
-	color: #e93030;
-}
-
-.profile-copy,
-.menu-title {
-	flex: 1;
-}
-
-.profile-title {
-	font-size: 18px;
-	font-weight: 700;
-	color: #292d34;
-}
-
-.profile-subtitle {
-	margin-top: 7px;
-	font-size: 13px;
-	color: #858b94;
-}
-
-.login-action {
-	min-width: 44px;
-	padding: 12px 0 12px 12px;
-	font-size: 15px;
-	font-weight: 600;
-	color: #e93030;
-	text-align: right;
-}
-
-.section-heading {
-	margin: 22px 16px 12px;
-	flex-direction: row;
-	align-items: center;
-}
-
-.heading-mark {
-	width: 4px;
-	height: 18px;
-	margin-right: 8px;
-	border-radius: 2px;
-	background-color: #e93030;
-}
-
-.heading-copy {
-	font-size: 17px;
-	font-weight: 700;
-	color: #2c3037;
-}
-
-.menu-card,
-.status-card {
-	margin: 0 16px;
-	border-radius: 18px;
-	background-color: #ffffff;
-	overflow: hidden;
-}
-
-.menu-row {
-	min-height: 68px;
-	padding: 12px 16px;
-	flex-direction: row;
-	align-items: center;
-	border-bottom-width: 1px;
-	border-bottom-color: #f0f1f3;
-}
-
-.menu-icon {
-	width: 34px;
-	height: 34px;
-	margin-right: 12px;
-}
-
-.account-icon {
-	background-color: #fff0f0;
-}
-
-.code-icon {
-	background-color: #fff6e7;
-}
-
-.info-icon {
-	background-color: #edf5ff;
-}
-
-.privacy-icon {
-	background-color: #f2f1ff;
-}
-
-.menu-icon-copy {
-	font-size: 14px;
-	font-weight: 700;
-	color: #e93030;
-}
-
-.menu-title {
-	font-size: 15px;
-	color: #3d424a;
-}
-
-.menu-status,
-.menu-note {
-	font-size: 12px;
-	color: #a0a5ad;
-}
-
-.menu-status {
-	padding: 4px 8px;
-	border-radius: 10px;
-	background-color: #f5f6f8;
-}
-
-.menu-arrow {
-	margin-left: 8px;
-	font-size: 22px;
-	color: #bec2c8;
-}
-
-.status-card {
-	margin-top: 16px;
-	padding: 18px;
-}
-
-.status-title {
-	font-size: 16px;
-	font-weight: 600;
-	color: #30343b;
-}
-
-.status-copy {
-	margin-top: 8px;
-	font-size: 14px;
-	line-height: 21px;
-	color: #7a818c;
-}
-
-.notice {
-	margin: 24px;
-}
-
-.notice-copy {
-	font-size: 12px;
-	line-height: 18px;
-	color: #9aa1aa;
-	text-align: center;
-}
+.shell, .page { flex: 1; }
+.page { padding-bottom: 64px; background-color: #f5f6f8; }
+.profile-card { margin: 16px; padding: 20px; min-height: 96px; flex-direction: row; align-items: center; border-radius: 18px; background-color: #ffffff; }
+.avatar { width: 56px; height: 56px; margin-right: 14px; justify-content: center; align-items: center; border-radius: 28px; background-color: #fff0f0; }
+.avatar-copy { font-size: 23px; font-weight: 700; color: #e93030; }
+.profile-copy { flex: 1; }
+.profile-title { font-size: 18px; font-weight: 700; color: #292d34; }
+.profile-subtitle { margin-top: 7px; font-size: 13px; line-height: 19px; color: #858b94; }
+.login-action { min-width: 44px; min-height: 44px; padding-top: 12px; font-size: 15px; font-weight: 600; color: #e93030; text-align: right; }
+.section-heading { margin: 22px 16px 12px; flex-direction: row; align-items: center; }
+.heading-mark { width: 4px; height: 18px; margin-right: 8px; border-radius: 2px; background-color: #e93030; }
+.heading-copy { font-size: 17px; font-weight: 700; color: #2c3037; }
+.menu-card, .status-card { margin: 0 16px; border-radius: 18px; background-color: #ffffff; overflow: hidden; }
+.menu-row { min-height: 68px; padding: 12px 16px; flex-direction: row; align-items: center; border-bottom-width: 1px; border-bottom-color: #f0f1f3; }
+.menu-icon { width: 34px; height: 34px; margin-right: 12px; justify-content: center; align-items: center; border-radius: 17px; }
+.account-icon { background-color: #fff0f0; }
+.code-icon { background-color: #fff6e7; }
+.info-icon { background-color: #edf5ff; }
+.privacy-icon { background-color: #f2f1ff; }
+.menu-icon-copy { font-size: 14px; font-weight: 700; color: #e93030; }
+.menu-title { flex: 1; font-size: 15px; color: #3d424a; }
+.menu-status, .menu-note { font-size: 12px; color: #a0a5ad; }
+.menu-status { padding: 4px 8px; border-radius: 10px; background-color: #f5f6f8; }
+.menu-arrow { min-width: 30px; min-height: 44px; margin-left: 8px; padding-top: 9px; font-size: 22px; color: #bec2c8; text-align: right; }
+.status-card { margin-top: 16px; padding: 18px; }
+.status-title { font-size: 16px; font-weight: 600; color: #30343b; }
+.status-copy { margin-top: 8px; font-size: 14px; line-height: 21px; color: #7a818c; }
+.notice { margin: 24px; }
+.notice-copy { font-size: 12px; line-height: 18px; color: #9aa1aa; text-align: center; }
 </style>

@@ -1,11 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
 import PageHeader from '@/pages/components/PageHeader.uvue'
-
-const keyword = ref<string>('')
-const searchSubmitted = ref<boolean>(false)
-const isLoading = ref<boolean>(true)
-const errorMessage = ref<string>('')
 
 const openHome = () : void => {
 	uni.switchTab({ url: '/pages/index/index' })
@@ -14,271 +8,58 @@ const openHome = () : void => {
 const openThemeQuery = () : void => {
 	uni.navigateTo({ url: '/pages/segment/index' })
 }
-
-const emptyMessage = computed(() : string => {
-	if (searchSubmitted.value && keyword.value.trim().length > 0) {
-		return '快讯搜索服务尚未接入'
-	}
-	return '暂无已授权快讯'
-})
-
-const stateCopy = computed(() : string => {
-	if (searchSubmitted.value && keyword.value.trim().length > 0) {
-		return '当前无法判断是否存在匹配内容；搜索接口与授权资讯数据源完成接入后才会展示结果。'
-	}
-	return '资讯数据源完成商用授权后，会在这里按来源与时间展示。'
-})
-
-const finishInitialLoad = () : void => {
-	isLoading.value = false
-}
-
-const submitSearch = () : void => {
-	searchSubmitted.value = true
-	errorMessage.value = ''
-}
-
-const clearSearch = () : void => {
-	keyword.value = ''
-	searchSubmitted.value = false
-	errorMessage.value = ''
-}
-
-const retryLoad = () : void => {
-	errorMessage.value = ''
-	finishInitialLoad()
-}
-
-onMounted(() => {
-	finishInitialLoad()
-})
 </script>
 
 <template>
 	<view class="shell">
-		<PageHeader title="快讯" :showBack="false"></PageHeader>
+		<PageHeader title="资讯服务" :showBack="false"></PageHeader>
 		<scroll-view class="page" scroll-y="true">
-		<view class="header">
-			<view class="section-tabs">
-				<view class="section-tab" @click="openHome"><text class="section-tab-copy">首页</text></view>
-				<view class="section-tab section-tab-active"><text class="section-tab-copy active-copy">快讯</text></view>
-				<view class="section-tab" @click="openThemeQuery"><text class="section-tab-copy">题材库</text></view>
+			<view class="hero">
+				<view class="section-tabs">
+					<view class="section-tab" @click="openHome"><text class="section-tab-copy">首页</text></view>
+					<view class="section-tab section-tab-active"><text class="section-tab-copy active-copy">资讯</text></view>
+					<view class="section-tab" @click="openThemeQuery"><text class="section-tab-copy">题材库</text></view>
+				</view>
+				<text class="eyebrow">内容服务</text>
+				<text class="title">资讯快讯准备中</text>
+				<text class="subtitle">仅在第三方内容授权、来源核验、原文链接与审核流程完整后，才会在这里展示公开资讯。</text>
 			</view>
-			<text class="title">已授权资讯</text>
-			<text class="subtitle">仅展示来源授权和出处信息齐全的客观资讯。</text>
-		</view>
 
-		<view class="search-card">
-			<input
-				v-model="keyword"
-				class="search-input"
-				confirm-type="search"
-				maxlength="50"
-				placeholder="搜索快讯"
-				@confirm="submitSearch"
-			/>
-			<view class="search-actions">
-				<text v-if="keyword.length > 0" class="clear-action" @click="clearSearch">清除</text>
-				<text class="search-action" @click="submitSearch">搜索</text>
+			<view class="state-card">
+				<view class="state-icon"><text class="state-icon-copy">讯</text></view>
+				<text class="state-title">当前暂无可发布快讯</text>
+				<text class="state-copy">为避免无授权转载或缺少来源的内容进入服务，列表、搜索和详情目前保持关闭。不会用模拟资讯或其他内容填充。</text>
+				<view class="state-rule">
+					<text class="state-rule-copy">开放条件：来源名称、原文链接、发布时间与审核状态均完整。</text>
+				</view>
 			</view>
-		</view>
 
-		<view v-if="isLoading" class="skeleton-list">
-			<view v-for="item in 5" :key="item" class="skeleton-card">
-				<view class="skeleton skeleton-title"></view>
-				<view class="skeleton skeleton-line"></view>
-				<view class="skeleton skeleton-line short"></view>
+			<view class="notice">
+				<text class="notice-copy">本平台为公开信息聚合与历史数据统计，不构成任何投资建议。</text>
 			</view>
-		</view>
-
-		<view v-else-if="errorMessage.length > 0" class="state-card">
-			<text class="state-title">加载失败</text>
-			<text class="state-copy">{{ errorMessage }}</text>
-			<text class="retry-action" @click="retryLoad">重新加载</text>
-		</view>
-
-		<view v-else class="state-card">
-			<text class="state-title">{{ emptyMessage }}</text>
-			<text class="state-copy">{{ stateCopy }}</text>
-		</view>
-
-		<view class="notice">
-			<text class="notice-copy">本平台为公开信息聚合与历史数据统计，不构成任何投资建议。</text>
-		</view>
 		</scroll-view>
 	</view>
 </template>
 
 <style scoped>
-.shell,
-.page {
-	flex: 1;
-}
-
-.page {
-	padding-bottom: 64px;
-	background-color: #f5f6f8;
-}
-
-.header {
-	padding: 0 20px 22px;
-	background-color: #ffffff;
-}
-
-.section-tabs {
-	height: 58px;
-	flex-direction: row;
-	align-items: center;
-}
-
-.section-tab {
-	min-width: 58px;
-	height: 58px;
-	margin-right: 28px;
-	justify-content: center;
-	align-items: center;
-	border-bottom-width: 3px;
-	border-bottom-color: transparent;
-}
-
-.section-tab-copy {
-	font-size: 16px;
-	font-weight: 600;
-	color: #60656e;
-}
-
-.section-tab-active {
-	border-bottom-color: #e93030;
-}
-
-.active-copy {
-	color: #e93030;
-}
-
-.title {
-	font-size: 24px;
-	font-weight: 700;
-	color: #1f2329;
-}
-
-.subtitle {
-	margin-top: 8px;
-	font-size: 14px;
-	line-height: 21px;
-	color: #6b7280;
-}
-
-.search-card {
-	margin: 16px 16px 0;
-	padding: 0 14px;
-	flex-direction: row;
-	align-items: center;
-	min-height: 48px;
-	border-radius: 16px;
-	background-color: #ffffff;
-	border-width: 1px;
-	border-color: #e5e7eb;
-}
-
-.search-input {
-	flex: 1;
-	font-size: 15px;
-	color: #1f2329;
-}
-
-.search-actions {
-	flex-direction: row;
-	align-items: center;
-}
-
-.clear-action {
-	min-width: 44px;
-	padding: 12px 8px;
-	font-size: 14px;
-	color: #6b7280;
-	text-align: center;
-}
-
-.search-action {
-	min-width: 44px;
-	padding: 12px 0 12px 8px;
-	font-size: 15px;
-	font-weight: 600;
-	color: #e93030;
-	text-align: right;
-}
-
-.state-card,
-.skeleton-list {
-	margin: 16px;
-}
-
-.state-card {
-	padding: 24px 20px;
-	align-items: center;
-	border-radius: 18px;
-	background-color: #ffffff;
-}
-
-.skeleton-card {
-	margin-bottom: 12px;
-	padding: 20px;
-	border-radius: 18px;
-	background-color: #ffffff;
-}
-
-.state-title {
-	font-size: 16px;
-	font-weight: 600;
-	color: #30343b;
-	text-align: center;
-}
-
-.state-copy {
-	margin-top: 8px;
-	font-size: 14px;
-	line-height: 21px;
-	color: #7a818c;
-	text-align: center;
-}
-
-.retry-action {
-	min-height: 44px;
-	margin-top: 12px;
-	padding: 12px 16px;
-	font-size: 14px;
-	color: #e93030;
-}
-
-.skeleton {
-	border-radius: 6px;
-	background-color: #edf0f3;
-}
-
-.skeleton-title {
-	width: 96px;
-	height: 18px;
-}
-
-.skeleton-line {
-	width: 100%;
-	height: 14px;
-	margin-top: 14px;
-}
-
-.short {
-	width: 68%;
-	margin-top: 10px;
-}
-
-.notice {
-	margin: 24px;
-}
-
-.notice-copy {
-	font-size: 12px;
-	line-height: 18px;
-	color: #9aa1aa;
-	text-align: center;
-}
+.shell, .page { flex: 1; }
+.page { padding-bottom: 64px; background-color: #f5f6f8; }
+.hero { padding: 0 20px 24px; background-color: #ffffff; }
+.section-tabs { height: 58px; flex-direction: row; align-items: center; }
+.section-tab { min-width: 58px; height: 58px; margin-right: 28px; justify-content: center; align-items: center; border-bottom-width: 3px; border-bottom-color: transparent; }
+.section-tab-copy { font-size: 16px; font-weight: 600; color: #60656e; }
+.section-tab-active { border-bottom-color: #e93030; }
+.active-copy { color: #e93030; }
+.eyebrow { font-size: 12px; font-weight: 600; color: #e93030; }
+.title { margin-top: 8px; font-size: 24px; font-weight: 700; color: #1f2329; }
+.subtitle { margin-top: 8px; font-size: 14px; line-height: 21px; color: #6b7280; }
+.state-card { margin: 18px 16px; padding: 28px 20px; align-items: center; border-radius: 18px; background-color: #ffffff; }
+.state-icon { width: 54px; height: 54px; justify-content: center; align-items: center; border-radius: 16px; background-color: #fff0f0; }
+.state-icon-copy { font-size: 21px; font-weight: 700; color: #e93030; }
+.state-title { margin-top: 15px; font-size: 17px; font-weight: 700; color: #30343b; text-align: center; }
+.state-copy { margin-top: 9px; font-size: 14px; line-height: 22px; color: #737983; text-align: center; }
+.state-rule { margin-top: 18px; padding: 12px; border-radius: 12px; background-color: #fff8eb; }
+.state-rule-copy { font-size: 12px; line-height: 18px; color: #89642b; text-align: center; }
+.notice { margin: 24px; }
+.notice-copy { font-size: 12px; line-height: 18px; color: #9aa1aa; text-align: center; }
 </style>

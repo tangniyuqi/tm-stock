@@ -4,6 +4,31 @@ export type ThemeBrief = {
 	description : string
 }
 
+// 题材动态只使用审核后的公开信息字段。页面不接受热度、情绪、置顶、
+// 模型理由或任何个股分析字段，避免上游未经收敛的数据进入 C 端。
+export type ThemeDailyEmptyReason = '' | 'NON_TRADING_DAY' | 'NO_DATA' | 'BEFORE_RANGE'
+
+export type ThemeDailyItem = {
+	id : number,
+	title : string,
+	themeId : number,
+	themeName : string,
+	publishAt : number,
+	source : string,
+	sourceUrl : string
+}
+
+export type ThemeDailyPage = {
+	date : string,
+	isTradingDay : boolean,
+	emptyReason : ThemeDailyEmptyReason,
+	dataFrom : string,
+	sort : string,
+	list : ThemeDailyItem[],
+	total : number,
+	hasMore : boolean
+}
+
 export type StockItem = {
 	code : string,
 	tsCode : string,
@@ -22,18 +47,29 @@ export type ChainNode = {
 	stocks : StockItem[]
 }
 
+export type ThemeEvent = {
+	id : number,
+	title : string,
+	publishAt : number,
+	source : string,
+	sourceUrl : string
+}
+
 export type ThemeDetail = {
 	id : number,
 	name : string,
+	categoryPath : string,
 	summary : string,
 	updatedAt : number,
+	dataSource : string,
 	quoteEnabled : boolean,
 	quoteDelayMin : number,
 	quoteAt : number,
 	quoteIsMock : boolean,
 	locked : boolean,
 	trialLeft : number,
-	chainNodes : ChainNode[] | null
+	chainNodes : ChainNode[] | null,
+	events : ThemeEvent[] | null
 }
 
 export type Evidence = {
@@ -51,7 +87,17 @@ export const formatChangePct = (changePct : number | null) : string => {
 	if (changePct == null) {
 		return '—'
 	}
+	if (changePct > 0) {
+		return '+' + changePct.toFixed(2) + '%'
+	}
 	return changePct.toFixed(2) + '%'
+}
+
+export const getChangePctClass = (changePct : number | null) : string => {
+	if (changePct == null || changePct == 0) {
+		return 'change-neutral'
+	}
+	return changePct > 0 ? 'change-positive' : 'change-negative'
 }
 
 export const formatMillis = (timestamp : number) : string => {

@@ -454,6 +454,31 @@ list.push(maybe)
 - 可空值来自**外部函数返回值**（编译器不会跨函数边界缩窄）
 - 可空值穿过 `await` / `setTimeout` 等异步边界
 
+### 外部回调响应的可空数据
+
+`uni.request` 等外部 API 的响应体可能为 `null`。把响应体直接传给只接受非空 `UTSJSONObject` 的解析函数会报错：
+`Argument of type 'UTSJSONObject | null' is not assignable to parameter of type 'UTSJSONObject'. Type 'null' is not assignable to type 'UTSJSONObject'.`
+
+```uts
+const parsePayload = (payload : UTSJSONObject) : string => JSON.stringify(payload)
+
+// ❌ 错误：RequestSuccess 的 data 允许为 null
+success: (res : RequestSuccess<UTSJSONObject>) => {
+    resolve(parsePayload(res.data))
+}
+
+// ✅ 正确：先处理 null，再交给非空解析器
+success: (res : RequestSuccess<UTSJSONObject>) => {
+    if (res.data == null) {
+        resolve('')
+        return
+    }
+    resolve(parsePayload(res.data))
+}
+```
+
+适用于所有网络、文件、剪贴板等外部回调；若业务需要区分“空响应”和“格式错误”，应在判空分支返回明确的错误状态，不要用空对象或默认数值补齐。
+
 ### reactive 与类型
 
 ```uts
@@ -531,6 +556,34 @@ import Context from 'android.content.Context'
 import LinearLayout from 'android.widget.LinearLayout'
 // #endif
 ```
+
+### 页面生命周期不从 `@dcloudio/uni-app` 导入
+
+**错误信息**：`warning: Module '"@dcloudio/uni-app"' has no exported member 'onLoad'.`
+
+uni-app x 的页面生命周期由编译器提供为全局 API；在 `.uvue` 的 `<script setup lang="uts">` 中直接调用即可。不要从 `@dcloudio/uni-app` 导入，否则 H5 运行时会产生无效导入告警。
+
+```uts
+// ❌ 错误：H5 编译会提示没有导出成员
+import { onLoad } from '@dcloudio/uni-app'
+
+onLoad((options : OnLoadOptions) => {
+	// ...
+})
+```
+
+```uts
+// ✅ 正确：直接使用全局页面生命周期
+onLoad((options : OnLoadOptions) => {
+	// ...
+})
+```
+
+| 场景 | 正确方式 |
+| --- | --- |
+| 页面参数初始化 | 直接调用全局 `onLoad` |
+| DOM 或窗口初始化 | 从 `vue` 导入 `onMounted` |
+| 定时器、事件清理 | 从 `vue` 导入 `onBeforeUnmount` |
 
 ## 5. 工具函数规范
 

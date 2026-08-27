@@ -1,7 +1,7 @@
 {
-	"name": "tm-stock",
+	"name": "题材宝典",
 	"appid": "",
-	"description": "",
+	"description": "公开信息整理与题材查询服务",
 	"versionName": "1.0.0",
 	"versionCode": "100",
 	"uni-app-x": {},
@@ -64,6 +64,14 @@
 	"web": {
 		"router": {
 			"mode": ""
+		},
+		"devServer": {
+			"proxy": {
+				"/api/v1": {
+					"target": "http://127.0.0.1:8080",
+					"changeOrigin": true
+				}
+			}
 		}
 	}
 }

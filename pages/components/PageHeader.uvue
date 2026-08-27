@@ -9,15 +9,20 @@ const props = withDefaults(defineProps<PageHeaderProps>(), {
 })
 
 const goBack = () : void => {
-	if (props.showBack) {
-		uni.navigateBack()
+	if (!props.showBack) {
+		return
 	}
+	uni.navigateBack({
+		fail: () => {
+			uni.switchTab({ url: '/pages/index/index' })
+		}
+	})
 }
 </script>
 
 <template>
 	<view class="page-header">
-		<text v-if="showBack" class="page-header-back" @click="goBack">‹</text>
+		<view v-if="showBack" class="page-header-back" @click="goBack"><text class="page-header-back-copy">‹</text></view>
 		<view v-else class="page-header-side-placeholder"></view>
 		<text class="page-header-title">{{ title }}</text>
 		<view class="page-header-side-placeholder"></view>
@@ -43,7 +48,11 @@ const goBack = () : void => {
 }
 
 .page-header-back {
-	padding-top: 4px;
+	justify-content: center;
+	align-items: flex-start;
+}
+
+.page-header-back-copy {
 	font-size: 36px;
 	line-height: 36px;
 	color: #ffffff;

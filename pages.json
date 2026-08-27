@@ -24,7 +24,7 @@
     {
       "path": "pages/news/index",
       "style": {
-        "navigationBarTitleText": "7x24全球财经快讯",
+        "navigationBarTitleText": "资讯服务",
         "navigationStyle": "custom"
       }
     },
@@ -38,7 +38,7 @@
     {
       "path": "pages/ai/index",
       "style": {
-        "navigationBarTitleText": "AI分析",
+        "navigationBarTitleText": "资料整理",
         "navigationStyle": "custom"
       }
     },
@@ -93,13 +93,13 @@
       },
       {
         "pagePath": "pages/news/index",
-        "text": "7x24快讯",
+        "text": "资讯服务",
         "iconPath": "static/tabbar/discover.png",
         "selectedIconPath": "static/tabbar/discover-red.png"
       },
       {
         "pagePath": "pages/ai/index",
-        "text": "AI分析",
+        "text": "资料整理",
         "iconPath": "static/tabbar/notice.png",
         "selectedIconPath": "static/tabbar/notice-red.png"
       },
