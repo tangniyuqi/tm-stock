@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>题材宝典 · P0 页面原型</title>
+  <style>
+    :root {
+      --ink: #20242b;
+      --muted: #707987;
+      --line: #e7eaf0;
+      --paper: #ffffff;
+      --canvas: #f3f6fb;
+      --brand: #e93030;
+      --brand-soft: #fff0f0;
+      --blue-soft: #edf5ff;
+      --amber: #d58d24;
+      --amber-soft: #fff8eb;
+      --danger: #bd4a42;
+      --phone: #372525;
+      --shadow: 0 18px 42px rgba(25, 39, 66, .14);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--canvas);
+      font-family: "PingFang SC", "Microsoft YaHei", ui-sans-serif, system-ui, sans-serif;
+    }
+    .board { max-width: 1480px; margin: 0 auto; padding: 42px 34px 64px; }
+    .board-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 28px; margin-bottom: 30px; }
+    .eyebrow { margin: 0 0 9px; color: var(--brand); font-size: 12px; font-weight: 800; letter-spacing: .12em; }
+    h1 { margin: 0; font-size: 30px; letter-spacing: -.03em; }
+    .board-copy { max-width: 650px; margin: 10px 0 0; color: var(--muted); line-height: 1.7; }
+    .header-links { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+    .header-link { padding: 10px 13px; border: 1px solid #d9dee8; border-radius: 12px; color: #56657c; background: #fff; font-size: 13px; text-decoration: none; }
+    .prototype-note { padding: 10px 14px; border: 1px solid #f2d29a; border-radius: 12px; color: #8b5b14; background: var(--amber-soft); font-size: 13px; white-space: nowrap; }
+    .group-title { display: flex; align-items: center; gap: 10px; margin: 30px 0 16px; }
+    .group-title h2 { margin: 0; font-size: 20px; }
+    .group-title p { margin: 0; color: var(--muted); font-size: 13px; }
+    .phones { display: grid; grid-template-columns: repeat(3, minmax(300px, 1fr)); gap: 26px; }
+    .prototype { min-width: 0; }
+    .prototype-label { display: flex; align-items: center; gap: 8px; margin: 0 0 11px 12px; color: var(--muted); font-size: 13px; font-weight: 700; }
+    .prototype-label b { color: var(--ink); font-size: 15px; }
+    .step { display: inline-grid; width: 23px; height: 23px; place-items: center; border-radius: 50%; color: var(--brand); background: var(--brand-soft); font-size: 11px; }
+    .phone { position: relative; min-height: 760px; overflow: hidden; border: 10px solid var(--phone); border-radius: 38px; background: #f6f7f9; box-shadow: var(--shadow); }
+    .phone.short { min-height: 680px; }
+    .statusbar { display: flex; align-items: center; justify-content: space-between; height: 31px; padding: 0 18px; color: #fff; background: var(--brand); font-size: 11px; font-weight: 800; }
+    .header { display: flex; align-items: center; min-height: 61px; padding: 0 17px; color: #fff; background: var(--brand); }
+    .header-title { flex: 1; font-size: 19px; font-weight: 800; text-align: center; }
+    .header-side { width: 30px; color: #fff; font-size: 25px; line-height: 1; }
+    .header-side:last-child { color: transparent; }
+    .screen { padding: 16px; }
+    .tabs { display: flex; gap: 21px; height: 48px; padding: 0 3px; border-bottom: 1px solid var(--line); }
+    .tab { min-width: 58px; padding-top: 12px; color: #707987; font-size: 14px; font-weight: 700; text-align: center; }
+    .tab.active { color: var(--brand); border-bottom: 3px solid var(--brand); }
+    .search { display: flex; align-items: center; min-height: 50px; margin-top: 15px; padding: 0 14px; border: 1px solid var(--line); border-radius: 15px; background: #fff; }
+    .search-copy { flex: 1; color: #89919d; font-size: 14px; }
+    .search-action { min-width: 48px; color: var(--brand); font-size: 14px; font-weight: 800; text-align: right; }
+    .section-heading { display: flex; align-items: center; justify-content: space-between; margin: 18px 3px 10px; }
+    .section-heading strong { font-size: 16px; }
+    .section-heading span { color: var(--muted); font-size: 12px; }
+    .theme-card, .result-card, .member-card, .form-card, .info-card, .empty-card, .menu-card { border-radius: 17px; background: #fff; }
+    .theme-card { display: flex; align-items: center; min-height: 74px; margin-bottom: 10px; padding: 13px 14px; }
+    .theme-mark { width: 36px; height: 36px; margin-right: 11px; display: grid; place-items: center; border-radius: 11px; color: var(--brand); background: var(--brand-soft); font-size: 15px; font-weight: 800; }
+    .theme-copy { flex: 1; min-width: 0; }
+    .theme-name { display: block; font-size: 15px; font-weight: 800; }
+    .theme-desc { display: block; margin-top: 5px; color: var(--muted); font-size: 12px; line-height: 17px; }
+    .arrow { color: #b5bcc6; font-size: 23px; }
+    .result-card { margin-bottom: 10px; padding: 15px; }
+    .result-top { display: flex; justify-content: space-between; align-items: center; }
+    .result-name { font-size: 16px; font-weight: 800; }
+    .result-type { padding: 4px 8px; border-radius: 9px; color: #8b5b14; background: var(--amber-soft); font-size: 11px; }
+    .result-copy { margin-top: 7px; color: var(--muted); font-size: 13px; line-height: 19px; }
+    .result-meta { display: flex; justify-content: space-between; margin-top: 12px; color: #9aa1aa; font-size: 11px; }
+    .hint { display: flex; gap: 8px; margin-top: 13px; padding: 11px 12px; border-radius: 12px; color: #89642b; background: var(--amber-soft); font-size: 12px; line-height: 18px; }
+    .hint-icon { flex: none; width: 17px; height: 17px; display: grid; place-items: center; border-radius: 50%; color: #fff; background: #edaa2b; font-size: 11px; font-weight: 800; }
+    .hero { padding: 21px 17px 19px; border-radius: 18px; background: #fff; }
+    .hero-kicker { color: var(--brand); font-size: 12px; font-weight: 700; }
+    .hero-title { margin-top: 8px; font-size: 23px; font-weight: 800; letter-spacing: -.02em; }
+    .hero-copy { margin-top: 8px; color: var(--muted); font-size: 13px; line-height: 20px; }
+    .hero-meta { display: flex; justify-content: space-between; margin-top: 14px; color: #8b94a1; font-size: 11px; }
+    .quote-off { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; padding: 12px 13px; border-radius: 12px; color: #748094; background: #eef2f7; font-size: 12px; }
+    .quote-off b { color: #596a84; font-weight: 700; }
+    .chain { margin-top: 13px; padding: 14px; border-radius: 17px; background: #fff; }
+    .chain-head { display: flex; align-items: center; justify-content: space-between; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+    .chain-name { font-size: 15px; font-weight: 800; }
+    .fold { color: var(--brand); font-size: 18px; }
+    .chain-copy { margin: 9px 0 3px; color: var(--muted); font-size: 12px; line-height: 18px; }
+    .stock { display: flex; align-items: center; min-height: 57px; border-bottom: 1px solid #f0f1f3; }
+    .stock:last-child { border-bottom: 0; }
+    .stock-mark { width: 30px; height: 30px; margin-right: 9px; display: grid; place-items: center; border-radius: 10px; color: var(--brand); background: var(--brand-soft); font-size: 13px; font-weight: 800; }
+    .stock-copy { flex: 1; }
+    .stock-name { display: block; font-size: 13px; font-weight: 700; }
+    .stock-code { display: block; margin-top: 3px; color: #89919d; font-size: 11px; }
+    .outline-btn, .primary-btn, .ghost-btn { min-height: 42px; display: inline-flex; align-items: center; justify-content: center; border-radius: 11px; font-size: 13px; font-weight: 800; }
+    .outline-btn { min-width: 70px; color: var(--brand); border: 1px solid #f1b5b5; background: #fff; }
+    .primary-btn { color: #fff; background: var(--brand); }
+    .ghost-btn { color: var(--brand); border: 1px solid #f1b5b5; background: #fff; }
+    .locked { margin-top: 13px; padding: 20px 16px; text-align: center; border-radius: 17px; background: #fff; }
+    .lock-icon { width: 44px; height: 44px; margin: 0 auto; display: grid; place-items: center; border-radius: 14px; color: var(--brand); background: var(--brand-soft); font-size: 18px; font-weight: 800; }
+    .locked-title { margin-top: 11px; font-size: 16px; font-weight: 800; }
+    .locked-copy { margin-top: 7px; color: var(--muted); font-size: 13px; line-height: 20px; }
+    .trial { margin-top: 10px; color: #8b5b14; font-size: 12px; }
+    .locked-actions { display: flex; gap: 9px; margin-top: 15px; }
+    .locked-actions > * { flex: 1; }
+    .profile { display: flex; align-items: center; margin-bottom: 14px; padding: 18px; border-radius: 18px; background: #fff; }
+    .avatar { width: 56px; height: 56px; margin-right: 13px; display: grid; place-items: center; border-radius: 50%; color: var(--brand); background: var(--brand-soft); font-size: 21px; font-weight: 800; }
+    .profile-copy { flex: 1; }
+    .profile-name { font-size: 17px; font-weight: 800; }
+    .profile-note { margin-top: 6px; color: var(--muted); font-size: 12px; line-height: 18px; }
+    .profile-action { min-width: 52px; color: var(--brand); font-size: 13px; font-weight: 800; text-align: right; }
+    .member-card { margin-bottom: 13px; padding: 16px; }
+    .member-row { display: flex; justify-content: space-between; align-items: center; min-height: 31px; }
+    .member-row + .member-row { margin-top: 8px; }
+    .member-label { color: var(--muted); font-size: 12px; }
+    .member-value { font-size: 13px; font-weight: 800; }
+    .member-badge { padding: 5px 8px; border-radius: 9px; color: #2d8a57; background: #edf9f1; font-size: 11px; font-weight: 800; }
+    .menu-card { overflow: hidden; }
+    .menu-row { display: flex; align-items: center; min-height: 61px; padding: 9px 15px; border-bottom: 1px solid #f0f1f3; }
+    .menu-row:last-child { border-bottom: 0; }
+    .menu-icon { width: 32px; height: 32px; margin-right: 11px; display: grid; place-items: center; border-radius: 10px; color: var(--brand); background: var(--brand-soft); font-size: 13px; font-weight: 800; }
+    .menu-title { flex: 1; font-size: 14px; }
+    .menu-note { color: #929aa6; font-size: 11px; }
+    .menu-arrow { margin-left: 8px; color: #b5bcc6; font-size: 22px; }
+    .status-strip { display: flex; justify-content: space-between; margin-top: 13px; padding: 13px; border-radius: 13px; color: #6d7786; background: #eef2f7; font-size: 12px; }
+    .status-strip b { color: #2d8a57; }
+    .form-card { padding: 20px 17px; }
+    .form-title { font-size: 20px; font-weight: 800; }
+    .form-subtitle { margin-top: 6px; color: var(--muted); font-size: 12px; line-height: 18px; }
+    .field { margin-top: 16px; }
+    .field-label { display: block; margin-bottom: 7px; color: #687384; font-size: 12px; font-weight: 700; }
+    .field-box { display: flex; align-items: center; min-height: 48px; padding: 0 13px; border: 1px solid #dfe4eb; border-radius: 12px; background: #fbfcfd; }
+    .field-box span { flex: 1; color: #9aa1aa; font-size: 14px; }
+    .field-box .field-side { flex: none; color: var(--brand); font-size: 12px; font-weight: 800; }
+    .agreement { display: flex; gap: 8px; margin-top: 16px; color: #778191; font-size: 12px; line-height: 18px; }
+    .checkbox { flex: none; width: 17px; height: 17px; border: 1px solid #c8ced7; border-radius: 5px; background: #fff; }
+    .agreement em { color: var(--brand); font-style: normal; }
+    .full-btn { width: 100%; margin-top: 18px; }
+    .form-link { margin-top: 15px; color: #748094; font-size: 12px; text-align: center; }
+    .notice { margin: 18px 8px 0; color: #9aa1aa; font-size: 11px; line-height: 17px; text-align: center; }
+    .code-input { display: flex; gap: 8px; margin-top: 16px; }
+    .code-input .field-box { flex: 1; }
+    .code-input .field-box span { letter-spacing: .18em; color: #303640; font-weight: 800; }
+    .code-submit { min-width: 82px; }
+    .step-list { margin-top: 14px; padding: 14px; border-radius: 15px; background: #f8fafc; }
+    .step-row { display: flex; gap: 9px; align-items: flex-start; }
+    .step-row + .step-row { margin-top: 12px; }
+    .step-num { flex: none; width: 21px; height: 21px; display: grid; place-items: center; border-radius: 50%; color: var(--brand); background: var(--brand-soft); font-size: 11px; font-weight: 800; }
+    .step-copy strong { display: block; font-size: 13px; }
+    .step-copy span { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; line-height: 17px; }
+    .legal-head { padding: 17px; border-radius: 17px; background: #fff; }
+    .legal-title { font-size: 21px; font-weight: 800; }
+    .legal-meta { margin-top: 7px; color: #929aa6; font-size: 11px; }
+    .legal-body { margin-top: 12px; padding: 16px; border-radius: 17px; background: #fff; }
+    .legal-body h3 { margin: 0 0 8px; font-size: 14px; }
+    .legal-body p { margin: 0 0 12px; color: #687384; font-size: 12px; line-height: 20px; }
+    .legal-body p:last-child { margin-bottom: 0; }
+    .bottom-note { margin-top: 16px; padding: 12px; border-radius: 12px; color: #89642b; background: var(--amber-soft); font-size: 11px; line-height: 17px; }
+    .states { display: grid; grid-template-columns: repeat(4, minmax(180px, 1fr)); gap: 14px; }
+    .state-card { min-height: 210px; padding: 16px; border: 1px solid #e1e6ee; border-radius: 16px; background: #fff; }
+    .state-label { color: var(--brand); font-size: 11px; font-weight: 800; letter-spacing: .04em; }
+    .state-title { margin-top: 9px; font-size: 15px; font-weight: 800; }
+    .state-copy { margin-top: 7px; color: var(--muted); font-size: 12px; line-height: 18px; }
+    .state-action { display: inline-flex; min-height: 38px; margin-top: 13px; padding: 0 12px; align-items: center; border-radius: 10px; color: var(--brand); border: 1px solid #f1b5b5; font-size: 12px; font-weight: 800; }
+    .footer-note { margin-top: 28px; color: #8b94a1; font-size: 12px; line-height: 18px; }
+    @media (max-width: 900px) { .phones { grid-template-columns: repeat(2, minmax(300px, 1fr)); } .states { grid-template-columns: repeat(2, minmax(180px, 1fr)); } }
+    @media (max-width: 640px) { .board { padding: 27px 16px 44px; } .board-header { display: block; } .header-links { justify-content: flex-start; margin-top: 16px; } .prototype-note { white-space: normal; } .phones { grid-template-columns: minmax(0, 390px); justify-content: center; } .states { grid-template-columns: minmax(0, 1fr); } }
+  </style>
+</head>
+<body>
+  <main class="board">
+    <header class="board-header">
+      <div>
+        <p class="eyebrow">题材宝典 · P0 设计评审</p>
+        <h1>核心页面与关键状态 · 高保真原型</h1>
+        <p class="board-copy">本画板补齐题材查询与会员闭环所需的页面。示意内容全部为界面文案，不代表真实题材、公司、会员状态或接口数据；正式开放前仍需接入内部接口、审核数据和法律文本。</p>
+      </div>
+      <div class="header-links">
+        <a class="header-link" href="./index.html">返回核心画板</a>
+        <a class="header-link" href="../../specs/theme-data-remediation/frontend-pages.md">查看页面清单</a>
+        <span class="prototype-note">界面示意，非生产数据</span>
+      </div>
+    </header>
+
+    <div class="group-title"><h2>P0 · 题材查询链路</h2><p>题材库 → 权限状态 → 归属依据</p></div>
+    <section class="phones" aria-label="题材查询页面原型">
+      <article class="prototype">
+        <p class="prototype-label"><span class="step">01</span><b>题材库</b>默认列表</p>
+        <div class="phone">
+          <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+          <div class="header"><span class="header-side">‹</span><span class="header-title">题材</span><span class="header-side">•</span></div>
+          <div class="screen">
+            <div class="tabs"><span class="tab">首页</span><span class="tab active">题材库</span></div>
+            <div class="search"><span class="search-copy">输入题材名称</span><span class="search-action">搜索</span></div>
+            <div class="section-heading"><strong>已审核题材</strong><span>按名称浏览</span></div>
+            <div class="theme-card"><span class="theme-mark">题</span><span class="theme-copy"><span class="theme-name">题材名称示例</span><span class="theme-desc">公开资料整理 · 产业链与归属依据可查</span></span><span class="arrow">›</span></div>
+            <div class="theme-card"><span class="theme-mark">题</span><span class="theme-copy"><span class="theme-name">另一题材示例</span><span class="theme-desc">仅展示通过审核的客观说明</span></span><span class="arrow">›</span></div>
+            <div class="theme-card"><span class="theme-mark">题</span><span class="theme-copy"><span class="theme-name">公开产业主题示例</span><span class="theme-desc">来源与更新时间一并展示</span></span><span class="arrow">›</span></div>
+            <div class="hint"><span class="hint-icon">i</span><span>未完成审核的题材不会出现在列表中；不使用示例数据补齐真实列表。</span></div>
+            <p class="notice">本平台为公开信息聚合与历史数据统计，不构成任何投资建议。</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="prototype">
+        <p class="prototype-label"><span class="step">02</span><b>题材库</b>搜索结果</p>
+        <div class="phone">
+          <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+          <div class="header"><span class="header-side">‹</span><span class="header-title">题材</span><span class="header-side">•</span></div>
+          <div class="screen">
+            <div class="tabs"><span class="tab">首页</span><span class="tab active">题材库</span></div>
+            <div class="search"><span class="search-copy" style="color:#303640">光学示例</span><span class="search-action">清除</span></div>
+            <div class="section-heading"><strong>搜索结果</strong><span>共 2 条</span></div>
+            <div class="result-card"><div class="result-top"><span class="result-name">光学主题示例</span><span class="result-type">已审核</span></div><div class="result-copy">这里展示客观说明与来源信息，内容不包含价值判断或交易提示。</div><div class="result-meta"><span>更新于 2026-08-18</span><span>进入详情 ›</span></div></div>
+            <div class="result-card"><div class="result-top"><span class="result-name">光学设备示例</span><span class="result-type">已审核</span></div><div class="result-copy">题材名称和说明来自内部审核库，结果不含未审核内容。</div><div class="result-meta"><span>更新于 2026-08-16</span><span>进入详情 ›</span></div></div>
+            <div class="hint"><span class="hint-icon">i</span><span>搜索只匹配题材名称；没有结果时显示明确空态，并保留重新搜索入口。</span></div>
+            <p class="notice">本平台为公开信息聚合与历史数据统计，不构成任何投资建议。</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="prototype">
+        <p class="prototype-label"><span class="step">03</span><b>题材详情</b>未登录权限态</p>
+        <div class="phone">
+          <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+          <div class="header"><span class="header-side">‹</span><span class="header-title">题材详情</span><span class="header-side">•</span></div>
+          <div class="screen">
+            <section class="hero"><span class="hero-kicker">公开资料整理</span><div class="hero-title">题材名称示例</div><div class="hero-copy">展示经过审核的客观说明、更新时间与来源信息，不包含价值判断、价格推演或交易提示。</div><div class="hero-meta"><span>更新于 2026-08-18</span><span>来源可查</span></div></section>
+            <div class="quote-off"><span>行情信息</span><b>授权完成后展示</b></div>
+            <section class="locked"><div class="lock-icon">锁</div><div class="locked-title">完整内容暂不可查看</div><div class="locked-copy">产业链、成分公司和归属依据由服务端统一判定访问权限。</div><div class="trial">登录后可查看当前服务状态</div><div class="locked-actions"><span class="primary-btn">去登录</span><span class="ghost-btn">服务说明</span></div></section>
+            <p class="notice">本平台为公开信息聚合与历史数据统计，不构成任何投资建议。</p>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <div class="group-title"><h2>P0 · 会员与账号</h2><p>登录 → 会员状态 → 兑换码</p></div>
+    <section class="phones" aria-label="会员页面原型">
+      <article class="prototype">
+        <p class="prototype-label"><span class="step">04</span><b>我的</b>访客态</p>
+        <div class="phone">
+          <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+          <div class="header"><span class="header-side">‹</span><span class="header-title">我的</span><span class="header-side">•</span></div>
+          <div class="screen">
+            <section class="profile"><span class="avatar">题</span><span class="profile-copy"><span class="profile-name">尚未登录</span><span class="profile-note">登录后查看会员状态与试吃次数</span></span><span class="profile-action">登录 ›</span></section>
+            <div class="section-heading"><strong>账号服务</strong><span>服务状态</span></div>
+            <section class="menu-card"><div class="menu-row"><span class="menu-icon">登</span><span class="menu-title">登录与注册</span><span class="menu-note">可用</span><span class="menu-arrow">›</span></div><div class="menu-row"><span class="menu-icon">码</span><span class="menu-title">兑换码服务</span><span class="menu-note">登录后使用</span><span class="menu-arrow">›</span></div></section>
+            <div class="section-heading"><strong>服务说明</strong><span>公开可查</span></div>
+            <section class="menu-card"><div class="menu-row"><span class="menu-icon">说</span><span class="menu-title">如何开通</span><span class="menu-arrow">›</span></div><div class="menu-row"><span class="menu-icon">隐</span><span class="menu-title">协议与隐私</span><span class="menu-arrow">›</span></div></section>
+            <div class="hint"><span class="hint-icon">i</span><span>当前不收集个人信息；账号服务开放前，以正式说明为准。</span></div>
+            <p class="notice">本平台为公开信息聚合与历史数据统计，不构成任何投资建议。</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="prototype">
+        <p class="prototype-label"><span class="step">05</span><b>我的</b>会员有效态</p>
+        <div class="phone">
+          <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+          <div class="header"><span class="header-side">‹</span><span class="header-title">我的</span><span class="header-side">•</span></div>
+          <div class="screen">
+            <section class="profile"><span class="avatar">题</span><span class="profile-copy"><span class="profile-name">138****8000</span><span class="profile-note">账号信息由服务端脱敏后展示</span></span><span class="profile-action">退出</span></section>
+            <section class="member-card"><div class="member-row"><span class="member-label">会员状态</span><span class="member-badge">服务有效</span></div><div class="member-row"><span class="member-label">有效期至</span><span class="member-value">2026-12-31（示意）</span></div><div class="member-row"><span class="member-label">今日试吃</span><span class="member-value">剩余次数以服务端返回为准</span></div></section>
+            <section class="menu-card"><div class="menu-row"><span class="menu-icon">码</span><span class="menu-title">兑换码服务</span><span class="menu-note">激活新服务</span><span class="menu-arrow">›</span></div><div class="menu-row"><span class="menu-icon">注</span><span class="menu-title">注销账号</span><span class="menu-note">不可恢复</span><span class="menu-arrow">›</span></div></section>
+            <div class="status-strip"><span>数据状态</span><b>已从服务端刷新</b></div>
+            <p class="notice">本平台为公开信息聚合与历史数据统计，不构成任何投资建议。</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="prototype">
+        <p class="prototype-label"><span class="step">06</span><b>登录/注册</b>协议未勾选</p>
+        <div class="phone short">
+          <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+          <div class="header"><span class="header-side">‹</span><span class="header-title">登录</span><span class="header-side">•</span></div>
+          <div class="screen">
+            <section class="form-card"><div class="form-title">手机号登录</div><div class="form-subtitle">仅用于账号识别、服务状态和注销处理。</div><div class="field"><span class="field-label">手机号</span><div class="field-box"><span>请输入手机号</span></div></div><div class="field"><span class="field-label">验证码</span><div class="field-box"><span>请输入验证码</span><span class="field-side">获取验证码</span></div></div><div class="agreement"><span class="checkbox"></span><span>我已阅读并同意<em>《用户协议》</em>与<em>《隐私政策》</em></span></div><span class="primary-btn full-btn" style="opacity:.42">登录</span><div class="form-link">未勾选协议前不可登录</div></section>
+            <div class="hint"><span class="hint-icon">i</span><span>验证码发送频控、错误次数和协议同意记录均由服务端处理。</span></div>
+            <p class="notice">本平台为公开信息聚合与历史数据统计，不构成任何投资建议。</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="prototype">
+        <p class="prototype-label"><span class="step">07</span><b>兑换码激活</b>提交态</p>
+        <div class="phone short">
+          <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+          <div class="header"><span class="header-side">‹</span><span class="header-title">兑换码服务</span><span class="header-side">•</span></div>
+          <div class="screen">
+            <section class="form-card"><div class="form-title">激活兑换码</div><div class="form-subtitle">兑换码由站外服务提供方发放；页面不提供支付或收款入口。</div><div class="code-input"><div class="field-box"><span>TM••••••••</span></div><span class="primary-btn code-submit">提交中…</span></div><div class="step-list"><div class="step-row"><span class="step-num">1</span><span class="step-copy"><strong>输入兑换码</strong><span>兑换码状态和有效期由服务端校验。</span></span></div><div class="step-row"><span class="step-num">2</span><span class="step-copy"><strong>确认激活结果</strong><span>成功后立即刷新会员有效期。</span></span></div><div class="step-row"><span class="step-num">3</span><span class="step-copy"><strong>保留服务凭证</strong><span>如遇问题，按错误类型联系服务方。</span></span></div></div></section>
+            <div class="hint"><span class="hint-icon">i</span><span>不存在、已使用、已过期和账号不匹配会分别提示，避免用户反复试错。</span></div>
+            <p class="notice">本平台为公开信息聚合与历史数据统计，不构成任何投资建议。</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="prototype">
+        <p class="prototype-label"><span class="step">08</span><b>服务说明</b>正式内容框架</p>
+        <div class="phone short">
+          <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+          <div class="header"><span class="header-side">‹</span><span class="header-title">服务说明</span><span class="header-side">•</span></div>
+          <div class="screen">
+            <section class="hero"><span class="hero-kicker">账号服务</span><div class="hero-title">如何使用题材查询</div><div class="hero-copy">服务内容、开放范围、试吃规则和有效期将在正式发布后以本页版本为准。</div><div class="hero-meta"><span>版本：待发布</span><span>更新时间：待定</span></div></section>
+            <section class="step-list"><div class="step-row"><span class="step-num">1</span><span class="step-copy"><strong>登录账号</strong><span>使用手机号验证码登录，并同意当前版本协议。</span></span></div><div class="step-row"><span class="step-num">2</span><span class="step-copy"><strong>查看服务状态</strong><span>会员有效期与试吃次数以服务端返回为准。</span></span></div><div class="step-row"><span class="step-num">3</span><span class="step-copy"><strong>使用兑换码</strong><span>站外获得的兑换码可在登录后激活。</span></span></div></section>
+            <div class="bottom-note">页面不提供在线支付、收款码或交易提示；题材内容仍以公开来源和审核状态为前提。</div>
+            <p class="notice">本平台为公开信息聚合与历史数据统计，不构成任何投资建议。</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="prototype">
+        <p class="prototype-label"><span class="step">09</span><b>协议与隐私</b>版本阅读态</p>
+        <div class="phone short">
+          <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+          <div class="header"><span class="header-side">‹</span><span class="header-title">协议与隐私</span><span class="header-side">•</span></div>
+          <div class="screen">
+            <section class="legal-head"><div class="legal-title">用户协议与隐私政策</div><div class="legal-meta">正式版本：待律师审阅 · 发布日期：待定</div></section>
+            <section class="legal-body"><h3>当前处理方式</h3><p>正式文本发布前，登录入口保持关闭，不收集手机号、验证码或其他个人信息。</p><h3>正式开放后</h3><p>登录时将展示当前版本号、收集目的、保存期限、注销方式和用户权利说明。</p><h3>账号注销</h3><p>用户可在会员中心发起注销；完成确认后，账号登录态失效，相关信息按正式政策处理。</p></section>
+            <div class="bottom-note">本页内容必须以律师审阅后的正式文本为准。占位文案不能作为上线协议。</div>
+            <p class="notice">本平台为公开信息聚合与历史数据统计，不构成任何投资建议。</p>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <div class="group-title"><h2>关键交互状态</h2><p>需在原型与回归用例中单独覆盖</p></div>
+    <section class="states" aria-label="关键状态原型">
+      <article class="state-card"><div class="state-label">状态 A · 日历浮层</div><div class="state-title">选择查询日期</div><div class="state-copy">未来日期置灰；数据起始日前显示不可用；取消不触发请求，确认后才刷新列表。</div><span class="state-action">打开日历</span></article>
+      <article class="state-card"><div class="state-label">状态 B · 题材详情</div><div class="state-title">试吃次数已用尽</div><div class="state-copy">保留免费顶层信息，产业链与依据入口不可点击；提供登录/服务说明路径。</div><span class="state-action">查看服务说明</span></article>
+      <article class="state-card"><div class="state-label">状态 C · 兑换码</div><div class="state-title">兑换码已过期</div><div class="state-copy">显示明确错误类型，不清空用户已输入内容；允许返回重试，不提供支付替代入口。</div><span class="state-action">重新输入</span></article>
+      <article class="state-card"><div class="state-label">状态 D · 账号</div><div class="state-title">注销确认</div><div class="state-copy">二次确认不可恢复；说明登录态失效与信息处理方式，完成后回到访客态。</div><span class="state-action">打开确认层</span></article>
+    </section>
+
+    <p class="footer-note">原型交付边界：先确认页面层级、文案口径、状态和跳转关系；确认后再按 `frontend-pages.md` 的依赖顺序实现 `.uvue` 页面。真实数据缺失时继续使用空态或置灰，不以示意内容代替生产数据。</p>
+  </main>
+</body>
+</html>

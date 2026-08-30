@@ -9,6 +9,7 @@ const searchSubmitted = ref<boolean>(false)
 const isLoading = ref<boolean>(true)
 const errorMessage = ref<string>('')
 const themes = ref<ThemeBrief[]>([])
+let requestSequence : number = 0
 
 const isPublishableTheme = (item : ThemeBrief) : boolean => {
 	return item != null
@@ -48,6 +49,8 @@ const stateCopy = computed(() : string => {
 })
 
 const loadThemes = async () : Promise<void> => {
+	const requestID = requestSequence + 1
+	requestSequence = requestID
 	const trimmedKeyword = keyword.value.trim()
 	if (trimmedKeyword.length == 0) {
 		themes.value = []
@@ -57,7 +60,11 @@ const loadThemes = async () : Promise<void> => {
 	}
 	isLoading.value = true
 	errorMessage.value = ''
+	themes.value = []
 	const result = await ThemeApi.search(trimmedKeyword)
+	if (requestID != requestSequence) {
+		return
+	}
 	isLoading.value = false
 	if (result.code != 0 || result.data == null) {
 		themes.value = []
@@ -151,6 +158,11 @@ onMounted(() => {
 				</view>
 			</view>
 
+			<view class="hint-card">
+				<view class="hint-icon"><text class="hint-icon-copy">i</text></view>
+				<text class="hint-copy">搜索只匹配题材名称；未完成审核的题材不会进入结果，也不会用示例内容补齐列表。</text>
+			</view>
+
 			<view class="notice">
 				<text class="notice-copy">本平台为公开信息聚合与历史数据统计，不构成任何投资建议。</text>
 			</view>
@@ -192,6 +204,10 @@ onMounted(() => {
 .theme-name { font-size: 16px; font-weight: 700; color: #1f2329; }
 .theme-description { margin-top: 6px; font-size: 13px; line-height: 19px; color: #7a818c; }
 .arrow { margin-left: 12px; font-size: 25px; color: #b6bbc2; }
+.hint-card { margin: 16px; padding: 13px 14px; flex-direction: row; align-items: flex-start; border-radius: 13px; background-color: #fff8eb; }
+.hint-icon { width: 18px; height: 18px; margin: 1px 8px 0 0; justify-content: center; align-items: center; border-radius: 9px; background-color: #edaa2b; }
+.hint-icon-copy { font-size: 11px; font-weight: 700; color: #ffffff; }
+.hint-copy { flex: 1; font-size: 12px; line-height: 18px; color: #89642b; }
 .notice { margin: 24px 24px 32px; }
 .notice-copy { font-size: 12px; line-height: 18px; color: #9aa1aa; text-align: center; }
 </style>

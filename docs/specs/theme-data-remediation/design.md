@@ -1,7 +1,8 @@
 # 题材数据接入整改 · 页面与接口设计
 
 - **对应需求**：[requirements.md](requirements.md)
-- **高保真原型**：[可浏览原型](../../prototypes/theme-data-remediation/index.html) · [画板预览](../../prototypes/theme-data-remediation/overview.png)
+- **高保真原型**：[核心画板](../../prototypes/theme-data-remediation/index.html) · [P0 页面原型](../../prototypes/theme-data-remediation/p0.html) · [画板预览](../../prototypes/theme-data-remediation/overview.png)
+- **前端范围清单**：[frontend-pages.md](frontend-pages.md)
 - **设计状态**：待确认；原型中的内容均标注为界面示意，不代表任何可发布数据
 
 ## 1. 设计目标
@@ -40,6 +41,7 @@ uni-app x H5 页面
 - 标题“题材动态”；副标题只说明公开信息整理范围。
 - 日期栏：上一日、当前日期、下一日。未来日期不可点。
 - 排序提示常驻：一期固定“按发布时间排序”。行情授权并通过合规评审后，才允许增加客观的题材快照排序。
+- 日期选择采用平台原生 `picker`（限制在数据起始日与当前日期之间）；一期不额外实现月视图浮层，避免在 H5 与原生端维护两套日期状态。
 
 **列表单元**：
 

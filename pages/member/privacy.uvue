@@ -6,26 +6,22 @@ import PageHeader from '@/pages/components/PageHeader.uvue'
 	<view class="shell">
 		<PageHeader title="协议与隐私" :showBack="true"></PageHeader>
 		<scroll-view class="page" scroll-y="true">
-			<view class="hero-card">
-				<view class="hero-icon"><text class="hero-icon-copy">隐</text></view>
-				<text class="hero-title">正式文本审阅中</text>
-				<text class="hero-copy">用户协议与隐私政策将在律师审阅、版本确认后正式发布。</text>
+			<view class="legal-head">
+				<text class="legal-title">用户协议与隐私政策</text>
+				<text class="legal-meta">正式版本：待律师审阅 · 发布日期：待定</text>
 			</view>
 
-			<view class="info-card">
-				<text class="info-title">当前处理方式</text>
-				<view class="info-row">
-					<view class="row-mark"></view>
-					<text class="info-copy">登录页面保持关闭，不收集手机号、验证码或其他个人信息。</text>
-				</view>
-				<view class="info-row">
-					<view class="row-mark"></view>
-					<text class="info-copy">在协议正式发布前，不提供账号注册、登录或注销操作。</text>
-				</view>
-				<view class="info-row">
-					<view class="row-mark"></view>
-					<text class="info-copy">正式发布后，登录页将以用户可见的版本文本为准。</text>
-				</view>
+			<view class="legal-body">
+				<text class="body-title">当前处理方式</text>
+				<text class="body-copy">正式文本发布前，登录入口保持关闭，不收集手机号、验证码或其他个人信息。</text>
+				<text class="body-title body-title-spaced">正式开放后</text>
+				<text class="body-copy">登录时将展示当前版本号、收集目的、保存期限、注销方式和用户权利说明；同意记录由服务端留存。</text>
+				<text class="body-title body-title-spaced">账号注销</text>
+				<text class="body-copy">用户可在会员中心发起注销；完成确认后，账号登录态失效，相关信息按正式政策处理。</text>
+			</view>
+
+			<view class="bottom-note">
+				<text class="bottom-note-copy">本页内容必须以律师审阅后的正式文本为准。占位文案不能作为上线协议。</text>
 			</view>
 
 			<view class="notice">
@@ -42,80 +38,64 @@ import PageHeader from '@/pages/components/PageHeader.uvue'
 }
 
 .page {
+	padding-bottom: 64px;
 	background-color: #f5f6f8;
 }
 
-.hero-card,
-.info-card {
+.legal-head,
+.legal-body,
+.bottom-note {
 	margin: 16px;
-	padding: 24px 20px;
-	align-items: center;
+	padding: 20px;
 	border-radius: 18px;
 	background-color: #ffffff;
 }
 
-.hero-icon {
-	width: 52px;
-	height: 52px;
-	justify-content: center;
-	align-items: center;
-	border-radius: 16px;
-	background-color: #f2f1ff;
-}
-
-.hero-icon-copy {
-	font-size: 22px;
+.legal-title {
+	font-size: 21px;
 	font-weight: 700;
-	color: #705ee5;
+	color: #292d34;
 }
 
-.hero-title {
-	margin-top: 14px;
-	font-size: 18px;
-	font-weight: 700;
-	color: #2b3037;
-	text-align: center;
+.legal-meta {
+	margin-top: 8px;
+	font-size: 12px;
+	line-height: 18px;
+	color: #929aa6;
 }
 
-.hero-copy {
-	margin-top: 9px;
-	font-size: 14px;
-	line-height: 22px;
-	color: #7d838c;
-	text-align: center;
-}
-
-.info-card {
+.legal-body {
 	margin-top: 0;
-	padding: 20px;
-	align-items: stretch;
 }
 
-.info-title {
+.body-title {
 	font-size: 16px;
 	font-weight: 700;
 	color: #30343b;
 }
 
-.info-row {
-	margin-top: 14px;
-	flex-direction: row;
-	align-items: flex-start;
+.body-title-spaced {
+	margin-top: 18px;
 }
 
-.row-mark {
-	width: 6px;
-	height: 6px;
-	margin: 7px 9px 0 0;
-	border-radius: 3px;
-	background-color: #705ee5;
-}
-
-.info-copy {
-	flex: 1;
+.body-copy {
+	margin-top: 8px;
 	font-size: 14px;
-	line-height: 21px;
+	line-height: 22px;
 	color: #737983;
+}
+
+.bottom-note {
+	margin-top: 16px;
+	padding: 13px 14px;
+	border-radius: 13px;
+	background-color: #fff8eb;
+}
+
+.bottom-note-copy {
+	font-size: 12px;
+	line-height: 18px;
+	color: #89642b;
 }
 
 .notice {

@@ -13,8 +13,8 @@ const openPrivacy = () : void => {
 	uni.navigateTo({ url: '/pages/member/privacy' })
 }
 
-const showUnavailable = () : void => {
-	uni.showToast({ title: '该服务尚未开放', icon: 'none' })
+const openRedeem = () : void => {
+	uni.navigateTo({ url: '/pages/member/redeem' })
 }
 </script>
 
@@ -26,9 +26,9 @@ const showUnavailable = () : void => {
 				<view class="avatar"><text class="avatar-copy">题</text></view>
 				<view class="profile-copy">
 					<text class="profile-title">尚未登录</text>
-					<text class="profile-subtitle">账号服务准备中，当前不会收集个人信息。</text>
+					<text class="profile-subtitle">登录后查看会员状态与试吃次数；当前入口保持关闭。</text>
 				</view>
-				<text class="login-action" @click="openLogin">查看</text>
+				<text class="login-action" @click="openLogin">登录 ›</text>
 			</view>
 
 			<view class="section-heading">
@@ -42,10 +42,10 @@ const showUnavailable = () : void => {
 					<text class="menu-status">准备中</text>
 					<text class="menu-arrow">›</text>
 				</view>
-				<view class="menu-row" @click="showUnavailable">
+				<view class="menu-row" @click="openRedeem">
 					<view class="menu-icon code-icon"><text class="menu-icon-copy">码</text></view>
 					<text class="menu-title">兑换码服务</text>
-					<text class="menu-status">未开放</text>
+					<text class="menu-status">准备中</text>
 					<text class="menu-arrow">›</text>
 				</view>
 			</view>
@@ -72,6 +72,11 @@ const showUnavailable = () : void => {
 			<view class="status-card">
 				<text class="status-title">服务边界</text>
 				<text class="status-copy">登录、兑换码和账号注销会在协议、数据保护机制及相关服务准备完成后开放。本应用不提供在线支付入口。</text>
+			</view>
+
+			<view class="hint-card">
+				<view class="hint-icon"><text class="hint-icon-copy">i</text></view>
+				<text class="hint-copy">当前不收集个人信息；服务开放前，页面只展示状态说明，不会用示例会员信息填充。</text>
 			</view>
 
 			<view class="notice">
@@ -109,6 +114,10 @@ const showUnavailable = () : void => {
 .status-card { margin-top: 16px; padding: 18px; }
 .status-title { font-size: 16px; font-weight: 600; color: #30343b; }
 .status-copy { margin-top: 8px; font-size: 14px; line-height: 21px; color: #7a818c; }
+.hint-card { margin: 16px; padding: 13px 14px; flex-direction: row; align-items: flex-start; border-radius: 13px; background-color: #fff8eb; }
+.hint-icon { width: 18px; height: 18px; margin: 1px 8px 0 0; justify-content: center; align-items: center; border-radius: 9px; background-color: #edaa2b; }
+.hint-icon-copy { font-size: 11px; font-weight: 700; color: #ffffff; }
+.hint-copy { flex: 1; font-size: 12px; line-height: 18px; color: #89642b; }
 .notice { margin: 24px; }
 .notice-copy { font-size: 12px; line-height: 18px; color: #9aa1aa; text-align: center; }
 </style>

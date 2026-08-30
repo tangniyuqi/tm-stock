@@ -8,41 +8,45 @@ import PageHeader from '@/pages/components/PageHeader.uvue'
 		<scroll-view class="page" scroll-y="true">
 			<view class="hero-card">
 				<text class="eyebrow">账号服务</text>
-				<text class="hero-title">服务尚在准备阶段</text>
-				<text class="hero-copy">正式服务开放前，账号、会员权益与兑换码规则将以发布页面的说明为准。</text>
+				<text class="hero-title">如何使用题材查询</text>
+				<text class="hero-copy">服务内容、开放范围、试吃规则和有效期将在正式发布后，以本页版本为准。</text>
+				<view class="hero-meta">
+					<text class="hero-meta-copy">版本：待发布</text>
+					<text class="hero-meta-copy">更新时间：待定</text>
+				</view>
 			</view>
 
 			<view class="section-heading">
 				<view class="heading-mark"></view>
-				<text class="heading-copy">当前状态</text>
+				<text class="heading-copy">使用步骤</text>
 			</view>
 			<view class="status-card">
 				<view class="status-row">
 					<view class="status-index"><text class="status-index-copy">1</text></view>
 					<view class="status-copy-wrap">
-						<text class="status-title">账号登录</text>
-						<text class="status-copy">等待协议、隐私政策、短信服务和后端能力就绪。</text>
+						<text class="status-title">登录账号</text>
+						<text class="status-copy">使用手机号验证码登录，并同意当前版本协议；正式文本发布前入口保持关闭。</text>
 					</view>
 				</view>
 				<view class="status-row">
 					<view class="status-index"><text class="status-index-copy">2</text></view>
 					<view class="status-copy-wrap">
-						<text class="status-title">服务权益</text>
-						<text class="status-copy">服务规则、有效期及使用范围将在正式开放时说明。</text>
+						<text class="status-title">查看服务状态</text>
+						<text class="status-copy">会员有效期与试读次数以服务端返回为准，不使用本地示例状态。</text>
 					</view>
 				</view>
 				<view class="status-row">
 					<view class="status-index"><text class="status-index-copy">3</text></view>
 					<view class="status-copy-wrap">
-						<text class="status-title">兑换码服务</text>
-						<text class="status-copy">相关能力尚未开放，本页面不提供支付或收款入口。</text>
+						<text class="status-title">使用兑换码</text>
+						<text class="status-copy">站外获得的兑换码可在登录后激活；当前兑换码接口尚未开放。</text>
 					</view>
 				</view>
 			</view>
 
 			<view class="tip-card">
-				<text class="tip-title">使用原则</text>
-				<text class="tip-copy">题材查询和资讯展示均以可查来源及审核状态为前提，不提供对具体证券的评价、预测或交易建议。</text>
+				<text class="tip-title">服务边界</text>
+				<text class="tip-copy">页面不提供在线支付、收款码或交易入口；题材内容仍以公开来源和审核状态为前提，不提供对具体证券的评价、预测或交易建议。</text>
 			</view>
 
 			<view class="notice">
@@ -96,6 +100,18 @@ import PageHeader from '@/pages/components/PageHeader.uvue'
 	font-size: 14px;
 	line-height: 21px;
 	color: #757c86;
+}
+
+.hero-meta {
+	margin-top: 14px;
+	flex-direction: row;
+	align-items: center;
+}
+
+.hero-meta-copy {
+	flex: 1;
+	font-size: 12px;
+	color: #89909a;
 }
 
 .section-heading {

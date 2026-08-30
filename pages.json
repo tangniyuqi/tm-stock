@@ -57,6 +57,13 @@
       }
     },
     {
+      "path": "pages/member/redeem",
+      "style": {
+        "navigationBarTitleText": "兑换码服务",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/member/service",
       "style": {
         "navigationBarTitleText": "服务说明",
@@ -96,12 +103,6 @@
         "text": "资讯服务",
         "iconPath": "static/tabbar/discover.png",
         "selectedIconPath": "static/tabbar/discover-red.png"
-      },
-      {
-        "pagePath": "pages/ai/index",
-        "text": "资料整理",
-        "iconPath": "static/tabbar/notice.png",
-        "selectedIconPath": "static/tabbar/notice-red.png"
       },
       {
         "pagePath": "pages/member/index",

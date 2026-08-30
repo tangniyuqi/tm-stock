@@ -204,6 +204,10 @@ const openService = () : void => {
 	uni.navigateTo({ url: '/pages/member/service' })
 }
 
+const openLogin = () : void => {
+	uni.navigateTo({ url: '/pages/member/login' })
+}
+
 const showAccessUnavailable = () : void => {
 	uni.showModal({
 		title: '暂不可查看归属依据',
@@ -296,7 +300,11 @@ onLoad((options : OnLoadOptions) => {
 					</view>
 				</view>
 
-				<view v-if="theme.quoteEnabled" class="quote-card">
+				<view v-if="!theme.quoteEnabled" class="quote-off">
+					<text class="quote-off-copy">行情信息</text>
+					<text class="quote-off-status">授权完成后展示</text>
+				</view>
+				<view v-else class="quote-card">
 					<text class="quote-copy">行情延时 {{ theme.quoteDelayMin }} 分钟 · 数据时点 {{ formatMillis(theme.quoteAt) }}</text>
 					<text v-if="theme.quoteIsMock" class="quote-mock">示例数据，非真实行情</text>
 				</view>
@@ -304,8 +312,11 @@ onLoad((options : OnLoadOptions) => {
 				<view v-if="theme.locked" class="locked-card">
 					<text class="state-title">完整内容暂不可查看</text>
 					<text class="state-copy">产业链、成分公司和归属依据由服务端统一判定访问权限。</text>
-					<text v-if="theme.trialLeft > 0" class="trial-copy">本次剩余试读：{{ theme.trialLeft }} 次</text>
-					<text class="service-action" @click="openService">查看服务说明</text>
+					<text v-if="theme.trialLeft > 0" class="trial-copy">本次剩余试吃：{{ theme.trialLeft }} 次</text>
+					<view class="locked-actions">
+						<text class="primary-action" @click="openLogin">去登录</text>
+						<text class="secondary-action" @click="openService">服务说明</text>
+					</view>
 				</view>
 
 				<view v-else-if="visibleChainNodes(theme.chainNodes).length == 0" class="state-card chain-empty">
@@ -380,8 +391,8 @@ onLoad((options : OnLoadOptions) => {
 .state-title { font-size: 16px; font-weight: 700; color: #30343b; text-align: center; }
 .state-copy { margin-top: 8px; font-size: 14px; line-height: 21px; color: #7a818c; text-align: center; }
 .state-actions { margin-top: 12px; flex-direction: row; align-items: center; }
-.retry-action, .service-action, .secondary-action { min-height: 44px; padding: 12px 16px; font-size: 14px; font-weight: 700; }
-.retry-action, .service-action { color: #e93030; }
+.retry-action, .primary-action, .secondary-action { min-height: 44px; padding: 12px 16px; font-size: 14px; font-weight: 700; }
+.retry-action, .primary-action { color: #e93030; }
 .secondary-action { margin-left: 4px; color: #60656e; }
 .skeleton { border-radius: 6px; background-color: #edf0f3; }
 .skeleton-title { width: 128px; height: 20px; }
@@ -396,8 +407,12 @@ onLoad((options : OnLoadOptions) => {
 .quote-card { margin-top: 12px; padding: 14px 16px; border-radius: 14px; background-color: #fff8f5; }
 .quote-copy, .quote-mock { font-size: 12px; line-height: 18px; color: #7a5b4c; }
 .quote-mock { margin-top: 4px; color: #c2522f; }
+.quote-off { margin-top: 12px; padding: 13px 16px; flex-direction: row; align-items: center; justify-content: space-between; border-radius: 14px; background-color: #eef2f7; }
+.quote-off-copy, .quote-off-status { font-size: 12px; color: #748094; }
+.quote-off-status { font-weight: 700; color: #596a84; }
 .locked-card { margin-top: 12px; padding: 22px 20px; align-items: center; }
 .trial-copy { margin-top: 8px; font-size: 13px; color: #7a818c; }
+.locked-actions { margin-top: 12px; flex-direction: row; align-items: center; }
 .chain-empty { margin-top: 12px; }
 .chain-section, .event-section { margin-top: 18px; }
 .section-heading { margin: 0 2px 10px; flex-direction: row; align-items: center; }

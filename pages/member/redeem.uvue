@@ -1,0 +1,334 @@
+<script setup lang="ts">
+import { ref } from 'vue'
+import PageHeader from '@/pages/components/PageHeader.uvue'
+
+// 会员后端、兑换码校验和正式协议尚未就绪。保持关闭态，避免在未获授权时收集或提交兑换码。
+const serviceEnabled : boolean = false
+const redeemCode = ref<string>('')
+
+const openService = () : void => {
+	uni.navigateTo({ url: '/pages/member/service' })
+}
+
+const showUnavailable = () : void => {
+	uni.showToast({ title: '兑换码服务尚未开放', icon: 'none' })
+}
+
+const submitRedeem = () : void => {
+	if (!serviceEnabled) {
+		showUnavailable()
+		return
+	}
+	if (redeemCode.value.trim().length == 0) {
+		uni.showToast({ title: '请输入兑换码', icon: 'none' })
+		return
+	}
+	// 真实接口接入前不执行提交；服务端应负责校验状态、有效期和账号绑定。
+	showUnavailable()
+}
+</script>
+
+<template>
+	<view class="shell">
+		<PageHeader title="兑换码服务" :showBack="true"></PageHeader>
+		<scroll-view class="page" scroll-y="true">
+			<view class="form-card">
+				<text class="form-title">激活兑换码</text>
+				<text class="form-subtitle">兑换码由站外服务提供方发放；本页面不提供在线支付、收款码或交易入口。</text>
+
+				<view class="code-row">
+					<view class="field-box">
+						<input v-model="redeemCode" class="code-input" :disabled="!serviceEnabled" maxlength="32" placeholder="服务开放后输入兑换码" />
+					</view>
+					<view class="submit-button submit-disabled" @click="submitRedeem">
+						<text class="submit-copy">暂未开放</text>
+					</view>
+				</view>
+
+				<view class="closed-card">
+					<view class="closed-icon"><text class="closed-icon-copy">!</text></view>
+					<view class="closed-copy-wrap">
+						<text class="closed-title">兑换码接口尚未接入</text>
+						<text class="closed-copy">会员服务、正式协议和错误码契约完成后，才会开放输入与提交。</text>
+					</view>
+				</view>
+
+				<view class="step-list">
+					<view class="step-row step-row-middle">
+						<view class="step-num"><text class="step-num-copy">1</text></view>
+						<view class="step-copy">
+							<text class="step-title">输入兑换码</text>
+							<text class="step-detail">服务开放后由服务端校验格式、状态和有效期。</text>
+						</view>
+					</view>
+					<view class="step-row">
+						<view class="step-num"><text class="step-num-copy">2</text></view>
+						<view class="step-copy">
+							<text class="step-title">确认激活结果</text>
+							<text class="step-detail">成功后由服务端刷新会员有效期，不在本地保存权益状态。</text>
+						</view>
+					</view>
+					<view class="step-row step-row-last">
+						<view class="step-num"><text class="step-num-copy">3</text></view>
+						<view class="step-copy">
+							<text class="step-title">保留服务凭证</text>
+							<text class="step-detail">不存在、已使用、已过期和账号不匹配会分别提示。</text>
+						</view>
+					</view>
+				</view>
+			</view>
+
+			<view class="hint-card">
+				<view class="hint-icon"><text class="hint-icon-copy">i</text></view>
+				<text class="hint-copy">当前不会提交或缓存兑换码。服务开放条件与账号规则以正式服务说明为准。</text>
+			</view>
+
+			<view class="action-card">
+				<text class="action-title">先了解服务规则</text>
+				<text class="service-action" @click="openService">查看服务说明</text>
+			</view>
+
+			<view class="notice">
+				<text class="notice-copy">本平台为公开信息聚合与历史数据统计，不构成任何投资建议。</text>
+			</view>
+		</scroll-view>
+	</view>
+</template>
+
+<style scoped>
+.shell,
+.page {
+	flex: 1;
+}
+
+.page {
+	padding-bottom: 64px;
+	background-color: #f5f6f8;
+}
+
+.form-card,
+.hint-card,
+.action-card {
+	margin: 16px;
+	padding: 20px;
+	border-radius: 18px;
+	background-color: #ffffff;
+}
+
+.form-title {
+	font-size: 21px;
+	font-weight: 700;
+	color: #20242b;
+}
+
+.form-subtitle {
+	margin-top: 7px;
+	font-size: 13px;
+	line-height: 20px;
+	color: #737983;
+}
+
+.code-row {
+	margin-top: 18px;
+	flex-direction: row;
+	align-items: center;
+}
+
+.field-box {
+	flex: 1;
+	min-height: 50px;
+	padding: 0 13px;
+	justify-content: center;
+	border-width: 1px;
+	border-color: #dfe4eb;
+	border-radius: 12px;
+	background-color: #fbfcfd;
+}
+
+.code-input {
+	width: 100%;
+	font-size: 14px;
+	color: #9aa1aa;
+}
+
+.submit-button {
+	width: 92px;
+	min-height: 50px;
+	margin-left: 8px;
+	justify-content: center;
+	align-items: center;
+	border-radius: 12px;
+}
+
+.submit-disabled {
+	background-color: #d9dce1;
+}
+
+.submit-copy {
+	font-size: 13px;
+	font-weight: 700;
+	color: #ffffff;
+}
+
+.closed-card {
+	margin-top: 16px;
+	padding: 13px;
+	flex-direction: row;
+	align-items: flex-start;
+	border-radius: 13px;
+	background-color: #fff8eb;
+}
+
+.closed-icon {
+	width: 20px;
+	height: 20px;
+	margin: 1px 9px 0 0;
+	justify-content: center;
+	align-items: center;
+	border-radius: 10px;
+	background-color: #edaa2b;
+}
+
+.closed-icon-copy {
+	font-size: 12px;
+	font-weight: 700;
+	color: #ffffff;
+}
+
+.closed-copy-wrap {
+	flex: 1;
+}
+
+.closed-title {
+	font-size: 13px;
+	font-weight: 700;
+	color: #805b1b;
+}
+
+.closed-copy {
+	margin-top: 4px;
+	font-size: 12px;
+	line-height: 18px;
+	color: #89642b;
+}
+
+.step-list {
+	margin-top: 16px;
+	padding: 14px;
+	border-radius: 15px;
+	background-color: #f8fafc;
+}
+
+.step-row {
+	min-height: 48px;
+	flex-direction: row;
+	align-items: flex-start;
+	border-bottom-width: 1px;
+	border-bottom-color: #edf0f3;
+}
+
+.step-row-middle {
+	padding-top: 12px;
+}
+
+.step-row-last {
+	padding-bottom: 0;
+	border-bottom-width: 0;
+}
+
+.step-num {
+	width: 22px;
+	height: 22px;
+	margin: 1px 9px 0 0;
+	justify-content: center;
+	align-items: center;
+	border-radius: 11px;
+	background-color: #fff0f0;
+}
+
+.step-num-copy {
+	font-size: 11px;
+	font-weight: 700;
+	color: #e93030;
+}
+
+.step-copy {
+	flex: 1;
+}
+
+.step-title {
+	font-size: 13px;
+	font-weight: 700;
+	color: #30343b;
+}
+
+.step-detail {
+	margin-top: 3px;
+	font-size: 12px;
+	line-height: 18px;
+	color: #7a818c;
+}
+
+.hint-card {
+	margin-top: 0;
+	padding: 13px 14px;
+	flex-direction: row;
+	align-items: flex-start;
+	background-color: #fff8eb;
+}
+
+.hint-icon {
+	width: 18px;
+	height: 18px;
+	margin: 1px 8px 0 0;
+	justify-content: center;
+	align-items: center;
+	border-radius: 9px;
+	background-color: #edaa2b;
+}
+
+.hint-icon-copy {
+	font-size: 11px;
+	font-weight: 700;
+	color: #ffffff;
+}
+
+.hint-copy {
+	flex: 1;
+	font-size: 12px;
+	line-height: 18px;
+	color: #89642b;
+}
+
+.action-card {
+	margin-top: 16px;
+	padding: 16px 20px;
+	flex-direction: row;
+	align-items: center;
+}
+
+.action-title {
+	flex: 1;
+	font-size: 14px;
+	color: #505762;
+}
+
+.service-action {
+	min-height: 44px;
+	padding: 12px 0 0 12px;
+	font-size: 13px;
+	font-weight: 700;
+	color: #e93030;
+}
+
+.notice {
+	margin: 24px;
+}
+
+.notice-copy {
+	font-size: 12px;
+	line-height: 18px;
+	color: #9aa1aa;
+	text-align: center;
+}
+</style>
