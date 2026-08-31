@@ -48,15 +48,15 @@
     .statusbar { display: flex; align-items: center; justify-content: space-between; height: 31px; padding: 0 18px; color: #fff; background: var(--brand); font-size: 11px; font-weight: 800; }
     .header { display: flex; align-items: center; min-height: 61px; padding: 0 17px; color: #fff; background: var(--brand); }
     .header-title { flex: 1; font-size: 19px; font-weight: 800; text-align: center; }
-    .header-side { width: 30px; color: #fff; font-size: 25px; line-height: 1; }
+    .header-side { width: 30px; min-height: 44px; display: inline-flex; align-items: center; color: #fff; font-size: 25px; line-height: 1; }
     .header-side:last-child { color: transparent; }
     .screen { padding: 16px; }
     .tabs { display: flex; gap: 21px; height: 48px; padding: 0 3px; border-bottom: 1px solid var(--line); }
-    .tab { min-width: 58px; padding-top: 12px; color: #707987; font-size: 14px; font-weight: 700; text-align: center; }
+    .tab { min-width: 58px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; padding-top: 12px; color: #707987; font-size: 14px; font-weight: 700; text-align: center; }
     .tab.active { color: var(--brand); border-bottom: 3px solid var(--brand); }
     .search { display: flex; align-items: center; min-height: 50px; margin-top: 15px; padding: 0 14px; border: 1px solid var(--line); border-radius: 15px; background: #fff; }
     .search-copy { flex: 1; color: #89919d; font-size: 14px; }
-    .search-action { min-width: 48px; color: var(--brand); font-size: 14px; font-weight: 800; text-align: right; }
+    .search-action { min-width: 48px; min-height: 44px; display: inline-flex; align-items: center; justify-content: flex-end; color: var(--brand); font-size: 14px; font-weight: 800; text-align: right; }
     .section-heading { display: flex; align-items: center; justify-content: space-between; margin: 18px 3px 10px; }
     .section-heading strong { font-size: 16px; }
     .section-heading span { color: var(--muted); font-size: 12px; }
@@ -83,7 +83,7 @@
     .quote-off { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; padding: 12px 13px; border-radius: 12px; color: #748094; background: #eef2f7; font-size: 12px; }
     .quote-off b { color: #596a84; font-weight: 700; }
     .chain { margin-top: 13px; padding: 14px; border-radius: 17px; background: #fff; }
-    .chain-head { display: flex; align-items: center; justify-content: space-between; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+    .chain-head { display: flex; min-height: 44px; align-items: center; justify-content: space-between; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
     .chain-name { font-size: 15px; font-weight: 800; }
     .fold { color: var(--brand); font-size: 18px; }
     .chain-copy { margin: 9px 0 3px; color: var(--muted); font-size: 12px; line-height: 18px; }

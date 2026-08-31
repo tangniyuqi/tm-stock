@@ -74,11 +74,11 @@
     .statusbar { display: flex; align-items: center; justify-content: space-between; height: 31px; padding: 0 18px; background: var(--navy); color: #fff; font-size: 11px; font-weight: 800; }
     .header { display: flex; align-items: center; min-height: 61px; padding: 0 18px; background: var(--navy); color: #fff; }
     .header-title { flex: 1; font-size: 19px; font-weight: 800; text-align: center; }
-    .header-side { width: 28px; font-size: 24px; line-height: 1; }
+    .header-side { width: 28px; min-height: 44px; display: inline-flex; align-items: center; font-size: 24px; line-height: 1; }
     .header-side:last-child { color: transparent; }
     .screen { padding: 16px; }
     .tabs { display: flex; gap: 18px; padding: 0 4px 13px; border-bottom: 1px solid var(--line); }
-    .tab { padding-bottom: 8px; color: var(--muted); font-size: 14px; font-weight: 700; }
+    .tab { min-height: 44px; display: inline-flex; align-items: center; padding-bottom: 8px; color: var(--muted); font-size: 14px; font-weight: 700; }
     .tab.active { margin-bottom: -14px; border-bottom: 3px solid var(--blue); color: var(--ink); }
     .date-bar { display: flex; align-items: center; justify-content: space-between; min-height: 44px; margin: 15px 0 12px; padding: 0 11px; border: 1px solid var(--line); border-radius: 14px; background: #fff; color: var(--navy); font-size: 13px; font-weight: 700; }
     .date-bar span:nth-child(2) { color: var(--ink); }
@@ -102,7 +102,7 @@
     .quote-off { display: flex; align-items: center; justify-content: space-between; margin: 11px 0; padding: 10px 12px; border-radius: 13px; background: #f0f3f8; color: #617088; font-size: 12px; }
     .quote-off b { color: #45536a; }
     .section-title { display: flex; align-items: center; justify-content: space-between; margin: 17px 3px 10px; color: var(--ink); font-size: 14px; font-weight: 800; }
-    .chain-head { display: flex; align-items: center; gap: 9px; font-size: 15px; font-weight: 800; }
+    .chain-head { display: flex; min-height: 44px; align-items: center; gap: 9px; font-size: 15px; font-weight: 800; }
     .chevron { color: var(--blue); font-size: 15px; }
     .chain-caption { margin: 7px 0 12px 24px; color: var(--muted); font-size: 12px; }
     .stock-row { display: flex; align-items: center; gap: 9px; padding: 11px 0; border-top: 1px solid var(--line); }
