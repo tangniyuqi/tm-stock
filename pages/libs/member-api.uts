@@ -1,0 +1,134 @@
+import { LoginResponse, MemberProfile, RedeemResponse } from './member.uts'
+
+// C 端会员请求只走同源内部接口。会员服务尚未开放时，页面不会调用这些方法。
+const apiOrigin = ''
+
+type MemberApiEnvelope<T> = {
+	code : number,
+	msg : string,
+	data : T | null
+}
+
+type MemberApiPayload = UTSJSONObject | string
+type MemberRequestMethod = 'GET' | 'POST'
+
+export type MemberApiResult<T> = {
+	code : number,
+	message : string,
+	data : T | null
+}
+
+const failure = <T>(code : number, message : string) : MemberApiResult<T> => {
+	return {
+		code: code,
+		message: message,
+		data: null
+	} as MemberApiResult<T>
+}
+
+const parseResult = <T>(data : MemberApiPayload | null, statusCode : number) : MemberApiResult<T> => {
+	if (data == null) {
+		return failure<T>(50001, '服务暂不可用，请稍后重试')
+	}
+	try {
+		const responseText = (typeof data == 'string' ? data : JSON.stringify(data)).trim()
+		if (responseText.length == 0 || responseText.charAt(0) != '{') {
+			return failure<T>(50001, '服务暂不可用，请稍后重试')
+		}
+		const envelope = JSON.parse<MemberApiEnvelope<T> | null>(responseText)
+		if (envelope == null || typeof envelope.code != 'number' || typeof envelope.msg != 'string') {
+			return failure<T>(50001, '服务暂不可用，请稍后重试')
+		}
+		if (statusCode < 200 || statusCode >= 300) {
+			if (envelope.code != 0) {
+				return failure<T>(envelope.code, envelope.msg.length > 0 ? envelope.msg : '请求失败，请稍后重试')
+			}
+			if (statusCode == 401) {
+				return failure<T>(40100, '登录状态已失效，请重新登录')
+			}
+			if (statusCode == 403) {
+				return failure<T>(40301, '当前账号无权访问该服务')
+			}
+			return failure<T>(50001, '服务暂不可用，请稍后重试')
+		}
+		if (envelope.code != 0) {
+			return failure<T>(envelope.code, envelope.msg.length > 0 ? envelope.msg : '请求失败，请稍后重试')
+		}
+		return {
+			code: 0,
+			message: '',
+			data: envelope.data
+		} as MemberApiResult<T>
+	} catch (_) {
+		return failure<T>(50001, '服务暂不可用，请稍后重试')
+	}
+}
+
+const requestHeaders = (method : MemberRequestMethod, authenticated : boolean) : UTSJSONObject => {
+	const token = uni.getStorageSync('tm_member_token')
+	const shouldAttachAuth = authenticated && token != null && typeof token == 'string' && token.length > 0
+	if (shouldAttachAuth && method == 'POST') {
+		return {
+			Authorization: 'Bearer ' + token,
+			'Content-Type': 'application/json'
+		} as UTSJSONObject
+	}
+	if (shouldAttachAuth) {
+		return {
+			Authorization: 'Bearer ' + token
+		} as UTSJSONObject
+	}
+	if (method == 'POST') {
+		return {
+			'Content-Type': 'application/json'
+		} as UTSJSONObject
+	}
+	return {} as UTSJSONObject
+}
+
+const requestApi = <T>(path : string, method : MemberRequestMethod, data : UTSJSONObject, authenticated : boolean) : Promise<MemberApiResult<T>> => {
+	return new Promise<MemberApiResult<T>>((resolve) => {
+		const headers = requestHeaders(method, authenticated)
+		uni.request<MemberApiPayload>({
+			url: apiOrigin + path,
+			method: method,
+			data: data,
+			header: headers,
+			dataType: 'text',
+			responseType: 'text',
+			timeout: 10000,
+			success: (res : RequestSuccess<MemberApiPayload>) => {
+				resolve(parseResult<T>(res.data, res.statusCode))
+			},
+			fail: () => {
+				resolve(failure<T>(50001, '网络连接失败，请稍后重试'))
+			}
+		})
+	})
+}
+
+export class MemberApi {
+	public static profile() : Promise<MemberApiResult<MemberProfile>> {
+		return requestApi<MemberProfile>('/api/v1/member/profile', 'GET', {} as UTSJSONObject, true)
+	}
+
+	public static sendSms(phone : string) : Promise<MemberApiResult<null>> {
+		return requestApi<null>('/api/v1/auth/sms-code', 'POST', { phone: phone } as UTSJSONObject, false)
+	}
+
+	public static login(phone : string, code : string, agreed : boolean) : Promise<MemberApiResult<LoginResponse>> {
+		return requestApi<LoginResponse>('/api/v1/auth/login', 'POST', {
+			phone: phone,
+			code: code,
+			agreed: agreed
+		} as UTSJSONObject, false)
+	}
+
+	public static redeem(code : string) : Promise<MemberApiResult<RedeemResponse>> {
+		return requestApi<RedeemResponse>('/api/v1/member/redeem', 'POST', { code: code } as UTSJSONObject, true)
+	}
+
+	public static deactivate(confirmed : boolean) : Promise<MemberApiResult<null>> {
+		return requestApi<null>('/api/v1/member/deactivate', 'POST', { confirmed: confirmed } as UTSJSONObject, true)
+	}
+}

@@ -1,0 +1,167 @@
+// 会员页面只依赖服务端返回的状态，不在前端推断或伪造权益。
+export type MemberStatus = 'NONE' | 'ACTIVE' | 'EXPIRED'
+
+export type MemberProfile = {
+	phoneMasked : string,
+	memberStatus : MemberStatus,
+	expireAt : number | null,
+	trialLeft : number,
+	trialResetAt : number
+}
+
+export type MemberViewState = 'guest' | 'loading' | 'unopened' | 'active' | 'expired' | 'trial_exhausted' | 'error'
+
+export type LoginViewState = 'closed' | 'idle' | 'sending' | 'submitting' | 'error' | 'success'
+
+export type LoginResponse = {
+	token : string,
+	expiresAt : number,
+	isNewUser : boolean
+}
+
+export type RedeemResponse = {
+	expireAt : number
+}
+
+export type RedeemViewState = 'closed' | 'idle' | 'submitting' | 'success' | 'error' | 'locked'
+
+export type RedeemErrorCode = '' | 'INVALID_INPUT' | 'NOT_FOUND' | 'USED' | 'EXPIRED' | 'ACCOUNT_MISMATCH' | 'LOCKED' | 'SERVICE'
+
+export const isValidMemberStatus = (value : string) : boolean => {
+	return value == 'NONE' || value == 'ACTIVE' || value == 'EXPIRED'
+}
+
+export const isMaskedPhone = (value : string) : boolean => {
+	if (value.length != 11) {
+		return false
+	}
+	for (let index = 0; index < value.length; index++) {
+		const character = value.charAt(index)
+		if (index >= 3 && index <= 6) {
+			if (character != '*') {
+				return false
+			}
+		} else if (character < '0' || character > '9') {
+			return false
+		}
+	}
+	return true
+}
+
+export const isValidMemberProfile = (profile : MemberProfile | null) : boolean => {
+	return profile != null
+		&& typeof profile.phoneMasked == 'string'
+		&& typeof profile.memberStatus == 'string'
+		&& isValidMemberStatus(profile.memberStatus)
+		&& (profile.expireAt == null || typeof profile.expireAt == 'number')
+		&& typeof profile.trialLeft == 'number'
+		&& typeof profile.trialResetAt == 'number'
+		&& isMaskedPhone(profile.phoneMasked)
+		&& profile.trialLeft >= 0
+		&& profile.trialResetAt >= 0
+}
+
+export const isValidLoginResponse = (response : LoginResponse | null) : boolean => {
+	return response != null
+		&& typeof response.token == 'string'
+		&& typeof response.expiresAt == 'number'
+		&& typeof response.isNewUser == 'boolean'
+		&& response.token.trim().length > 0
+		&& response.expiresAt > 0
+}
+
+export const isValidRedeemResponse = (response : RedeemResponse | null) : boolean => {
+	return response != null
+		&& typeof response.expireAt == 'number'
+		&& response.expireAt > 0
+}
+
+export const getMemberViewState = (profile : MemberProfile) : MemberViewState => {
+	if (!isValidMemberProfile(profile)) {
+		return 'error'
+	}
+	if (profile.memberStatus == 'ACTIVE') {
+		// 已开通会员按有效期授权，不因试吃额度为 0 而降级。
+		return 'active'
+	}
+	if (profile.memberStatus == 'NONE') {
+		if (profile.trialLeft == 0) {
+			return 'trial_exhausted'
+		}
+		return 'unopened'
+	}
+	return 'expired'
+}
+
+export const formatMemberExpiry = (timestamp : number | null) : string => {
+	if (timestamp == null || timestamp <= 0) {
+		return '尚未开通'
+	}
+	const date = new Date(timestamp)
+	const month = date.getMonth() + 1
+	const day = date.getDate()
+	const monthText = month < 10 ? '0' + month.toString() : month.toString()
+	const dayText = day < 10 ? '0' + day.toString() : day.toString()
+	return date.getFullYear().toString() + '-' + monthText + '-' + dayText
+}
+
+export const getMemberStatusLabel = (status : MemberStatus) : string => {
+	if (status == 'ACTIVE') {
+		return '服务有效'
+	}
+	if (status == 'EXPIRED') {
+		return '服务已过期'
+	}
+	return '尚未开通'
+}
+
+export const getRedeemErrorTitle = (code : RedeemErrorCode) : string => {
+	if (code == 'INVALID_INPUT') {
+		return '请输入兑换码'
+	}
+	if (code == 'NOT_FOUND') {
+		return '兑换码不存在'
+	}
+	if (code == 'USED') {
+		return '兑换码已被使用'
+	}
+	if (code == 'EXPIRED') {
+		return '兑换码已过期'
+	}
+	if (code == 'ACCOUNT_MISMATCH') {
+		return '兑换码不适用于当前账号'
+	}
+	if (code == 'LOCKED') {
+		return '暂时无法继续尝试'
+	}
+	return '兑换码服务暂不可用'
+}
+
+export const getRedeemErrorCopy = (code : RedeemErrorCode) : string => {
+	if (code == 'INVALID_INPUT') {
+		return '请输入服务方提供的兑换码后再提交。'
+	}
+	if (code == 'NOT_FOUND') {
+		return '请核对兑换码字符后重新输入；已输入内容会保留。'
+	}
+	if (code == 'USED') {
+		return '该兑换码已经完成激活，不能重复延长服务期限。'
+	}
+	if (code == 'EXPIRED') {
+		return '该兑换码已超过服务方设置的有效期，请联系服务方核实。'
+	}
+	if (code == 'ACCOUNT_MISMATCH') {
+		return '该兑换码绑定了其他账号，请使用对应账号登录后再试。'
+	}
+	if (code == 'LOCKED') {
+		return '错误次数过多，服务端已暂时锁定尝试，请稍后再试。'
+	}
+	return '服务端暂时无法处理请求，请稍后重试。'
+}
+
+export const getCountdownLabel = (seconds : number) : string => {
+	if (seconds > 0) {
+		return seconds.toString() + 's 后重发'
+	}
+	return '获取验证码'
+}

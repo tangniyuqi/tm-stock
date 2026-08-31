@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
 import PageHeader from '@/pages/components/PageHeader.uvue'
 import ThemeEvidenceSheet from './components/ThemeEvidenceSheet.uvue'
 import { isSafeExternalUrl, openSafeExternalUrl } from '@/pages/libs/external-link.uts'
@@ -16,6 +16,11 @@ const evidenceVisible = ref<boolean>(false)
 const currentThemeID = ref<number>(0)
 const expandedNodeID = ref<number>(0)
 const evidenceLoadingCode = ref<string>('')
+const trialExhausted = computed(() : boolean => {
+	return theme.value != null && theme.value.locked && theme.value.trialLeft <= 0
+})
+let detailRequestSequence : number = 0
+let evidenceRequestSequence : number = 0
 
 const isSafeTsCode = (value : string) : boolean => {
 	if (value.length < 6 || value.length > 20 || value.indexOf('.') < 0) {
@@ -158,12 +163,18 @@ const isPublishableEvidence = (item : Evidence) : boolean => {
 }
 
 const loadTheme = async (themeID : number) : Promise<void> => {
+	const requestID = detailRequestSequence + 1
+	detailRequestSequence = requestID
+	evidenceRequestSequence = evidenceRequestSequence + 1
 	pageState.value = 'loading'
 	errorMessage.value = ''
 	evidence.value = null
 	evidenceVisible.value = false
 	evidenceLoadingCode.value = ''
 	const result = await ThemeApi.detail(themeID)
+	if (requestID != detailRequestSequence) {
+		return
+	}
 	if (result.code != 0 || result.data == null) {
 		theme.value = null
 		errorMessage.value = result.message
@@ -226,8 +237,13 @@ const showEvidence = async (stock : StockItem) : Promise<void> => {
 	if (!isPublishableStock(stock) || theme.value == null || evidenceLoadingCode.value.length > 0) {
 		return
 	}
+	const requestID = evidenceRequestSequence + 1
+	evidenceRequestSequence = requestID
 	evidenceLoadingCode.value = stock.tsCode
 	const result = await ThemeApi.evidence(theme.value.id, stock.tsCode)
+	if (requestID != evidenceRequestSequence) {
+		return
+	}
 	evidenceLoadingCode.value = ''
 	if (result.code == 0 && result.data != null && isPublishableEvidence(result.data)) {
 		evidence.value = result.data
@@ -262,6 +278,11 @@ onLoad((options : OnLoadOptions) => {
 	}
 	currentThemeID.value = routeID
 	loadTheme(routeID)
+})
+
+onBeforeUnmount(() => {
+	detailRequestSequence = detailRequestSequence + 1
+	evidenceRequestSequence = evidenceRequestSequence + 1
 })
 </script>
 
@@ -312,7 +333,8 @@ onLoad((options : OnLoadOptions) => {
 				<view v-if="theme.locked" class="locked-card">
 					<text class="state-title">完整内容暂不可查看</text>
 					<text class="state-copy">产业链、成分公司和归属依据由服务端统一判定访问权限。</text>
-					<text v-if="theme.trialLeft > 0" class="trial-copy">本次剩余试吃：{{ theme.trialLeft }} 次</text>
+					<text v-if="trialExhausted" class="trial-copy">本次试吃次数已用尽，需等待服务端重新开放。</text>
+					<text v-else-if="theme.trialLeft > 0" class="trial-copy">本次剩余试吃：{{ theme.trialLeft }} 次</text>
 					<view class="locked-actions">
 						<text class="primary-action" @click="openLogin">去登录</text>
 						<text class="secondary-action" @click="openService">服务说明</text>

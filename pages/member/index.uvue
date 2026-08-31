@@ -1,5 +1,87 @@
 <script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import PageHeader from '@/pages/components/PageHeader.uvue'
+import { MemberApi } from '@/pages/libs/member-api.uts'
+import { MemberProfile, MemberStatus, MemberViewState, formatMemberExpiry, getMemberStatusLabel, getMemberViewState, isValidMemberProfile } from '@/pages/libs/member.uts'
+
+// 会员后端与正式协议尚未就绪。默认保持访客态，不能用本地数据伪造会员权益。
+const memberBackendReady : boolean = false
+const memberState = ref<MemberViewState>(memberBackendReady ? 'loading' : 'guest')
+const profile = ref<MemberProfile | null>(null)
+const errorMessage = ref<string>('')
+let profileRequestSequence : number = 0
+
+const isLoggedIn = computed(() : boolean => {
+	return profile.value != null && memberState.value != 'guest' && memberState.value != 'error'
+})
+
+const profileStatus = computed(() : MemberStatus => {
+	if (profile.value == null) {
+		return 'NONE'
+	}
+	return profile.value.memberStatus
+})
+
+const profileStatusLabel = computed(() : string => getMemberStatusLabel(profileStatus.value))
+
+const profileExpiryLabel = computed(() : string => {
+	if (profile.value == null) {
+		return '尚未开通'
+	}
+	return formatMemberExpiry(profile.value.expireAt)
+})
+
+const trialLabel = computed(() : string => {
+	if (profile.value == null) {
+		return '暂无服务端数据'
+	}
+	return profile.value.trialLeft.toString() + ' 次'
+})
+
+const setGuestState = () : void => {
+	profile.value = null
+	memberState.value = 'guest'
+	errorMessage.value = ''
+}
+
+const applyProfile = (nextProfile : MemberProfile) : void => {
+	if (!isValidMemberProfile(nextProfile)) {
+		profile.value = null
+		memberState.value = 'error'
+		errorMessage.value = '服务返回的会员信息不完整，请稍后重试'
+		return
+	}
+	profile.value = nextProfile
+	memberState.value = getMemberViewState(nextProfile)
+	errorMessage.value = ''
+}
+
+const loadProfile = async () : Promise<void> => {
+	const requestID = profileRequestSequence + 1
+	profileRequestSequence = requestID
+	if (!memberBackendReady) {
+		setGuestState()
+		return
+	}
+	memberState.value = 'loading'
+	errorMessage.value = ''
+	const result = await MemberApi.profile()
+	if (requestID != profileRequestSequence) {
+		return
+	}
+	if (result.code == 40100) {
+		uni.removeStorageSync('tm_member_token')
+		setGuestState()
+		return
+	}
+	if (result.code != 0 || result.data == null) {
+		profile.value = null
+		memberState.value = 'error'
+		errorMessage.value = result.message
+		return
+	}
+	applyProfile(result.data)
+}
 
 const openLogin = () : void => {
 	uni.navigateTo({ url: '/pages/member/login' })
@@ -16,13 +98,88 @@ const openPrivacy = () : void => {
 const openRedeem = () : void => {
 	uni.navigateTo({ url: '/pages/member/redeem' })
 }
+
+const showUnavailable = (title : string) : void => {
+	uni.showToast({ title: title, icon: 'none' })
+}
+
+const finishLocalLogout = () : void => {
+	uni.removeStorageSync('tm_member_token')
+	setGuestState()
+}
+
+const showLogoutConfirm = () : void => {
+	if (!isLoggedIn.value) {
+		openLogin()
+		return
+	}
+	if (!memberBackendReady) {
+		showUnavailable('退出登录服务尚未开放')
+		return
+	}
+	uni.showModal({
+		title: '退出登录',
+		content: '退出后将清除当前设备的登录态，会员服务不会被注销。',
+		confirmText: '确认退出',
+		cancelText: '暂不退出',
+		success: (result) => {
+			if (result.confirm == true) {
+				finishLocalLogout()
+			}
+		}
+	})
+}
+
+const deactivateAccount = async () : Promise<void> => {
+	const result = await MemberApi.deactivate(true)
+	if (result.code == 0) {
+		finishLocalLogout()
+		uni.showToast({ title: '账号已注销', icon: 'none' })
+		return
+	}
+	showUnavailable(result.message)
+}
+
+const showDeactivateConfirm = () : void => {
+	if (!isLoggedIn.value) {
+		openLogin()
+		return
+	}
+	if (!memberBackendReady) {
+		showUnavailable('账号注销服务尚未开放')
+		return
+	}
+	uni.showModal({
+		title: '确认注销账号？',
+		content: '注销后登录态立即失效，会员剩余期限作废且不退款；账号信息不可恢复。',
+		confirmText: '确认注销',
+		cancelText: '取消',
+		success: (result) => {
+			if (result.confirm == true) {
+				deactivateAccount()
+			}
+		}
+	})
+}
+
+const retryProfile = () : void => {
+	loadProfile()
+}
+
+onMounted(() => {
+	loadProfile()
+})
+
+onBeforeUnmount(() => {
+	profileRequestSequence = profileRequestSequence + 1
+})
 </script>
 
 <template>
 	<view class="shell">
 		<PageHeader title="我的" :showBack="false"></PageHeader>
 		<scroll-view class="page" scroll-y="true">
-			<view class="profile-card">
+			<view v-if="memberState == 'guest'" class="profile-card">
 				<view class="avatar"><text class="avatar-copy">题</text></view>
 				<view class="profile-copy">
 					<text class="profile-title">尚未登录</text>
@@ -31,11 +188,33 @@ const openRedeem = () : void => {
 				<text class="login-action" @click="openLogin">登录 ›</text>
 			</view>
 
+			<view v-else-if="memberState == 'loading'" class="state-card">
+				<view class="loading-dot"></view>
+				<text class="state-title">正在加载会员状态</text>
+				<text class="state-copy">仅展示服务端返回的账号与服务信息。</text>
+			</view>
+
+			<view v-else-if="memberState == 'error'" class="state-card">
+				<view class="state-icon"><text class="state-icon-copy">!</text></view>
+				<text class="state-title">会员状态加载失败</text>
+				<text class="state-copy">{{ errorMessage }}</text>
+				<text class="retry-action" @click="retryProfile">重新加载</text>
+			</view>
+
+			<view v-else-if="profile != null" class="profile-card logged-card">
+				<view class="avatar"><text class="avatar-copy">题</text></view>
+				<view class="profile-copy">
+					<text class="profile-title">{{ profile.phoneMasked }}</text>
+					<text class="profile-subtitle">账号信息由服务端脱敏后展示。</text>
+				</view>
+				<text class="logout-action" @click="showLogoutConfirm">退出</text>
+			</view>
+
 			<view class="section-heading">
 				<view class="heading-mark"></view>
 				<text class="heading-copy">账号服务</text>
 			</view>
-			<view class="menu-card">
+			<view v-if="memberState != 'loading' && profile == null" class="menu-card">
 				<view class="menu-row" @click="openLogin">
 					<view class="menu-icon account-icon"><text class="menu-icon-copy">登</text></view>
 					<text class="menu-title">登录与注册</text>
@@ -48,6 +227,37 @@ const openRedeem = () : void => {
 					<text class="menu-status">准备中</text>
 					<text class="menu-arrow">›</text>
 				</view>
+			</view>
+			<view v-else-if="profile != null" class="menu-card">
+				<view class="menu-row" @click="openRedeem">
+					<view class="menu-icon code-icon"><text class="menu-icon-copy">码</text></view>
+					<text class="menu-title">兑换码服务</text>
+					<text class="menu-note">激活新服务</text>
+					<text class="menu-arrow">›</text>
+				</view>
+				<view class="menu-row" @click="showDeactivateConfirm">
+					<view class="menu-icon privacy-icon"><text class="menu-icon-copy">注</text></view>
+					<text class="menu-title">注销账号</text>
+					<text class="menu-note">不可恢复</text>
+					<text class="menu-arrow">›</text>
+				</view>
+			</view>
+
+			<view v-if="profile != null" class="member-card">
+				<view class="member-row">
+					<text class="member-label">会员状态</text>
+					<text v-if="profileStatus == 'ACTIVE'" class="status-badge">{{ profileStatusLabel }}</text>
+					<text v-else class="status-badge status-badge-muted">{{ profileStatusLabel }}</text>
+				</view>
+				<view class="member-row">
+					<text class="member-label">有效期至</text>
+					<text class="member-value">{{ profileExpiryLabel }}</text>
+				</view>
+				<view class="member-row">
+					<text class="member-label">今日试吃</text>
+					<text class="member-value">{{ trialLabel }}</text>
+				</view>
+				<view v-if="memberState == 'trial_exhausted'" class="trial-note">今日试吃次数已用尽，额度以 GMT+8 次日 00:00 重置。</view>
 			</view>
 
 			<view class="section-heading">
@@ -95,12 +305,22 @@ const openRedeem = () : void => {
 .profile-copy { flex: 1; }
 .profile-title { font-size: 18px; font-weight: 700; color: #292d34; }
 .profile-subtitle { margin-top: 7px; font-size: 13px; line-height: 19px; color: #858b94; }
-.login-action { min-width: 44px; min-height: 44px; padding-top: 12px; font-size: 15px; font-weight: 600; color: #e93030; text-align: right; }
+.login-action, .logout-action { min-width: 44px; min-height: 44px; padding-top: 12px; font-size: 15px; font-weight: 600; text-align: right; }
+.login-action { color: #e93030; }
+.logout-action { color: #60656e; }
+.state-card { margin: 16px; padding: 28px 20px; align-items: center; border-radius: 18px; background-color: #ffffff; }
+.loading-dot { width: 22px; height: 22px; border-width: 3px; border-color: #f0d0d0; border-top-color: #e93030; border-radius: 14px; }
+.state-icon { width: 48px; height: 48px; justify-content: center; align-items: center; border-radius: 14px; background-color: #fff8eb; }
+.state-icon-copy { font-size: 20px; font-weight: 700; color: #edaa2b; }
+.state-title { margin-top: 14px; font-size: 17px; font-weight: 700; color: #30343b; text-align: center; }
+.state-copy { margin-top: 8px; font-size: 14px; line-height: 21px; color: #7a818c; text-align: center; }
+.retry-action { min-height: 44px; margin-top: 12px; padding: 12px 16px; font-size: 14px; font-weight: 700; color: #e93030; }
 .section-heading { margin: 22px 16px 12px; flex-direction: row; align-items: center; }
 .heading-mark { width: 4px; height: 18px; margin-right: 8px; border-radius: 2px; background-color: #e93030; }
 .heading-copy { font-size: 17px; font-weight: 700; color: #2c3037; }
-.menu-card, .status-card { margin: 0 16px; border-radius: 18px; background-color: #ffffff; overflow: hidden; }
+.menu-card, .status-card, .member-card { margin: 0 16px; border-radius: 18px; background-color: #ffffff; overflow: hidden; }
 .menu-row { min-height: 68px; padding: 12px 16px; flex-direction: row; align-items: center; border-bottom-width: 1px; border-bottom-color: #f0f1f3; }
+.menu-row:last-child { border-bottom-width: 0; }
 .menu-icon { width: 34px; height: 34px; margin-right: 12px; justify-content: center; align-items: center; border-radius: 17px; }
 .account-icon { background-color: #fff0f0; }
 .code-icon { background-color: #fff6e7; }
@@ -111,6 +331,14 @@ const openRedeem = () : void => {
 .menu-status, .menu-note { font-size: 12px; color: #a0a5ad; }
 .menu-status { padding: 4px 8px; border-radius: 10px; background-color: #f5f6f8; }
 .menu-arrow { min-width: 30px; min-height: 44px; margin-left: 8px; padding-top: 9px; font-size: 22px; color: #bec2c8; text-align: right; }
+.member-card { margin-top: 16px; padding: 16px; overflow: visible; }
+.member-row { min-height: 31px; flex-direction: row; justify-content: space-between; align-items: center; }
+.member-row + .member-row { margin-top: 8px; }
+.member-label { font-size: 12px; color: #7a818c; }
+.member-value { font-size: 13px; font-weight: 700; color: #30343b; }
+.status-badge { padding: 5px 8px; border-radius: 9px; font-size: 11px; font-weight: 700; color: #2d8a57; background-color: #edf9f1; }
+.status-badge-muted { color: #7c8490; background-color: #f0f2f5; }
+.trial-note { margin-top: 12px; padding: 10px 12px; border-radius: 11px; font-size: 12px; line-height: 18px; color: #89642b; background-color: #fff8eb; }
 .status-card { margin-top: 16px; padding: 18px; }
 .status-title { font-size: 16px; font-weight: 600; color: #30343b; }
 .status-copy { margin-top: 8px; font-size: 14px; line-height: 21px; color: #7a818c; }
