@@ -1,7 +1,7 @@
 # 题材数据接入整改 · 页面与接口设计
 
 - **对应需求**：[requirements.md](requirements.md)
-- **高保真原型**：[核心画板](../../prototypes/theme-data-remediation/index.html) · [P0 页面原型](../../prototypes/theme-data-remediation/p0.html) · [画板预览](../../prototypes/theme-data-remediation/overview.png)
+- **高保真原型**：[核心画板](../../prototypes/theme-data-remediation/index.html) · [P0 页面原型](../../prototypes/theme-data-remediation/p0.html) · [P0 状态板](../../prototypes/theme-data-remediation/p0-states.html) · [画板预览](../../prototypes/theme-data-remediation/overview.png)
 - **前端范围清单**：[frontend-pages.md](frontend-pages.md)
 - **设计状态**：待确认；原型中的内容均标注为界面示意，不代表任何可发布数据
 

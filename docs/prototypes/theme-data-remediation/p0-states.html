@@ -1,0 +1,1240 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>题材宝典 · P0 状态原型</title>
+  <style>
+    :root {
+      --ink: #20242b;
+      --muted: #707987;
+      --line: #e5e9f1;
+      --paper: #fff;
+      --canvas: #f3f6fb;
+      --brand: #e93030;
+      --brand-soft: #fff0f0;
+      --blue: #3d70c8;
+      --blue-soft: #edf5ff;
+      --green: #2d8a57;
+      --green-soft: #edf9f1;
+      --amber: #d58d24;
+      --amber-soft: #fff8eb;
+      --danger: #bd4a42;
+      --danger-soft: #fff0ef;
+      --phone: #372525;
+      --shadow: 0 18px 42px rgba(25, 39, 66, .14);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--canvas);
+      font-family: "PingFang SC", "Microsoft YaHei", ui-sans-serif, system-ui, sans-serif;
+    }
+    .board { max-width: 1640px; margin: 0 auto; padding: 42px 34px 66px; }
+    .board-header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 28px;
+      margin-bottom: 22px;
+    }
+    .eyebrow {
+      margin: 0 0 9px;
+      color: var(--brand);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .12em;
+    }
+    h1 { margin: 0; font-size: 30px; letter-spacing: -.03em; }
+    .board-copy { max-width: 780px; margin: 10px 0 0; color: var(--muted); line-height: 1.7; }
+    .header-side { display: flex; flex-direction: column; align-items: flex-end; gap: 12px; }
+    .prototype-note {
+      padding: 10px 14px;
+      border: 1px solid #f2d29a;
+      border-radius: 12px;
+      color: #8b5b14;
+      background: var(--amber-soft);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    .header-links { display: flex; gap: 9px; flex-wrap: wrap; justify-content: flex-end; }
+    .header-link, .anchor-link {
+      color: #56657c;
+      background: #fff;
+      border: 1px solid #d9dee8;
+      border-radius: 11px;
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .header-link { padding: 9px 12px; }
+    .anchor-link { display: inline-flex; min-height: 38px; align-items: center; padding: 0 12px; }
+    .anchor-nav {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 0 0 22px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: rgba(255,255,255,.78);
+    }
+    .coverage {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(150px, 1fr));
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+    .coverage-card {
+      min-height: 94px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: #fff;
+    }
+    .coverage-card strong { display: block; font-size: 22px; }
+    .coverage-card span { display: block; margin-top: 5px; color: var(--muted); font-size: 12px; line-height: 17px; }
+    .coverage-card em { color: var(--brand); font-style: normal; }
+    .group-title {
+      display: flex;
+      align-items: baseline;
+      gap: 11px;
+      margin: 30px 0 16px;
+    }
+    .group-title h2 { margin: 0; font-size: 20px; }
+    .group-title p { margin: 0; color: var(--muted); font-size: 13px; }
+    .phones {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(260px, 1fr));
+      gap: 24px;
+    }
+    .prototype { min-width: 0; }
+    .prototype-label {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 24px;
+      margin: 0 0 10px 10px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .prototype-label b { color: var(--ink); font-size: 14px; }
+    .step {
+      display: inline-grid;
+      min-width: 23px;
+      height: 23px;
+      flex: none;
+      place-items: center;
+      padding: 0 4px;
+      border-radius: 50%;
+      color: var(--brand);
+      background: var(--brand-soft);
+      font-size: 10px;
+      font-weight: 900;
+    }
+    .phone {
+      position: relative;
+      min-height: 700px;
+      overflow: hidden;
+      border: 9px solid var(--phone);
+      border-radius: 36px;
+      background: #f6f7f9;
+      box-shadow: var(--shadow);
+    }
+    .phone.tall { min-height: 760px; }
+    .phone.compact { min-height: 610px; }
+    .statusbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 29px;
+      padding: 0 16px;
+      color: #fff;
+      background: var(--brand);
+      font-size: 10px;
+      font-weight: 800;
+    }
+    .appbar {
+      display: flex;
+      align-items: center;
+      min-height: 56px;
+      padding: 0 15px;
+      color: #fff;
+      background: var(--brand);
+    }
+    .appbar-title { flex: 1; font-size: 18px; font-weight: 800; text-align: center; }
+    .appbar-side { width: 27px; color: #fff; font-size: 23px; line-height: 1; }
+    .appbar-side:last-child { color: transparent; }
+    .screen { padding: 14px; }
+    .screen-scroll { height: 610px; overflow: hidden; padding: 14px; }
+    .surface, .card, .field-card, .empty, .error-card, .modal, .evidence-card {
+      border-radius: 16px;
+      background: var(--paper);
+    }
+    .surface { padding: 15px; }
+    .micro {
+      color: var(--brand);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .04em;
+    }
+    .title { margin-top: 7px; font-size: 20px; font-weight: 900; letter-spacing: -.03em; }
+    .sub { margin-top: 7px; color: var(--muted); font-size: 12px; line-height: 18px; }
+    .meta { display: flex; justify-content: space-between; gap: 8px; margin-top: 12px; color: #8d96a3; font-size: 10px; }
+    .section-head { display: flex; justify-content: space-between; align-items: center; margin: 15px 2px 9px; }
+    .section-head strong { font-size: 14px; }
+    .section-head span { color: var(--muted); font-size: 11px; }
+    .search {
+      display: flex;
+      align-items: center;
+      min-height: 46px;
+      margin-top: 12px;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: #fff;
+    }
+    .search-value { flex: 1; color: #2d333c; font-size: 13px; }
+    .search-value.placeholder { color: #98a0ad; }
+    .search-action { color: var(--brand); font-size: 12px; font-weight: 800; }
+    .skeleton {
+      height: 68px;
+      margin-bottom: 9px;
+      border-radius: 14px;
+      background: linear-gradient(90deg, #edf0f4 20%, #f8f9fb 40%, #edf0f4 60%);
+      background-size: 240% 100%;
+    }
+    .skeleton.short { width: 70%; height: 13px; margin: 15px 0 10px; }
+    .skeleton.tiny { width: 42%; height: 10px; margin: 0; }
+    .empty, .error-card { margin-top: 12px; padding: 22px 16px; text-align: center; }
+    .empty-icon, .error-icon {
+      width: 42px;
+      height: 42px;
+      margin: 0 auto;
+      display: grid;
+      place-items: center;
+      border-radius: 13px;
+      font-size: 17px;
+      font-weight: 900;
+    }
+    .empty-icon { color: #7b8797; background: #eef2f7; }
+    .error-icon { color: var(--danger); background: var(--danger-soft); }
+    .empty-title, .error-title { margin-top: 10px; font-size: 15px; font-weight: 800; }
+    .empty-copy, .error-copy { margin-top: 6px; color: var(--muted); font-size: 12px; line-height: 18px; }
+    .button-row { display: flex; gap: 8px; margin-top: 14px; }
+    .button {
+      display: inline-flex;
+      min-height: 42px;
+      flex: 1;
+      align-items: center;
+      justify-content: center;
+      border-radius: 11px;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .button.primary { color: #fff; background: var(--brand); }
+    .button.secondary { color: var(--brand); border: 1px solid #f1b5b5; background: #fff; }
+    .button.disabled { color: #a8afb9; background: #edf0f4; }
+    .button.small { min-height: 35px; padding: 0 11px; flex: none; }
+    .notice {
+      margin: 14px 4px 0;
+      color: #929aa6;
+      font-size: 10px;
+      line-height: 16px;
+      text-align: center;
+    }
+    .alert {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+      padding: 11px 12px;
+      border-radius: 12px;
+      color: #8b5b14;
+      background: var(--amber-soft);
+      font-size: 11px;
+      line-height: 17px;
+    }
+    .alert.error { color: #a34840; background: var(--danger-soft); }
+    .alert.success { color: #2d7650; background: var(--green-soft); }
+    .alert-icon { flex: none; font-weight: 900; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 0 8px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 800;
+    }
+    .pill.brand { color: var(--brand); background: var(--brand-soft); }
+    .pill.green { color: var(--green); background: var(--green-soft); }
+    .pill.amber { color: #8b5b14; background: var(--amber-soft); }
+    .pill.gray { color: #667387; background: #eef2f7; }
+    .result {
+      margin-top: 9px;
+      padding: 13px;
+      border: 1px solid #e7ebf2;
+      border-radius: 14px;
+      background: #fff;
+    }
+    .result-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .result-name { min-width: 0; overflow: hidden; color: #262c34; font-size: 14px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+    .result-name[title] { border-bottom: 1px dashed #b4bcc8; }
+    .result-copy { margin-top: 6px; color: var(--muted); font-size: 11px; line-height: 17px; }
+    .result-meta { display: flex; justify-content: space-between; margin-top: 9px; color: #99a1ad; font-size: 10px; }
+    .detail-head { padding: 15px; border-radius: 16px; background: linear-gradient(145deg, #fff0f0, #fff); }
+    .detail-name { margin-top: 7px; font-size: 22px; font-weight: 900; letter-spacing: -.04em; }
+    .quote-off { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding: 10px 11px; border-radius: 12px; color: #68768a; background: #eef2f7; font-size: 11px; }
+    .quote-off b { color: #4f6178; }
+    .chain {
+      margin-top: 10px;
+      padding: 13px;
+      border-radius: 15px;
+      background: #fff;
+    }
+    .chain-head { display: flex; align-items: center; justify-content: space-between; padding-bottom: 9px; border-bottom: 1px solid var(--line); }
+    .chain-title { font-size: 13px; font-weight: 800; }
+    .chevron { color: var(--brand); font-size: 17px; }
+    .chain-copy { margin: 8px 0 4px; color: var(--muted); font-size: 10px; line-height: 16px; }
+    .stock-row { display: flex; align-items: center; gap: 8px; min-height: 47px; border-top: 1px solid #f0f1f3; }
+    .stock-mark { width: 28px; height: 28px; display: grid; flex: none; place-items: center; border-radius: 9px; color: var(--brand); background: var(--brand-soft); font-size: 11px; font-weight: 900; }
+    .stock-copy { flex: 1; min-width: 0; }
+    .stock-name { display: block; font-size: 11px; font-weight: 800; }
+    .stock-code { display: block; margin-top: 2px; color: var(--muted); font-size: 9px; }
+    .evidence-link { display: inline-flex; min-height: 38px; align-items: center; color: var(--brand); font-size: 10px; font-weight: 800; }
+    .locked {
+      margin-top: 10px;
+      padding: 19px 14px;
+      text-align: center;
+      border-radius: 15px;
+      background: #fff;
+    }
+    .lock {
+      width: 40px;
+      height: 40px;
+      margin: 0 auto;
+      display: grid;
+      place-items: center;
+      border-radius: 12px;
+      color: var(--brand);
+      background: var(--brand-soft);
+      font-size: 16px;
+      font-weight: 900;
+    }
+    .locked-title { margin-top: 10px; font-size: 15px; font-weight: 800; }
+    .locked-copy { margin-top: 6px; color: var(--muted); font-size: 11px; line-height: 17px; }
+    .locked-actions { display: flex; gap: 8px; margin-top: 13px; }
+    .locked-actions > * { flex: 1; }
+    .filter-note {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 10px;
+      padding: 10px 11px;
+      border-radius: 12px;
+      color: #6e7b8d;
+      background: #f2f5f9;
+      font-size: 10px;
+    }
+    .filter-note b { color: #4f6178; }
+    .sheet-dim, .modal-dim {
+      position: absolute;
+      z-index: 3;
+      inset: 85px 0 0;
+      background: rgba(18, 30, 48, .52);
+    }
+    .sheet {
+      position: absolute;
+      z-index: 4;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      max-height: 78%;
+      overflow: hidden;
+      padding: 11px 14px 18px;
+      border-radius: 23px 23px 0 0;
+      background: #fff;
+      box-shadow: 0 -10px 30px rgba(14, 30, 52, .18);
+    }
+    .grab { width: 34px; height: 4px; margin: 0 auto 12px; border-radius: 5px; background: #d8dee8; }
+    .sheet-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+    .sheet-title { font-size: 16px; font-weight: 900; }
+    .sheet-close { min-height: 38px; color: var(--brand); font-size: 11px; font-weight: 800; }
+    .sheet-sub { margin-top: 3px; color: var(--muted); font-size: 10px; }
+    .evidence-field { margin-top: 11px; }
+    .evidence-label { display: block; margin-bottom: 5px; color: #788395; font-size: 9px; font-weight: 800; }
+    .evidence-value { color: #35445a; font-size: 11px; line-height: 17px; }
+    .excerpt {
+      max-height: 90px;
+      overflow-y: auto;
+      padding: 9px;
+      border-radius: 10px;
+      background: #f5f7fb;
+    }
+    .external-link { color: var(--blue); font-weight: 800; }
+    .link-disabled { color: #a5acb7; }
+    .sheet-note { margin-top: 11px; color: #8b97a8; font-size: 9px; line-height: 15px; }
+    .state-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 10px;
+      padding: 9px 10px;
+      border-radius: 11px;
+      color: #6d7786;
+      background: #eef2f7;
+      font-size: 10px;
+    }
+    .state-bar b { color: var(--green); }
+    .calendar {
+      margin-top: 11px;
+      padding: 13px;
+      border-radius: 15px;
+      background: #fff;
+      box-shadow: 0 12px 28px rgba(25, 39, 66, .10);
+    }
+    .calendar-head { display: flex; align-items: center; justify-content: space-between; }
+    .calendar-head strong { font-size: 14px; }
+    .calendar-head span { color: var(--brand); font-size: 16px; font-weight: 900; }
+    .week, .days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-top: 11px; text-align: center; }
+    .week span { color: #9ba3af; font-size: 9px; }
+    .day { min-height: 28px; display: grid; place-items: center; border-radius: 8px; color: #47566c; font-size: 10px; }
+    .day.disabled { color: #c5cbd3; background: #f5f6f8; }
+    .day.selected { color: #fff; background: var(--brand); font-weight: 900; }
+    .day.today { border: 1px solid #efb2b2; color: var(--brand); }
+    .calendar-foot { display: flex; justify-content: space-between; margin-top: 11px; color: var(--muted); font-size: 9px; }
+    .field-card { padding: 17px 15px; }
+    .form-title { font-size: 18px; font-weight: 900; }
+    .form-sub { margin-top: 5px; color: var(--muted); font-size: 10px; line-height: 16px; }
+    .field { margin-top: 13px; }
+    .field-label { display: block; margin-bottom: 5px; color: #6f7b8e; font-size: 10px; font-weight: 800; }
+    .field-box { display: flex; align-items: center; min-height: 44px; padding: 0 11px; border: 1px solid #dfe4eb; border-radius: 11px; background: #fbfcfd; }
+    .field-box.invalid { border-color: #e8a09a; background: #fff9f8; }
+    .field-value { flex: 1; color: #2e3540; font-size: 12px; }
+    .field-value.placeholder { color: #9aa1aa; }
+    .field-side { color: var(--brand); font-size: 10px; font-weight: 800; }
+    .inline-error { margin-top: 5px; color: var(--danger); font-size: 10px; line-height: 15px; }
+    .agreement { display: flex; gap: 7px; margin-top: 13px; color: #778191; font-size: 10px; line-height: 15px; }
+    .checkbox { width: 16px; height: 16px; flex: none; border: 1px solid #c8ced7; border-radius: 5px; background: #fff; }
+    .agreement em { color: var(--brand); font-style: normal; }
+    .form-link { margin-top: 11px; color: #748094; font-size: 10px; text-align: center; }
+    .profile {
+      display: flex;
+      align-items: center;
+      padding: 14px;
+      border-radius: 15px;
+      background: #fff;
+    }
+    .avatar { width: 43px; height: 43px; margin-right: 10px; display: grid; place-items: center; border-radius: 50%; color: var(--brand); background: var(--brand-soft); font-size: 17px; font-weight: 900; }
+    .profile-copy { flex: 1; min-width: 0; }
+    .profile-name { display: block; font-size: 14px; font-weight: 900; }
+    .profile-note { display: block; margin-top: 4px; color: var(--muted); font-size: 10px; line-height: 15px; }
+    .profile-action { min-height: 38px; display: inline-flex; align-items: center; color: var(--brand); font-size: 10px; font-weight: 800; }
+    .member-card { margin-top: 10px; padding: 14px; border-radius: 15px; background: #fff; }
+    .member-row { display: flex; justify-content: space-between; align-items: center; min-height: 27px; }
+    .member-row + .member-row { margin-top: 6px; }
+    .member-label { color: var(--muted); font-size: 10px; }
+    .member-value { color: #2c3440; font-size: 11px; font-weight: 800; }
+    .menu { margin-top: 10px; overflow: hidden; border-radius: 15px; background: #fff; }
+    .menu-row { display: flex; align-items: center; min-height: 48px; padding: 7px 13px; border-bottom: 1px solid #f0f1f3; }
+    .menu-row:last-child { border-bottom: 0; }
+    .menu-icon { width: 27px; height: 27px; margin-right: 9px; display: grid; place-items: center; border-radius: 9px; color: var(--brand); background: var(--brand-soft); font-size: 10px; font-weight: 900; }
+    .menu-title { flex: 1; font-size: 11px; }
+    .menu-note { color: #929aa6; font-size: 9px; }
+    .menu-arrow { margin-left: 7px; color: #b5bcc6; font-size: 18px; }
+    .code-row { display: flex; gap: 7px; margin-top: 13px; }
+    .code-row .field-box { flex: 1; }
+    .code-row .field-box .field-value { letter-spacing: .12em; font-weight: 800; }
+    .toast {
+      display: flex;
+      gap: 8px;
+      margin-top: 11px;
+      padding: 10px;
+      border-radius: 11px;
+      color: #8f5b16;
+      background: var(--amber-soft);
+      font-size: 10px;
+      line-height: 15px;
+    }
+    .toast.error { color: #a34840; background: var(--danger-soft); }
+    .toast.success { color: #2e7650; background: var(--green-soft); }
+    .step-list {
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 13px;
+      background: #f8fafc;
+    }
+    .step-row { display: flex; gap: 8px; align-items: flex-start; }
+    .step-row + .step-row { margin-top: 10px; }
+    .step-num {
+      width: 20px;
+      height: 20px;
+      flex: none;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      color: var(--brand);
+      background: var(--brand-soft);
+      font-size: 10px;
+      font-weight: 900;
+    }
+    .step-copy { min-width: 0; }
+    .step-copy strong { display: block; font-size: 11px; }
+    .step-copy span { display: block; margin-top: 2px; color: var(--muted); font-size: 9px; line-height: 14px; }
+    .modal-dim { inset: 85px 0 0; }
+    .modal-wrap {
+      position: absolute;
+      z-index: 4;
+      inset: 85px 12px 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal { width: 100%; padding: 18px 15px 15px; box-shadow: 0 16px 34px rgba(14, 30, 52, .22); }
+    .modal-kicker { color: var(--brand); font-size: 10px; font-weight: 900; letter-spacing: .04em; }
+    .modal-title { margin-top: 7px; font-size: 16px; font-weight: 900; }
+    .modal-copy { margin-top: 7px; color: var(--muted); font-size: 11px; line-height: 17px; }
+    .modal .button-row { margin-top: 15px; }
+    .maintenance {
+      margin-top: 12px;
+      padding: 23px 15px;
+      text-align: center;
+      border-radius: 16px;
+      background: #fff;
+    }
+    .maintenance-icon { width: 44px; height: 44px; margin: 0 auto; display: grid; place-items: center; border-radius: 13px; color: #8b5b14; background: var(--amber-soft); font-size: 17px; font-weight: 900; }
+    .maintenance-title { margin-top: 10px; font-size: 15px; font-weight: 900; }
+    .maintenance-copy { margin-top: 6px; color: var(--muted); font-size: 11px; line-height: 17px; }
+    .large-type .screen { padding: 17px; }
+    .large-type .title { font-size: 24px; }
+    .large-type .sub, .large-type .notice { font-size: 13px; line-height: 20px; }
+    .large-type .button { font-size: 13px; }
+    .footer-note { margin-top: 30px; color: #8b94a1; font-size: 12px; line-height: 19px; }
+    @media (max-width: 1260px) { .phones { grid-template-columns: repeat(3, minmax(260px, 1fr)); } }
+    @media (max-width: 900px) {
+      .board-header { display: block; }
+      .header-side { align-items: flex-start; margin-top: 17px; }
+      .coverage { grid-template-columns: repeat(3, minmax(160px, 1fr)); }
+      .phones { grid-template-columns: repeat(2, minmax(260px, 1fr)); }
+    }
+    @media (max-width: 620px) {
+      .board { padding: 27px 16px 45px; }
+      h1 { font-size: 25px; }
+      .board-copy { font-size: 13px; }
+      .coverage { grid-template-columns: 1fr 1fr; gap: 8px; }
+      .coverage-card { min-height: 82px; padding: 11px; }
+      .coverage-card strong { font-size: 19px; }
+      .phones { grid-template-columns: minmax(0, 390px); justify-content: center; }
+      .prototype-label { margin-left: 4px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="board">
+    <header class="board-header">
+      <div>
+        <p class="eyebrow">题材宝典 · P0 设计评审</p>
+        <h1>关键状态与异常 · 高保真原型</h1>
+        <p class="board-copy">这张状态板把 P0 页面从“结构可达”补到“状态可评审”：每个手机画面对应一个可回归状态或明确弹层。所有内容均为界面示意，非生产数据；会员、短信、法律文本、审核映射与行情授权未就绪时，页面保持受控关闭。</p>
+      </div>
+      <div class="header-side">
+        <div class="prototype-note">界面示意，非生产数据 · 不代表任何题材、公司或行情</div>
+        <div class="header-links">
+          <a class="header-link" href="./index.html">返回核心画板</a>
+          <a class="header-link" href="./p0.html">返回 P0 主画板</a>
+          <a class="header-link" href="../../specs/theme-data-remediation/frontend-pages.md">查看页面清单</a>
+        </div>
+      </div>
+    </header>
+
+    <nav class="anchor-nav" aria-label="状态分组导航">
+      <a class="anchor-link" href="#topic-states">题材查询与依据</a>
+      <a class="anchor-link" href="#member-states">会员、登录与兑换码</a>
+      <a class="anchor-link" href="#service-states">服务说明与法律文本</a>
+      <a class="anchor-link" href="#global-states">全局与可访问性</a>
+    </nav>
+
+    <section class="coverage" aria-label="P0 状态覆盖概览">
+      <div class="coverage-card"><strong>20</strong><span><em>题材查询</em>与依据状态画面</span></div>
+      <div class="coverage-card"><strong>25</strong><span><em>会员/登录/兑换码</em>状态画面</span></div>
+      <div class="coverage-card"><strong>2</strong><span><em>服务说明/法律文本</em>视觉框架</span></div>
+      <div class="coverage-card"><strong>5</strong><span><em>全局异常</em>与小屏适配画面</span></div>
+      <div class="coverage-card"><strong>52</strong><span>独立手机稿或明确弹层，供开发回归</span></div>
+    </section>
+
+    <section id="topic-states">
+      <div class="group-title"><h2>P0 · 题材查询与归属依据</h2><p>列表、权限、折叠、证据、外链与日期</p></div>
+      <section class="phones" aria-label="题材查询与归属依据状态">
+        <article class="prototype" id="theme-loading">
+          <p class="prototype-label"><span class="step">01</span><b>题材库</b>加载中</p>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">题材库</span><span class="appbar-side">•</span></div>
+            <div class="screen">
+              <div class="search"><span class="search-value placeholder">输入题材名称</span><span class="search-action">搜索</span></div>
+              <div class="section-head"><strong>已审核题材</strong><span>正在刷新</span></div>
+              <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
+              <div class="alert"><span class="alert-icon">i</span><span>正在读取内部审核库，请稍候；加载期间不显示示例数据。</span></div>
+              <p class="notice">本平台为公开信息聚合与历史数据统计，不构成任何投资建议。</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="prototype" id="theme-searching">
+          <p class="prototype-label"><span class="step">02A</span><b>题材库</b>搜索提交中</p>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">题材库</span><span class="appbar-side">•</span></div>
+            <div class="screen">
+              <div class="search"><span class="search-value">光学示例</span><span class="search-action" style="color:#9aa1aa">搜索中…</span></div>
+              <div class="section-head"><strong>搜索结果</strong><span>正在查询</span></div>
+              <div class="skeleton"></div><div class="skeleton"></div>
+              <div class="alert"><span class="alert-icon">i</span><span>提交期间锁定重复点击；返回结果后再恢复清除和重试入口。</span></div>
+              <p class="notice">只向同源内部接口提交题材名称。</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="prototype" id="theme-no-result">
+          <p class="prototype-label"><span class="step">02</span><b>题材库</b>搜索无结果</p>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">题材库</span><span class="appbar-side">•</span></div>
+            <div class="screen">
+              <div class="search"><span class="search-value">未收录关键词</span><span class="search-action">清除</span></div>
+              <div class="section-head"><strong>搜索结果</strong><span>0 条</span></div>
+              <div class="empty"><div class="empty-icon">—</div><div class="empty-title">没有找到匹配题材</div><div class="empty-copy">仅按已审核题材名称检索。请更换关键词或返回列表。</div><div class="button-row"><span class="button secondary">清除关键词</span><span class="button primary">查看全部</span></div></div>
+              <p class="notice">未完成审核的内容不会出现在结果中。</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="prototype" id="theme-error">
+          <p class="prototype-label"><span class="step">03</span><b>题材库</b>接口错误</p>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">题材库</span><span class="appbar-side">•</span></div>
+            <div class="screen">
+              <div class="search"><span class="search-value placeholder">输入题材名称</span><span class="search-action">搜索</span></div>
+              <div class="error-card"><div class="error-icon">!</div><div class="error-title">暂时无法加载</div><div class="error-copy">网络或服务暂时不可用，已保留你的搜索条件。</div><div class="button-row"><span class="button secondary">返回</span><span class="button primary">重试</span></div></div>
+              <div class="alert error"><span class="alert-icon">!</span><span>重试前不展示缓存旧数据；如果持续失败，请稍后再试。</span></div>
+              <p class="notice">错误状态提供明确返回路径。</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="prototype" id="theme-long-name">
+          <p class="prototype-label"><span class="step">04</span><b>题材库</b>长名称与可访问文本</p>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">题材库</span><span class="appbar-side">•</span></div>
+            <div class="screen">
+              <div class="search"><span class="search-value">光学与精密制造产业链</span><span class="search-action">清除</span></div>
+              <div class="section-head"><strong>搜索结果</strong><span>1 条</span></div>
+              <div class="result"><div class="result-top"><span class="result-name" title="光学与精密制造产业链（示意完整名称）">光学与精密制造产业链（示意完整名称）</span><span class="pill green">已审核</span></div><div class="result-copy">视觉上单行省略；长按或读屏可获得完整名称，不以截断文本作为唯一识别。</div><div class="result-meta"><span>更新时间待服务端返回</span><span>进入详情 ›</span></div></div>
+              <div class="alert"><span class="alert-icon">i</span><span>名称过长时保留完整可访问标签，卡片不产生横向滚动。</span></div>
+              <p class="notice">界面示意，非生产数据。</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="prototype" id="theme-trial">
+          <p class="prototype-label"><span class="step">05</span><b>题材详情</b>试吃可用</p>
+          <div class="phone tall">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">题材详情</span><span class="appbar-side">•</span></div>
+            <div class="screen">
+              <section class="detail-head"><span class="micro">公开资料整理</span><div class="detail-name">题材名称示例</div><div class="sub">免费展示客观说明、更新时间和来源；受限内容由服务端权限决定。</div><div class="meta"><span>更新于服务端时间</span><span>来源可查</span></div></section>
+              <div class="quote-off"><span>行情信息</span><b>授权完成后展示</b></div>
+              <div class="section-head"><strong>产业链环节</strong><span class="pill amber">今日试吃剩余 2 次</span></div>
+              <section class="chain"><div class="chain-head"><span class="chain-title">⌄ 环节名称示例</span><span class="pill gray">已展开</span></div><p class="chain-copy">仅展示具备四项归属依据的客观映射。</p><div class="stock-row"><span class="stock-mark">甲</span><span class="stock-copy"><span class="stock-name">公司甲（示意）</span><span class="stock-code">000000 · 市场待服务端返回</span></span><span class="evidence-link">查看依据</span></div></section>
+              <div class="alert"><span class="alert-icon">i</span><span>本次访问消耗一次试吃；重复打开同一题材由服务端按规则处理。</span></div>
+              <p class="notice">本平台为公开信息聚合与历史数据统计，不构成任何投资建议。</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="prototype" id="theme-subscribed">
+          <p class="prototype-label"><span class="step">06</span><b>题材详情</b>订阅有效</p>
+          <div class="phone tall">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">题材详情</span><span class="appbar-side">•</span></div>
+            <div class="screen">
+              <section class="detail-head"><span class="micro">公开资料整理</span><div class="detail-name">题材名称示例</div><div class="sub">服务有效时显示服务端返回的产业链与依据入口。</div><div class="meta"><span>更新于服务端时间</span><span class="pill green">服务有效</span></div></section>
+              <div class="quote-off"><span>行情信息</span><b>授权完成后展示</b></div>
+              <div class="section-head"><strong>产业链环节</strong><span>按代码升序</span></div>
+              <section class="chain"><div class="chain-head"><span class="chain-title">⌄ 环节名称示例</span><span class="pill green">已展开</span></div><p class="chain-copy">顺序由客观标识决定，不使用评价字段。</p><div class="stock-row"><span class="stock-mark">甲</span><span class="stock-copy"><span class="stock-name">公司甲（示意）</span><span class="stock-code">000000 · 市场示例</span></span><span class="evidence-link">查看依据</span></div><div class="stock-row"><span class="stock-mark">乙</span><span class="stock-copy"><span class="stock-name">公司乙（示意）</span><span class="stock-code">000001 · 市场示例</span></span><span class="evidence-link">查看依据</span></div></section>
+              <div class="state-bar"><span>依据接口</span><b>按需加载</b></div>
+              <p class="notice">授权、时点与数值均由服务端契约控制。</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="prototype" id="theme-trial-exhausted">
+          <p class="prototype-label"><span class="step">07</span><b>题材详情</b>试吃已用尽</p>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">题材详情</span><span class="appbar-side">•</span></div>
+            <div class="screen">
+              <section class="detail-head"><span class="micro">公开资料整理</span><div class="detail-name">题材名称示例</div><div class="sub">题材顶层说明仍可查看；产业链与归属依据不在本次权限范围内。</div></section>
+              <div class="quote-off"><span>行情信息</span><b>授权完成后展示</b></div>
+              <section class="locked"><div class="lock">锁</div><div class="locked-title">今日试吃已用尽</div><div class="locked-copy">服务端返回访问受限。前端不通过遮罩或参数修改绕过权限。</div><div class="locked-actions"><span class="button primary">查看服务说明</span><span class="button secondary">返回题材库</span></div></section>
+              <div class="alert"><span class="alert-icon">i</span><span>下一自然日是否恢复，以服务端计数为准。</span></div>
+              <p class="notice">不展示受限的产业链、公司或依据内容。</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="prototype" id="theme-no-chain">
+          <p class="prototype-label"><span class="step">08</span><b>题材详情</b>无产业链环节</p>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">题材详情</span><span class="appbar-side">•</span></div>
+            <div class="screen">
+              <section class="detail-head"><span class="micro">公开资料整理</span><div class="detail-name">题材名称示例</div><div class="sub">当前审核库只返回题材顶层说明，尚未形成可展示的环节记录。</div></section>
+              <div class="quote-off"><span>行情信息</span><b>授权完成后展示</b></div>
+              <div class="section-head"><strong>产业链环节</strong><span>服务有效</span></div>
+              <div class="empty"><div class="empty-icon">—</div><div class="empty-title">暂无可展示环节</div><div class="empty-copy">没有符合审核、启用和证据完整条件的环节。页面不以推断内容补齐。</div><div class="button-row"><span class="button secondary">返回题材库</span></div></div>
+              <p class="notice">数据状态由审核库返回。</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="prototype" id="theme-no-stock">
+          <p class="prototype-label"><span class="step">09</span><b>产业链环节</b>无公司映射</p>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">题材详情</span><span class="appbar-side">•</span></div>
+            <div class="screen">
+              <section class="detail-head"><span class="micro">题材名称示例</span><div class="detail-name">环节名称示例</div><div class="sub">环节说明来自审核库；公司映射需具备四项归属证据。</div></section>
+              <section class="chain"><div class="chain-head"><span class="chain-title">⌄ 环节名称示例</span><span class="pill green">已展开</span></div><div class="empty"><div class="empty-icon">—</div><div class="empty-title">暂无可展示公司</div><div class="empty-copy">现有记录未同时满足启用、审核通过和证据完整条件。</div></div></section>
+              <div class="alert"><span class="alert-icon">i</span><span>被过滤的映射不会显示空依据按钮，也不会在客户端留下占位卡片。</span></div>
+              <p class="notice">不以相关度、层级或模型字段决定展示。</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="prototype" id="theme-collapsed">
+          <p class="prototype-label"><span class="step">10</span><b>产业链</b>环节收起</p>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">题材详情</span><span class="appbar-side">•</span></div>
+            <div class="screen">
+              <section class="detail-head"><span class="micro">题材名称示例</span><div class="detail-name">题材详情</div><div class="sub">首个环节默认展开；其他环节可独立收起或展开。</div></section>
+              <section class="chain"><div class="chain-head"><span class="chain-title">⌄ 首个环节名称</span><span class="pill gray">已展开</span></div><p class="chain-copy">展开内容仅含客观公司标识与依据入口。</p><div class="stock-row"><span class="stock-mark">甲</span><span class="stock-copy"><span class="stock-name">公司甲（示意）</span><span class="stock-code">000000 · 市场示例</span></span><span class="evidence-link">查看依据</span></div></section>
+              <section class="chain"><div class="chain-head"><span class="chain-title">› 另一环节名称</span><span class="pill gray">已收起</span></div><p class="chain-copy">点击整行展开，触达区域不少于 44px。</p></section>
+              <p class="notice">环节顺序由服务端返回顺序，不由评价字段决定。</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="prototype" id="theme-filtered">
+          <p class="prototype-label"><span class="step">11</span><b>产业链</b>映射被过滤</p>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">题材详情</span><span class="appbar-side">•</span></div>
+            <div class="screen">
+              <section class="detail-head"><span class="micro">题材名称示例</span><div class="detail-name">环节名称示例</div><div class="sub">服务端在基础查询中统一过滤软删、未审核、停用或证据不完整记录。</div></section>
+              <section class="chain"><div class="chain-head"><span class="chain-title">⌄ 环节名称示例</span><span class="pill green">已展开</span></div><div class="filter-note"><span>符合发布条件</span><b>0 条</b></div><div class="empty"><div class="empty-icon">✓</div><div class="empty-title">当前没有可发布映射</div><div class="empty-copy">过滤发生在服务端，前端不展示被拦截记录或失败原因中的内部字段。</div></div></section>
+              <p class="notice">证据不完整的记录不会进入详情与依据接口。</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="prototype" id="evidence-loading">
+          <p class="prototype-label"><span class="step">12</span><b>归属依据</b>加载中</p>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">题材详情</span><span class="appbar-side">•</span></div>
+            <div class="screen">
+              <section class="surface"><span class="micro">题材名称示例</span><div class="title">环节名称示例</div><div class="sub">公司甲（示意）</div></section>
+            </div>
+            <div class="sheet-dim"></div>
+            <section class="sheet" aria-label="归属依据加载中">
+              <div class="grab"></div>
+              <div class="sheet-head"><div><div class="sheet-title">归属依据</div><div class="sheet-sub">公司甲（示意） · 环节名称示例</div></div><span class="sheet-close">关闭</span></div>
+              <div class="skeleton short"></div><div class="skeleton"></div><div class="skeleton short"></div>
+              <div class="alert"><span class="alert-icon">i</span><span>正在读取审核证据；加载完成前不显示不完整内容。</span></div>
+            </section>
+          </div>
+        </article>
+
+        <article class="prototype" id="evidence-error">
+          <p class="prototype-label"><span class="step">13</span><b>归属依据</b>接口失败</p>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">题材详情</span><span class="appbar-side">•</span></div>
+            <div class="screen"><section class="surface"><span class="micro">题材名称示例</span><div class="title">环节名称示例</div><div class="sub">公司甲（示意）</div></section></div>
+            <div class="sheet-dim"></div>
+            <section class="sheet" aria-label="归属依据接口失败">
+              <div class="grab"></div>
+              <div class="sheet-head"><div><div class="sheet-title">归属依据</div><div class="sheet-sub">公司甲（示意） · 环节名称示例</div></div><span class="sheet-close">关闭</span></div>
+              <div class="error-card"><div class="error-icon">!</div><div class="error-title">依据暂时无法加载</div><div class="error-copy">未读取到服务端完整响应，当前不显示任何推断信息。</div><div class="button-row"><span class="button secondary">关闭</span><span class="button primary">重试</span></div></div>
+            </section>
+          </div>
+        </article>
+
+        <article class="prototype" id="evidence-incomplete">
+          <p class="prototype-label"><span class="step">14</span><b>归属依据</b>四项证据缺失</p>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">题材详情</span><span class="appbar-side">•</span></div>
+            <div class="screen"><section class="surface"><span class="micro">题材名称示例</span><div class="title">环节名称示例</div><div class="sub">公司映射已被服务端隐藏</div></section></div>
+            <div class="sheet-dim"></div>
+            <section class="sheet" aria-label="归属依据证据缺失">
+              <div class="grab"></div>
+              <div class="sheet-head"><div><div class="sheet-title">无法展示归属依据</div><div class="sheet-sub">当前记录不满足发布条件</div></div><span class="sheet-close">关闭</span></div>
+              <div class="alert error"><span class="alert-icon">!</span><span>来源类型、原文摘录、原文链接、采集时点必须同时存在；缺任一项即不展示映射。</span></div>
+              <div class="evidence-field"><span class="evidence-label">发布门槛</span><span class="evidence-value">四项证据完整 · 审核通过 · 记录启用</span></div>
+              <div class="button-row"><span class="button secondary">返回详情</span></div>
+            </section>
+          </div>
+        </article>
+
+        <article class="prototype" id="evidence-success">
+          <p class="prototype-label"><span class="step">15</span><b>归属依据</b>长摘录可滚动</p>
+          <div class="phone tall">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">题材详情</span><span class="appbar-side">•</span></div>
+            <div class="screen"><section class="surface"><span class="micro">题材名称示例</span><div class="title">环节名称示例</div><div class="sub">公司甲（示意） · 查看依据</div></section></div>
+            <div class="sheet-dim"></div>
+            <section class="sheet" aria-label="归属依据成功">
+              <div class="grab"></div>
+              <div class="sheet-head"><div><div class="sheet-title">归属依据</div><div class="sheet-sub">公司甲（示意） · 环节名称示例</div></div><span class="sheet-close">关闭</span></div>
+              <div class="evidence-field"><span class="evidence-label">来源类型</span><span class="evidence-value">公开披露文件（示意）</span></div>
+              <div class="evidence-field"><span class="evidence-label">原文摘录</span><div class="evidence-value excerpt">“这里展示审核后保存的原文摘录。较长内容在区域内滚动，页面不改写为评价或推断。原文上下文、主体和时间均由服务端审核记录保留，用户可在阅读区内继续查看完整片段。”</div></div>
+              <div class="evidence-field"><span class="evidence-label">原文链接</span><span class="evidence-value external-link">https://example.invalid/source（示意） ↗</span></div>
+              <div class="evidence-field"><span class="evidence-label">采集时点</span><span class="evidence-value">服务端时间（示意）</span></div>
+              <p class="sheet-note">仅允许经过 HTTPS 校验的原文链接；点击后先出现外部页面确认层。</p>
+            </section>
+          </div>
+        </article>
+
+        <article class="prototype" id="evidence-invalid-url">
+          <p class="prototype-label"><span class="step">16</span><b>归属依据</b>非 HTTPS 链接</p>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">题材详情</span><span class="appbar-side">•</span></div>
+            <div class="screen"><section class="surface"><span class="micro">题材名称示例</span><div class="title">归属依据</div><div class="sub">链接校验失败态</div></section></div>
+            <div class="sheet-dim"></div>
+            <section class="sheet" aria-label="归属依据链接校验失败">
+              <div class="grab"></div>
+              <div class="sheet-head"><div><div class="sheet-title">归属依据</div><div class="sheet-sub">公司甲（示意） · 环节名称示例</div></div><span class="sheet-close">关闭</span></div>
+              <div class="evidence-field"><span class="evidence-label">原文链接</span><span class="evidence-value link-disabled">链接未通过 HTTPS / 域名校验</span></div>
+              <div class="alert error"><span class="alert-icon">!</span><span>为保护用户，非 HTTPS 或未在允许域名范围内的链接不可点击；记录退回审核。</span></div>
+              <div class="button-row"><span class="button secondary">关闭</span></div>
+            </section>
+          </div>
+        </article>
+
+        <article class="prototype" id="external-confirm">
+          <p class="prototype-label"><span class="step">17</span><b>外部原文</b>打开确认</p>
+          <div class="phone compact">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">归属依据</span><span class="appbar-side">•</span></div>
+            <div class="screen"><section class="surface"><span class="micro">原文链接</span><div class="title">公开披露文件</div><div class="sub">来源域名已通过 HTTPS 校验。</div><div class="state-bar"><span>链接状态</span><b>可确认打开</b></div></section></div>
+            <div class="modal-dim"></div>
+            <div class="modal-wrap"><section class="modal" role="dialog" aria-label="打开外部原文确认"><div class="modal-kicker">外部页面</div><div class="modal-title">确认打开原文？</div><div class="modal-copy">即将离开题材宝典并打开已校验的来源页面。请在原文页面自行核对内容。</div><div class="button-row"><span class="button secondary">取消</span><span class="button primary">确认打开</span></div></section></div>
+          </div>
+        </article>
+
+        <article class="prototype" id="external-invalid">
+          <p class="prototype-label"><span class="step">18</span><b>外部原文</b>协议/域名校验失败</p>
+          <div class="phone compact">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">归属依据</span><span class="appbar-side">•</span></div>
+            <div class="screen"><section class="surface"><span class="micro">原文链接</span><div class="title">链接不可用</div><div class="sub">服务端返回的地址未通过安全校验。</div></section></div>
+            <div class="modal-dim"></div>
+            <div class="modal-wrap"><section class="modal" role="dialog" aria-label="链接校验失败"><div class="modal-kicker">无法打开</div><div class="modal-title">原文链接已拦截</div><div class="modal-copy">仅允许 HTTPS 且通过域名白名单校验的地址。当前记录不会触发外部跳转。</div><div class="button-row"><span class="button primary">知道了</span></div></section></div>
+          </div>
+        </article>
+
+        <article class="prototype" id="calendar-state">
+          <p class="prototype-label"><span class="step">19</span><b>题材动态</b>日期选择浮层</p>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">题材动态</span><span class="appbar-side">•</span></div>
+            <div class="screen"><section class="surface"><span class="micro">查询日期</span><div class="title">2026-08-18</div><div class="sub">确认后才请求该日期；取消不刷新列表。</div></section></div>
+            <div class="modal-dim"></div>
+            <div class="modal-wrap"><section class="modal" role="dialog" aria-label="选择查询日期"><div class="modal-title">选择查询日期</div><div class="calendar"><div class="calendar-head"><span>‹</span><strong>2026 年 08 月</strong><span>›</span></div><div class="week"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div><div class="days"><span class="day disabled">26</span><span class="day disabled">27</span><span class="day disabled">28</span><span class="day disabled">29</span><span class="day disabled">30</span><span class="day disabled">31</span><span class="day">1</span><span class="day">2</span><span class="day">3</span><span class="day">4</span><span class="day">5</span><span class="day">6</span><span class="day">7</span><span class="day">8</span><span class="day">9</span><span class="day">10</span><span class="day">11</span><span class="day">12</span><span class="day">13</span><span class="day">14</span><span class="day">15</span><span class="day">16</span><span class="day">17</span><span class="day selected">18</span><span class="day">19</span><span class="day today">20</span><span class="day disabled">21</span><span class="day disabled">22</span><span class="day disabled">23</span><span class="day disabled">24</span><span class="day disabled">25</span><span class="day disabled">26</span><span class="day disabled">27</span><span class="day disabled">28</span><span class="day disabled">29</span><span class="day disabled">30</span><span class="day disabled">31</span></div><div class="calendar-foot"><span>未来日期不可选</span><span>数据起始日前不可选</span></div></div><div class="alert"><span class="alert-icon">i</span><span>实现继续使用平台原生日期选择器；本月视图用于评审选中与禁用规则。</span></div><div class="button-row"><span class="button secondary">取消</span><span class="button primary">确认日期</span></div></section></div>
+          </div>
+        </article>
+      </section>
+    </section>
+
+    <section id="member-states">
+      <div class="group-title"><h2>P0 · 会员、登录与兑换码</h2><p>受控关闭、错误反馈、注销与激活</p></div>
+      <section class="phones" aria-label="会员登录与兑换码状态">
+        <article class="prototype" id="member-loading">
+          <p class="prototype-label"><span class="step">20</span><b>会员中心</b>加载中</p>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">我的</span><span class="appbar-side">•</span></div>
+            <div class="screen">
+              <section class="profile"><span class="avatar">题</span><span class="profile-copy"><span class="skeleton short"></span><span class="skeleton tiny"></span></span></section>
+              <div class="skeleton" style="height:112px;margin-top:10px"></div>
+              <div class="skeleton" style="height:124px;margin-top:10px"></div>
+              <div class="alert"><span class="alert-icon">i</span><span>正在读取服务端会员状态；加载完成前不显示旧状态。</span></div>
+              <p class="notice">手机号只显示服务端脱敏结果。</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="prototype" id="member-error">
+          <p class="prototype-label"><span class="step">21</span><b>会员中心</b>网络失败</p>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">我的</span><span class="appbar-side">•</span></div>
+            <div class="screen">
+              <div class="error-card"><div class="error-icon">!</div><div class="error-title">会员状态暂时无法读取</div><div class="error-copy">网络异常时不沿用上一次有效期或试吃次数。</div><div class="button-row"><span class="button secondary">返回</span><span class="button primary">重试</span></div></div>
+              <section class="menu"><div class="menu-row"><span class="menu-icon">说</span><span class="menu-title">服务说明</span><span class="menu-arrow">›</span></div><div class="menu-row"><span class="menu-icon">隐</span><span class="menu-title">协议与隐私</span><span class="menu-arrow">›</span></div></section>
+              <p class="notice">错误态不开放依赖会员鉴权的入口。</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="prototype" id="member-unopened">
+          <p class="prototype-label"><span class="step">22</span><b>会员中心</b>未开通</p>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">我的</span><span class="appbar-side">•</span></div>
+            <div class="screen">
+              <section class="profile"><span class="avatar">题</span><span class="profile-copy"><span class="profile-name">138****8000</span><span class="profile-note">账号信息由服务端脱敏后展示</span></span><span class="profile-action">退出</span></section>
+              <section class="member-card"><div class="member-row"><span class="member-label">会员状态</span><span class="pill gray">未开通</span></div><div class="member-row"><span class="member-label">今日试吃</span><span class="member-value">以服务端返回为准</span></div></section>
+              <section class="menu"><div class="menu-row"><span class="menu-icon">说</span><span class="menu-title">如何开通</span><span class="menu-note">查看说明</span><span class="menu-arrow">›</span></div><div class="menu-row"><span class="menu-icon">码</span><span class="menu-title">兑换码服务</span><span class="menu-note">输入兑换码</span><span class="menu-arrow">›</span></div></section>
+              <p class="notice">页面不提供支付、收款码或支付外链。</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="prototype" id="member-expired">
+          <p class="prototype-label"><span class="step">23</span><b>会员中心</b>服务已过期</p>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">我的</span><span class="appbar-side">•</span></div>
+            <div class="screen">
+              <section class="profile"><span class="avatar">题</span><span class="profile-copy"><span class="profile-name">138****8000</span><span class="profile-note">服务端脱敏手机号</span></span><span class="profile-action">退出</span></section>
+              <section class="member-card"><div class="member-row"><span class="member-label">会员状态</span><span class="pill amber">已过期</span></div><div class="member-row"><span class="member-label">有效期至</span><span class="member-value">以服务端时间为准</span></div><div class="member-row"><span class="member-label">今日试吃</span><span class="member-value">以服务端返回为准</span></div></section>
+              <div class="alert"><span class="alert-icon">i</span><span>已过期状态仅开放服务说明与兑换码入口。</span></div>
+              <section class="menu"><div class="menu-row"><span class="menu-icon">码</span><span class="menu-title">兑换码服务</span><span class="menu-arrow">›</span></div><div class="menu-row"><span class="menu-icon">隐</span><span class="menu-title">协议与隐私</span><span class="menu-arrow">›</span></div></section>
+              <p class="notice">过期不等同于删除账号。</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="prototype" id="member-trial-empty">
+          <p class="prototype-label"><span class="step">24</span><b>会员中心</b>试吃已耗尽</p>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">我的</span><span class="appbar-side">•</span></div>
+            <div class="screen">
+              <section class="profile"><span class="avatar">题</span><span class="profile-copy"><span class="profile-name">138****8000</span><span class="profile-note">服务端脱敏手机号</span></span><span class="profile-action">退出</span></section>
+              <section class="member-card"><div class="member-row"><span class="member-label">会员状态</span><span class="pill gray">未开通</span></div><div class="member-row"><span class="member-label">今日试吃</span><span class="pill amber">已用尽</span></div></section>
+              <div class="alert"><span class="alert-icon">i</span><span>试吃计数按 GMT+8 自然日由服务端维护；前端不自行重置。</span></div>
+              <section class="menu"><div class="menu-row"><span class="menu-icon">说</span><span class="menu-title">查看服务说明</span><span class="menu-arrow">›</span></div></section>
+              <p class="notice">无权限时不显示受限内容摘要。</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="prototype" id="login-phone-error">
+          <p class="prototype-label"><span class="step">25</span><b>登录</b>手机号格式错误</p>
+          <div class="phone compact">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">登录</span><span class="appbar-side">•</span></div>
+            <div class="screen">
+              <section class="field-card"><div class="form-title">手机号登录</div><div class="form-sub">只用于账号识别、服务状态与注销处理。</div><div class="field"><span class="field-label">手机号</span><div class="field-box invalid"><span class="field-value">12345</span></div><div class="inline-error">请输入有效的手机号</div></div><div class="field"><span class="field-label">验证码</span><div class="field-box"><span class="field-value placeholder">请输入验证码</span><span class="field-side">获取验证码</span></div></div><div class="agreement"><span class="checkbox"></span><span>我已阅读并同意<em>《用户协议》</em>与<em>《隐私政策》</em></span></div><span class="button disabled" style="margin-top:14px">登录</span></section>
+              <p class="notice">协议默认未勾选。</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="prototype" id="login-code-empty">
+          <p class="prototype-label"><span class="step">26</span><b>登录</b>验证码为空</p>
+          <div class="phone compact">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">登录</span><span class="appbar-side">•</span></div>
+            <div class="screen">
+              <section class="field-card"><div class="form-title">手机号登录</div><div class="form-sub">验证码由服务端发送与校验。</div><div class="field"><span class="field-label">手机号</span><div class="field-box"><span class="field-value">138****8000</span></div></div><div class="field"><span class="field-label">验证码</span><div class="field-box invalid"><span class="field-value placeholder">请输入验证码</span><span class="field-side">重新获取</span></div><div class="inline-error">请输入验证码</div></div><div class="agreement"><span class="checkbox" style="background:var(--brand);border-color:var(--brand)"></span><span>我已阅读并同意<em>《用户协议》</em>与<em>《隐私政策》</em></span></div><span class="button disabled" style="margin-top:14px">登录</span></section>
+              <p class="notice">不记录或展示短信原文。</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="prototype" id="login-code-error">
+          <p class="prototype-label"><span class="step">27</span><b>登录</b>验证码错误</p>
+          <div class="phone compact">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">登录</span><span class="appbar-side">•</span></div>
+            <div class="screen">
+              <section class="field-card"><div class="form-title">手机号登录</div><div class="form-sub">验证码错误不会清空手机号。</div><div class="field"><span class="field-label">手机号</span><div class="field-box"><span class="field-value">138****8000</span></div></div><div class="field"><span class="field-label">验证码</span><div class="field-box invalid"><span class="field-value">••••••</span><span class="field-side">重新获取</span></div><div class="inline-error">验证码不正确，请重新输入</div></div><div class="agreement"><span class="checkbox" style="background:var(--brand);border-color:var(--brand)"></span><span>已同意当前版本协议</span></div><span class="button primary" style="margin-top:14px">重新登录</span></section>
+              <p class="notice">错误次数与频控由服务端判定。</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="prototype" id="login-code-expired">
+          <p class="prototype-label"><span class="step">28</span><b>登录</b>验证码已过期</p>
+          <div class="phone compact">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">登录</span><span class="appbar-side">•</span></div>
+            <div class="screen">
+              <section class="field-card"><div class="form-title">手机号登录</div><div class="form-sub">当前验证码已超过有效时间。</div><div class="field"><span class="field-label">手机号</span><div class="field-box"><span class="field-value">138****8000</span></div></div><div class="field"><span class="field-label">验证码</span><div class="field-box invalid"><span class="field-value">••••••</span><span class="field-side">获取新验证码</span></div><div class="inline-error">验证码已过期，请获取新的验证码</div></div><div class="agreement"><span class="checkbox" style="background:var(--brand);border-color:var(--brand)"></span><span>已同意当前版本协议</span></div><span class="button disabled" style="margin-top:14px">登录</span></section>
+              <p class="notice">倒计时结束后按钮回到可获取状态。</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="prototype" id="login-rate-limit">
+          <p class="prototype-label"><span class="step">29</span><b>登录</b>发送过于频繁</p>
+          <div class="phone compact">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">登录</span><span class="appbar-side">•</span></div>
+            <div class="screen">
+              <section class="field-card"><div class="form-title">手机号登录</div><div class="form-sub">为保护账号，短信发送有服务端频控。</div><div class="field"><span class="field-label">手机号</span><div class="field-box"><span class="field-value">138****8000</span></div></div><div class="field"><span class="field-label">验证码</span><div class="field-box"><span class="field-value placeholder">请先获取验证码</span><span class="field-side" style="color:#9aa1aa">00:42 后可重试</span></div></div><div class="alert error"><span class="alert-icon">!</span><span>请求过于频繁，请在倒计时结束后再试。</span></div><div class="agreement"><span class="checkbox"></span><span>我已阅读并同意<em>《用户协议》</em>与<em>《隐私政策》</em></span></div><span class="button disabled" style="margin-top:14px">登录</span></section>
+            </div>
+          </div>
+        </article>
+
+        <article class="prototype" id="login-sending">
+          <p class="prototype-label"><span class="step">30</span><b>登录</b>获取验证码提交中</p>
+          <div class="phone compact">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">登录</span><span class="appbar-side">•</span></div>
+            <div class="screen">
+              <section class="field-card"><div class="form-title">手机号登录</div><div class="form-sub">请求发送中请勿重复点击。</div><div class="field"><span class="field-label">手机号</span><div class="field-box"><span class="field-value">138****8000</span></div></div><div class="field"><span class="field-label">验证码</span><div class="field-box"><span class="field-value placeholder">正在发送…</span><span class="field-side" style="color:#9aa1aa">处理中</span></div></div><div class="agreement"><span class="checkbox"></span><span>我已阅读并同意<em>《用户协议》</em>与<em>《隐私政策》</em></span></div><span class="button disabled" style="margin-top:14px">登录</span></section>
+              <div class="toast"><span>i</span><span>服务端响应后显示 60 秒倒计时或明确失败原因。</span></div>
+            </div>
+          </div>
+        </article>
+
+        <article class="prototype" id="login-failed">
+          <p class="prototype-label"><span class="step">31</span><b>登录</b>服务端失败</p>
+          <div class="phone compact">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">登录</span><span class="appbar-side">•</span></div>
+            <div class="screen">
+              <section class="field-card"><div class="form-title">手机号登录</div><div class="form-sub">未建立登录态，受限页面保持关闭。</div><div class="field"><span class="field-label">手机号</span><div class="field-box"><span class="field-value">138****8000</span></div></div><div class="field"><span class="field-label">验证码</span><div class="field-box invalid"><span class="field-value">••••••</span><span class="field-side">重新获取</span></div></div><div class="alert error"><span class="alert-icon">!</span><span>登录失败，请核对验证码后重试。</span></div><div class="agreement"><span class="checkbox" style="background:var(--brand);border-color:var(--brand)"></span><span>已同意当前版本协议</span></div><span class="button primary" style="margin-top:14px">重新登录</span></section>
+            </div>
+          </div>
+        </article>
+
+        <article class="prototype" id="login-success">
+          <p class="prototype-label"><span class="step">32</span><b>登录</b>成功回跳</p>
+          <div class="phone compact">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">登录</span><span class="appbar-side">•</span></div>
+            <div class="screen">
+              <section class="field-card"><div class="form-title">登录成功</div><div class="form-sub">登录态已由服务端建立，正在返回原页面。</div><div class="state-bar"><span>账号</span><b>138****8000</b></div><div class="state-bar"><span>协议版本</span><b>以服务端记录为准</b></div><span class="button primary" style="width:100%;margin-top:14px">返回题材详情</span></section>
+              <div class="toast success"><span>✓</span><span>如果原页面需要权限，将重新读取服务端状态。</span></div>
+            </div>
+          </div>
+        </article>
+
+        <article class="prototype" id="logout-confirm">
+          <p class="prototype-label"><span class="step">33</span><b>会员中心</b>退出确认弹层</p>
+          <div class="phone compact">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">我的</span><span class="appbar-side">•</span></div>
+            <div class="screen"><section class="profile"><span class="avatar">题</span><span class="profile-copy"><span class="profile-name">138****8000</span><span class="profile-note">当前已登录</span></span></section></div>
+            <div class="modal-dim"></div>
+            <div class="modal-wrap"><section class="modal" role="dialog" aria-label="退出登录确认"><div class="modal-kicker">账号操作</div><div class="modal-title">确认退出登录？</div><div class="modal-copy">退出后将清除当前设备登录态；再次查看受限内容需要重新登录。</div><div class="button-row"><span class="button secondary">取消</span><span class="button primary">确认退出</span></div></section></div>
+          </div>
+        </article>
+
+        <article class="prototype" id="delete-confirm">
+          <p class="prototype-label"><span class="step">34</span><b>会员中心</b>注销确认弹层</p>
+          <div class="phone compact">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">我的</span><span class="appbar-side">•</span></div>
+            <div class="screen"><section class="profile"><span class="avatar">题</span><span class="profile-copy"><span class="profile-name">138****8000</span><span class="profile-note">注销后不可恢复</span></span></section><section class="member-card"><div class="member-row"><span class="member-label">账号状态</span><span class="pill green">已登录</span></div><div class="member-row"><span class="member-label">会员剩余期限</span><span class="member-value">以服务端返回为准</span></div></section></div>
+            <div class="modal-dim"></div>
+            <div class="modal-wrap"><section class="modal" role="dialog" aria-label="注销账号确认"><div class="modal-kicker">不可恢复操作</div><div class="modal-title">确认注销账号？</div><div class="modal-copy">注销后登录态失效，剩余服务期限作废且不退款；账号信息将按正式隐私政策删除或匿名化，不能恢复。</div><div class="button-row"><span class="button secondary">暂不注销</span><span class="button primary">确认注销</span></div></section></div>
+          </div>
+        </article>
+
+        <article class="prototype" id="delete-complete">
+          <p class="prototype-label"><span class="step">35</span><b>会员中心</b>注销完成</p>
+          <div class="phone compact">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">我的</span><span class="appbar-side">•</span></div>
+            <div class="screen">
+              <div class="empty"><div class="empty-icon" style="color:var(--green);background:var(--green-soft)">✓</div><div class="empty-title">账号已注销</div><div class="empty-copy">登录态已清除；账号信息按正式政策完成删除或匿名化处理。需要使用服务时可重新注册。</div><div class="button-row"><span class="button primary">返回首页</span></div></div>
+              <div class="alert"><span class="alert-icon">i</span><span>订阅与必要的财务留痕仅保留脱敏记录。</span></div>
+            </div>
+          </div>
+        </article>
+
+        <article class="prototype" id="redeem-empty">
+          <p class="prototype-label"><span class="step">36</span><b>兑换码</b>空值</p>
+          <div class="phone compact">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">兑换码服务</span><span class="appbar-side">•</span></div>
+            <div class="screen"><section class="field-card"><div class="form-title">激活兑换码</div><div class="form-sub">兑换码由站外服务方发放，页面不提供支付入口。</div><div class="field"><span class="field-label">兑换码</span><div class="field-box invalid"><span class="field-value placeholder">请输入兑换码</span></div><div class="inline-error">请输入兑换码</div></div><span class="button disabled" style="width:100%;margin-top:14px">激活</span></section><p class="notice">激活结果由服务端返回。</p></div>
+          </div>
+        </article>
+
+        <article class="prototype" id="redeem-format">
+          <p class="prototype-label"><span class="step">37</span><b>兑换码</b>格式错误</p>
+          <div class="phone compact">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">兑换码服务</span><span class="appbar-side">•</span></div>
+            <div class="screen"><section class="field-card"><div class="form-title">激活兑换码</div><div class="form-sub">仅接受服务端约定格式。</div><div class="field"><span class="field-label">兑换码</span><div class="field-box invalid"><span class="field-value">123-ABC</span></div><div class="inline-error">兑换码格式不正确，请检查字符和长度</div></div><span class="button disabled" style="width:100%;margin-top:14px">激活</span></section><p class="notice">格式校验不替代服务端校验。</p></div>
+          </div>
+        </article>
+
+        <article class="prototype" id="redeem-submitting">
+          <p class="prototype-label"><span class="step">38</span><b>兑换码</b>提交中</p>
+          <div class="phone compact">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">兑换码服务</span><span class="appbar-side">•</span></div>
+            <div class="screen"><section class="field-card"><div class="form-title">激活兑换码</div><div class="form-sub">正在校验，请勿重复提交。</div><div class="code-row"><div class="field-box"><span class="field-value">TM••••••••</span></div><span class="button disabled small">提交中…</span></div><div class="toast"><span>i</span><span>网络失败时不扣码；结果未知时需先查询服务端状态。</span></div></section><p class="notice">重复提交由服务端幂等控制。</p></div>
+          </div>
+        </article>
+
+        <article class="prototype" id="redeem-success">
+          <p class="prototype-label"><span class="step">39</span><b>兑换码</b>激活成功</p>
+          <div class="phone compact">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">兑换码服务</span><span class="appbar-side">•</span></div>
+            <div class="screen"><div class="empty"><div class="empty-icon" style="color:var(--green);background:var(--green-soft)">✓</div><div class="empty-title">激活成功</div><div class="empty-copy">服务有效期已按服务端结果刷新；返回题材详情后重新读取权限。</div><div class="state-bar"><span>会员状态</span><b>服务有效</b></div><div class="button-row"><span class="button primary">返回会员中心</span></div></div><p class="notice">成功后不展示任何付款或订单入口。</p></div>
+          </div>
+        </article>
+
+        <article class="prototype" id="redeem-not-found">
+          <p class="prototype-label"><span class="step">40</span><b>兑换码</b>码不存在</p>
+          <div class="phone compact">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">兑换码服务</span><span class="appbar-side">•</span></div>
+            <div class="screen"><section class="field-card"><div class="form-title">激活兑换码</div><div class="code-row"><div class="field-box invalid"><span class="field-value">TM••••••••</span></div><span class="button secondary small">重新提交</span></div><div class="toast error"><span>!</span><span>未找到该兑换码，请核对后重试。</span></div></section><p class="notice">已输入内容保留，便于核对。</p></div>
+          </div>
+        </article>
+
+        <article class="prototype" id="redeem-used">
+          <p class="prototype-label"><span class="step">41</span><b>兑换码</b>已被使用</p>
+          <div class="phone compact">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">兑换码服务</span><span class="appbar-side">•</span></div>
+            <div class="screen"><section class="field-card"><div class="form-title">激活兑换码</div><div class="code-row"><div class="field-box invalid"><span class="field-value">TM••••••••</span></div><span class="button secondary small">重新提交</span></div><div class="toast error"><span>!</span><span>该兑换码已被使用，不能重复激活。</span></div></section><p class="notice">不显示其他账号信息。</p></div>
+          </div>
+        </article>
+
+        <article class="prototype" id="redeem-expired">
+          <p class="prototype-label"><span class="step">42</span><b>兑换码</b>已过期</p>
+          <div class="phone compact">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">兑换码服务</span><span class="appbar-side">•</span></div>
+            <div class="screen"><section class="field-card"><div class="form-title">激活兑换码</div><div class="code-row"><div class="field-box invalid"><span class="field-value">TM••••••••</span></div><span class="button secondary small">重新提交</span></div><div class="toast error"><span>!</span><span>该兑换码已过期，请联系服务方核实。</span></div></section><p class="notice">页面不提供支付替代入口。</p></div>
+          </div>
+        </article>
+
+        <article class="prototype" id="redeem-account">
+          <p class="prototype-label"><span class="step">43</span><b>兑换码</b>账号不匹配</p>
+          <div class="phone compact">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">兑换码服务</span><span class="appbar-side">•</span></div>
+            <div class="screen"><section class="field-card"><div class="form-title">激活兑换码</div><div class="code-row"><div class="field-box invalid"><span class="field-value">TM••••••••</span></div><span class="button secondary small">重新提交</span></div><div class="toast error"><span>!</span><span>该兑换码不可用于当前账号，请核对登录账号。</span></div></section><p class="notice">不透露兑换码绑定的其他账号信息。</p></div>
+          </div>
+        </article>
+
+        <article class="prototype" id="redeem-locked">
+          <p class="prototype-label"><span class="step">44</span><b>兑换码</b>临时锁定</p>
+          <div class="phone compact">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">兑换码服务</span><span class="appbar-side">•</span></div>
+            <div class="screen"><section class="field-card"><div class="form-title">激活兑换码</div><div class="form-sub">连续失败达到服务端阈值。</div><div class="code-row"><div class="field-box"><span class="field-value" style="color:#9aa1aa">暂时不可输入</span></div><span class="button disabled small">已锁定</span></div><div class="alert error"><span class="alert-icon">!</span><span>操作已临时锁定，请在 10 分钟后重试。</span></div><span class="button disabled" style="width:100%;margin-top:13px">激活</span></section><p class="notice">锁定计时由服务端维护，前端不自行解除。</p></div>
+          </div>
+        </article>
+      </section>
+    </section>
+
+    <section id="service-states">
+      <div class="group-title"><h2>P0 · 服务说明与法律文本</h2><p>可阅读的视觉版框架，正式内容待审核</p></div>
+      <section class="phones" aria-label="服务说明与法律文本状态">
+        <article class="prototype" id="service-overview">
+          <p class="prototype-label"><span class="step">S1</span><b>服务说明</b>版本阅读态</p>
+          <div class="phone tall">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">服务说明</span><span class="appbar-side">•</span></div>
+            <div class="screen">
+              <section class="surface"><span class="micro">账号服务</span><div class="title">如何使用题材查询</div><div class="sub">服务范围、试吃规则、兑换码流程和有效期说明集中展示；正式上线以审核版本为准。</div><div class="meta"><span>版本：待发布</span><span>发布日期：待定</span></div></section>
+              <section class="step-list" style="margin-top:10px"><div class="step-row"><span class="step-num">1</span><span class="step-copy"><strong>登录账号</strong><span>手机号验证码登录，并主动同意当前版本协议。</span></span></div><div class="step-row"><span class="step-num">2</span><span class="step-copy"><strong>查看服务状态</strong><span>会员有效期与试吃次数以服务端返回为准。</span></span></div><div class="step-row"><span class="step-num">3</span><span class="step-copy"><strong>激活兑换码</strong><span>站外取得的兑换码在登录后提交，结果由服务端校验。</span></span></div></section>
+              <div class="alert"><span class="alert-icon">i</span><span>本页不提供支付、收款码或支付外链；正式服务范围需经法律审核后发布。</span></div>
+              <p class="notice">界面示意，非正式服务条款。</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="prototype" id="legal-overview">
+          <p class="prototype-label"><span class="step">S2</span><b>协议与隐私</b>正式文本占位版</p>
+          <div class="phone tall">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">协议与隐私</span><span class="appbar-side">•</span></div>
+            <div class="screen">
+              <section class="surface"><span class="micro">法律文本</span><div class="title">用户协议与隐私政策</div><div class="meta"><span>版本：待律师审阅</span><span>发布日期：待定</span></div></section>
+              <section class="field-card" style="margin-top:10px"><div class="form-title" style="font-size:14px">登录前告知</div><div class="sub">正式开放前登录入口保持关闭，不收集手机号、验证码或其他个人信息。</div><div class="state-bar"><span>当前状态</span><b style="color:var(--amber)">待发布</b></div></section>
+              <section class="field-card" style="margin-top:10px"><div class="form-title" style="font-size:14px">正式文本必须说明</div><div class="sub">收集目的、保存期限、处理方式、用户权利、撤回同意和自助注销路径。</div></section>
+              <div class="alert"><span class="alert-icon">i</span><span>占位文案不能作为上线协议；登录勾选项默认不选中。</span></div>
+              <p class="notice">本页只展示视觉层级，不替代律师审阅后的正式文本。</p>
+            </div>
+          </div>
+        </article>
+      </section>
+    </section>
+
+    <section id="global-states">
+      <div class="group-title"><h2>P0 · 全局异常与可访问性</h2><p>网络、超时、维护、无数据与字体放大</p></div>
+      <section class="phones" aria-label="全局异常与可访问性状态">
+        <article class="prototype" id="global-empty">
+          <p class="prototype-label"><span class="step">45</span><b>全局</b>页面无数据</p>
+          <div class="phone compact">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">题材动态</span><span class="appbar-side">•</span></div>
+            <div class="screen"><div class="empty"><div class="empty-icon">—</div><div class="empty-title">当天暂无已审核动态</div><div class="empty-copy">当前日期没有可发布内容；不使用最近日期或演示数据回填。</div><div class="button-row"><span class="button secondary">选择其他日期</span><span class="button primary">刷新</span></div></div><p class="notice">空态与筛选无结果使用不同文案。</p></div>
+          </div>
+        </article>
+
+        <article class="prototype" id="global-offline">
+          <p class="prototype-label"><span class="step">46</span><b>全局</b>网络断开</p>
+          <div class="phone compact">
+            <div class="statusbar"><span>9:41</span><span>× × ×</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">题材动态</span><span class="appbar-side">•</span></div>
+            <div class="screen"><div class="error-card"><div class="error-icon">×</div><div class="error-title">网络连接已断开</div><div class="error-copy">请检查网络后重试；页面不使用旧数据冒充当前结果。</div><div class="button-row"><span class="button secondary">返回</span><span class="button primary">重试</span></div></div><p class="notice">恢复网络后可继续原操作。</p></div>
+          </div>
+        </article>
+
+        <article class="prototype" id="global-timeout">
+          <p class="prototype-label"><span class="step">47</span><b>全局</b>请求超时</p>
+          <div class="phone compact">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">题材详情</span><span class="appbar-side">•</span></div>
+            <div class="screen"><div class="error-card"><div class="error-icon">!</div><div class="error-title">服务响应超时</div><div class="error-copy">本次请求未完成，未展示缓存旧值；可以安全重试。</div><div class="button-row"><span class="button secondary">关闭</span><span class="button primary">重试</span></div></div><div class="alert"><span class="alert-icon">i</span><span>如果重试仍失败，返回上一级页面。</span></div></div>
+          </div>
+        </article>
+
+        <article class="prototype" id="global-maintenance">
+          <p class="prototype-label"><span class="step">48</span><b>全局</b>服务维护</p>
+          <div class="phone compact">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">题材宝典</span><span class="appbar-side">•</span></div>
+            <div class="screen"><section class="maintenance"><div class="maintenance-icon">i</div><div class="maintenance-title">服务维护中</div><div class="maintenance-copy">当前功能暂时不可用，恢复时间以服务端公告为准。维护期间不显示示例或旧状态。</div><div class="button-row"><span class="button secondary">返回首页</span><span class="button primary">稍后重试</span></div></section><p class="notice">维护页保留明确返回路径。</p></div>
+          </div>
+        </article>
+
+        <article class="prototype" id="global-large-type">
+          <p class="prototype-label"><span class="step">49</span><b>全局</b>字体放大与小屏</p>
+          <div class="phone compact large-type">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">题材库</span><span class="appbar-side">•</span></div>
+            <div class="screen"><section class="surface"><span class="micro">可访问性示意</span><div class="title">不产生横向滚动</div><div class="sub">字体放大后，名称可换行，按钮仍保持清晰的 44px 触达区域。</div><div class="button-row"><span class="button secondary">返回</span><span class="button primary">重试</span></div></section><div class="alert"><span class="alert-icon">i</span><span>长名称、错误文案和免责声明均可阅读；内容不依赖颜色单独传达状态。</span></div><p class="notice">本平台为公开信息聚合与历史数据统计，不构成任何投资建议。</p></div>
+          </div>
+        </article>
+      </section>
+    </section>
+
+    <p class="footer-note">覆盖边界：本板只覆盖 P0 页面与必须回归的状态；资讯列表、快讯详情、资料整理和运营后台属于其他排期，未在本板伪装成已完成。正式文本、会员接口、短信服务、审核数据、外链白名单和行情授权就绪前，页面继续使用空态、置灰或受控关闭态。</p>
+  </main>
+</body>
+</html>
