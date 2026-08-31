@@ -1,0 +1,1015 @@
+[github.com/flipped-aurora/gin-vue-admin/server]2026-05-20 11:20:52.799	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166	获取失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*NewsApi).GetNewsList
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-05-20 11:21:25.929	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166	获取失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*NewsApi).GetNewsList
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-05-20 11:21:34.882	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166	获取失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*NewsApi).GetNewsList
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-05-20 11:21:41.839	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166	获取失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*NewsApi).GetNewsList
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-05-20 11:21:53.286	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166	获取失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*NewsApi).GetNewsList
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-05-20 12:05:17.043	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166	获取失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*NewsApi).GetNewsList
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-05-20 12:53:00.613	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166	获取失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*NewsApi).GetNewsList
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-05-20 15:09:45.901	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166	获取失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*NewsApi).GetNewsList
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-05-20 15:12:31.115	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166	获取失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*NewsApi).GetNewsList
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-05-20 15:12:44.213	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166	获取失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*NewsApi).GetNewsList
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-05-20 15:12:54.215	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166	获取失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*NewsApi).GetNewsList
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-05-20 15:13:02.112	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166	获取失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*NewsApi).GetNewsList
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-05-20 18:09:28.292	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166	获取失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*NewsApi).GetNewsList
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-05-20 18:09:57.823	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166	获取失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*NewsApi).GetNewsList
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-05-20 18:10:12.980	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166	获取失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*NewsApi).GetNewsList
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-05-20 18:10:20.971	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166	获取失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*NewsApi).GetNewsList
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-05-20 18:10:31.917	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166	获取失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*NewsApi).GetNewsList
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-05-20 18:47:05.197	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166	获取失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*NewsApi).GetNewsList
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-05-20 19:18:42.548	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166	获取失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*NewsApi).GetNewsList
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-05-20 19:35:32.080	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166	获取失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*NewsApi).GetNewsList
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-05-20 19:35:33.412	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166	获取失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*NewsApi).GetNewsList
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-05-20 20:24:33.658	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166	获取失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*NewsApi).GetNewsList
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-05-20 20:49:06.534	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166	获取失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*NewsApi).GetNewsList
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-05-20 21:31:05.121	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166	获取失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*NewsApi).GetNewsList
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-05-20 21:55:03.843	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166	获取失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*NewsApi).GetNewsList
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-05-20 21:58:11.399	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166	获取失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*NewsApi).GetNewsList
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-05-20 22:25:12.001	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166	获取失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*NewsApi).GetNewsList
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-05-20 22:25:41.492	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166	获取失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*NewsApi).GetNewsList
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-05-20 22:25:53.537	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166	获取失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*NewsApi).GetNewsList
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-05-20 22:25:56.346	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166	获取失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*NewsApi).GetNewsList
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-05-20 22:26:19.213	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166	获取失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*NewsApi).GetNewsList
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-05-20 23:19:10.879	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166	获取失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*NewsApi).GetNewsList
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-05-20 23:19:32.254	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166	获取失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*NewsApi).GetNewsList
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-05-20 23:19:46.871	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166	获取失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*NewsApi).GetNewsList
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-05-20 23:19:58.376	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166	获取失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*NewsApi).GetNewsList
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:166
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073

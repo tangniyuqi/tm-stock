@@ -1,0 +1,63 @@
+[github.com/flipped-aurora/gin-vue-admin/server]2026-05-06 08:56:32.487	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/system/sys_user.go:68	登陆失败! 用户名不存在或者密码错误!	{"error": "密码错误"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/system.(*BaseApi).Login
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/system/sys_user.go:68
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-05-06 08:56:37.031	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/system/sys_user.go:68	登陆失败! 用户名不存在或者密码错误!	{"error": "密码错误"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/system.(*BaseApi).Login
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/system/sys_user.go:68
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-05-06 08:56:44.791	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/system/sys_user.go:68	登陆失败! 用户名不存在或者密码错误!	{"error": "密码错误"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/system.(*BaseApi).Login
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/system/sys_user.go:68
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073

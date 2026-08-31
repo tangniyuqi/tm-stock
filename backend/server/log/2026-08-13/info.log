@@ -1,0 +1,24 @@
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-13 18:02:37.479	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:86	register table success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-13 18:02:37.522	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:62	register swagger handler
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-13 18:02:39.148	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:115	router register success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-13 18:12:04.875	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:86	register table success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-13 18:12:04.925	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:62	register swagger handler
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-13 18:12:06.644	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:115	router register success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-13 18:55:47.575	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:86	register table success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-13 18:55:47.616	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:62	register swagger handler
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-13 18:55:49.293	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:115	router register success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-13 19:14:34.490	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:86	register table success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-13 19:14:34.534	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:62	register swagger handler
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-13 19:14:36.155	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:115	router register success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-13 19:20:24.599	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:86	register table success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-13 19:20:24.646	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:62	register swagger handler
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-13 19:20:26.382	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:115	router register success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-13 20:02:34.281	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/base_stock.go:546	successfully updated all change_pct	{"trade_date": "20260813", "updated": 5478}
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-13 20:10:23.936	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:86	register table success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-13 20:10:23.979	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:62	register swagger handler
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-13 20:10:25.520	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:115	router register success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-13 20:13:27.965	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:86	register table success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-13 20:13:28.008	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:62	register swagger handler
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-13 20:13:29.720	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:115	router register success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-13 20:17:05.359	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/base_stock.go:405	successfully synced stocks	{"total": 5544, "created": 64, "updated": 5480}
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-13 20:21:00.604	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/base_stock.go:405	successfully synced stocks	{"total": 5544, "created": 0, "updated": 5544}

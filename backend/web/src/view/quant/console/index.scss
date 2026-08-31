@@ -1,0 +1,582 @@
+/* 量化控制台样式 - SCSS */
+
+.quant-dashboard {
+  height: 100vh;
+  overflow-y: auto;
+
+  .header {
+    // background-color: #1a1a1a;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border-bottom: 1px solid #414243;
+    left: 0;
+    z-index: 9;
+
+    .user-info {
+      .switch-mode-btn {
+        background: rgba(255, 255, 255, 0.15);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        color: #fff;
+        transition: all 0.3s ease;
+        padding: 6px 15px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+
+        .el-icon {
+          margin-right: 6px;
+          font-size: 14px;
+        }
+
+        &:hover {
+          background: rgba(64, 158, 255, 0.2);
+          border-color: #409eff;
+          color: #409eff;
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        &:active {
+          transform: translateY(0);
+        }
+      }
+    }
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 18px;
+    font-weight: bold;
+
+    .version {
+      color: #ddd;
+      font-size: 14px;
+      font-weight: 100;
+      cursor: pointer;
+    }
+  }
+
+  .market-info-header {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .market-time-info {
+    width: 100%;
+  }
+
+  .date-row {
+    font-size: 16px;
+    font-weight: bold;
+    text-align: center;
+  }
+
+  .time-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .time {
+    font-size: 24px;
+    font-weight: bold;
+    color: #409eff;
+    font-family: 'Courier New', Courier, monospace;
+  }
+
+  .mt-1 {
+    margin-top: 5px;
+  }
+
+  .main-content {
+    padding: 20px 15px;
+  }
+
+  .mb-10 {
+    margin-bottom: 10px;
+  }
+
+  .mb-20 {
+    margin-bottom: 20px;
+  }
+
+  .text-red {
+    color: #f56c6c;
+    font-weight: bold;
+  }
+
+  .text-green {
+    color: #67c23a;
+    font-weight: bold;
+  }
+
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .header-controls {
+    display: flex;
+    align-items: center;
+  }
+
+  .title {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 16px;
+  }
+
+  .account-info {
+    /* color: #666; */
+    font-size: 14px;
+    font-weight: normal;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+  }
+
+  .expiration-date {
+    margin-right: 5px;
+  }
+
+  /* 修复Element Plus标签页内滚动条显示问题 */
+  .el-tabs__content,
+  .el-tab-pane {
+    overflow: visible !important;
+  }
+
+  .el-tabs__content {
+    padding: 15px 10px;
+  }
+
+  /* 合并 news-list 和 event-list 的滚动条样式 */
+  .news-list,
+  .event-list {
+    height: 1450px;
+    padding-right: 6px;
+    position: relative;
+    scrollbar-width: thin;
+    scrollbar-color: #909399 #f5f5f5;
+    -ms-overflow-style: scrollbar;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  /* 优化滚动条样式 - 更窄更精致 */
+  .news-list::-webkit-scrollbar,
+  .event-list::-webkit-scrollbar {
+    width: 4px !important;
+    display: block !important;
+  }
+
+  .news-list::-webkit-scrollbar-track,
+  .event-list::-webkit-scrollbar-track {
+    background: #f5f5f5;
+    border-radius: 2px;
+  }
+
+  .news-list::-webkit-scrollbar-thumb,
+  .event-list::-webkit-scrollbar-thumb {
+    background: #c0c4cc;
+    border-radius: 2px;
+    min-height: 20px;
+    transition: background 0.2s ease;
+  }
+
+  .news-list::-webkit-scrollbar-thumb:hover,
+  .event-list::-webkit-scrollbar-thumb:hover {
+    background: #909399;
+  }
+
+  .news-item {
+    margin-bottom: 15px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #dcdfe6;
+  }
+
+  .news-text {
+    :deep(strong) {
+      color: #409eff;
+    }
+  }
+
+  // 暗色主题适配
+  .dark {
+    .news-text {
+      color: #ddd;
+    }
+  }
+
+  .empty-tip {
+    padding: 20px 0;
+    text-align: center;
+  }
+
+  .account-metrics {
+    text-align: center;
+  }
+
+  .metric-item {
+    padding: 10px 0;
+    border-right: 1px solid #eee;
+
+    &:last-child {
+      border-right: none;
+    }
+
+    .label {
+      color: #909399;
+      font-size: 13px;
+      margin-bottom: 5px;
+    }
+
+    .value {
+      color: #409eff;
+      font-size: 20px;
+      font-weight: 600;
+    }
+  }
+
+  .task-info {
+    color: #666;
+    font-size: 14px;
+    font-weight: normal;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    .infos {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+  }
+
+  .event-item {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 15px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #dcdfe6;
+
+    &:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+      padding-bottom: 0;
+    }
+  }
+
+  .event-date {
+    background-color: #ecf5ff;
+    color: #409eff;
+    padding: 5px 8px;
+    border-radius: 4px;
+    text-align: center;
+    margin-right: 15px;
+    min-width: 44px;
+    margin-top: 2px;
+
+    .day {
+      font-size: 18px;
+      font-weight: bold;
+      display: block;
+      line-height: 1;
+    }
+
+    .month {
+      font-size: 12px;
+      display: block;
+      line-height: 1;
+    }
+  }
+
+  .event-detail {
+    flex-grow: 1;
+  }
+
+  .event-title {
+    font-size: 15px;
+    margin-bottom: 4px;
+  }
+
+  .event-industry {
+  }
+
+  .terminal {
+    background-color: #1e1e1e;
+    border: 1px solid #414243;
+    border-radius: 8px;
+    overflow: hidden;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    // box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  }
+
+  .terminal-header {
+    background-color: #333;
+    padding: 3px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .terminal-actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+  }
+
+  .terminal-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+
+    &.red {
+      background-color: #ff5f56;
+    }
+
+    &.yellow {
+      background-color: #ffbd2e;
+    }
+
+    &.green {
+      background-color: #27c93f;
+    }
+  }
+
+  .terminal-title {
+    color: #ccc;
+    font-size: 12px;
+    margin-left: 8px;
+  }
+
+  .terminal-body {
+    padding: 12px;
+    height: calc(100% - 32px);
+    overflow-y: auto;
+    color: #eee;
+    font-size: 13px;
+    line-height: 1.5;
+
+    &::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: #2d2d2d;
+      border-radius: 4px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: #555;
+      border-radius: 4px;
+
+      &:hover {
+        background: #777;
+      }
+    }
+  }
+
+  .terminal-line {
+    margin-bottom: 4px;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  .log-info {
+    color: #4ec9b0;
+  }
+
+  .log-debug {
+    color: #9cdcfe;
+  }
+
+  .log-warning {
+    color: #ffd700;
+  }
+
+  .log-error {
+    color: #f44747;
+  }
+
+  .log-success {
+    color: #6a9955;
+  }
+
+  .terminal-prompt {
+    color: #569cd6;
+    font-weight: bold;
+    margin-right: 8px;
+  }
+
+  .terminal-module {
+    color: #c586c0;
+    margin-right: 8px;
+  }
+
+  .terminal-message {
+    color: #d4d4d4;
+  }
+
+  .prompt-line {
+    margin-top: 8px;
+  }
+
+  .terminal-cursor {
+    display: inline-block;
+    width: 8px;
+    height: 16px;
+    background-color: #eee;
+    margin-left: 4px;
+    animation: blink 1s infinite;
+  }
+
+  @keyframes blink {
+    0%,
+    100% {
+      opacity: 1;
+    }
+
+    50% {
+      opacity: 0;
+    }
+  }
+
+  .config-content {
+    padding: 10px 0;
+  }
+
+  .config-group {
+    margin-bottom: 20px;
+    border-radius: 6px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+
+    &:hover {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+  }
+
+  .group-title {
+    display: flex;
+    align-items: center;
+    font-size: 15px;
+
+    el-icon {
+      margin-right: 8px;
+      color: #409eff;
+    }
+  }
+
+  .task-form {
+    margin-top: 0;
+  }
+
+  .form-row {
+    margin-top: 15px;
+  }
+
+  .form-item {
+    margin-bottom: 15px;
+    transition: all 0.2s ease;
+
+    &:hover .form-control {
+      border-color: #909399;
+    }
+  }
+
+  .form-control {
+    border-radius: 4px;
+    transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+
+    &:focus-within {
+      border-color: #409eff;
+      box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
+    }
+  }
+
+  .help-icon {
+    margin-left: 8px;
+    color: #909399;
+    cursor: pointer;
+    font-size: 14px;
+  }
+
+  .radio-group {
+    display: flex;
+    gap: 15px;
+    padding-top: 5px;
+  }
+
+  .radio-item {
+    padding: 3px 8px;
+    border-radius: 4px;
+    transition: all 0.2s;
+
+    &:hover {
+      background-color: #f5f7fa;
+    }
+  }
+
+  .switch-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .switch-desc {
+    color: #606266;
+    font-size: 13px;
+    margin-top: 3px;
+  }
+
+  .drawer-footer {
+    padding-top: 15px;
+    border-top: 1px solid #eee;
+  }
+
+  .row-item {
+    line-height: 20px;
+
+    .name {
+      /* color: #333; */
+    }
+
+    .status {
+      margin: 5px 0 0 0;
+    }
+
+    .remark {
+      color: #999;
+      font-size: 12px;
+    }
+
+    .symbol {
+      color: #999;
+    }
+
+    .total {
+      /* color: #606266; */
+    }
+
+    .available {
+      /* color: #606266; */
+    }
+
+    .current {
+      /* color: #606266; */
+    }
+  }
+}

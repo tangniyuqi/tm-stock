@@ -1,0 +1,823 @@
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 11:53:49.672	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/ai_task.go:125	重启AI执行任务失败!	{"error": "厂商 DeepSeek 未配置模型 deepseek-v4-flash，可用模型: deepseek-ai/DeepSeek-V4-Flash / deepseek-v4-pro"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*AiTaskApi).RestartAiTask
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/ai_task.go:125
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 11:53:55.926	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/ai_task.go:125	重启AI执行任务失败!	{"error": "厂商 DeepSeek 未配置模型 deepseek-v4-flash，可用模型: deepseek-ai/DeepSeek-V4-Flash / deepseek-v4-pro"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*AiTaskApi).RestartAiTask
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/ai_task.go:125
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 11:59:19.182	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/theme_stock.go:246	AI更新题材股票任务创建失败!	{"error": "厂商 硅基流动 未配置模型 deepseek-v4-flash，可用模型: deepseek-ai/DeepSeek-V4-Flash / deepseek-ai/DeepSeek-V4-Pro"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*ThemeStockApi).AiUpdateThemeStock
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/theme_stock.go:246
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/router/quant.(*ThemeStockRouter).InitThemeStockRouter.OperationRecord.func1
+	/Users/a1/data/go/gin-vue-admin/server/middleware/operation.go:93
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 11:59:24.313	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/theme_stock.go:246	AI更新题材股票任务创建失败!	{"error": "厂商 硅基流动 未配置模型 deepseek-v4-flash，可用模型: deepseek-ai/DeepSeek-V4-Flash / deepseek-ai/DeepSeek-V4-Pro"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*ThemeStockApi).AiUpdateThemeStock
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/theme_stock.go:246
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/router/quant.(*ThemeStockRouter).InitThemeStockRouter.OperationRecord.func1
+	/Users/a1/data/go/gin-vue-admin/server/middleware/operation.go:93
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 11:59:28.756	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/theme_stock.go:246	AI更新题材股票任务创建失败!	{"error": "厂商 硅基流动 未配置模型 deepseek-v4-flash，可用模型: deepseek-ai/DeepSeek-V4-Flash / deepseek-ai/DeepSeek-V4-Pro"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*ThemeStockApi).AiUpdateThemeStock
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/theme_stock.go:246
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/router/quant.(*ThemeStockRouter).InitThemeStockRouter.OperationRecord.func1
+	/Users/a1/data/go/gin-vue-admin/server/middleware/operation.go:93
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 12:45:54.964	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39	Failed to connect to Meilisearch	{"url": "http://119.29.82.70:7700", "error": "MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 12:45:55.185	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15	Failed to initialize Meilisearch	{"error": "failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 14:18:55.688	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/base_stock.go:164	获取失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*BaseStockApi).GetBaseStockList
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/base_stock.go:164
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 15:16:18.026	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39	Failed to connect to Meilisearch	{"url": "http://119.29.82.70:7700", "error": "MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 15:16:18.211	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15	Failed to initialize Meilisearch	{"error": "failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 15:24:20.366	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39	Failed to connect to Meilisearch	{"url": "http://119.29.82.70:7700", "error": "MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 15:24:20.560	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15	Failed to initialize Meilisearch	{"error": "failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 16:27:46.014	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39	Failed to connect to Meilisearch	{"url": "http://119.29.82.70:7700", "error": "MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 16:27:46.194	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15	Failed to initialize Meilisearch	{"error": "failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 16:31:04.450	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39	Failed to connect to Meilisearch	{"url": "http://119.29.82.70:7700", "error": "MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 16:31:04.650	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15	Failed to initialize Meilisearch	{"error": "failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 16:31:12.397	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39	Failed to connect to Meilisearch	{"url": "http://119.29.82.70:7700", "error": "MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 16:31:16.618	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39	Failed to connect to Meilisearch	{"url": "http://119.29.82.70:7700", "error": "MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:48
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 16:31:16.792	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15	Failed to initialize Meilisearch	{"error": "failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:48
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 16:54:54.140	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39	Failed to connect to Meilisearch	{"url": "http://119.29.82.70:7700", "error": "MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:48
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 16:54:54.310	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15	Failed to initialize Meilisearch	{"error": "failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:48
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 16:55:36.181	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39	Failed to connect to Meilisearch	{"url": "http://119.29.82.70:7700", "error": "MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:48
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 16:55:36.370	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15	Failed to initialize Meilisearch	{"error": "failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:48
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 16:55:40.933	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39	Failed to connect to Meilisearch	{"url": "http://119.29.82.70:7700", "error": "MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:48
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 16:55:41.121	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15	Failed to initialize Meilisearch	{"error": "failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:48
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 16:55:45.037	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39	Failed to connect to Meilisearch	{"url": "http://119.29.82.70:7700", "error": "MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 16:55:45.200	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15	Failed to initialize Meilisearch	{"error": "failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 18:46:28.301	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39	Failed to connect to Meilisearch	{"url": "http://119.29.82.70:7700", "error": "MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 18:46:28.505	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15	Failed to initialize Meilisearch	{"error": "failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 18:46:36.048	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39	Failed to connect to Meilisearch	{"url": "http://119.29.82.70:7700", "error": "MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 18:46:36.234	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15	Failed to initialize Meilisearch	{"error": "failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 18:46:51.981	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39	Failed to connect to Meilisearch	{"url": "http://119.29.82.70:7700", "error": "MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 18:46:52.157	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15	Failed to initialize Meilisearch	{"error": "failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 18:47:53.283	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39	Failed to connect to Meilisearch	{"url": "http://119.29.82.70:7700", "error": "MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 18:47:53.455	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15	Failed to initialize Meilisearch	{"error": "failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 18:55:11.799	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39	Failed to connect to Meilisearch	{"url": "http://119.29.82.70:7700", "error": "MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 18:55:11.989	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15	Failed to initialize Meilisearch	{"error": "failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 18:57:33.799	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39	Failed to connect to Meilisearch	{"url": "http://119.29.82.70:7700", "error": "MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 18:57:34.008	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15	Failed to initialize Meilisearch	{"error": "failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 18:57:41.426	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39	Failed to connect to Meilisearch	{"url": "http://119.29.82.70:7700", "error": "MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 18:57:41.630	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15	Failed to initialize Meilisearch	{"error": "failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 19:20:00.281	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39	Failed to connect to Meilisearch	{"url": "http://119.29.82.70:7700", "error": "MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 19:20:00.463	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15	Failed to initialize Meilisearch	{"error": "failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 19:20:04.840	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39	Failed to connect to Meilisearch	{"url": "http://119.29.82.70:7700", "error": "MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 19:20:05.029	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15	Failed to initialize Meilisearch	{"error": "failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 19:20:43.435	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39	Failed to connect to Meilisearch	{"url": "http://119.29.82.70:7700", "error": "MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 19:20:43.634	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15	Failed to initialize Meilisearch	{"error": "failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 19:21:01.384	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39	Failed to connect to Meilisearch	{"url": "http://119.29.82.70:7700", "error": "MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 19:21:01.573	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15	Failed to initialize Meilisearch	{"error": "failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 19:51:41.416	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39	Failed to connect to Meilisearch	{"url": "http://119.29.82.70:7700", "error": "MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 19:51:41.606	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15	Failed to initialize Meilisearch	{"error": "failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 22:12:37.888	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39	Failed to connect to Meilisearch	{"url": "http://119.29.82.70:7700", "error": "MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 22:12:38.108	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15	Failed to initialize Meilisearch	{"error": "failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 22:13:37.010	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39	Failed to connect to Meilisearch	{"url": "http://119.29.82.70:7700", "error": "MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 22:13:37.203	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15	Failed to initialize Meilisearch	{"error": "failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 22:13:44.253	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39	Failed to connect to Meilisearch	{"url": "http://119.29.82.70:7700", "error": "MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 22:13:44.466	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15	Failed to initialize Meilisearch	{"error": "failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 22:15:22.311	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39	Failed to connect to Meilisearch	{"url": "http://119.29.82.70:7700", "error": "MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 22:15:22.491	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15	Failed to initialize Meilisearch	{"error": "failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 22:37:00.026	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/base_stock.go:198	同步失败!	{"error": "failed to fetch data from tushare (offset: 0): failed to send http request: Post \"https://jiaoch.site/stock_basic\": tls: failed to verify certificate: x509: certificate has expired or is not yet valid: “jiaoch.site” certificate is expired"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*BaseStockApi).Sync
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/base_stock.go:198
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/router/quant.(*BaseStockRouter).InitBaseStockRouter.OperationRecord.func1
+	/Users/a1/data/go/gin-vue-admin/server/middleware/operation.go:93
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 22:37:11.488	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/base_stock.go:198	同步失败!	{"error": "failed to fetch data from tushare (offset: 0): failed to send http request: Post \"https://jiaoch.site/stock_basic\": tls: failed to verify certificate: x509: certificate has expired or is not yet valid: “jiaoch.site” certificate is expired"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*BaseStockApi).Sync
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/base_stock.go:198
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/router/quant.(*BaseStockRouter).InitBaseStockRouter.OperationRecord.func1
+	/Users/a1/data/go/gin-vue-admin/server/middleware/operation.go:93
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 23:19:46.835	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39	Failed to connect to Meilisearch	{"url": "http://119.29.82.70:7700", "error": "MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 23:19:47.032	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15	Failed to initialize Meilisearch	{"error": "failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 23:22:15.188	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39	Failed to connect to Meilisearch	{"url": "http://119.29.82.70:7700", "error": "MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-12 23:22:15.386	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15	Failed to initialize Meilisearch	{"error": "failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290

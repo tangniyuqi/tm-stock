@@ -1,0 +1,4 @@
+[github.com/flipped-aurora/gin-vue-admin/server]2026-05-07 18:48:46.160	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:565	Search completed	{"engine": "meilisearch", "total": 1000, "elapsed": 0.041212686}
+[github.com/flipped-aurora/gin-vue-admin/server]2026-05-07 18:48:51.743	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:565	Search completed	{"engine": "meilisearch", "total": 0, "elapsed": 0.010407502}
+[github.com/flipped-aurora/gin-vue-admin/server]2026-05-07 18:48:53.132	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:565	Search completed	{"engine": "meilisearch", "total": 9, "elapsed": 0.0289385}
+[github.com/flipped-aurora/gin-vue-admin/server]2026-05-07 18:48:53.305	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:565	Search completed	{"engine": "meilisearch", "total": 9, "elapsed": 0.029346871}

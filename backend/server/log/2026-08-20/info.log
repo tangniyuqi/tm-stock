@@ -1,0 +1,21 @@
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-20 18:44:04.526	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:86	register table success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-20 18:44:04.572	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:62	register swagger handler
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-20 18:44:06.197	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:115	router register success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-20 18:46:41.915	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:86	register table success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-20 18:46:41.955	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:62	register swagger handler
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-20 18:46:43.479	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:115	router register success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-20 18:49:43.708	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:86	register table success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-20 18:49:43.752	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:62	register swagger handler
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-20 18:49:45.426	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:115	router register success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-20 22:44:10.926	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:86	register table success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-20 22:44:10.926	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:396	AI定时任务调度器已启动（间隔30秒）
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-20 22:44:10.967	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:62	register swagger handler
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-20 22:44:12.615	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:115	router register success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-20 22:47:32.630	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:86	register table success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-20 22:47:32.630	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:396	AI定时任务调度器已启动（间隔30秒）
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-20 22:47:32.677	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:62	register swagger handler
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-20 22:47:34.418	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:115	router register success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-20 22:49:00.725	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:86	register table success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-20 22:49:00.725	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:396	AI定时任务调度器已启动（间隔30秒）
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-20 22:49:00.771	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:62	register swagger handler
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-20 22:49:02.571	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:115	router register success

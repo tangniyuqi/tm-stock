@@ -1,0 +1,390 @@
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-16 00:00:07.894	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39	Failed to connect to Meilisearch	{"url": "http://119.29.82.70:7700", "error": "MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-16 00:00:08.085	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15	Failed to initialize Meilisearch	{"error": "failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-16 00:00:22.101	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39	Failed to connect to Meilisearch	{"url": "http://119.29.82.70:7700", "error": "MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-16 00:00:22.286	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15	Failed to initialize Meilisearch	{"error": "failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-16 10:20:42.921	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39	Failed to connect to Meilisearch	{"url": "http://119.29.82.70:7700", "error": "MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-16 10:20:43.102	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15	Failed to initialize Meilisearch	{"error": "failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-16 16:03:37.786	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39	Failed to connect to Meilisearch	{"url": "http://119.29.82.70:7700", "error": "MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-16 16:03:37.969	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15	Failed to initialize Meilisearch	{"error": "failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-16 18:06:11.073	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/base_stock.go:246	AI自动分析股票失败!	{"error": "厂商 千问 未配置模型 qwen3.8-max，可用模型: qwen3.7-flash / qwen3.7-max-2026-05-17 / qwen3.7-max-2026-05-20 / qwen3.7-max-2026-06-08 / qwen3.7-max / qwen3.7-plus-2026-05-26"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*BaseStockApi).AiAnalyzeStocks
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/base_stock.go:246
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/router/quant.(*BaseStockRouter).InitBaseStockRouter.OperationRecord.func1
+	/Users/a1/data/go/gin-vue-admin/server/middleware/operation.go:93
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-16 18:56:48.419	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/ai_task.go:32	查询AI执行任务失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*AiTaskApi).GetAiTask
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/ai_task.go:32
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-16 18:57:06.454	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/ai_task.go:32	查询AI执行任务失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*AiTaskApi).GetAiTask
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/ai_task.go:32
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-16 18:57:12.581	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/ai_task.go:32	查询AI执行任务失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*AiTaskApi).GetAiTask
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/ai_task.go:32
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-16 18:57:29.988	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/ai_task.go:32	查询AI执行任务失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*AiTaskApi).GetAiTask
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/ai_task.go:32
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-16 22:30:33.042	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/theme_stock.go:216	AI添加题材股票任务创建失败!	{"error": "厂商 千问 未配置模型 qwen3.8-2.4t-a95b，可用模型: qwen3.7-flash / qwen3.7-plus / qwen3.7-max / qwen3.8-max / qwen3.7-max-preview"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*ThemeStockApi).AiAddThemeStocks
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/theme_stock.go:216
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/router/quant.(*ThemeStockRouter).InitThemeStockRouter.OperationRecord.func1
+	/Users/a1/data/go/gin-vue-admin/server/middleware/operation.go:93
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-16 22:35:07.060	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/theme_stock_ai.go:853	AI批量更新单只题材股票失败!	{"id": 100535, "error": "大模型(千问)未返回有效内容"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*ThemeStockService).runAiUpdateBatchTask
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/theme_stock_ai.go:853
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-16 22:43:21.520	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/theme_stock_ai.go:853	AI批量更新单只题材股票失败!	{"id": 100531, "error": "解析大模型返回的个股分析失败: invalid character 'é' after object key:value pair，原始内容: {\"symbol\":\"688629\",\"name\":\"华丰科技\",\"tier\":1,\"relevance\":88,\"reason\":\"华丰科技是国内高速背板连接器领域的头部企业，也是华为昇腾AI服务器的核心连接器供应商，获哈勃投资（华为旗下）入股背书。公司主营高速背板连接器、高速线模组（将高速背板连接器与高速线缆集成为组件）等光电互连产品，广泛适配AI算力服务器、超节点算力集群、交换机、超级计算机"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*ThemeStockService).runAiUpdateBatchTask
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/theme_stock_ai.go:853
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-16 22:43:47.705	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/theme_stock_ai.go:853	AI批量更新单只题材股票失败!	{"id": 100510, "error": "解析大模型返回的个股分析失败: invalid character '`' looking for beginning of value，原始内容: ```json\n{\"symbol\":\"300408\",\"name\":\"三环集团\",\"tier\":2,\"relevance\":76,\"reason\":\"三环集团是全球光通信陶瓷插芯及套筒领域的绝对龙头，在\"光器件\"题材中定位为产业链上游核心关键零部件供应商。公司通过子公司潮州三环光通信器件有限公司，主营光纤连接器用陶瓷插芯、陶瓷套筒、MT插芯（多芯阵列插芯）、导针等光无源器件核心组件，产品广泛应用于"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*ThemeStockService).runAiUpdateBatchTask
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/theme_stock_ai.go:853
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-16 22:45:48.026	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/theme_stock_ai.go:853	AI批量更新单只题材股票失败!	{"id": 100512, "error": "解析大模型返回的个股分析失败: invalid character 'ç' after object key:value pair，原始内容: {\"symbol\":\"002222\",\"name\":\"福晶科技\",\"tier\":2,\"relevance\":68,\"reason\":\"福晶科技是全球非线性光学晶体龙头，LBO晶体全球市占率约70%-80%、BBO晶体市占率约50%，Nd:YVO₄晶体全球市占率约30%，获评LBO晶体制造业单项冠军产品。公司主营晶体元器件、精密光学元件及激光器件三大类产品，是光器件产业链上游核心材料与关键元器件供应"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*ThemeStockService).runAiUpdateBatchTask
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/theme_stock_ai.go:853
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-16 23:49:32.231	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/ai_task.go:32	查询AI执行任务失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*AiTaskApi).GetAiTask
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/ai_task.go:32
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-16 23:49:35.544	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/base_stock.go:166	获取失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*BaseStockApi).GetBaseStockList
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/base_stock.go:166
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-16 23:49:36.042	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/ai_task.go:32	查询AI执行任务失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*AiTaskApi).GetAiTask
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/ai_task.go:32
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-16 23:49:39.618	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/ai_task.go:62	获取AI执行任务列表失败!	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/quant.(*AiTaskApi).GetAiTaskList
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/ai_task.go:62
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:78
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073

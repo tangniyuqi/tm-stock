@@ -1,0 +1,490 @@
+[
+    {
+        "type": "elDivider",
+        "props": {
+            "contentPosition": "center"
+        },
+        "children": [
+            "关键词设置"
+        ]
+    },
+    {
+        "col": {
+            "span": 24
+        },
+        "type": "elInputTag",
+        "field": "targetKeywords",
+        "title": "新闻快讯标的关键词",
+        "value": [],
+        "props": {
+            "tagType": "primary",
+            "max": 100,
+            "draggable": true,
+            "delimiter": " ",
+            "placeholder": "请输入标的关键词，多个关键词用空格或回车分隔（最多100个）"
+        },
+        "validate": [
+            {
+                "required": true,
+                "message": "请输入新闻快讯标的关键词",
+                "trigger": "blur"
+            }
+        ],
+        "info": {
+            "type": "tooltip",
+            "placement": "right",
+            "info": "行业/板块/概念/公司/人物等关键词（最多100个）。"
+        }
+    },
+    {
+        "col": {
+            "span": 24
+        },
+        "type": "elInputTag",
+        "field": "triggerKeywords",
+        "title": "新闻快讯事件关键词（可选）",
+        "value": [],
+        "props": {
+            "tagType": "warning",
+            "max": 100,
+            "draggable": true,
+            "delimiter": " ",
+            "placeholder": "请输入事件关键词，多个关键词用空格或回车分隔（最多100个）"
+        },
+        "info": {
+            "type": "tooltip",
+            "placement": "right",
+            "info": "扩产/涨价/重大合同/增持/回购/立案/利润/涨停/创新高/营收增长/净利润等关键词（最多100个）。"
+        }
+    },
+    {
+        "col": {
+            "span": 24
+        },
+        "type": "elInputTag",
+        "field": "excludedKeywords",
+        "title": "排除新闻快讯关键词（可选）",
+        "value": [],
+        "props": {
+            "tagType": "danger",
+            "max": 100,
+            "draggable": true,
+            "delimiter": " ",
+            "placeholder": "请输入需排除的关键词，多个关键词用空格或回车分隔（最多100个）"
+        },
+        "info": {
+            "type": "tooltip",
+            "placement": "right",
+            "info": "包含排除关键词的新闻快讯将被过滤（最多100个）。"
+        }
+    },
+    {
+        "type": "elDivider",
+        "props": {
+            "contentPosition": "center"
+        },
+        "children": [
+            "AI分析设置"
+        ]
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "switch",
+        "field": "enableDeepThinking",
+        "title": "开启深度思考",
+        "value": true,
+        "props": {
+            "activeText": "开启",
+            "inactiveText": "关闭"
+        },
+        "info": {
+            "type": "tooltip",
+            "placement": "right",
+            "info": "默认调用账户设置的AI大模型。"
+        }
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "inputNumber",
+        "field": "confidenceThreshold",
+        "title": "置信度阈值",
+        "value": 0.7,
+        "props": {
+            "min": 0.1,
+            "max": 1.0,
+            "step": 0.1,
+            "precision": 1,
+            "controlsPosition": "right",
+            "placeholder": "请输入置信度阈值(0-1)"
+        },
+        "style": {
+            "width": "100%"
+        },
+        "info": {
+            "type": "tooltip",
+            "placement": "top",
+            "info": "AI分析结果的置信度必须大于或等于此值才会触发交易。范围 0.1-1.0，建议 0.7 以上。"
+        },
+        "validate": [
+            {
+                "required": true,
+                "message": "请输入置信度阈值",
+                "trigger": "blur",
+                "type": "number"
+            }
+        ]
+    },
+    {
+        "type": "elDivider",
+        "props": {
+            "contentPosition": "center"
+        },
+        "children": [
+            "交易设置"
+        ]
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "switch",
+        "field": "enableRealTrade",
+        "title": "开启实盘交易",
+        "value": false,
+        "props": {
+            "activeText": "开启",
+            "inactiveText": "关闭"
+        }
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "select",
+        "field": "tradeDirection",
+        "title": "交易方向",
+        "value": 0,
+        "options": [
+            {
+                "label": "中性策略 (双向)",
+                "value": 0
+            },
+            {
+                "label": "多头策略 (只买)",
+                "value": 1
+            },
+            {
+                "label": "空头策略 (只卖)",
+                "value": 2
+            }
+        ],
+        "props": {
+            "clearable": false
+        }
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "select",
+        "field": "tradeMode",
+        "title": "交易模式",
+        "value": "ratio",
+        "info": {
+            "type": "tooltip",
+            "placement": "top",
+            "align": "right",
+            "info": "此模式仅用于计算买入数量。注意：当AI分析结果为卖出信号时，策略将执行清仓操作（卖出全部可用持仓）。"
+        },
+        "options": [
+            {
+                "value": "quantity",
+                "label": "按股数"
+            },
+            {
+                "value": "amount",
+                "label": "按金额"
+            },
+            {
+                "value": "ratio",
+                "label": "按仓位比例"
+            }
+        ],
+        "props": {
+            "clearable": false
+        },
+        "control": [
+            {
+                "value": "quantity",
+                "rule": [
+                    {
+                        "col": {
+                            "span": 6
+                        },
+                        "type": "inputNumber",
+                        "field": "quantity",
+                        "title": "单笔交易股数",
+                        "value": 1000,
+                        "props": {
+                            "min": 100,
+                            "step": 100,
+                            "controlsPosition": "right"
+                        },
+                        "style": {
+                            "width": "100%"
+                        },
+                        "validate": [
+                            {
+                                "required": true,
+                                "message": "请输入交易股数",
+                                "trigger": "blur",
+                                "type": "number"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "value": "amount",
+                "rule": [
+                    {
+                        "col": {
+                            "span": 6
+                        },
+                        "type": "inputNumber",
+                        "field": "amount",
+                        "title": "单笔交易金额(元)",
+                        "value": 10000,
+                        "props": {
+                            "min": 1000,
+                            "step": 1000,
+                            "controlsPosition": "right"
+                        },
+                        "style": {
+                            "width": "100%"
+                        },
+                        "validate": [
+                            {
+                                "required": true,
+                                "message": "请输入单笔交易金额",
+                                "trigger": "blur",
+                                "type": "number"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "value": "ratio",
+                "rule": [
+                    {
+                        "col": {
+                            "span": 6
+                        },
+                        "type": "inputNumber",
+                        "field": "ratio",
+                        "title": "单笔占总资产比例(%)",
+                        "value": 5,
+                        "props": {
+                            "min": 0.1,
+                            "max": 100,
+                            "step": 0.1,
+                            "precision": 2,
+                            "placeholder": "请输入总资产比例"
+                        },
+                        "style": {
+                            "width": "100%"
+                        },
+                        "validate": [
+                            {
+                                "required": true,
+                                "message": "请输入总资产比例",
+                                "trigger": "blur",
+                                "type": "number"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "div",
+        "field": "_placeholder_risk_left",
+        "style": {
+            "height": "1px"
+        }
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "inputNumber",
+        "field": "maxBuyRise",
+        "title": "买入涨幅上限(%)",
+        "value": 9,
+        "props": {
+            "min": -50,
+            "max": 50,
+            "step": 0.1,
+            "controlsPosition": "right",
+            "placeholder": "涨幅超过此值不买"
+        },
+        "style": {
+            "width": "100%"
+        },
+        "info": {
+            "type": "tooltip",
+            "placement": "top",
+            "info": "当标的涨幅超过此数值时，不执行买入（防追高）。例如设为 5，则涨幅 > 5% 时不买。"
+        },
+        "validate": [
+            {
+                "required": true,
+                "message": "请输入买入涨幅上限",
+                "trigger": "blur",
+                "type": "number"
+            }
+        ]
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "inputNumber",
+        "field": "minSellFall",
+        "title": "卖出跌幅下限(%)",
+        "value": -8.0,
+        "props": {
+            "min": -50,
+            "max": 50,
+            "step": 0.1,
+            "controlsPosition": "right",
+            "placeholder": "跌幅超过此值不卖"
+        },
+        "style": {
+            "width": "100%"
+        },
+        "info": {
+            "type": "tooltip",
+            "placement": "top",
+            "info": "当标的涨跌幅低于此数值时，不执行卖出（防低位割肉）。例如设为 -8，则跌幅大于8% (即值 < -8) 时不卖。"
+        },
+        "validate": [
+            {
+                "required": true,
+                "message": "请输入卖出跌幅下限",
+                "trigger": "blur",
+                "type": "number"
+            }
+        ]
+    },
+    {
+        "type": "elDivider",
+        "props": {
+            "contentPosition": "center"
+        },
+        "children": [
+            "通知与监控设置"
+        ]
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "switch",
+        "field": "notifyAnalysis",
+        "title": "推送AI分析结果",
+        "value": true,
+        "props": {
+            "activeText": "开启",
+            "inactiveText": "关闭"
+        },
+        "info": {
+            "type": "tooltip",
+            "placement": "right",
+            "info": "默认调用账户设置的通知推送配置。"
+        }
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "switch",
+        "field": "notifyTrade",
+        "title": "推送交易执行结果",
+        "value": true,
+        "props": {
+            "activeText": "开启",
+            "inactiveText": "关闭"
+        },
+        "info": {
+            "type": "tooltip",
+            "placement": "right",
+            "info": "默认调用账户设置的通知推送配置。"
+        }
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "inputNumber",
+        "field": "monitorInterval",
+        "title": "快讯检查间隔(秒)",
+        "value": 30,
+        "props": {
+            "min": 10,
+            "max": 10000,
+            "step": 1,
+            "controlsPosition": "right"
+        },
+        "style": {
+            "width": "100%"
+        },
+        "info": {
+            "type": "tooltip",
+            "placement": "top",
+            "info": "每轮检查结束后的休眠等待时间。即使AI分析耗时较长，也会等分析完成后再开始计时，不会发生冲突。"
+        },
+        "validate": [
+            {
+                "required": true,
+                "message": "请输入快讯检查间隔",
+                "trigger": "blur",
+                "type": "number"
+            }
+        ]
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "datePicker",
+        "field": "validityPeriod",
+        "title": "任务有效期",
+        "props": {
+            "type": "date",
+            "placeholder": "请选择截止日期",
+            "format": "YYYY年MM月DD日 [收盘前]",
+            "valueFormat": "YYYY-MM-DD",
+            "clearable": true
+        },
+        "style": {
+            "width": "100%"
+        },
+        "validate": [
+            {
+                "message": "请选择任务有效期",
+                "trigger": "change",
+                "required": false
+            }
+        ]
+    }
+]

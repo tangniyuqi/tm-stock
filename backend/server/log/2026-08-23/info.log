@@ -1,0 +1,12 @@
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-23 10:30:51.912	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:86	register table success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-23 10:30:51.912	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:396	AI定时任务调度器已启动（间隔30秒）
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-23 10:30:51.964	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:62	register swagger handler
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-23 10:30:53.689	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:115	router register success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-23 10:52:12.813	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:86	register table success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-23 10:52:12.813	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:396	AI定时任务调度器已启动（间隔30秒）
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-23 10:52:12.858	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:62	register swagger handler
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-23 10:52:14.639	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:115	router register success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-23 18:14:16.977	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:86	register table success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-23 18:14:16.977	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:396	AI定时任务调度器已启动（间隔30秒）
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-23 18:14:17.022	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:62	register swagger handler
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-23 18:14:18.688	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:115	router register success

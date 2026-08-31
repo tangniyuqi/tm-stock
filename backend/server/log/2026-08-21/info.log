@@ -1,0 +1,8 @@
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-21 00:44:07.137	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:423	AI定时任务调度完成	{"count": 1}
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-21 13:01:31.409	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:86	register table success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-21 13:01:31.409	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:396	AI定时任务调度器已启动（间隔30秒）
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-21 13:01:31.450	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:62	register swagger handler
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-21 13:01:33.022	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:115	router register success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-21 13:35:10.376	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/base_stock.go:615	successfully updated all change_pct	{"trade_date": "20260820", "updated": 5538}
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-21 17:23:30.710	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/base_stock.go:615	successfully updated all change_pct	{"trade_date": "20260821", "updated": 5539}
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-21 18:00:01.961	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:423	AI定时任务调度完成	{"count": 1}

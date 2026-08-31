@@ -1,0 +1,1759 @@
+[
+    {
+        "type": "elDivider",
+        "props": {
+            "contentPosition": "center"
+        },
+        "children": [
+            "标的设置"
+        ]
+    },
+    {
+        "col": {
+            "span": 12
+        },
+        "type": "select",
+        "field": "symbol",
+        "title": "交易标的",
+        "value": "",
+        "props": {
+            "placeholder": "输入股票名称/代码/拼音首字母",
+            "clearable": true,
+            "filterable": true,
+            "defaultFirstOption": true,
+            "remote": true,
+            "remoteShowSuffix": true,
+            "loading": false,
+            "valueKey": "ts_code",
+            "remoteMethod": "function(query){ remoteStockSearch(query) }"
+        },
+        "style": {
+            "width": "100%"
+        },
+        "options": [],
+        "validate": [
+            {
+                "required": true,
+                "message": "请选择交易标的",
+                "trigger": "change"
+            }
+        ],
+        "info": {
+            "type": "tooltip",
+            "placement": "right",
+            "align": "right",
+            "info": "输入股票名称、代码或拼音首字母进行搜索选择"
+        }
+    },
+    {
+        "type": "elDivider",
+        "props": {
+            "contentPosition": "center"
+        },
+        "children": [
+            "基础设置"
+        ]
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "inputNumber",
+        "field": "tradeLayers",
+        "props": {
+            "max": 100,
+            "min": 1,
+            "step": 1,
+            "placeholder": "层级数量",
+            "controlsPosition": "right"
+        },
+        "style": {
+            "width": "100%"
+        },
+        "title": "交易层级(1-100)",
+        "value": 10,
+        "validate": [
+            {
+                "message": "请输入交易层级",
+                "trigger": "blur",
+                "required": true
+            }
+        ]
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "inputNumber",
+        "field": "layerPercent",
+        "title": "层级间距 (%)",
+        "value": 3,
+        "props": {
+            "min": 0.01,
+            "max": 100,
+            "step": 0.1,
+            "precision": 2,
+            "placeholder": "每格涨跌幅",
+            "controlsPosition": "right"
+        },
+        "style": {
+            "width": "100%"
+        },
+        "validate": [
+            {
+                "message": "请输入层级间距",
+                "trigger": "blur",
+                "required": true
+            }
+        ]
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "inputNumber",
+        "field": "maxResets",
+        "title": "自动重置次数",
+        "value": 1,
+        "props": {
+            "min": 0,
+            "max": 100,
+            "step": 1,
+            "placeholder": "0为不自动重置",
+            "controlsPosition": "right"
+        },
+        "style": {
+            "width": "100%"
+        },
+        "validate": [
+            {
+                "required": true,
+                "message": "请输入自动重置次数",
+                "trigger": "blur",
+                "type": "integer"
+            }
+        ],
+        "info": {
+            "type": "tooltip",
+            "placement": "top",
+            "align": "right",
+            "info": "当现价相对基准价偏离达到“重置触发偏离”时，将把当前价设为新基准并重算上下限；此处限制最多允许重置的次数，0 表示不启用自动重置。"
+        }
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "inputNumber",
+        "title": "重置触发偏离 (%)",
+        "field": "resetRatio",
+        "value": 50,
+        "props": {
+            "min": 1,
+            "max": 100,
+            "step": 1,
+            "precision": 2,
+            "placeholder": "价格偏离基准多少时重置",
+            "controlsPosition": "right"
+        },
+        "style": {
+            "width": "100%"
+        },
+        "validate": [
+            {
+                "required": true,
+                "message": "请输入重置触发偏离",
+                "trigger": "blur",
+                "type": "number"
+            }
+        ],
+        "info": {
+            "type": "tooltip",
+            "placement": "top",
+            "align": "right",
+            "info": "当 (现价-基准价)/基准价 ≥ 该阈值时触发重置；阈值过小可能导致频繁改基准、层级失真。"
+        }
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "select",
+        "field": "zeroLayerMode",
+        "title": "基准层计算模式",
+        "value": 1,
+        "options": [
+            {
+                "label": "双倍宽度(Base±P)",
+                "value": 1
+            },
+            {
+                "label": "中心对称(Base±P/2)",
+                "value": 2
+            },
+            {
+                "label": "标准单边(Base~Base+P)",
+                "value": 3
+            }
+        ],
+        "validate": [
+            {
+                "required": true,
+                "message": "请选择基准层计算模式",
+                "trigger": "change"
+            }
+        ],
+        "info": {
+            "type": "tooltip",
+            "placement": "right",
+            "align": "right",
+            "info": "基准层计算模式（基准价10元，间距3%为例）：双倍宽度(9.7~10.3)、中心对称(9.85~10.15)、标准单边(10~10.3)"
+        }
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "select",
+        "field": "deploymentMode",
+        "title": "部署模式",
+        "value": "FULL_RANGE",
+        "options": [
+            {
+                "label": "全区间部署",
+                "value": "FULL_RANGE"
+            },
+            {
+                "label": "分治分段部署",
+                "value": "PARTITIONED"
+            }
+        ],
+        "control": [
+            {
+                "value": "PARTITIONED",
+                "rule": [
+                    {
+                        "col": {
+                            "span": 6
+                        },
+                        "type": "select",
+                        "field": "includeBaseLayer",
+                        "title": "是否包含基准层",
+                        "value": true,
+                        "options": [
+                            {
+                                "label": "包含基准层",
+                                "value": true
+                            },
+                            {
+                                "label": "不包含基准层",
+                                "value": false
+                            }
+                        ],
+                        "info": {
+                            "type": "tooltip",
+                            "placement": "top",
+                            "align": "top",
+                            "info": "分段部署模式下，是否允许在基准层进行交易；包含则基准层可买可卖，不包含则基准层为缓冲区不交易。"
+                        }
+                    }
+                ]
+            }
+        ],
+        "props": {
+            "placeholder": "请选择部署模式"
+        },
+        "validate": [
+            {
+                "required": true,
+                "message": "请选择部署模式",
+                "trigger": "change"
+            }
+        ],
+        "info": {
+            "type": "tooltip",
+            "placement": "top",
+            "align": "top",
+            "info": "全区间：任意位置均可买卖；分治分段：基线之上只卖不买，基线之下只买不卖（适合定投抄底）。"
+        }
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "select",
+        "field": "tradeDirection",
+        "title": "交易方向",
+        "value": 0,
+        "props": {
+            "placeholder": "请选择交易方向"
+        },
+        "style": {
+            "width": "100%"
+        },
+        "validate": [
+            {
+                "required": true,
+                "message": "请选择交易方向",
+                "trigger": "change"
+            }
+        ],
+        "options": [
+            {
+                "label": "中性策略 (双向)",
+                "value": 0
+            },
+            {
+                "label": "多头策略 (只买)",
+                "value": 1
+            },
+            {
+                "label": "空头策略 (只卖)",
+                "value": 2
+            }
+        ]
+    },
+    {
+        "type": "div",
+        "style": {
+            "width": "100%"
+        }
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "inputNumber",
+        "field": "baseQuantity",
+        "props": {
+            "max": 1000000,
+            "min": 100,
+            "step": 100,
+            "placeholder": "单层买卖数量",
+            "controlsPosition": "right"
+        },
+        "style": {
+            "width": "100%"
+        },
+        "title": "单层交易基数 (股)",
+        "value": 100,
+        "validate": [
+            {
+                "message": "请输入单层交易基数",
+                "trigger": "blur",
+                "required": true
+            }
+        ]
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "select",
+        "field": "tradeQuantityType",
+        "style": {
+            "width": "100%"
+        },
+        "title": "单层交易量计算模式",
+        "value": 1,
+        "validate": [
+            {
+                "required": true,
+                "message": "请选择单层交易量计算模式",
+                "trigger": "change"
+            }
+        ],
+        "options": [
+            {
+                "label": "固定数量 (BaseQuantity)",
+                "value": 1
+            },
+            {
+                "label": "逐层加码 (BaseQuantity * Layer)",
+                "value": 2
+            }
+        ]
+    },
+    {
+        "type": "div",
+        "style": {
+            "width": "100%"
+        }
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "switch",
+        "field": "autoAlign",
+        "title": "自动对齐（谨慎）",
+        "value": false,
+        "props": {
+            "activeText": "开启",
+            "inactiveText": "关闭"
+        },
+        "info": {
+            "type": "tooltip",
+            "placement": "right",
+            "align": "right",
+            "info": "启动时若当前价格相对基准价偏离多个层级，会按偏离层级数量一次性补买/补卖；可能在开盘瞬间触发较大单，请谨慎开启。"
+        }
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "switch",
+        "field": "autoOpenPosition",
+        "title": "空仓自动建仓（谨慎）",
+        "value": false,
+        "props": {
+            "activeText": "开启",
+            "inactiveText": "关闭"
+        },
+        "info": {
+            "type": "tooltip",
+            "placement": "top",
+            "align": "top",
+            "info": "当检测到当前持仓为 0 时，按所选建仓类型（基数/股数/金额/总资产比例）自动买入底仓；开启后会在任务启动时自动建仓，请谨慎开启。"
+        },
+        "control": [
+            {
+                "value": true,
+                "rule": [
+                    {
+                        "col": {
+                            "span": 6
+                        },
+                        "type": "select",
+                        "field": "openPositionType",
+                        "title": "建仓类型",
+                        "value": 0,
+                        "props": {
+                            "placeholder": "选择建仓类型"
+                        },
+                        "options": [
+                            {
+                                "label": "按交易基数",
+                                "value": 0
+                            },
+                            {
+                                "label": "按指定股数",
+                                "value": 1
+                            },
+                            {
+                                "label": "按指定金额",
+                                "value": 2
+                            },
+                            {
+                                "label": "按指定仓位",
+                                "value": 3
+                            }
+                        ],
+                        "control": [
+                            {
+                                "value": 1,
+                                "rule": [
+                                    {
+                                        "col": {
+                                            "span": 6
+                                        },
+                                        "type": "inputNumber",
+                                        "field": "openPositionQuantity",
+                                        "title": "建仓最大股数",
+                                        "value": 1000,
+                                        "props": {
+                                            "min": 100,
+                                            "step": 100,
+                                            "controlsPosition": "right"
+                                        },
+                                        "style": {
+                                            "width": "100%"
+                                        },
+                                        "validate": [
+                                            {
+                                                "required": true,
+                                                "message": "请输入建仓股数",
+                                                "trigger": "blur",
+                                                "type": "number"
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "value": 2,
+                                "rule": [
+                                    {
+                                        "col": {
+                                            "span": 6
+                                        },
+                                        "type": "inputNumber",
+                                        "field": "openPositionAmount",
+                                        "title": "建仓最大金额(元)",
+                                        "value": 10000,
+                                        "props": {
+                                            "min": 100,
+                                            "step": 1000,
+                                            "controlsPosition": "right"
+                                        },
+                                        "style": {
+                                            "width": "100%"
+                                        },
+                                        "validate": [
+                                            {
+                                                "required": true,
+                                                "message": "请输入建仓金额",
+                                                "trigger": "blur",
+                                                "type": "number"
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            {
+                                "value": 3,
+                                "rule": [
+                                    {
+                                        "col": {
+                                            "span": 6
+                                        },
+                                        "type": "inputNumber",
+                                        "field": "openPositionRatio",
+                                        "title": "建仓最大比例(%)",
+                                        "value": 10,
+                                        "props": {
+                                            "min": 1,
+                                            "max": 100,
+                                            "step": 1,
+                                            "controlsPosition": "right"
+                                        },
+                                        "style": {
+                                            "width": "100%"
+                                        },
+                                        "validate": [
+                                            {
+                                                "required": true,
+                                                "message": "请输入建仓比例",
+                                                "trigger": "blur",
+                                                "type": "number"
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "span": 8,
+        "type": "col"
+    },
+    {
+        "type": "elDivider",
+        "props": {
+            "contentPosition": "center"
+        },
+        "children": [
+            "价格基准与区间控制"
+        ]
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "select",
+        "field": "basePriceType",
+        "title": "基准价格来源",
+        "info": {
+            "align": "right",
+            "info": "决定策略运行的中心价格。指定价：固定值；当前价：取策略启动时的实时价格；开盘价/前收盘价：取当日数据（适合每日重置）。",
+            "placement": "top-start",
+            "type": "tooltip"
+        },
+        "value": 4,
+        "props": {
+            "placeholder": "请选择基准价格来源"
+        },
+        "style": {
+            "width": "100%"
+        },
+        "options": [
+            {
+                "label": "指定价 (静态)",
+                "value": 1
+            },
+            {
+                "label": "当前价 (动态)",
+                "value": 2
+            },
+            {
+                "label": "开盘价 (动态)",
+                "value": 3
+            },
+            {
+                "label": "前收盘价 (动态)",
+                "value": 4
+            }
+        ],
+        "validate": [
+            {
+                "required": true,
+                "message": "请选择基准价格来源",
+                "trigger": "change"
+            }
+        ],
+        "control": [
+            {
+                "rule": [
+                    {
+                        "col": {
+                            "span": 6
+                        },
+                        "type": "inputNumber",
+                        "field": "basePrice",
+                        "props": {
+                            "min": 0.01,
+                            "step": 0.01,
+                            "precision": 2,
+                            "placeholder": "输入固定基准价",
+                            "controlsPosition": "right"
+                        },
+                        "style": {
+                            "width": "100%"
+                        },
+                        "title": "指定基准价(元)",
+                        "info": {
+                            "align": "right",
+                            "info": "当基准价格来源选择'指定价'时，使用此价格作为层级中心。",
+                            "placement": "top-start",
+                            "type": "tooltip"
+                        },
+                        "value": 10,
+                        "validate": [
+                            {
+                                "required": true,
+                                "message": "请输入指定基准价",
+                                "trigger": "blur",
+                                "type": "number"
+                            }
+                        ]
+                    }
+                ],
+                "value": 1
+            }
+        ]
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "inputNumber",
+        "field": "basePriceFloatRatio",
+        "props": {
+            "max": 99.99,
+            "min": -99.99,
+            "step": 0.1,
+            "precision": 2,
+            "placeholder": "正数为上移，负数为下移",
+            "controlsPosition": "right"
+        },
+        "style": {
+            "width": "100%"
+        },
+        "title": "基准价偏移比例 (%)",
+        "info": {
+            "align": "right",
+            "info": "在基准价格基础上进行微调。例如输入 1.5，则实际基准价 = 原基准价 * (1 + 1.5%)。可用于根据趋势预判调整层级中心。",
+            "placement": "top-start",
+            "type": "tooltip"
+        },
+        "value": 0,
+        "validate": [
+            {
+                "required": true,
+                "message": "请输入基准价偏移比例",
+                "trigger": "blur",
+                "type": "number"
+            }
+        ]
+    },
+    {
+        "type": "div",
+        "style": {
+            "width": "100%"
+        }
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "select",
+        "field": "priceRangeMode",
+        "title": "区间价格类型",
+        "value": 1,
+        "info": {
+            "align": "right",
+            "info": "策略运行的价格边界，风控检查优先级高于区间判断。按偏移比例：根据基准价的偏移比例确定上下限（默认）；按价格：指定固定的绝对价格上下限。",
+            "placement": "top-start",
+            "type": "tooltip"
+        },
+        "props": {
+            "placeholder": "请选择区间价格类型"
+        },
+        "style": {
+            "width": "100%"
+        },
+        "options": [
+            {
+                "label": "按偏移比例 (%)",
+                "value": 1
+            },
+            {
+                "label": "按价格 (元)",
+                "value": 2
+            }
+        ],
+        "validate": [
+            {
+                "required": true,
+                "message": "请选择区间价格类型",
+                "trigger": "change"
+            }
+        ],
+        "control": [
+            {
+                "value": 1,
+                "rule": [
+                    {
+                        "col": {
+                            "span": 6
+                        },
+                        "type": "inputNumber",
+                        "title": "上限偏移比例 (%)",
+                        "field": "upperRatio",
+                        "value": 8.00,
+                        "props": {
+                            "min": -100,
+                            "max": 100,
+                            "step": 0.1,
+                            "precision": 2,
+                            "placeholder": "输入上限偏移比例，0为不限制",
+                            "controlsPosition": "right"
+                        },
+                        "style": {
+                            "width": "100%"
+                        },
+                        "info": {
+                            "align": "right",
+                            "info": "策略运行的最高价格边界相对于基准价的偏移比例（±n%)，0 为不限制。",
+                            "placement": "top-start",
+                            "type": "tooltip"
+                        },
+                        "validate": [
+                            {
+                                "required": true,
+                                "message": "请输入上限偏移比例",
+                                "trigger": "blur",
+                                "type": "number"
+                            }
+                        ]
+                    },
+                    {
+                        "col": {
+                            "span": 6
+                        },
+                        "type": "inputNumber",
+                        "title": "下限偏移比例 (%)",
+                        "field": "lowerRatio",
+                        "value": -8.00,
+                        "props": {
+                            "min": -100,
+                            "max": 100,
+                            "step": 0.1,
+                            "precision": 2,
+                            "placeholder": "输入下限偏移比例，0为不限制",
+                            "controlsPosition": "right"
+                        },
+                        "style": {
+                            "width": "100%"
+                        },
+                        "info": {
+                            "align": "right",
+                            "info": "策略运行的最低价格边界相对于基准价的偏移比例（±n%)，0 为不限制。",
+                            "placement": "top-start",
+                            "type": "tooltip"
+                        },
+                        "validate": [
+                            {
+                                "required": true,
+                                "message": "请输入下限偏移比例",
+                                "trigger": "blur",
+                                "type": "number"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "value": 2,
+                "rule": [
+                    {
+                        "col": {
+                            "span": 6
+                        },
+                        "type": "inputNumber",
+                        "field": "upperPrice",
+                        "value": 0,
+                        "props": {
+                            "min": 0,
+                            "step": 0.01,
+                            "precision": 2,
+                            "placeholder": "0为不限制",
+                            "controlsPosition": "right"
+                        },
+                        "style": {
+                            "width": "100%"
+                        },
+                        "title": "价格上限 (元)",
+                        "info": {
+                            "align": "right",
+                            "info": "策略运行的最高绝对价格，0 为不限制。",
+                            "placement": "top-start",
+                            "type": "tooltip"
+                        },
+                        "validate": [
+                            {
+                                "required": true,
+                                "message": "请输入价格上限",
+                                "trigger": "blur",
+                                "type": "number"
+                            }
+                        ]
+                    },
+                    {
+                        "col": {
+                            "span": 6
+                        },
+                        "type": "inputNumber",
+                        "field": "lowerPrice",
+                        "value": 0,
+                        "props": {
+                            "min": 0,
+                            "step": 0.01,
+                            "precision": 2,
+                            "placeholder": "0为不限制",
+                            "controlsPosition": "right"
+                        },
+                        "style": {
+                            "width": "100%"
+                        },
+                        "title": "价格下限 (元)",
+                        "info": {
+                            "align": "right",
+                            "info": "策略运行的最低绝对价格，0 为不限制。",
+                            "placement": "top-start",
+                            "type": "tooltip"
+                        },
+                        "validate": [
+                            {
+                                "required": true,
+                                "message": "请输入价格下限",
+                                "trigger": "blur",
+                                "type": "number"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "type": "div",
+        "style": {
+            "width": "100%"
+        }
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "switch",
+        "field": "resetBasePriceDaily",
+        "title": "跨交易日重置基准价",
+        "value": true,
+        "props": {
+            "activeText": "开启",
+            "inactiveText": "关闭"
+        },
+        "info": {
+            "type": "tooltip",
+            "placement": "right",
+            "align": "right",
+            "info": "默认开启，开启时次日按基准价来源重新计算基准价、区间上下限、状态清理；根据基准价来源：指定价(建议关闭)、当前价(建议视情况而定）、开盘价/前收盘价(建议开启)。"
+        }
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "elDivider",
+        "props": {
+            "contentPosition": "center"
+        },
+        "children": [
+            "交易触发控制与优化"
+        ]
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "inputNumber",
+        "field": "fallbackRatio",
+        "title": "回落卖出触发比例(%)",
+        "value": 0.3,
+        "props": {
+            "min": 0,
+            "step": 0.1,
+            "controlsPosition": "right",
+            "placeholder": "0为立即卖出"
+        },
+        "style": {
+            "width": "100%"
+        },
+        "info": {
+            "type": "tooltip",
+            "placement": "right",
+            "align": "right",
+            "info": "触发上涨后不立即卖出，待价格从最高点回落指定比例后执行，用于捕捉趋势利润。"
+        }
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "inputNumber",
+        "field": "reboundRatio",
+        "title": "反弹买入触发比例(%)",
+        "value": 0.3,
+        "props": {
+            "min": 0,
+            "step": 0.1,
+            "controlsPosition": "right",
+            "placeholder": "0为立即买入"
+        },
+        "style": {
+            "width": "100%"
+        },
+        "info": {
+            "type": "tooltip",
+            "placement": "top",
+            "align": "right",
+            "info": "触发下跌后不立即买入，待价格从最低点反弹指定比例后执行，用于防止接飞刀。"
+        }
+    },
+
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "inputNumber",
+        "field": "slippageRatio",
+        "title": "滑点比例(%)",
+        "value": 0.1,
+        "props": {
+            "min": 0,
+            "max": 5,
+            "step": 0.05,
+            "precision": 2,
+            "controlsPosition": "right",
+            "placeholder": "0为不考虑滑点"
+        },
+        "style": {
+            "width": "100%"
+        },
+        "info": {
+            "type": "tooltip",
+            "placement": "top",
+            "align": "right",
+            "info": "实际成交价格相对触发价格的偏移比例。买入时价格上浮，卖出时价格下浮。设为0则不考虑滑点。"
+        }
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "select",
+        "field": "slippageMode",
+        "title": "滑点计算模式",
+        "value": 1,
+        "props": {
+            "placeholder": "请选择滑点计算模式"
+        },
+        "style": {
+            "width": "100%"
+        },
+        "options": [
+            {
+                "label": "固定比例",
+                "value": 1
+            },
+            {
+                "label": "动态（基于波动率）",
+                "value": 2
+            }
+        ],
+        "info": {
+            "type": "tooltip",
+            "placement": "top",
+            "align": "right",
+            "info": "固定比例：使用固定的滑点比例；动态模式：根据市场波动率自动调整滑点（波动越大滑点越大，最大2%）。"
+        }
+    },
+    {
+        "type": "div",
+        "style": {
+            "width": "100%"
+        }
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "inputNumber",
+        "field": "maxRepeatTimes",
+        "title": "同层最大交易次数",
+        "value": 0,
+        "props": {
+            "min": 0,
+            "step": 1,
+            "controlsPosition": "right",
+            "placeholder": "0为不限制"
+        },
+        "style": {
+            "width": "100%"
+        },
+        "info": {
+            "type": "tooltip",
+            "placement": "right",
+            "align": "right",
+            "info": "同一层级内允许重复买卖的次数。设为 0 表示不限制（无限震荡套利）。"
+        }
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "inputNumber",
+        "field": "minPriceGap",
+        "title": "最小成交价差(%)",
+        "value": 0.3,
+        "props": {
+            "min": 0,
+            "step": 0.1,
+            "controlsPosition": "right"
+        },
+        "style": {
+            "width": "100%"
+        },
+        "info": {
+            "type": "tooltip",
+            "placement": "top",
+            "align": "right",
+            "info": "同层级重复交易时，要求当前价格与上次成交价的最小差距，防止极小波动频繁触发。"
+        }
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "inputNumber",
+        "field": "minTradeInterval",
+        "title": "最小交易间隔(秒)",
+        "value": 30,
+        "props": {
+            "min": 0,
+            "step": 1,
+            "controlsPosition": "right"
+        },
+        "style": {
+            "width": "100%"
+        }
+    },
+    {
+        "type": "elDivider",
+        "props": {
+            "contentPosition": "center"
+        },
+        "children": [
+            "风险控制 (持仓/止盈/止损)"
+        ]
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "select",
+        "field": "maxHoldType",
+        "style": {
+            "width": "100%"
+        },
+        "title": "持仓上限",
+        "value": 0,
+        "validate": [
+            {
+                "required": true,
+                "message": "请选择持仓上限类型",
+                "trigger": "change"
+            }
+        ],
+        "control": [
+            {
+                "rule": [
+                    {
+                        "col": {
+                            "span": 6
+                        },
+                        "type": "inputNumber",
+                        "field": "maxHoldQuantity",
+                        "title": "最大持仓数量(股)",
+                        "value": 100000,
+                        "props": {
+                            "max": 10000000,
+                            "min": 100,
+                            "step": 100,
+                            "placeholder": "最大持仓数量"
+                        },
+                        "style": {
+                            "width": "100%"
+                        },
+                        "validate": [
+                            {
+                                "required": true,
+                                "message": "请输入最大持仓数量",
+                                "trigger": "blur",
+                                "type": "number"
+                            }
+                        ]
+                    },
+                    {
+                        "col": {
+                            "span": 6
+                        },
+                        "type": "inputNumber",
+                        "field": "maxHoldAmount",
+                        "props": {
+                            "max": 100000000,
+                            "min": 0,
+                            "step": 1000,
+                            "precision": 2,
+                            "placeholder": "最大持仓金额"
+                        },
+                        "style": {
+                            "width": "100%"
+                        },
+                        "title": "最大持仓金额(元)",
+                        "value": 1000000,
+                        "validate": [
+                            {
+                                "required": true,
+                                "message": "请输入最大持仓金额",
+                                "trigger": "blur",
+                                "type": "number"
+                            }
+                        ]
+                    },
+                    {
+                        "col": {
+                            "span": 6
+                        },
+                        "type": "inputNumber",
+                        "field": "maxHoldRatio",
+                        "props": {
+                            "max": 100,
+                            "min": 0.1,
+                            "step": 0.1,
+                            "precision": 2,
+                            "placeholder": "最大持仓比例"
+                        },
+                        "style": {
+                            "width": "100%"
+                        },
+                        "title": "最大持仓比例(%)",
+                        "value": 20,
+                        "validate": [
+                            {
+                                "required": true,
+                                "message": "请输入最大持仓比例",
+                                "trigger": "blur",
+                                "type": "number"
+                            }
+                        ]
+                    }
+                ],
+                "value": 0
+            },
+            {
+                "rule": [
+                    {
+                        "col": {
+                            "span": 6
+                        },
+                        "type": "inputNumber",
+                        "field": "maxHoldQuantity",
+                        "title": "最大持仓数量(股)",
+                        "value": 100000,
+                        "props": {
+                            "max": 10000000,
+                            "min": 100,
+                            "step": 100,
+                            "placeholder": "最大持仓数量"
+                        },
+                        "style": {
+                            "width": "100%"
+                        },
+                        "validate": [
+                            {
+                                "required": true,
+                                "message": "请输入最大持仓量",
+                                "trigger": "blur",
+                                "type": "number"
+                            }
+                        ]
+                    }
+                ],
+                "value": 1
+            },
+            {
+                "rule": [
+                    {
+                        "col": {
+                            "span": 6
+                        },
+                        "type": "inputNumber",
+                        "field": "maxHoldAmount",
+                        "props": {
+                            "max": 100000000,
+                            "min": 0,
+                            "step": 1000,
+                            "placeholder": "最大持仓金额"
+                        },
+                        "style": {
+                            "width": "100%"
+                        },
+                        "title": "最大持仓金额(元)",
+                        "value": 1000000,
+                        "validate": [
+                            {
+                                "required": true,
+                                "message": "请输入最大持仓金额",
+                                "trigger": "blur",
+                                "type": "number"
+                            }
+                        ]
+                    }
+                ],
+                "value": 2
+            },
+            {
+                "rule": [
+                    {
+                        "col": {
+                            "span": 6
+                        },
+                        "type": "inputNumber",
+                        "field": "maxHoldRatio",
+                        "props": {
+                            "max": 100,
+                            "min": 0.1,
+                            "step": 0.1,
+                            "precision": 2,
+                            "placeholder": "最大持仓比例"
+                        },
+                        "style": {
+                            "width": "100%"
+                        },
+                        "title": "最大持仓比例(%)",
+                        "value": 20,
+                        "validate": [
+                            {
+                                "required": true,
+                                "message": "请输入最大持仓比例",
+                                "trigger": "blur",
+                                "type": "number"
+                            }
+                        ]
+                    }
+                ],
+                "value": 3
+            }
+        ],
+        "options": [
+            {
+                "label": "不限制",
+                "value": -1
+            },
+            {
+                "label": "满足任意条件",
+                "value": 0
+            },
+            {
+                "label": "按最大持仓数量(股)",
+                "value": 1
+            },
+            {
+                "label": "按最大持仓金额(元)",
+                "value": 2
+            },
+            {
+                "label": "按最大持仓比例(%)",
+                "value": 3
+            }
+        ]
+    },
+    {
+        "type": "div",
+        "style": {
+            "width": "100%"
+        }
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "select",
+        "field": "takeProfitType",
+        "props": {
+            "placeholder": "请选择止盈策略"
+        },
+        "style": {
+            "width": "100%"
+        },
+        "title": "止盈策略",
+        "value": 0,
+        "validate": [
+            {
+                "required": true,
+                "message": "请选择止盈策略",
+                "trigger": "change"
+            }
+        ],
+        "control": [
+            {
+                "rule": [
+                    {
+                        "col": {
+                            "span": 6
+                        },
+                        "type": "inputNumber",
+                        "field": "takeProfitRatio",
+                        "props": {
+                            "max": 10000,
+                            "min": 0.01,
+                            "step": 0.01,
+                            "precision": 2,
+                            "placeholder": "止盈收益率"
+                        },
+                        "style": {
+                            "width": "100%"
+                        },
+                        "title": "止盈收益率(%)",
+                        "value": 20,
+                        "validate": [
+                            {
+                                "required": true,
+                                "message": "请输入止盈收益率",
+                                "trigger": "blur",
+                                "type": "number"
+                            }
+                        ]
+                    },
+                    {
+                        "col": {
+                            "span": 6
+                        },
+                        "type": "inputNumber",
+                        "field": "takeProfitPrice",
+                        "props": {
+                            "max": 1000000000,
+                            "min": 0,
+                            "step": 0.01,
+                            "precision": 2,
+                            "placeholder": "触发止盈的目标价"
+                        },
+                        "style": {
+                            "width": "100%"
+                        },
+                        "title": "止盈价格(元)",
+                        "value": 0,
+                        "validate": [
+                            {
+                                "required": true,
+                                "message": "请输入止盈价格",
+                                "trigger": "blur",
+                                "type": "number"
+                            }
+                        ]
+                    }
+                ],
+                "value": 0
+            },
+            {
+                "rule": [
+                    {
+                        "col": {
+                            "span": 6
+                        },
+                        "type": "inputNumber",
+                        "field": "takeProfitRatio",
+                        "props": {
+                            "max": 10000,
+                            "min": 0.01,
+                            "step": 0.01,
+                            "precision": 2,
+                            "placeholder": "止盈收益率"
+                        },
+                        "style": {
+                            "width": "100%"
+                        },
+                        "title": "止盈收益率(%)",
+                        "value": 20,
+                        "validate": [
+                            {
+                                "required": true,
+                                "message": "请输入止盈收益率",
+                                "trigger": "blur",
+                                "type": "number"
+                            }
+                        ]
+                    }
+                ],
+                "value": 1
+            },
+            {
+                "rule": [
+                    {
+                        "col": {
+                            "span": 6
+                        },
+                        "type": "inputNumber",
+                        "field": "takeProfitPrice",
+                        "props": {
+                            "max": 1000000000,
+                            "min": 0,
+                            "step": 0.01,
+                            "precision": 2,
+                            "placeholder": "触发止盈的目标价"
+                        },
+                        "style": {
+                            "width": "100%"
+                        },
+                        "title": "止盈价格(元)",
+                        "value": 0,
+                        "validate": [
+                            {
+                                "required": true,
+                                "message": "请输入止盈价格",
+                                "trigger": "blur",
+                                "type": "number"
+                            }
+                        ]
+                    }
+                ],
+                "value": 2
+            }
+        ],
+        "options": [
+            {
+                "label": "不启用",
+                "value": -1
+            },
+            {
+                "label": "满足任意条件",
+                "value": 0
+            },
+            {
+                "label": "按收益率",
+                "value": 1
+            },
+            {
+                "label": "按目标价",
+                "value": 2
+            }
+        ]
+    },
+    {
+        "type": "div",
+        "style": {
+            "width": "100%"
+        }
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "select",
+        "field": "stopLossType",
+        "props": {
+            "placeholder": "请选择止损策略"
+        },
+        "style": {
+            "width": "100%"
+        },
+        "title": "止损策略",
+        "value": 0,
+        "validate": [
+            {
+                "required": true,
+                "message": "请选择止损策略",
+                "trigger": "change"
+            }
+        ],
+        "control": [
+            {
+                "rule": [
+                    {
+                        "col": {
+                            "span": 6
+                        },
+                        "type": "inputNumber",
+                        "field": "stopLossRatio",
+                        "props": {
+                            "max": 99.99,
+                            "min": 0.01,
+                            "step": 0.01,
+                            "precision": 2,
+                            "placeholder": "触发止损的亏损率"
+                        },
+                        "style": {
+                            "width": "100%"
+                        },
+                        "title": "止损亏损率(%)",
+                        "value": 10,
+                        "validate": [
+                            {
+                                "required": true,
+                                "message": "请输入止损亏损率",
+                                "trigger": "blur",
+                                "type": "number"
+                            }
+                        ]
+                    },
+                    {
+                        "col": {
+                            "span": 6
+                        },
+                        "type": "inputNumber",
+                        "field": "stopLossPrice",
+                        "props": {
+                            "max": 1000000000,
+                            "min": 0,
+                            "step": 0.01,
+                            "precision": 2,
+                            "placeholder": "触发止损的目标价"
+                        },
+                        "style": {
+                            "width": "100%"
+                        },
+                        "title": "止损价格(元)",
+                        "value": 0,
+                        "validate": [
+                            {
+                                "required": true,
+                                "message": "请输入止损价格",
+                                "trigger": "blur",
+                                "type": "number"
+                            }
+                        ]
+                    }
+                ],
+                "value": 0
+            },
+            {
+                "rule": [
+                    {
+                        "col": {
+                            "span": 6
+                        },
+                        "type": "inputNumber",
+                        "field": "stopLossRatio",
+                        "props": {
+                            "max": 99.99,
+                            "min": 0.01,
+                            "step": 0.01,
+                            "precision": 2,
+                            "placeholder": "触发止损的亏损率"
+                        },
+                        "style": {
+                            "width": "100%"
+                        },
+                        "title": "止损亏损率(%)",
+                        "value": 10,
+                        "validate": [
+                            {
+                                "required": true,
+                                "message": "请输入止损亏损率",
+                                "trigger": "blur",
+                                "type": "number"
+                            }
+                        ]
+                    }
+                ],
+                "value": 1
+            },
+            {
+                "rule": [
+                    {
+                        "col": {
+                            "span": 6
+                        },
+                        "type": "inputNumber",
+                        "field": "stopLossPrice",
+                        "props": {
+                            "max": 1000000000,
+                            "min": 0,
+                            "step": 0.01,
+                            "precision": 2,
+                            "placeholder": "触发止损的目标价"
+                        },
+                        "style": {
+                            "width": "100%"
+                        },
+                        "title": "止损价格(元)",
+                        "value": 0,
+                        "validate": [
+                            {
+                                "required": true,
+                                "message": "请输入止损价格",
+                                "trigger": "blur",
+                                "type": "number"
+                            }
+                        ]
+                    }
+                ],
+                "value": 2
+            }
+        ],
+        "options": [
+            {
+                "label": "不启用",
+                "value": -1
+            },
+            {
+                "label": "满足任意条件",
+                "value": 0
+            },
+            {
+                "label": "按亏损率",
+                "value": 1
+            },
+            {
+                "label": "按止损价",
+                "value": 2
+            }
+        ]
+    },
+    {
+        "type": "elDivider",
+        "props": {
+            "contentPosition": "center"
+        },
+        "children": [
+            "高级设置"
+        ]
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "switch",
+        "field": "ignoreTradingTime",
+        "title": "忽略交易时间限制",
+        "value": false,
+        "props": {
+            "activeText": "是",
+            "inactiveText": "否"
+        },
+        "info": {
+            "type": "tooltip",
+            "placement": "top",
+            "align": "right",
+            "info": "开启后将在非交易时间（如周末、休市）继续运行策略，仅用于测试或其他市场。"
+        }
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "switch",
+        "field": "enableRealTrade",
+        "title": "开启实盘交易",
+        "value": true,
+        "props": {
+            "inactiveText": "否",
+            "activeText": "是"
+        },
+        "info": {
+            "type": "tooltip",
+            "placement": "top",
+            "align": "right",
+            "info": "关闭时仅进行模拟撮合和日志记录，不发送真实交易指令；开启后将进行真实资金交易。"
+        }
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "inputNumber",
+        "field": "monitorInterval",
+        "title": "行情监控间隔 (秒)",
+        "value": 10,
+        "props": {
+            "min": 3,
+            "max": 7200,
+            "step": 1,
+            "controlsPosition": "right",
+            "placeholder": "行情监控间隔"
+        },
+        "style": {
+            "width": "100%"
+        },
+        "validate": [
+            {
+                "required": true,
+                "message": "请输入行情监控间隔",
+                "trigger": "blur",
+                "type": "integer"
+            }
+        ]
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "datePicker",
+        "field": "validityPeriod",
+        "title": "任务有效期",
+        "props": {
+            "type": "date",
+            "placeholder": "请选择截止日期",
+            "format": "YYYY年MM月DD日 [收盘前]",
+            "valueFormat": "YYYY-MM-DD",
+            "clearable": true
+        },
+        "style": {
+            "width": "100%"
+        },
+        "validate": [
+            {
+                "message": "请选择任务有效期",
+                "trigger": "change",
+                "required": false
+            }
+        ]
+    }
+]

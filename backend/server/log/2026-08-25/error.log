@@ -1,0 +1,818 @@
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 00:12:43.811	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 00:53:13.236	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 01:15:06.627	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 01:30:39.947	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 02:02:45.189	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 02:19:44.931	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 02:52:46.014	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 03:09:14.805	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 03:58:40.927	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 04:46:04.859	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 05:06:24.990	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 05:49:14.559	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 06:06:36.726	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 06:47:54.096	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 07:08:42.012	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 07:51:00.473	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 08:24:30.643	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 08:32:35.189	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 08:49:44.766	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 08:51:00.260	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 12:08:52.641	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 13:09:18.309	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 13:10:26.596	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 21:16:45.104	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39	Failed to connect to Meilisearch	{"node": "", "app_id": "", "env": "", "url": "http://119.29.82.70:7700", "error": "MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 21:16:45.235	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "INSERT INTO `sys_error` (`created_at`,`updated_at`,`deleted_at`,`form`,`info`,`level`,`request_id`,`trace_id`,`solution`,`status`) VALUES ('2026-08-25 21:16:45.151','2026-08-25 21:16:45.151',NULL,'后端','Failed to connect to Meilisearch | 错误: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused \n 源文件:/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39 \n 调用栈：github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14\nmain.initializeSystem\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:47\nmain.main\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:32\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:290 \n 最终调用方法:/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39 (InitializeMeilisearch lines 20-49)\n----- 产生日志的方法代码如下 -----\nfunc (s *MeilisearchService) InitializeMeilisearch() error {\n\tconfig := global.GVA_CONFIG.Meilisearch\n\t\n\t// 验证配置\n\tif config.Host == \"\" {\n\t\treturn fmt.Errorf(\"meilisearch host is empty\")\n\t}\n\tif config.Port < 1 || config.Port > 65535 {\n\t\treturn fmt.Errorf(\"meilisearch port is invalid: %d\", config.Port)\n\t}\n\n\t// 构建 Meilisearch URL\n\turl := fmt.Sprintf(\"http://%s:%d\", config.Host, config.Port)\n\t\n\t// 创建客户端\n\ts.client = meilisearch.New(url, meilisearch.WithAPIKey(config.APIKey))\n\t\n\t// 验证连接\n\tif _, err := s.client.ListIndexes(nil); err != nil {\n\t\tglobal.GVA_LOG.Error(\"Failed to connect to Meilisearch\", \n\t\t\tzap.String(\"url\", url),\n\t\t\tzap.Error(err))\n\t\treturn fmt.Errorf(\"failed to connect to meilisearch: %w\", err)\n\t}\n\t\n\tglobal.GVA_LOG.Info(\"Meilisearch client initialized successfully\", \n\t\tzap.String(\"url\", url))\n\t\n\treturn nil\n}','error','','',NULL,'未处理')", "rows": 0, "elapsed_ms": 128, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "Error 1054 (42S22): Unknown column 'request_id' in 'field list'", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Create\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:26\ngithub.com/flipped-aurora/gin-vue-admin/server/service/system.(*SysErrorService).CreateSysError\n\t/Users/a1/data/go/gin-vue-admin/server/service/system/sys_error.go:20\ngithub.com/flipped-aurora/gin-vue-admin/server/core/internal.(*ZapCore).Write\n\t/Users/a1/data/go/gin-vue-admin/server/core/internal/zap_core.go:180\ngo.uber.org/zap/zapcore.(*CheckedEntry).Write\n\t/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/zapcore/entry.go:253\ngo.uber.org/zap.(*Logger).Error\n\t/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/logger.go:263\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14\nmain.initializeSystem\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:47\nmain.main\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:32\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:290"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Create
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:26
+github.com/flipped-aurora/gin-vue-admin/server/service/system.(*SysErrorService).CreateSysError
+	/Users/a1/data/go/gin-vue-admin/server/service/system/sys_error.go:20
+github.com/flipped-aurora/gin-vue-admin/server/core/internal.(*ZapCore).Write
+	/Users/a1/data/go/gin-vue-admin/server/core/internal/zap_core.go:180
+go.uber.org/zap/zapcore.(*CheckedEntry).Write
+	/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/zapcore/entry.go:253
+go.uber.org/zap.(*Logger).Error
+	/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/logger.go:263
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 21:16:45.236	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15	Failed to initialize Meilisearch	{"node": "", "app_id": "", "env": "", "error": "failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 21:16:45.362	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "INSERT INTO `sys_error` (`created_at`,`updated_at`,`deleted_at`,`form`,`info`,`level`,`request_id`,`trace_id`,`solution`,`status`) VALUES ('2026-08-25 21:16:45.278','2026-08-25 21:16:45.278',NULL,'后端','Failed to initialize Meilisearch | 错误: failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused \n 源文件:/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15 \n 调用栈：github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15\nmain.initializeSystem\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:47\nmain.main\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:32\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:290 \n 最终调用方法:/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15 (InitMeilisearch lines 10-31)\n----- 产生日志的方法代码如下 -----\nfunc InitMeilisearch() {\n\tmeilisearchService := &quant.MeilisearchService{}\n\t\n\t// 初始化客户端\n\tif err := meilisearchService.InitializeMeilisearch(); err != nil {\n\t\tglobal.GVA_LOG.Error(\"Failed to initialize Meilisearch\", zap.Error(err))\n\t\t// 不阻塞系统启动，仅记录错误\n\t\treturn\n\t}\n\t\n\t// 创建新闻索引\n\tif err := meilisearchService.CreateNewsIndex(); err != nil {\n\t\tglobal.GVA_LOG.Error(\"Failed to create news index\", zap.Error(err))\n\t\t// 不阻塞系统启动，仅记录错误\n\t\treturn\n\t}\n\t\n\t// 将服务实例保存到全局变量\n\tglobal.GVA_MEILISEARCH = meilisearchService\n\t\n\tglobal.GVA_LOG.Info(\"Meilisearch initialized successfully\")\n}','error','','',NULL,'未处理')", "rows": 0, "elapsed_ms": 125, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "Error 1054 (42S22): Unknown column 'request_id' in 'field list'", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Create\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:26\ngithub.com/flipped-aurora/gin-vue-admin/server/service/system.(*SysErrorService).CreateSysError\n\t/Users/a1/data/go/gin-vue-admin/server/service/system/sys_error.go:20\ngithub.com/flipped-aurora/gin-vue-admin/server/core/internal.(*ZapCore).Write\n\t/Users/a1/data/go/gin-vue-admin/server/core/internal/zap_core.go:180\ngo.uber.org/zap/zapcore.(*CheckedEntry).Write\n\t/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/zapcore/entry.go:253\ngo.uber.org/zap.(*Logger).Error\n\t/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/logger.go:263\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15\nmain.initializeSystem\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:47\nmain.main\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:32\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:290"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Create
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:26
+github.com/flipped-aurora/gin-vue-admin/server/service/system.(*SysErrorService).CreateSysError
+	/Users/a1/data/go/gin-vue-admin/server/service/system/sys_error.go:20
+github.com/flipped-aurora/gin-vue-admin/server/core/internal.(*ZapCore).Write
+	/Users/a1/data/go/gin-vue-admin/server/core/internal/zap_core.go:180
+go.uber.org/zap/zapcore.(*CheckedEntry).Write
+	/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/zapcore/entry.go:253
+go.uber.org/zap.(*Logger).Error
+	/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/logger.go:263
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 21:16:56.561	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "ALTER TABLE `sys_auto_code_histories` ADD `injections` text COMMENT '注入路径'", "rows": 0, "elapsed_ms": 44, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "Error 1060 (42S21): Duplicate column name 'injections'", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Exec\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:779\ngorm.io/driver/mysql.(*Migrator).AddColumn.Migrator.AddColumn.func1\n\t/Users/a1/go/pkg/mod/gorm.io/driver/mysql@v1.6.0/migrator.go:140\ngorm.io/gorm/migrator.Migrator.RunWithValue\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/migrator/migrator.go:74\ngorm.io/driver/mysql.Migrator.AddColumn\n\t/Users/a1/go/pkg/mod/gorm.io/driver/mysql@v1.6.0/migrator.go:123\ngorm.io/gorm/migrator.Migrator.AutoMigrate.func1\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/migrator/migrator.go:155\ngorm.io/gorm/migrator.Migrator.RunWithValue\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/migrator/migrator.go:74\ngorm.io/gorm/migrator.Migrator.AutoMigrate\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/migrator/migrator.go:129\ngorm.io/gorm.(*DB).AutoMigrate\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/migrator.go:24\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.RegisterTables\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:46\nmain.initializeSystem\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:51\nmain.main\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:32\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:290"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Exec
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:779
+gorm.io/driver/mysql.(*Migrator).AddColumn.Migrator.AddColumn.func1
+	/Users/a1/go/pkg/mod/gorm.io/driver/mysql@v1.6.0/migrator.go:140
+gorm.io/gorm/migrator.Migrator.RunWithValue
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/migrator/migrator.go:74
+gorm.io/driver/mysql.Migrator.AddColumn
+	/Users/a1/go/pkg/mod/gorm.io/driver/mysql@v1.6.0/migrator.go:123
+gorm.io/gorm/migrator.Migrator.AutoMigrate.func1
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/migrator/migrator.go:155
+gorm.io/gorm/migrator.Migrator.RunWithValue
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/migrator/migrator.go:74
+gorm.io/gorm/migrator.Migrator.AutoMigrate
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/migrator/migrator.go:129
+gorm.io/gorm.(*DB).AutoMigrate
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/migrator.go:24
+github.com/flipped-aurora/gin-vue-admin/server/initialize.RegisterTables
+	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:46
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:51
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 21:16:56.561	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:85	register table failed	{"node": "", "app_id": "", "env": "", "mod": "system", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "Error 1060 (42S21): Duplicate column name 'injections'", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.RegisterTables\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:85\nmain.initializeSystem\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:51\nmain.main\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:32\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:290"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.RegisterTables
+	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:85
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:51
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 21:16:56.694	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "INSERT INTO `sys_error` (`created_at`,`updated_at`,`deleted_at`,`form`,`info`,`level`,`request_id`,`trace_id`,`solution`,`status`) VALUES ('2026-08-25 21:16:56.603','2026-08-25 21:16:56.603',NULL,'后端','register table failed \n 源文件:/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:85 \n 调用栈：github.com/flipped-aurora/gin-vue-admin/server/initialize.RegisterTables\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:85\nmain.initializeSystem\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:51\nmain.main\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:32\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:290 \n 最终调用方法:/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:85 (RegisterTables lines 38-97)\n----- 产生日志的方法代码如下 -----\nfunc RegisterTables() {\n\tif global.GVA_CONFIG.System.DisableAutoMigrate {\n\t\tlogger.Bg().Mod(\"system\").Info(\"auto-migrate is disabled, skipping table registration\")\n\t\tensureLogViewerMetadata()\n\t\treturn\n\t}\n\n\tdb := global.GVA_DB\n\terr := db.AutoMigrate(\n\n\t\tsystem.SysApi{},\n\t\tsystem.SysIgnoreApi{},\n\t\tsystem.SysUser{},\n\t\tsystem.SysBaseMenu{},\n\t\tsystem.JwtBlacklist{},\n\t\tsystem.SysAuthority{},\n\t\tsystem.SysDepartment{},\n\t\tsystem.SysPosition{},\n\t\tsystem.SysDataAccessLog{},\n\t\tsystem.SysAuthorityDepartment{},\n\t\tsystem.SysDictionary{},\n\t\tsystem.SysOperationRecord{},\n\t\tsystem.SysAutoCodeHistory{},\n\t\tsystem.SysDictionaryDetail{},\n\t\tsystem.SysBaseMenuParameter{},\n\t\tsystem.SysBaseMenuBtn{},\n\t\tsystem.SysAuthorityBtn{},\n\t\tsystem.SysAutoCodePackage{},\n\t\tsystem.SysExportTemplate{},\n\t\tsystem.Condition{},\n\t\tsystem.JoinTemplate{},\n\t\tsystem.SysParams{},\n\t\tsystem.SysSecurityConfig{},\n\t\tsystem.SysVersion{},\n\t\tsystem.SysError{},\n\t\tsystem.SysApiToken{},\n\t\tsystem.SysLoginLog{},\n\t\tsystem.SysTimedTask{},\n\t\tsystem.SysTimedTaskLog{},\n\n\t\texample.ExaCustomer{},\n\t\tmedia.MediaUpload{},\n\t\tmedia.MediaUploadChunk{},\n\t\tmedia.FileUploadAndDownload{},\n\t\tmedia.AttachmentCategory{},\n\t)\n\tif err != nil {\n\t\tlogger.Bg().Mod(\"system\").Err(err).Error(\"register table failed\")\n\t\tos.Exit(1)\n\t}\n\n\terr = bizModel()\n\n\tif err != nil {\n\t\tlogger.Bg().Mod(\"system\").Err(err).Error(\"register biz_table failed\")\n\t\tos.Exit(1)\n\t}\n\tensureLogViewerMetadata()\n\tlogger.Bg().Mod(\"system\").Info(\"register table success\")\n}','error','','',NULL,'未处理')", "rows": 0, "elapsed_ms": 131, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "Error 1054 (42S22): Unknown column 'request_id' in 'field list'", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Create\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:26\ngithub.com/flipped-aurora/gin-vue-admin/server/service/system.(*SysErrorService).CreateSysError\n\t/Users/a1/data/go/gin-vue-admin/server/service/system/sys_error.go:20\ngithub.com/flipped-aurora/gin-vue-admin/server/core/internal.(*ZapCore).Write\n\t/Users/a1/data/go/gin-vue-admin/server/core/internal/zap_core.go:180\ngo.uber.org/zap/zapcore.(*CheckedEntry).Write\n\t/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/zapcore/entry.go:253\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.RegisterTables\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:85\nmain.initializeSystem\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:51\nmain.main\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:32\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:290"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Create
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:26
+github.com/flipped-aurora/gin-vue-admin/server/service/system.(*SysErrorService).CreateSysError
+	/Users/a1/data/go/gin-vue-admin/server/service/system/sys_error.go:20
+github.com/flipped-aurora/gin-vue-admin/server/core/internal.(*ZapCore).Write
+	/Users/a1/data/go/gin-vue-admin/server/core/internal/zap_core.go:180
+go.uber.org/zap/zapcore.(*CheckedEntry).Write
+	/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/zapcore/entry.go:253
+github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log
+	/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75
+github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error
+	/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81
+github.com/flipped-aurora/gin-vue-admin/server/initialize.RegisterTables
+	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:85
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:51
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 21:20:00.998	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39	Failed to connect to Meilisearch	{"node": "", "app_id": "", "env": "", "url": "http://119.29.82.70:7700", "error": "MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 21:20:01.127	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "INSERT INTO `sys_error` (`created_at`,`updated_at`,`deleted_at`,`form`,`info`,`level`,`request_id`,`trace_id`,`solution`,`status`) VALUES ('2026-08-25 21:20:01.042','2026-08-25 21:20:01.042',NULL,'后端','Failed to connect to Meilisearch | 错误: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused \n 源文件:/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39 \n 调用栈：github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14\nmain.initializeSystem\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:47\nmain.main\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:32\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:290 \n 最终调用方法:/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39 (InitializeMeilisearch lines 20-49)\n----- 产生日志的方法代码如下 -----\nfunc (s *MeilisearchService) InitializeMeilisearch() error {\n\tconfig := global.GVA_CONFIG.Meilisearch\n\t\n\t// 验证配置\n\tif config.Host == \"\" {\n\t\treturn fmt.Errorf(\"meilisearch host is empty\")\n\t}\n\tif config.Port < 1 || config.Port > 65535 {\n\t\treturn fmt.Errorf(\"meilisearch port is invalid: %d\", config.Port)\n\t}\n\n\t// 构建 Meilisearch URL\n\turl := fmt.Sprintf(\"http://%s:%d\", config.Host, config.Port)\n\t\n\t// 创建客户端\n\ts.client = meilisearch.New(url, meilisearch.WithAPIKey(config.APIKey))\n\t\n\t// 验证连接\n\tif _, err := s.client.ListIndexes(nil); err != nil {\n\t\tglobal.GVA_LOG.Error(\"Failed to connect to Meilisearch\", \n\t\t\tzap.String(\"url\", url),\n\t\t\tzap.Error(err))\n\t\treturn fmt.Errorf(\"failed to connect to meilisearch: %w\", err)\n\t}\n\t\n\tglobal.GVA_LOG.Info(\"Meilisearch client initialized successfully\", \n\t\tzap.String(\"url\", url))\n\t\n\treturn nil\n}','error','','',NULL,'未处理')", "rows": 0, "elapsed_ms": 127, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "Error 1054 (42S22): Unknown column 'request_id' in 'field list'", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Create\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:26\ngithub.com/flipped-aurora/gin-vue-admin/server/service/system.(*SysErrorService).CreateSysError\n\t/Users/a1/data/go/gin-vue-admin/server/service/system/sys_error.go:20\ngithub.com/flipped-aurora/gin-vue-admin/server/core/internal.(*ZapCore).Write\n\t/Users/a1/data/go/gin-vue-admin/server/core/internal/zap_core.go:180\ngo.uber.org/zap/zapcore.(*CheckedEntry).Write\n\t/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/zapcore/entry.go:253\ngo.uber.org/zap.(*Logger).Error\n\t/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/logger.go:263\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14\nmain.initializeSystem\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:47\nmain.main\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:32\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:290"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Create
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:26
+github.com/flipped-aurora/gin-vue-admin/server/service/system.(*SysErrorService).CreateSysError
+	/Users/a1/data/go/gin-vue-admin/server/service/system/sys_error.go:20
+github.com/flipped-aurora/gin-vue-admin/server/core/internal.(*ZapCore).Write
+	/Users/a1/data/go/gin-vue-admin/server/core/internal/zap_core.go:180
+go.uber.org/zap/zapcore.(*CheckedEntry).Write
+	/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/zapcore/entry.go:253
+go.uber.org/zap.(*Logger).Error
+	/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/logger.go:263
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 21:20:01.129	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15	Failed to initialize Meilisearch	{"node": "", "app_id": "", "env": "", "error": "failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 21:20:01.255	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "INSERT INTO `sys_error` (`created_at`,`updated_at`,`deleted_at`,`form`,`info`,`level`,`request_id`,`trace_id`,`solution`,`status`) VALUES ('2026-08-25 21:20:01.172','2026-08-25 21:20:01.172',NULL,'后端','Failed to initialize Meilisearch | 错误: failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused \n 源文件:/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15 \n 调用栈：github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15\nmain.initializeSystem\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:47\nmain.main\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:32\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:290 \n 最终调用方法:/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15 (InitMeilisearch lines 10-31)\n----- 产生日志的方法代码如下 -----\nfunc InitMeilisearch() {\n\tmeilisearchService := &quant.MeilisearchService{}\n\t\n\t// 初始化客户端\n\tif err := meilisearchService.InitializeMeilisearch(); err != nil {\n\t\tglobal.GVA_LOG.Error(\"Failed to initialize Meilisearch\", zap.Error(err))\n\t\t// 不阻塞系统启动，仅记录错误\n\t\treturn\n\t}\n\t\n\t// 创建新闻索引\n\tif err := meilisearchService.CreateNewsIndex(); err != nil {\n\t\tglobal.GVA_LOG.Error(\"Failed to create news index\", zap.Error(err))\n\t\t// 不阻塞系统启动，仅记录错误\n\t\treturn\n\t}\n\t\n\t// 将服务实例保存到全局变量\n\tglobal.GVA_MEILISEARCH = meilisearchService\n\t\n\tglobal.GVA_LOG.Info(\"Meilisearch initialized successfully\")\n}','error','','',NULL,'未处理')", "rows": 0, "elapsed_ms": 124, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "Error 1054 (42S22): Unknown column 'request_id' in 'field list'", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Create\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:26\ngithub.com/flipped-aurora/gin-vue-admin/server/service/system.(*SysErrorService).CreateSysError\n\t/Users/a1/data/go/gin-vue-admin/server/service/system/sys_error.go:20\ngithub.com/flipped-aurora/gin-vue-admin/server/core/internal.(*ZapCore).Write\n\t/Users/a1/data/go/gin-vue-admin/server/core/internal/zap_core.go:180\ngo.uber.org/zap/zapcore.(*CheckedEntry).Write\n\t/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/zapcore/entry.go:253\ngo.uber.org/zap.(*Logger).Error\n\t/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/logger.go:263\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15\nmain.initializeSystem\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:47\nmain.main\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:32\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:290"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Create
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:26
+github.com/flipped-aurora/gin-vue-admin/server/service/system.(*SysErrorService).CreateSysError
+	/Users/a1/data/go/gin-vue-admin/server/service/system/sys_error.go:20
+github.com/flipped-aurora/gin-vue-admin/server/core/internal.(*ZapCore).Write
+	/Users/a1/data/go/gin-vue-admin/server/core/internal/zap_core.go:180
+go.uber.org/zap/zapcore.(*CheckedEntry).Write
+	/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/zapcore/entry.go:253
+go.uber.org/zap.(*Logger).Error
+	/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/logger.go:263
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 21:20:13.891	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "ALTER TABLE `sys_auto_code_histories` ADD `injections` text COMMENT '注入路径'", "rows": 0, "elapsed_ms": 40, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "Error 1060 (42S21): Duplicate column name 'injections'", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Exec\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:779\ngorm.io/driver/mysql.(*Migrator).AddColumn.Migrator.AddColumn.func1\n\t/Users/a1/go/pkg/mod/gorm.io/driver/mysql@v1.6.0/migrator.go:140\ngorm.io/gorm/migrator.Migrator.RunWithValue\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/migrator/migrator.go:74\ngorm.io/driver/mysql.Migrator.AddColumn\n\t/Users/a1/go/pkg/mod/gorm.io/driver/mysql@v1.6.0/migrator.go:123\ngorm.io/gorm/migrator.Migrator.AutoMigrate.func1\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/migrator/migrator.go:155\ngorm.io/gorm/migrator.Migrator.RunWithValue\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/migrator/migrator.go:74\ngorm.io/gorm/migrator.Migrator.AutoMigrate\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/migrator/migrator.go:129\ngorm.io/gorm.(*DB).AutoMigrate\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/migrator.go:24\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.RegisterTables\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:46\nmain.initializeSystem\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:51\nmain.main\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:32\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:290"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Exec
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:779
+gorm.io/driver/mysql.(*Migrator).AddColumn.Migrator.AddColumn.func1
+	/Users/a1/go/pkg/mod/gorm.io/driver/mysql@v1.6.0/migrator.go:140
+gorm.io/gorm/migrator.Migrator.RunWithValue
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/migrator/migrator.go:74
+gorm.io/driver/mysql.Migrator.AddColumn
+	/Users/a1/go/pkg/mod/gorm.io/driver/mysql@v1.6.0/migrator.go:123
+gorm.io/gorm/migrator.Migrator.AutoMigrate.func1
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/migrator/migrator.go:155
+gorm.io/gorm/migrator.Migrator.RunWithValue
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/migrator/migrator.go:74
+gorm.io/gorm/migrator.Migrator.AutoMigrate
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/migrator/migrator.go:129
+gorm.io/gorm.(*DB).AutoMigrate
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/migrator.go:24
+github.com/flipped-aurora/gin-vue-admin/server/initialize.RegisterTables
+	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:46
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:51
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 21:20:13.892	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:85	register table failed	{"node": "", "app_id": "", "env": "", "mod": "system", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "Error 1060 (42S21): Duplicate column name 'injections'", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.RegisterTables\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:85\nmain.initializeSystem\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:51\nmain.main\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:32\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:290"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.RegisterTables
+	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:85
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:51
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 21:20:14.015	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "INSERT INTO `sys_error` (`created_at`,`updated_at`,`deleted_at`,`form`,`info`,`level`,`request_id`,`trace_id`,`solution`,`status`) VALUES ('2026-08-25 21:20:13.935','2026-08-25 21:20:13.935',NULL,'后端','register table failed \n 源文件:/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:85 \n 调用栈：github.com/flipped-aurora/gin-vue-admin/server/initialize.RegisterTables\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:85\nmain.initializeSystem\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:51\nmain.main\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:32\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:290 \n 最终调用方法:/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:85 (RegisterTables lines 38-97)\n----- 产生日志的方法代码如下 -----\nfunc RegisterTables() {\n\tif global.GVA_CONFIG.System.DisableAutoMigrate {\n\t\tlogger.Bg().Mod(\"system\").Info(\"auto-migrate is disabled, skipping table registration\")\n\t\tensureLogViewerMetadata()\n\t\treturn\n\t}\n\n\tdb := global.GVA_DB\n\terr := db.AutoMigrate(\n\n\t\tsystem.SysApi{},\n\t\tsystem.SysIgnoreApi{},\n\t\tsystem.SysUser{},\n\t\tsystem.SysBaseMenu{},\n\t\tsystem.JwtBlacklist{},\n\t\tsystem.SysAuthority{},\n\t\tsystem.SysDepartment{},\n\t\tsystem.SysPosition{},\n\t\tsystem.SysDataAccessLog{},\n\t\tsystem.SysAuthorityDepartment{},\n\t\tsystem.SysDictionary{},\n\t\tsystem.SysOperationRecord{},\n\t\tsystem.SysAutoCodeHistory{},\n\t\tsystem.SysDictionaryDetail{},\n\t\tsystem.SysBaseMenuParameter{},\n\t\tsystem.SysBaseMenuBtn{},\n\t\tsystem.SysAuthorityBtn{},\n\t\tsystem.SysAutoCodePackage{},\n\t\tsystem.SysExportTemplate{},\n\t\tsystem.Condition{},\n\t\tsystem.JoinTemplate{},\n\t\tsystem.SysParams{},\n\t\tsystem.SysSecurityConfig{},\n\t\tsystem.SysVersion{},\n\t\tsystem.SysError{},\n\t\tsystem.SysApiToken{},\n\t\tsystem.SysLoginLog{},\n\t\tsystem.SysTimedTask{},\n\t\tsystem.SysTimedTaskLog{},\n\n\t\texample.ExaCustomer{},\n\t\tmedia.MediaUpload{},\n\t\tmedia.MediaUploadChunk{},\n\t\tmedia.FileUploadAndDownload{},\n\t\tmedia.AttachmentCategory{},\n\t)\n\tif err != nil {\n\t\tlogger.Bg().Mod(\"system\").Err(err).Error(\"register table failed\")\n\t\tos.Exit(1)\n\t}\n\n\terr = bizModel()\n\n\tif err != nil {\n\t\tlogger.Bg().Mod(\"system\").Err(err).Error(\"register biz_table failed\")\n\t\tos.Exit(1)\n\t}\n\tensureLogViewerMetadata()\n\tlogger.Bg().Mod(\"system\").Info(\"register table success\")\n}','error','','',NULL,'未处理')", "rows": 0, "elapsed_ms": 122, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "Error 1054 (42S22): Unknown column 'request_id' in 'field list'", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Create\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:26\ngithub.com/flipped-aurora/gin-vue-admin/server/service/system.(*SysErrorService).CreateSysError\n\t/Users/a1/data/go/gin-vue-admin/server/service/system/sys_error.go:20\ngithub.com/flipped-aurora/gin-vue-admin/server/core/internal.(*ZapCore).Write\n\t/Users/a1/data/go/gin-vue-admin/server/core/internal/zap_core.go:180\ngo.uber.org/zap/zapcore.(*CheckedEntry).Write\n\t/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/zapcore/entry.go:253\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.RegisterTables\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:85\nmain.initializeSystem\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:51\nmain.main\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:32\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:290"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Create
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:26
+github.com/flipped-aurora/gin-vue-admin/server/service/system.(*SysErrorService).CreateSysError
+	/Users/a1/data/go/gin-vue-admin/server/service/system/sys_error.go:20
+github.com/flipped-aurora/gin-vue-admin/server/core/internal.(*ZapCore).Write
+	/Users/a1/data/go/gin-vue-admin/server/core/internal/zap_core.go:180
+go.uber.org/zap/zapcore.(*CheckedEntry).Write
+	/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/zapcore/entry.go:253
+github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log
+	/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75
+github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error
+	/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81
+github.com/flipped-aurora/gin-vue-admin/server/initialize.RegisterTables
+	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:85
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:51
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 21:50:53.935	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39	Failed to connect to Meilisearch	{"node": "", "app_id": "", "env": "", "url": "http://119.29.82.70:7700", "error": "MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 21:50:54.086	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "INSERT INTO `sys_error` (`created_at`,`updated_at`,`deleted_at`,`form`,`info`,`level`,`request_id`,`trace_id`,`solution`,`status`) VALUES ('2026-08-25 21:50:53.992','2026-08-25 21:50:53.992',NULL,'后端','Failed to connect to Meilisearch | 错误: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused \n 源文件:/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39 \n 调用栈：github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14\nmain.initializeSystem\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:47\nmain.main\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:32\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:290 \n 最终调用方法:/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39 (InitializeMeilisearch lines 20-49)\n----- 产生日志的方法代码如下 -----\nfunc (s *MeilisearchService) InitializeMeilisearch() error {\n\tconfig := global.GVA_CONFIG.Meilisearch\n\t\n\t// 验证配置\n\tif config.Host == \"\" {\n\t\treturn fmt.Errorf(\"meilisearch host is empty\")\n\t}\n\tif config.Port < 1 || config.Port > 65535 {\n\t\treturn fmt.Errorf(\"meilisearch port is invalid: %d\", config.Port)\n\t}\n\n\t// 构建 Meilisearch URL\n\turl := fmt.Sprintf(\"http://%s:%d\", config.Host, config.Port)\n\t\n\t// 创建客户端\n\ts.client = meilisearch.New(url, meilisearch.WithAPIKey(config.APIKey))\n\t\n\t// 验证连接\n\tif _, err := s.client.ListIndexes(nil); err != nil {\n\t\tglobal.GVA_LOG.Error(\"Failed to connect to Meilisearch\", \n\t\t\tzap.String(\"url\", url),\n\t\t\tzap.Error(err))\n\t\treturn fmt.Errorf(\"failed to connect to meilisearch: %w\", err)\n\t}\n\t\n\tglobal.GVA_LOG.Info(\"Meilisearch client initialized successfully\", \n\t\tzap.String(\"url\", url))\n\t\n\treturn nil\n}','error','','',NULL,'未处理')", "rows": 0, "elapsed_ms": 146, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "Error 1054 (42S22): Unknown column 'request_id' in 'field list'", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Create\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:26\ngithub.com/flipped-aurora/gin-vue-admin/server/service/system.(*SysErrorService).CreateSysError\n\t/Users/a1/data/go/gin-vue-admin/server/service/system/sys_error.go:20\ngithub.com/flipped-aurora/gin-vue-admin/server/core/internal.(*ZapCore).Write\n\t/Users/a1/data/go/gin-vue-admin/server/core/internal/zap_core.go:180\ngo.uber.org/zap/zapcore.(*CheckedEntry).Write\n\t/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/zapcore/entry.go:253\ngo.uber.org/zap.(*Logger).Error\n\t/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/logger.go:263\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14\nmain.initializeSystem\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:47\nmain.main\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:32\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:290"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Create
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:26
+github.com/flipped-aurora/gin-vue-admin/server/service/system.(*SysErrorService).CreateSysError
+	/Users/a1/data/go/gin-vue-admin/server/service/system/sys_error.go:20
+github.com/flipped-aurora/gin-vue-admin/server/core/internal.(*ZapCore).Write
+	/Users/a1/data/go/gin-vue-admin/server/core/internal/zap_core.go:180
+go.uber.org/zap/zapcore.(*CheckedEntry).Write
+	/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/zapcore/entry.go:253
+go.uber.org/zap.(*Logger).Error
+	/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/logger.go:263
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 21:50:54.110	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15	Failed to initialize Meilisearch	{"node": "", "app_id": "", "env": "", "error": "failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 21:50:54.250	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "INSERT INTO `sys_error` (`created_at`,`updated_at`,`deleted_at`,`form`,`info`,`level`,`request_id`,`trace_id`,`solution`,`status`) VALUES ('2026-08-25 21:50:54.158','2026-08-25 21:50:54.158',NULL,'后端','Failed to initialize Meilisearch | 错误: failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused \n 源文件:/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15 \n 调用栈：github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15\nmain.initializeSystem\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:47\nmain.main\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:32\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:290 \n 最终调用方法:/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15 (InitMeilisearch lines 10-31)\n----- 产生日志的方法代码如下 -----\nfunc InitMeilisearch() {\n\tmeilisearchService := &quant.MeilisearchService{}\n\t\n\t// 初始化客户端\n\tif err := meilisearchService.InitializeMeilisearch(); err != nil {\n\t\tglobal.GVA_LOG.Error(\"Failed to initialize Meilisearch\", zap.Error(err))\n\t\t// 不阻塞系统启动，仅记录错误\n\t\treturn\n\t}\n\t\n\t// 创建新闻索引\n\tif err := meilisearchService.CreateNewsIndex(); err != nil {\n\t\tglobal.GVA_LOG.Error(\"Failed to create news index\", zap.Error(err))\n\t\t// 不阻塞系统启动，仅记录错误\n\t\treturn\n\t}\n\t\n\t// 将服务实例保存到全局变量\n\tglobal.GVA_MEILISEARCH = meilisearchService\n\t\n\tglobal.GVA_LOG.Info(\"Meilisearch initialized successfully\")\n}','error','','',NULL,'未处理')", "rows": 0, "elapsed_ms": 139, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "Error 1054 (42S22): Unknown column 'request_id' in 'field list'", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Create\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:26\ngithub.com/flipped-aurora/gin-vue-admin/server/service/system.(*SysErrorService).CreateSysError\n\t/Users/a1/data/go/gin-vue-admin/server/service/system/sys_error.go:20\ngithub.com/flipped-aurora/gin-vue-admin/server/core/internal.(*ZapCore).Write\n\t/Users/a1/data/go/gin-vue-admin/server/core/internal/zap_core.go:180\ngo.uber.org/zap/zapcore.(*CheckedEntry).Write\n\t/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/zapcore/entry.go:253\ngo.uber.org/zap.(*Logger).Error\n\t/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/logger.go:263\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15\nmain.initializeSystem\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:47\nmain.main\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:32\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:290"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Create
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:26
+github.com/flipped-aurora/gin-vue-admin/server/service/system.(*SysErrorService).CreateSysError
+	/Users/a1/data/go/gin-vue-admin/server/service/system/sys_error.go:20
+github.com/flipped-aurora/gin-vue-admin/server/core/internal.(*ZapCore).Write
+	/Users/a1/data/go/gin-vue-admin/server/core/internal/zap_core.go:180
+go.uber.org/zap/zapcore.(*CheckedEntry).Write
+	/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/zapcore/entry.go:253
+go.uber.org/zap.(*Logger).Error
+	/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/logger.go:263
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 21:50:55.650	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39	Failed to connect to Meilisearch	{"node": "", "app_id": "", "env": "", "url": "http://119.29.82.70:7700", "error": "MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 21:50:55.776	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "INSERT INTO `sys_error` (`created_at`,`updated_at`,`deleted_at`,`form`,`info`,`level`,`request_id`,`trace_id`,`solution`,`status`) VALUES ('2026-08-25 21:50:55.695','2026-08-25 21:50:55.695',NULL,'后端','Failed to connect to Meilisearch | 错误: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused \n 源文件:/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39 \n 调用栈：github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14\nmain.initializeSystem\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:47\nmain.main\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:32\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:290 \n 最终调用方法:/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39 (InitializeMeilisearch lines 20-49)\n----- 产生日志的方法代码如下 -----\nfunc (s *MeilisearchService) InitializeMeilisearch() error {\n\tconfig := global.GVA_CONFIG.Meilisearch\n\t\n\t// 验证配置\n\tif config.Host == \"\" {\n\t\treturn fmt.Errorf(\"meilisearch host is empty\")\n\t}\n\tif config.Port < 1 || config.Port > 65535 {\n\t\treturn fmt.Errorf(\"meilisearch port is invalid: %d\", config.Port)\n\t}\n\n\t// 构建 Meilisearch URL\n\turl := fmt.Sprintf(\"http://%s:%d\", config.Host, config.Port)\n\t\n\t// 创建客户端\n\ts.client = meilisearch.New(url, meilisearch.WithAPIKey(config.APIKey))\n\t\n\t// 验证连接\n\tif _, err := s.client.ListIndexes(nil); err != nil {\n\t\tglobal.GVA_LOG.Error(\"Failed to connect to Meilisearch\", \n\t\t\tzap.String(\"url\", url),\n\t\t\tzap.Error(err))\n\t\treturn fmt.Errorf(\"failed to connect to meilisearch: %w\", err)\n\t}\n\t\n\tglobal.GVA_LOG.Info(\"Meilisearch client initialized successfully\", \n\t\tzap.String(\"url\", url))\n\t\n\treturn nil\n}','error','','',NULL,'未处理')", "rows": 0, "elapsed_ms": 124, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "Error 1054 (42S22): Unknown column 'request_id' in 'field list'", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Create\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:26\ngithub.com/flipped-aurora/gin-vue-admin/server/service/system.(*SysErrorService).CreateSysError\n\t/Users/a1/data/go/gin-vue-admin/server/service/system/sys_error.go:20\ngithub.com/flipped-aurora/gin-vue-admin/server/core/internal.(*ZapCore).Write\n\t/Users/a1/data/go/gin-vue-admin/server/core/internal/zap_core.go:180\ngo.uber.org/zap/zapcore.(*CheckedEntry).Write\n\t/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/zapcore/entry.go:253\ngo.uber.org/zap.(*Logger).Error\n\t/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/logger.go:263\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14\nmain.initializeSystem\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:47\nmain.main\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:32\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:290"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Create
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:26
+github.com/flipped-aurora/gin-vue-admin/server/service/system.(*SysErrorService).CreateSysError
+	/Users/a1/data/go/gin-vue-admin/server/service/system/sys_error.go:20
+github.com/flipped-aurora/gin-vue-admin/server/core/internal.(*ZapCore).Write
+	/Users/a1/data/go/gin-vue-admin/server/core/internal/zap_core.go:180
+go.uber.org/zap/zapcore.(*CheckedEntry).Write
+	/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/zapcore/entry.go:253
+go.uber.org/zap.(*Logger).Error
+	/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/logger.go:263
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 21:50:55.810	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15	Failed to initialize Meilisearch	{"node": "", "app_id": "", "env": "", "error": "failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 21:50:55.935	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "INSERT INTO `sys_error` (`created_at`,`updated_at`,`deleted_at`,`form`,`info`,`level`,`request_id`,`trace_id`,`solution`,`status`) VALUES ('2026-08-25 21:50:55.852','2026-08-25 21:50:55.852',NULL,'后端','Failed to initialize Meilisearch | 错误: failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused \n 源文件:/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15 \n 调用栈：github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15\nmain.initializeSystem\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:47\nmain.main\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:32\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:290 \n 最终调用方法:/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15 (InitMeilisearch lines 10-31)\n----- 产生日志的方法代码如下 -----\nfunc InitMeilisearch() {\n\tmeilisearchService := &quant.MeilisearchService{}\n\t\n\t// 初始化客户端\n\tif err := meilisearchService.InitializeMeilisearch(); err != nil {\n\t\tglobal.GVA_LOG.Error(\"Failed to initialize Meilisearch\", zap.Error(err))\n\t\t// 不阻塞系统启动，仅记录错误\n\t\treturn\n\t}\n\t\n\t// 创建新闻索引\n\tif err := meilisearchService.CreateNewsIndex(); err != nil {\n\t\tglobal.GVA_LOG.Error(\"Failed to create news index\", zap.Error(err))\n\t\t// 不阻塞系统启动，仅记录错误\n\t\treturn\n\t}\n\t\n\t// 将服务实例保存到全局变量\n\tglobal.GVA_MEILISEARCH = meilisearchService\n\t\n\tglobal.GVA_LOG.Info(\"Meilisearch initialized successfully\")\n}','error','','',NULL,'未处理')", "rows": 0, "elapsed_ms": 123, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "Error 1054 (42S22): Unknown column 'request_id' in 'field list'", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Create\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:26\ngithub.com/flipped-aurora/gin-vue-admin/server/service/system.(*SysErrorService).CreateSysError\n\t/Users/a1/data/go/gin-vue-admin/server/service/system/sys_error.go:20\ngithub.com/flipped-aurora/gin-vue-admin/server/core/internal.(*ZapCore).Write\n\t/Users/a1/data/go/gin-vue-admin/server/core/internal/zap_core.go:180\ngo.uber.org/zap/zapcore.(*CheckedEntry).Write\n\t/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/zapcore/entry.go:253\ngo.uber.org/zap.(*Logger).Error\n\t/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/logger.go:263\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15\nmain.initializeSystem\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:47\nmain.main\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:32\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:290"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Create
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:26
+github.com/flipped-aurora/gin-vue-admin/server/service/system.(*SysErrorService).CreateSysError
+	/Users/a1/data/go/gin-vue-admin/server/service/system/sys_error.go:20
+github.com/flipped-aurora/gin-vue-admin/server/core/internal.(*ZapCore).Write
+	/Users/a1/data/go/gin-vue-admin/server/core/internal/zap_core.go:180
+go.uber.org/zap/zapcore.(*CheckedEntry).Write
+	/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/zapcore/entry.go:253
+go.uber.org/zap.(*Logger).Error
+	/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/logger.go:263
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 21:51:08.407	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "ALTER TABLE `sys_auto_code_histories` ADD `injections` text COMMENT '注入路径'", "rows": 0, "elapsed_ms": 40, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "Error 1060 (42S21): Duplicate column name 'injections'", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Exec\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:779\ngorm.io/driver/mysql.(*Migrator).AddColumn.Migrator.AddColumn.func1\n\t/Users/a1/go/pkg/mod/gorm.io/driver/mysql@v1.6.0/migrator.go:140\ngorm.io/gorm/migrator.Migrator.RunWithValue\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/migrator/migrator.go:74\ngorm.io/driver/mysql.Migrator.AddColumn\n\t/Users/a1/go/pkg/mod/gorm.io/driver/mysql@v1.6.0/migrator.go:123\ngorm.io/gorm/migrator.Migrator.AutoMigrate.func1\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/migrator/migrator.go:155\ngorm.io/gorm/migrator.Migrator.RunWithValue\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/migrator/migrator.go:74\ngorm.io/gorm/migrator.Migrator.AutoMigrate\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/migrator/migrator.go:129\ngorm.io/gorm.(*DB).AutoMigrate\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/migrator.go:24\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.RegisterTables\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:46\nmain.initializeSystem\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:51\nmain.main\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:32\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:290"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Exec
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:779
+gorm.io/driver/mysql.(*Migrator).AddColumn.Migrator.AddColumn.func1
+	/Users/a1/go/pkg/mod/gorm.io/driver/mysql@v1.6.0/migrator.go:140
+gorm.io/gorm/migrator.Migrator.RunWithValue
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/migrator/migrator.go:74
+gorm.io/driver/mysql.Migrator.AddColumn
+	/Users/a1/go/pkg/mod/gorm.io/driver/mysql@v1.6.0/migrator.go:123
+gorm.io/gorm/migrator.Migrator.AutoMigrate.func1
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/migrator/migrator.go:155
+gorm.io/gorm/migrator.Migrator.RunWithValue
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/migrator/migrator.go:74
+gorm.io/gorm/migrator.Migrator.AutoMigrate
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/migrator/migrator.go:129
+gorm.io/gorm.(*DB).AutoMigrate
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/migrator.go:24
+github.com/flipped-aurora/gin-vue-admin/server/initialize.RegisterTables
+	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:46
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:51
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 21:51:08.410	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:85	register table failed	{"node": "", "app_id": "", "env": "", "mod": "system", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "Error 1060 (42S21): Duplicate column name 'injections'", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.RegisterTables\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:85\nmain.initializeSystem\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:51\nmain.main\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:32\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:290"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.RegisterTables
+	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:85
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:51
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 21:51:08.557	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "INSERT INTO `sys_error` (`created_at`,`updated_at`,`deleted_at`,`form`,`info`,`level`,`request_id`,`trace_id`,`solution`,`status`) VALUES ('2026-08-25 21:51:08.452','2026-08-25 21:51:08.452',NULL,'后端','register table failed \n 源文件:/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:85 \n 调用栈：github.com/flipped-aurora/gin-vue-admin/server/initialize.RegisterTables\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:85\nmain.initializeSystem\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:51\nmain.main\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:32\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:290 \n 最终调用方法:/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:85 (RegisterTables lines 38-97)\n----- 产生日志的方法代码如下 -----\nfunc RegisterTables() {\n\tif global.GVA_CONFIG.System.DisableAutoMigrate {\n\t\tlogger.Bg().Mod(\"system\").Info(\"auto-migrate is disabled, skipping table registration\")\n\t\tensureLogViewerMetadata()\n\t\treturn\n\t}\n\n\tdb := global.GVA_DB\n\terr := db.AutoMigrate(\n\n\t\tsystem.SysApi{},\n\t\tsystem.SysIgnoreApi{},\n\t\tsystem.SysUser{},\n\t\tsystem.SysBaseMenu{},\n\t\tsystem.JwtBlacklist{},\n\t\tsystem.SysAuthority{},\n\t\tsystem.SysDepartment{},\n\t\tsystem.SysPosition{},\n\t\tsystem.SysDataAccessLog{},\n\t\tsystem.SysAuthorityDepartment{},\n\t\tsystem.SysDictionary{},\n\t\tsystem.SysOperationRecord{},\n\t\tsystem.SysAutoCodeHistory{},\n\t\tsystem.SysDictionaryDetail{},\n\t\tsystem.SysBaseMenuParameter{},\n\t\tsystem.SysBaseMenuBtn{},\n\t\tsystem.SysAuthorityBtn{},\n\t\tsystem.SysAutoCodePackage{},\n\t\tsystem.SysExportTemplate{},\n\t\tsystem.Condition{},\n\t\tsystem.JoinTemplate{},\n\t\tsystem.SysParams{},\n\t\tsystem.SysSecurityConfig{},\n\t\tsystem.SysVersion{},\n\t\tsystem.SysError{},\n\t\tsystem.SysApiToken{},\n\t\tsystem.SysLoginLog{},\n\t\tsystem.SysTimedTask{},\n\t\tsystem.SysTimedTaskLog{},\n\n\t\texample.ExaCustomer{},\n\t\tmedia.MediaUpload{},\n\t\tmedia.MediaUploadChunk{},\n\t\tmedia.FileUploadAndDownload{},\n\t\tmedia.AttachmentCategory{},\n\t)\n\tif err != nil {\n\t\tlogger.Bg().Mod(\"system\").Err(err).Error(\"register table failed\")\n\t\tos.Exit(1)\n\t}\n\n\terr = bizModel()\n\n\tif err != nil {\n\t\tlogger.Bg().Mod(\"system\").Err(err).Error(\"register biz_table failed\")\n\t\tos.Exit(1)\n\t}\n\tensureLogViewerMetadata()\n\tlogger.Bg().Mod(\"system\").Info(\"register table success\")\n}','error','','',NULL,'未处理')", "rows": 0, "elapsed_ms": 145, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "Error 1054 (42S22): Unknown column 'request_id' in 'field list'", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Create\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:26\ngithub.com/flipped-aurora/gin-vue-admin/server/service/system.(*SysErrorService).CreateSysError\n\t/Users/a1/data/go/gin-vue-admin/server/service/system/sys_error.go:20\ngithub.com/flipped-aurora/gin-vue-admin/server/core/internal.(*ZapCore).Write\n\t/Users/a1/data/go/gin-vue-admin/server/core/internal/zap_core.go:180\ngo.uber.org/zap/zapcore.(*CheckedEntry).Write\n\t/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/zapcore/entry.go:253\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.RegisterTables\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:85\nmain.initializeSystem\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:51\nmain.main\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:32\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:290"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Create
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:26
+github.com/flipped-aurora/gin-vue-admin/server/service/system.(*SysErrorService).CreateSysError
+	/Users/a1/data/go/gin-vue-admin/server/service/system/sys_error.go:20
+github.com/flipped-aurora/gin-vue-admin/server/core/internal.(*ZapCore).Write
+	/Users/a1/data/go/gin-vue-admin/server/core/internal/zap_core.go:180
+go.uber.org/zap/zapcore.(*CheckedEntry).Write
+	/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/zapcore/entry.go:253
+github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log
+	/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75
+github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error
+	/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81
+github.com/flipped-aurora/gin-vue-admin/server/initialize.RegisterTables
+	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:85
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:51
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 21:51:12.449	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39	Failed to connect to Meilisearch	{"node": "", "app_id": "", "env": "", "url": "http://119.29.82.70:7700", "error": "MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 21:51:12.584	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "INSERT INTO `sys_error` (`created_at`,`updated_at`,`deleted_at`,`form`,`info`,`level`,`request_id`,`trace_id`,`solution`,`status`) VALUES ('2026-08-25 21:51:12.496','2026-08-25 21:51:12.496',NULL,'后端','Failed to connect to Meilisearch | 错误: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused \n 源文件:/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39 \n 调用栈：github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14\nmain.initializeSystem\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:47\nmain.main\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:32\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:290 \n 最终调用方法:/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39 (InitializeMeilisearch lines 20-49)\n----- 产生日志的方法代码如下 -----\nfunc (s *MeilisearchService) InitializeMeilisearch() error {\n\tconfig := global.GVA_CONFIG.Meilisearch\n\t\n\t// 验证配置\n\tif config.Host == \"\" {\n\t\treturn fmt.Errorf(\"meilisearch host is empty\")\n\t}\n\tif config.Port < 1 || config.Port > 65535 {\n\t\treturn fmt.Errorf(\"meilisearch port is invalid: %d\", config.Port)\n\t}\n\n\t// 构建 Meilisearch URL\n\turl := fmt.Sprintf(\"http://%s:%d\", config.Host, config.Port)\n\t\n\t// 创建客户端\n\ts.client = meilisearch.New(url, meilisearch.WithAPIKey(config.APIKey))\n\t\n\t// 验证连接\n\tif _, err := s.client.ListIndexes(nil); err != nil {\n\t\tglobal.GVA_LOG.Error(\"Failed to connect to Meilisearch\", \n\t\t\tzap.String(\"url\", url),\n\t\t\tzap.Error(err))\n\t\treturn fmt.Errorf(\"failed to connect to meilisearch: %w\", err)\n\t}\n\t\n\tglobal.GVA_LOG.Info(\"Meilisearch client initialized successfully\", \n\t\tzap.String(\"url\", url))\n\t\n\treturn nil\n}','error','','',NULL,'未处理')", "rows": 0, "elapsed_ms": 132, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "Error 1054 (42S22): Unknown column 'request_id' in 'field list'", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Create\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:26\ngithub.com/flipped-aurora/gin-vue-admin/server/service/system.(*SysErrorService).CreateSysError\n\t/Users/a1/data/go/gin-vue-admin/server/service/system/sys_error.go:20\ngithub.com/flipped-aurora/gin-vue-admin/server/core/internal.(*ZapCore).Write\n\t/Users/a1/data/go/gin-vue-admin/server/core/internal/zap_core.go:180\ngo.uber.org/zap/zapcore.(*CheckedEntry).Write\n\t/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/zapcore/entry.go:253\ngo.uber.org/zap.(*Logger).Error\n\t/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/logger.go:263\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14\nmain.initializeSystem\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:47\nmain.main\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:32\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:290"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Create
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:26
+github.com/flipped-aurora/gin-vue-admin/server/service/system.(*SysErrorService).CreateSysError
+	/Users/a1/data/go/gin-vue-admin/server/service/system/sys_error.go:20
+github.com/flipped-aurora/gin-vue-admin/server/core/internal.(*ZapCore).Write
+	/Users/a1/data/go/gin-vue-admin/server/core/internal/zap_core.go:180
+go.uber.org/zap/zapcore.(*CheckedEntry).Write
+	/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/zapcore/entry.go:253
+go.uber.org/zap.(*Logger).Error
+	/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/logger.go:263
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 21:51:12.611	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15	Failed to initialize Meilisearch	{"node": "", "app_id": "", "env": "", "error": "failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 21:51:12.743	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "INSERT INTO `sys_error` (`created_at`,`updated_at`,`deleted_at`,`form`,`info`,`level`,`request_id`,`trace_id`,`solution`,`status`) VALUES ('2026-08-25 21:51:12.656','2026-08-25 21:51:12.656',NULL,'后端','Failed to initialize Meilisearch | 错误: failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused \n 源文件:/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15 \n 调用栈：github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15\nmain.initializeSystem\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:47\nmain.main\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:32\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:290 \n 最终调用方法:/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15 (InitMeilisearch lines 10-31)\n----- 产生日志的方法代码如下 -----\nfunc InitMeilisearch() {\n\tmeilisearchService := &quant.MeilisearchService{}\n\t\n\t// 初始化客户端\n\tif err := meilisearchService.InitializeMeilisearch(); err != nil {\n\t\tglobal.GVA_LOG.Error(\"Failed to initialize Meilisearch\", zap.Error(err))\n\t\t// 不阻塞系统启动，仅记录错误\n\t\treturn\n\t}\n\t\n\t// 创建新闻索引\n\tif err := meilisearchService.CreateNewsIndex(); err != nil {\n\t\tglobal.GVA_LOG.Error(\"Failed to create news index\", zap.Error(err))\n\t\t// 不阻塞系统启动，仅记录错误\n\t\treturn\n\t}\n\t\n\t// 将服务实例保存到全局变量\n\tglobal.GVA_MEILISEARCH = meilisearchService\n\t\n\tglobal.GVA_LOG.Info(\"Meilisearch initialized successfully\")\n}','error','','',NULL,'未处理')", "rows": 0, "elapsed_ms": 131, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "Error 1054 (42S22): Unknown column 'request_id' in 'field list'", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Create\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:26\ngithub.com/flipped-aurora/gin-vue-admin/server/service/system.(*SysErrorService).CreateSysError\n\t/Users/a1/data/go/gin-vue-admin/server/service/system/sys_error.go:20\ngithub.com/flipped-aurora/gin-vue-admin/server/core/internal.(*ZapCore).Write\n\t/Users/a1/data/go/gin-vue-admin/server/core/internal/zap_core.go:180\ngo.uber.org/zap/zapcore.(*CheckedEntry).Write\n\t/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/zapcore/entry.go:253\ngo.uber.org/zap.(*Logger).Error\n\t/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/logger.go:263\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15\nmain.initializeSystem\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:47\nmain.main\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:32\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:290"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Create
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:26
+github.com/flipped-aurora/gin-vue-admin/server/service/system.(*SysErrorService).CreateSysError
+	/Users/a1/data/go/gin-vue-admin/server/service/system/sys_error.go:20
+github.com/flipped-aurora/gin-vue-admin/server/core/internal.(*ZapCore).Write
+	/Users/a1/data/go/gin-vue-admin/server/core/internal/zap_core.go:180
+go.uber.org/zap/zapcore.(*CheckedEntry).Write
+	/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/zapcore/entry.go:253
+go.uber.org/zap.(*Logger).Error
+	/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/logger.go:263
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 21:51:26.117	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "ALTER TABLE `sys_auto_code_histories` ADD `injections` text COMMENT '注入路径'", "rows": 0, "elapsed_ms": 41, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "Error 1060 (42S21): Duplicate column name 'injections'", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Exec\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:779\ngorm.io/driver/mysql.(*Migrator).AddColumn.Migrator.AddColumn.func1\n\t/Users/a1/go/pkg/mod/gorm.io/driver/mysql@v1.6.0/migrator.go:140\ngorm.io/gorm/migrator.Migrator.RunWithValue\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/migrator/migrator.go:74\ngorm.io/driver/mysql.Migrator.AddColumn\n\t/Users/a1/go/pkg/mod/gorm.io/driver/mysql@v1.6.0/migrator.go:123\ngorm.io/gorm/migrator.Migrator.AutoMigrate.func1\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/migrator/migrator.go:155\ngorm.io/gorm/migrator.Migrator.RunWithValue\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/migrator/migrator.go:74\ngorm.io/gorm/migrator.Migrator.AutoMigrate\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/migrator/migrator.go:129\ngorm.io/gorm.(*DB).AutoMigrate\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/migrator.go:24\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.RegisterTables\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:46\nmain.initializeSystem\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:51\nmain.main\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:32\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:290"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Exec
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:779
+gorm.io/driver/mysql.(*Migrator).AddColumn.Migrator.AddColumn.func1
+	/Users/a1/go/pkg/mod/gorm.io/driver/mysql@v1.6.0/migrator.go:140
+gorm.io/gorm/migrator.Migrator.RunWithValue
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/migrator/migrator.go:74
+gorm.io/driver/mysql.Migrator.AddColumn
+	/Users/a1/go/pkg/mod/gorm.io/driver/mysql@v1.6.0/migrator.go:123
+gorm.io/gorm/migrator.Migrator.AutoMigrate.func1
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/migrator/migrator.go:155
+gorm.io/gorm/migrator.Migrator.RunWithValue
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/migrator/migrator.go:74
+gorm.io/gorm/migrator.Migrator.AutoMigrate
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/migrator/migrator.go:129
+gorm.io/gorm.(*DB).AutoMigrate
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/migrator.go:24
+github.com/flipped-aurora/gin-vue-admin/server/initialize.RegisterTables
+	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:46
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:51
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 21:51:26.117	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:85	register table failed	{"node": "", "app_id": "", "env": "", "mod": "system", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "Error 1060 (42S21): Duplicate column name 'injections'", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.RegisterTables\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:85\nmain.initializeSystem\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:51\nmain.main\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:32\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:290"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.RegisterTables
+	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:85
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:51
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 21:51:26.247	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "INSERT INTO `sys_error` (`created_at`,`updated_at`,`deleted_at`,`form`,`info`,`level`,`request_id`,`trace_id`,`solution`,`status`) VALUES ('2026-08-25 21:51:26.161','2026-08-25 21:51:26.161',NULL,'后端','register table failed \n 源文件:/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:85 \n 调用栈：github.com/flipped-aurora/gin-vue-admin/server/initialize.RegisterTables\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:85\nmain.initializeSystem\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:51\nmain.main\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:32\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:290 \n 最终调用方法:/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:85 (RegisterTables lines 38-97)\n----- 产生日志的方法代码如下 -----\nfunc RegisterTables() {\n\tif global.GVA_CONFIG.System.DisableAutoMigrate {\n\t\tlogger.Bg().Mod(\"system\").Info(\"auto-migrate is disabled, skipping table registration\")\n\t\tensureLogViewerMetadata()\n\t\treturn\n\t}\n\n\tdb := global.GVA_DB\n\terr := db.AutoMigrate(\n\n\t\tsystem.SysApi{},\n\t\tsystem.SysIgnoreApi{},\n\t\tsystem.SysUser{},\n\t\tsystem.SysBaseMenu{},\n\t\tsystem.JwtBlacklist{},\n\t\tsystem.SysAuthority{},\n\t\tsystem.SysDepartment{},\n\t\tsystem.SysPosition{},\n\t\tsystem.SysDataAccessLog{},\n\t\tsystem.SysAuthorityDepartment{},\n\t\tsystem.SysDictionary{},\n\t\tsystem.SysOperationRecord{},\n\t\tsystem.SysAutoCodeHistory{},\n\t\tsystem.SysDictionaryDetail{},\n\t\tsystem.SysBaseMenuParameter{},\n\t\tsystem.SysBaseMenuBtn{},\n\t\tsystem.SysAuthorityBtn{},\n\t\tsystem.SysAutoCodePackage{},\n\t\tsystem.SysExportTemplate{},\n\t\tsystem.Condition{},\n\t\tsystem.JoinTemplate{},\n\t\tsystem.SysParams{},\n\t\tsystem.SysSecurityConfig{},\n\t\tsystem.SysVersion{},\n\t\tsystem.SysError{},\n\t\tsystem.SysApiToken{},\n\t\tsystem.SysLoginLog{},\n\t\tsystem.SysTimedTask{},\n\t\tsystem.SysTimedTaskLog{},\n\n\t\texample.ExaCustomer{},\n\t\tmedia.MediaUpload{},\n\t\tmedia.MediaUploadChunk{},\n\t\tmedia.FileUploadAndDownload{},\n\t\tmedia.AttachmentCategory{},\n\t)\n\tif err != nil {\n\t\tlogger.Bg().Mod(\"system\").Err(err).Error(\"register table failed\")\n\t\tos.Exit(1)\n\t}\n\n\terr = bizModel()\n\n\tif err != nil {\n\t\tlogger.Bg().Mod(\"system\").Err(err).Error(\"register biz_table failed\")\n\t\tos.Exit(1)\n\t}\n\tensureLogViewerMetadata()\n\tlogger.Bg().Mod(\"system\").Info(\"register table success\")\n}','error','','',NULL,'未处理')", "rows": 0, "elapsed_ms": 129, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "Error 1054 (42S22): Unknown column 'request_id' in 'field list'", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Create\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:26\ngithub.com/flipped-aurora/gin-vue-admin/server/service/system.(*SysErrorService).CreateSysError\n\t/Users/a1/data/go/gin-vue-admin/server/service/system/sys_error.go:20\ngithub.com/flipped-aurora/gin-vue-admin/server/core/internal.(*ZapCore).Write\n\t/Users/a1/data/go/gin-vue-admin/server/core/internal/zap_core.go:180\ngo.uber.org/zap/zapcore.(*CheckedEntry).Write\n\t/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/zapcore/entry.go:253\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.RegisterTables\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:85\nmain.initializeSystem\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:51\nmain.main\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:32\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:290"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Create
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:26
+github.com/flipped-aurora/gin-vue-admin/server/service/system.(*SysErrorService).CreateSysError
+	/Users/a1/data/go/gin-vue-admin/server/service/system/sys_error.go:20
+github.com/flipped-aurora/gin-vue-admin/server/core/internal.(*ZapCore).Write
+	/Users/a1/data/go/gin-vue-admin/server/core/internal/zap_core.go:180
+go.uber.org/zap/zapcore.(*CheckedEntry).Write
+	/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/zapcore/entry.go:253
+github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log
+	/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75
+github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error
+	/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81
+github.com/flipped-aurora/gin-vue-admin/server/initialize.RegisterTables
+	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:85
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:51
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 23:01:03.446	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39	Failed to connect to Meilisearch	{"node": "", "app_id": "", "env": "", "url": "http://119.29.82.70:7700", "error": "MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 23:01:03.571	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "INSERT INTO `sys_error` (`created_at`,`updated_at`,`deleted_at`,`form`,`info`,`level`,`request_id`,`trace_id`,`solution`,`status`) VALUES ('2026-08-25 23:01:03.489','2026-08-25 23:01:03.489',NULL,'后端','Failed to connect to Meilisearch | 错误: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused \n 源文件:/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39 \n 调用栈：github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14\nmain.initializeSystem\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:47\nmain.main\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:32\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:290 \n 最终调用方法:/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39 (InitializeMeilisearch lines 20-49)\n----- 产生日志的方法代码如下 -----\nfunc (s *MeilisearchService) InitializeMeilisearch() error {\n\tconfig := global.GVA_CONFIG.Meilisearch\n\t\n\t// 验证配置\n\tif config.Host == \"\" {\n\t\treturn fmt.Errorf(\"meilisearch host is empty\")\n\t}\n\tif config.Port < 1 || config.Port > 65535 {\n\t\treturn fmt.Errorf(\"meilisearch port is invalid: %d\", config.Port)\n\t}\n\n\t// 构建 Meilisearch URL\n\turl := fmt.Sprintf(\"http://%s:%d\", config.Host, config.Port)\n\t\n\t// 创建客户端\n\ts.client = meilisearch.New(url, meilisearch.WithAPIKey(config.APIKey))\n\t\n\t// 验证连接\n\tif _, err := s.client.ListIndexes(nil); err != nil {\n\t\tglobal.GVA_LOG.Error(\"Failed to connect to Meilisearch\", \n\t\t\tzap.String(\"url\", url),\n\t\t\tzap.Error(err))\n\t\treturn fmt.Errorf(\"failed to connect to meilisearch: %w\", err)\n\t}\n\t\n\tglobal.GVA_LOG.Info(\"Meilisearch client initialized successfully\", \n\t\tzap.String(\"url\", url))\n\t\n\treturn nil\n}','error','','',NULL,'未处理')", "rows": 0, "elapsed_ms": 123, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "Error 1054 (42S22): Unknown column 'request_id' in 'field list'", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Create\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:26\ngithub.com/flipped-aurora/gin-vue-admin/server/service/system.(*SysErrorService).CreateSysError\n\t/Users/a1/data/go/gin-vue-admin/server/service/system/sys_error.go:20\ngithub.com/flipped-aurora/gin-vue-admin/server/core/internal.(*ZapCore).Write\n\t/Users/a1/data/go/gin-vue-admin/server/core/internal/zap_core.go:180\ngo.uber.org/zap/zapcore.(*CheckedEntry).Write\n\t/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/zapcore/entry.go:253\ngo.uber.org/zap.(*Logger).Error\n\t/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/logger.go:263\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14\nmain.initializeSystem\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:47\nmain.main\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:32\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:290"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Create
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:26
+github.com/flipped-aurora/gin-vue-admin/server/service/system.(*SysErrorService).CreateSysError
+	/Users/a1/data/go/gin-vue-admin/server/service/system/sys_error.go:20
+github.com/flipped-aurora/gin-vue-admin/server/core/internal.(*ZapCore).Write
+	/Users/a1/data/go/gin-vue-admin/server/core/internal/zap_core.go:180
+go.uber.org/zap/zapcore.(*CheckedEntry).Write
+	/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/zapcore/entry.go:253
+go.uber.org/zap.(*Logger).Error
+	/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/logger.go:263
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 23:01:03.572	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15	Failed to initialize Meilisearch	{"node": "", "app_id": "", "env": "", "error": "failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 23:01:03.695	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "INSERT INTO `sys_error` (`created_at`,`updated_at`,`deleted_at`,`form`,`info`,`level`,`request_id`,`trace_id`,`solution`,`status`) VALUES ('2026-08-25 23:01:03.613','2026-08-25 23:01:03.613',NULL,'后端','Failed to initialize Meilisearch | 错误: failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused \n 源文件:/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15 \n 调用栈：github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15\nmain.initializeSystem\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:47\nmain.main\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:32\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:290 \n 最终调用方法:/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15 (InitMeilisearch lines 10-31)\n----- 产生日志的方法代码如下 -----\nfunc InitMeilisearch() {\n\tmeilisearchService := &quant.MeilisearchService{}\n\t\n\t// 初始化客户端\n\tif err := meilisearchService.InitializeMeilisearch(); err != nil {\n\t\tglobal.GVA_LOG.Error(\"Failed to initialize Meilisearch\", zap.Error(err))\n\t\t// 不阻塞系统启动，仅记录错误\n\t\treturn\n\t}\n\t\n\t// 创建新闻索引\n\tif err := meilisearchService.CreateNewsIndex(); err != nil {\n\t\tglobal.GVA_LOG.Error(\"Failed to create news index\", zap.Error(err))\n\t\t// 不阻塞系统启动，仅记录错误\n\t\treturn\n\t}\n\t\n\t// 将服务实例保存到全局变量\n\tglobal.GVA_MEILISEARCH = meilisearchService\n\t\n\tglobal.GVA_LOG.Info(\"Meilisearch initialized successfully\")\n}','error','','',NULL,'未处理')", "rows": 0, "elapsed_ms": 122, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "Error 1054 (42S22): Unknown column 'request_id' in 'field list'", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Create\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:26\ngithub.com/flipped-aurora/gin-vue-admin/server/service/system.(*SysErrorService).CreateSysError\n\t/Users/a1/data/go/gin-vue-admin/server/service/system/sys_error.go:20\ngithub.com/flipped-aurora/gin-vue-admin/server/core/internal.(*ZapCore).Write\n\t/Users/a1/data/go/gin-vue-admin/server/core/internal/zap_core.go:180\ngo.uber.org/zap/zapcore.(*CheckedEntry).Write\n\t/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/zapcore/entry.go:253\ngo.uber.org/zap.(*Logger).Error\n\t/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/logger.go:263\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15\nmain.initializeSystem\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:47\nmain.main\n\t/Users/a1/data/go/gin-vue-admin/server/main.go:32\nruntime.main\n\t/usr/local/go/src/runtime/proc.go:290"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Create
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:26
+github.com/flipped-aurora/gin-vue-admin/server/service/system.(*SysErrorService).CreateSysError
+	/Users/a1/data/go/gin-vue-admin/server/service/system/sys_error.go:20
+github.com/flipped-aurora/gin-vue-admin/server/core/internal.(*ZapCore).Write
+	/Users/a1/data/go/gin-vue-admin/server/core/internal/zap_core.go:180
+go.uber.org/zap/zapcore.(*CheckedEntry).Write
+	/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/zapcore/entry.go:253
+go.uber.org/zap.(*Logger).Error
+	/Users/a1/go/pkg/mod/go.uber.org/zap@v1.27.0/logger.go:263
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 23:03:32.972	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39	Failed to connect to Meilisearch	{"node": "", "app_id": "", "env": "", "url": "http://119.29.82.70:7700", "error": "MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 23:03:33.135	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15	Failed to initialize Meilisearch	{"node": "", "app_id": "", "env": "", "error": "failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 23:03:55.081	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39	Failed to connect to Meilisearch	{"node": "", "app_id": "", "env": "", "url": "http://119.29.82.70:7700", "error": "MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*MeilisearchService).InitializeMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:39
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:14
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 23:03:55.285	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15	Failed to initialize Meilisearch	{"node": "", "app_id": "", "env": "", "error": "failed to connect to meilisearch: MeilisearchCommunicationError unable to execute request (path \"GET /indexes\" with method \"GetIndexes\"): Get \"http://119.29.82.70:7700/indexes\": dial tcp 119.29.82.70:7700: connect: connection refused"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize.InitMeilisearch
+	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:15
+main.initializeSystem
+	/Users/a1/data/go/gin-vue-admin/server/main.go:47
+main.main
+	/Users/a1/data/go/gin-vue-admin/server/main.go:32
+runtime.main
+	/usr/local/go/src/runtime/proc.go:290
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-25 23:06:46.882	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/core/server_run.go:37	server启动失败	{"node": "", "app_id": "", "env": "", "error": "listen tcp :8888: bind: address already in use"}
+github.com/flipped-aurora/gin-vue-admin/server/core.initServer.func1
+	/Users/a1/data/go/gin-vue-admin/server/core/server_run.go:37

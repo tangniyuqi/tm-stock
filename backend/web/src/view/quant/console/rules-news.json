@@ -1,0 +1,301 @@
+[
+    {
+        "type": "elDivider",
+        "props": {
+            "contentPosition": "center"
+        },
+        "children": [
+            "关键词设置"
+        ]
+    },
+    {
+        "col": {
+            "span": 24
+        },
+        "type": "elInputTag",
+        "field": "targetKeywords",
+        "title": "快讯标的关键词",
+        "value": [],
+        "props": {
+            "tagType": "primary",
+            "max": 1000,
+            "draggable": true,
+            "delimiter": " ",
+            "placeholder": "请输入标的关键词，多个关键词用空格或回车分隔（最多1000个）"
+        },
+        "validate": [
+            {
+                "required": true,
+                "message": "请输入快讯标的关键词",
+                "trigger": "blur"
+            }
+        ],
+        "info": {
+            "type": "tooltip",
+            "placement": "top",
+            "align": "right",
+            "info": "行业/板块/概念/公司/人物等关键词（最多1000个）。"
+        }
+    },
+    {
+        "col": {
+            "span": 24
+        },
+        "type": "elInputTag",
+        "field": "triggerKeywords",
+        "title": "快讯事件关键词（可选）",
+        "value": [],
+        "props": {
+            "tagType": "warning",
+            "max": 1000,
+            "draggable": true,
+            "delimiter": " ",
+            "placeholder": "请输入事件关键词，多个关键词用空格或回车分隔（最多1000个）"
+        },
+        "info": {
+            "type": "tooltip",
+            "placement": "top",
+            "align": "right",
+            "info": "扩产/涨价/重大合同/增持/回购/立案/利润/涨停/创新高/营收增长/净利润等关键词（最多1000个）。"
+        }
+    },
+    {
+        "col": {
+            "span": 24
+        },
+        "type": "elInputTag",
+        "field": "excludedKeywords",
+        "title": "排除快讯关键词（可选）",
+        "value": [],
+        "props": {
+            "tagType": "danger",
+            "max": 1000,
+            "draggable": true,
+            "delimiter": " ",
+            "placeholder": "请输入需排除的关键词，多个关键词用空格或回车分隔（最多1000个）"
+        },
+        "info": {
+            "type": "tooltip",
+            "placement": "top",
+            "align": "right",
+            "info": "包含排除关键词的快讯将被过滤（最多1000个）。"
+        }
+    },
+    {
+        "type": "elDivider",
+        "props": {
+            "contentPosition": "center"
+        },
+        "children": [
+            "推送设置"
+        ]
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "switch",
+        "field": "enableFeishu",
+        "title": "飞书推送开关",
+        "value": false,
+        "props": {
+            "activeText": "开启",
+            "inactiveText": "关闭"
+        },
+        "control": [
+            {
+                "value": true,
+                "rule": [
+                    {
+                        "type": "input",
+                        "field": "feishuWebhook",
+                        "title": "飞书Webhook地址",
+                        "col": {
+                            "span": 18
+                        },
+                        "props": {
+                            "placeholder": "请输入飞书Webhook地址"
+                        },
+                        "validate": [
+                            {
+                                "required": true,
+                                "message": "请输入飞书Webhook地址",
+                                "trigger": "blur"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "type": "div",
+        "style": {
+            "width": "100%"
+        }
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "switch",
+        "field": "enableDingTalk",
+        "title": "钉钉推送开关",
+        "value": false,
+        "props": {
+            "activeText": "开启",
+            "inactiveText": "关闭"
+        },
+        "control": [
+            {
+                "value": true,
+                "rule": [
+                    {
+                        "type": "input",
+                        "field": "dingTalkWebhook",
+                        "title": "钉钉Webhook地址",
+                        "col": {
+                            "span": 18
+                        },
+                        "props": {
+                            "placeholder": "请输入钉钉Webhook地址"
+                        },
+                        "validate": [
+                            {
+                                "required": true,
+                                "message": "请输入钉钉Webhook地址",
+                                "trigger": "blur"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "type": "div",
+        "style": {
+            "width": "100%"
+        }
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "switch",
+        "field": "enableWeChat",
+        "title": "企业微信推送开关",
+        "value": false,
+        "props": {
+            "activeText": "开启",
+            "inactiveText": "关闭"
+        },
+        "control": [
+            {
+                "value": true,
+                "rule": [
+                    {
+                        "type": "input",
+                        "field": "weChatWebhook",
+                        "title": "企业微信Webhook地址",
+                        "col": {
+                            "span": 18
+                        },
+                        "props": {
+                            "placeholder": "请输入企业微信Webhook地址"
+                        },
+                        "validate": [
+                            {
+                                "required": true,
+                                "message": "请输入企业微信Webhook地址",
+                                "trigger": "blur"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "type": "elDivider",
+        "props": {
+            "contentPosition": "center"
+        },
+        "children": [
+            "处理与监控设置"
+        ]
+    },
+    {
+        "col": {
+            "span": 12
+        },
+        "type": "switch",
+        "field": "enableLog",
+        "title": "快讯日志输出",
+        "value": false,
+        "props": {
+            "inactiveText": "关闭",
+            "activeText": "开启"
+        },
+        "info": {
+            "type": "tooltip",
+            "placement": "right",
+            "align": "right",
+            "info": "是否在终端显示匹配到的快讯内容。建议有运行其他策略时关闭，以免影响查看更重要的日志。"
+        }
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "inputNumber",
+        "field": "batchSize",
+        "title": "单次处理快讯数量",
+        "value": 10,
+        "props": {
+            "min": 1,
+            "max": 100,
+            "step": 5,
+            "controlsPosition": "right",
+            "placeholder": "请输入单次处理快讯数量（1-100）"
+        },
+        "style": {
+            "width": "100%"
+        },
+        "validate": [
+            {
+                "required": true,
+                "message": "请输入单次处理快讯数量",
+                "trigger": "blur",
+                "type": "number"
+            }
+        ]
+    },
+    {
+        "col": {
+            "span": 6
+        },
+        "type": "inputNumber",
+        "field": "monitorInterval",
+        "title": "快讯检查间隔(秒)",
+        "value": 60,
+        "props": {
+            "min": 10,
+            "max": 3600,
+            "step": 5,
+            "controlsPosition": "right",
+            "placeholder": "请输入快讯检查间隔（10-3600）"
+        },
+        "style": {
+            "width": "100%"
+        },
+        "validate": [
+            {
+                "required": true,
+                "message": "请输入快讯检查间隔",
+                "trigger": "blur",
+                "type": "number"
+            }
+        ]
+    }
+]

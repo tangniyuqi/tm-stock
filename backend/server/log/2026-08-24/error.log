@@ -1,0 +1,160 @@
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-24 00:03:29.347	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-24 00:20:17.787	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-24 00:52:08.949	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-24 01:01:34.944	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-24 01:52:04.518	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-24 02:09:15.017	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-24 02:59:07.900	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-24 03:31:35.824	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-24 03:48:33.915	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-24 04:53:32.905	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-24 05:41:37.416	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-24 06:13:48.776	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-24 06:42:40.368	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-24 07:00:13.326	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-24 07:41:02.967	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-24 07:59:18.881	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-24 08:29:55.092	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-24 11:28:24.180	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-24 11:29:20.007	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-24 12:18:18.339	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-24 13:01:46.040	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-24 17:19:26.581	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-24 17:20:47.367	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-24 18:12:23.329	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-24 18:28:57.174	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-24 19:42:59.765	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-24 22:02:35.006	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-24 22:06:05.263	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-24 22:29:30.899	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-24 22:34:55.889	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-24 23:40:54.096	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-24 23:57:03.256	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414	查询待调度AI任务失败	{"error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:414
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:402

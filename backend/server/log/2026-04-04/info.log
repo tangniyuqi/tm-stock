@@ -1,0 +1,4 @@
+[github.com/flipped-aurora/gin-vue-admin/server]2026-04-04 15:16:51.570	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/screener_record.go:40	使用RecordQuery逻辑	{"member_id": 10029, "prompt": "macd金叉，kdj金叉"}
+[github.com/flipped-aurora/gin-vue-admin/server]2026-04-04 15:16:51.572	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/screener_record.go:109	开始查询记录	{"member_id": 10029, "prompt": "macd金叉，kdj金叉", "prompt_length": 22, "prompt_hex": "6d616364e98791e58f89efbc8c6b646ae98791e58f89"}
+[github.com/flipped-aurora/gin-vue-admin/server]2026-04-04 15:16:51.597	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/screener_record.go:118	该用户的所有记录	{"count": 0}
+[github.com/flipped-aurora/gin-vue-admin/server]2026-04-04 15:16:51.648	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/screener_record.go:144	创建新的查询记录	{"member_id": 10029, "prompt": "macd金叉，kdj金叉"}

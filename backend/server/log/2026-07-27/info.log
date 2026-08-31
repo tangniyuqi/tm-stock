@@ -1,0 +1,30 @@
+[github.com/flipped-aurora/gin-vue-admin/server]2026-07-27 12:42:37.099	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:39	auto-migrate is disabled, skipping table registration
+[github.com/flipped-aurora/gin-vue-admin/server]2026-07-27 12:42:37.144	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:62	register swagger handler
+[github.com/flipped-aurora/gin-vue-admin/server]2026-07-27 12:42:38.731	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:115	router register success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-07-27 14:08:02.676	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:39	auto-migrate is disabled, skipping table registration
+[github.com/flipped-aurora/gin-vue-admin/server]2026-07-27 14:08:02.726	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:62	register swagger handler
+[github.com/flipped-aurora/gin-vue-admin/server]2026-07-27 14:08:04.566	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:115	router register success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-07-27 22:50:18.922	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:39	auto-migrate is disabled, skipping table registration
+[github.com/flipped-aurora/gin-vue-admin/server]2026-07-27 22:50:18.969	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:62	register swagger handler
+[github.com/flipped-aurora/gin-vue-admin/server]2026-07-27 22:50:20.726	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:115	router register success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-07-27 23:03:35.164	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:39	auto-migrate is disabled, skipping table registration
+[github.com/flipped-aurora/gin-vue-admin/server]2026-07-27 23:03:35.212	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:62	register swagger handler
+[github.com/flipped-aurora/gin-vue-admin/server]2026-07-27 23:03:36.768	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:115	router register success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-07-27 23:07:03.242	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:39	auto-migrate is disabled, skipping table registration
+[github.com/flipped-aurora/gin-vue-admin/server]2026-07-27 23:07:03.293	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:62	register swagger handler
+[github.com/flipped-aurora/gin-vue-admin/server]2026-07-27 23:07:05.166	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:115	router register success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-07-27 23:09:59.560	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:39	auto-migrate is disabled, skipping table registration
+[github.com/flipped-aurora/gin-vue-admin/server]2026-07-27 23:09:59.602	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:62	register swagger handler
+[github.com/flipped-aurora/gin-vue-admin/server]2026-07-27 23:10:01.166	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:115	router register success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-07-27 23:19:19.090	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:39	auto-migrate is disabled, skipping table registration
+[github.com/flipped-aurora/gin-vue-admin/server]2026-07-27 23:19:19.130	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:62	register swagger handler
+[github.com/flipped-aurora/gin-vue-admin/server]2026-07-27 23:19:20.755	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:115	router register success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-07-27 23:28:20.198	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:39	auto-migrate is disabled, skipping table registration
+[github.com/flipped-aurora/gin-vue-admin/server]2026-07-27 23:28:20.239	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:62	register swagger handler
+[github.com/flipped-aurora/gin-vue-admin/server]2026-07-27 23:28:21.788	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:115	router register success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-07-27 23:55:44.639	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:39	auto-migrate is disabled, skipping table registration
+[github.com/flipped-aurora/gin-vue-admin/server]2026-07-27 23:55:44.683	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:62	register swagger handler
+[github.com/flipped-aurora/gin-vue-admin/server]2026-07-27 23:55:46.392	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:115	router register success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-07-27 23:59:31.890	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:86	register table success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-07-27 23:59:31.930	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:62	register swagger handler
+[github.com/flipped-aurora/gin-vue-admin/server]2026-07-27 23:59:33.434	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:115	router register success

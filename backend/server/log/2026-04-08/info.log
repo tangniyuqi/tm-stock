@@ -1,0 +1,3 @@
+[github.com/flipped-aurora/gin-vue-admin/server]2026-04-08 22:34:22.892	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:39	auto-migrate is disabled, skipping table registration
+[github.com/flipped-aurora/gin-vue-admin/server]2026-04-08 22:34:22.904	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:62	register swagger handler
+[github.com/flipped-aurora/gin-vue-admin/server]2026-04-08 22:34:23.331	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:115	router register success

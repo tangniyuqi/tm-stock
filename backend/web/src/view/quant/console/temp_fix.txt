@@ -1,0 +1,15 @@
+    ::v-deep(strong) {
+      color: #409eff;
+      font-weight: 600;
+    }
+  }
+
+  .flash-news-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 60px;
+  }
+}
+</style>

@@ -1,0 +1,2 @@
+[github.com/flipped-aurora/gin-vue-admin/server]2026-06-15 10:47:15.691	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:565	Search completed	{"engine": "meilisearch", "total": 1000, "elapsed": 0.060451362}
+[github.com/flipped-aurora/gin-vue-admin/server]2026-06-15 10:47:18.510	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:565	Search completed	{"engine": "meilisearch", "total": 1000, "elapsed": 0.027042698}

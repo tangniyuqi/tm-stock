@@ -1,0 +1,9 @@
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-03 18:15:11.570	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:45	Meilisearch client initialized successfully	{"url": "http://119.29.82.70:7700"}
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-03 18:15:11.719	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:88	News index created and configured successfully	{"index": "news"}
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-03 18:15:11.720	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:30	Meilisearch initialized successfully
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-03 18:15:50.328	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:45	Meilisearch client initialized successfully	{"url": "http://119.29.82.70:7700"}
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-03 18:15:50.491	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/meilisearch.go:88	News index created and configured successfully	{"index": "news"}
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-03 18:15:50.491	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/meilisearch.go:30	Meilisearch initialized successfully
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-03 18:16:25.998	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/gorm.go:86	register table success
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-03 18:16:26.042	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:62	register swagger handler
+[github.com/flipped-aurora/gin-vue-admin/server]2026-08-03 18:16:27.876	[34minfo[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/router.go:115	router register success

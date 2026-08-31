@@ -1,0 +1,774 @@
+[
+  {
+    "type": "elDivider",
+    "props": {
+        "contentPosition": "center"
+    },
+    "children": [
+        "标的设置"
+    ]
+  },
+  {
+      "col": {
+          "span": 12
+      },
+      "type": "select",
+      "field": "symbol",
+      "title": "交易标的",
+      "value": "",
+      "props": {
+          "placeholder": "输入股票名称/代码/拼音首字母",
+          "clearable": true,
+          "filterable": true,
+          "defaultFirstOption": true,
+          "remote": true,
+          "remoteShowSuffix": true,
+          "loading": false,
+          "valueKey": "ts_code",
+          "remoteMethod": "function(query){ remoteStockSearch(query) }"
+      },
+      "style": {
+          "width": "100%"
+      },
+      "options": [],
+      "validate": [
+          {
+              "required": true,
+              "message": "请选择交易标的",
+              "trigger": "change"
+          }
+      ],
+      "info": {
+          "type": "tooltip",
+          "placement": "right",
+          "align": "right",
+          "info": "输入股票名称、代码或拼音首字母进行搜索选择"
+      }
+  },
+  {
+    "type": "elDivider",
+    "props": {
+      "contentPosition": "center"
+    },
+    "children": ["策略参数"]
+  },
+  {
+    "col": {
+      "span": 6
+    },
+    "type": "select",
+    "field": "timeframe",
+    "title": "K线周期",
+    "value": 240,
+    "options": [
+      {
+        "label": "5分钟 (超短线)",
+        "value": 5
+      },
+      {
+        "label": "15分钟 (超短线)",
+        "value": 15
+      },
+      {
+        "label": "30分钟 (短线)",
+        "value": 30
+      },
+      {
+        "label": "60分钟 (短线)",
+        "value": 60
+      },
+      {
+        "label": "日线 (中线)",
+        "value": 240
+      },
+      {
+        "label": "周线 (中长线)",
+        "value": 1200
+      },
+      {
+        "label": "月线 (长线)",
+        "value": 7200
+      }
+    ],
+    "style": {
+      "width": "100%"
+    },
+    "validate": [
+      {
+        "required": true,
+        "message": "请选择K线周期",
+        "trigger": "change"
+      }
+    ]
+  },
+  {
+    "col": {
+      "span": 6
+    },
+    "type": "select",
+    "field": "signalType",
+    "title": "信号类型",
+    "value": "BOTH",
+    "options": [
+      {
+        "label": "MA-双移动平均线",
+        "value": "MA"
+      },
+      {
+        "label": "MACD-平滑异同移动平均线",
+        "value": "MACD"
+      },
+      {
+        "label": "MA + MACD (双重共振)",
+        "value": "BOTH"
+      }
+    ],
+    "control": [
+      {
+        "value": "BOTH",
+        "rule": [
+          {
+            "type": "div",
+            "style": {
+              "width": "100%"
+            }
+          },
+          {
+            "col": {
+              "span": 6
+            },
+            "type": "inputNumber",
+            "field": "maShortPeriod",
+            "title": "MA短期均线周期",
+            "value": 5,
+            "props": {
+              "min": 1,
+              "controlsPosition": "right"
+            },
+            "style": {
+              "width": "100%"
+            },
+            "validate": [
+              {
+                "required": true,
+                "message": "请输入短期均线周期"
+              }
+            ]
+          },
+          {
+            "col": {
+              "span": 6
+            },
+            "type": "inputNumber",
+            "field": "maLongPeriod",
+            "title": "MA长期均线周期",
+            "value": 20,
+            "props": {
+              "min": 1,
+              "controlsPosition": "right"
+            },
+            "style": {
+              "width": "100%"
+            },
+            "validate": [
+              {
+                "required": true,
+                "message": "请输入长期均线周期"
+              }
+            ]
+          },
+          {
+            "col": {
+              "span": 6
+            },
+            "type": "inputNumber",
+            "field": "macdFastPeriod",
+            "title": "MACD快线周期（短期平滑移动平均）",
+            "value": 12,
+            "props": {
+              "min": 1,
+              "controlsPosition": "right"
+            },
+            "style": {
+              "width": "100%"
+            },
+            "validate": [
+              {
+                "required": true,
+                "message": "请输入快线周期"
+              }
+            ]
+          },
+          {
+            "col": {
+              "span": 6
+            },
+            "type": "inputNumber",
+            "field": "macdSlowPeriod",
+            "title": "MACD慢线周期（长期平滑移动平均）",
+            "value": 26,
+            "props": {
+              "min": 1,
+              "controlsPosition": "right"
+            },
+            "style": {
+              "width": "100%"
+            },
+            "validate": [
+              {
+                "required": true,
+                "message": "请输入慢线周期"
+              }
+            ]
+          },
+          {
+            "col": {
+              "span": 6
+            },
+            "type": "inputNumber",
+            "field": "macdSignalPeriod",
+            "title": "MACD信号线周期（M日平滑移动平均）",
+            "value": 9,
+            "props": {
+              "min": 1,
+              "controlsPosition": "right"
+            },
+            "style": {
+              "width": "100%"
+            },
+            "validate": [
+              {
+                "required": true,
+                "message": "请输入信号线周期"
+              }
+            ]
+          },
+          {
+            "col": {
+              "span": 6
+            },
+            "type": "select",
+            "field": "sellMode",
+            "title": "卖出模式",
+            "value": "strict",
+            "options": [
+              {
+                "label": "严格模式 (双重确认)",
+                "value": "strict"
+              },
+              {
+                "label": "宽松模式 (任一死叉)",
+                "value": "loose"
+              }
+            ],
+            "style": {
+              "width": "100%"
+            },
+            "info": {
+              "type": "tooltip",
+              "placement": "top",
+              "align": "right",
+              "info": "严格模式：要求MA和MACD双重确认才卖出，减少假信号；宽松模式：MA或MACD任一死叉即卖出，更快止损/止盈。"
+            },
+            "validate": [
+              {
+                "required": true,
+                "message": "请选择卖出模式",
+                "trigger": "change"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "value": "MA",
+        "rule": [
+          {
+            "type": "div",
+            "style": {
+              "width": "100%"
+            }
+          },
+          {
+            "col": {
+              "span": 6
+            },
+            "type": "inputNumber",
+            "field": "maShortPeriod",
+            "title": "短期均线周期",
+            "value": 5,
+            "props": {
+              "min": 1,
+              "controlsPosition": "right"
+            },
+            "style": {
+              "width": "100%"
+            },
+            "validate": [
+              {
+                "required": true,
+                "message": "请输入短期均线周期"
+              }
+            ]
+          },
+          {
+            "col": {
+              "span": 6
+            },
+            "type": "inputNumber",
+            "field": "maLongPeriod",
+            "title": "长期均线周期",
+            "value": 20,
+            "props": {
+              "min": 1,
+              "controlsPosition": "right"
+            },
+            "style": {
+              "width": "100%"
+            },
+            "validate": [
+              {
+                "required": true,
+                "message": "请输入长期均线周期"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "value": "MACD",
+        "rule": [
+          {
+            "type": "div",
+            "style": {
+              "width": "100%"
+            }
+          },
+          {
+            "col": {
+              "span": 6
+            },
+            "type": "inputNumber",
+            "field": "macdFastPeriod",
+            "title": "快线周期（短期平滑移动平均）",
+            "value": 12,
+            "props": {
+              "min": 1,
+              "controlsPosition": "right"
+            },
+            "style": {
+              "width": "100%"
+            },
+            "validate": [
+              {
+                "required": true,
+                "message": "请输入快线周期"
+              }
+            ]
+          },
+          {
+            "col": {
+              "span": 6
+            },
+            "type": "inputNumber",
+            "field": "macdSlowPeriod",
+            "title": "慢线周期（长期平滑移动平均）",
+            "value": 26,
+            "props": {
+              "min": 1,
+              "controlsPosition": "right"
+            },
+            "style": {
+              "width": "100%"
+            },
+            "validate": [
+              {
+                "required": true,
+                "message": "请输入慢线周期"
+              }
+            ]
+          },
+          {
+            "col": {
+              "span": 6
+            },
+            "type": "inputNumber",
+            "field": "macdSignalPeriod",
+            "title": "信号线周期（M日平滑移动平均）",
+            "value": 9,
+            "props": {
+              "min": 1,
+              "controlsPosition": "right"
+            },
+            "style": {
+              "width": "100%"
+            },
+            "validate": [
+              {
+                "required": true,
+                "message": "请输入信号线周期"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "style": {
+      "width": "100%"
+    },
+    "validate": [
+      {
+        "required": true,
+        "message": "请选择交易信号模式",
+        "trigger": "change"
+      }
+    ]
+  },
+  {
+    "type": "elDivider",
+    "props": {
+      "contentPosition": "center"
+    },
+    "children": ["交易&风控设置"]
+  },
+  {
+    "col": {
+      "span": 6
+    },
+    "type": "select",
+    "field": "tradeDirection",
+    "title": "交易方向",
+    "value": 0,
+    "options": [
+      {
+        "label": "双向",
+        "value": 0
+      },
+      {
+        "label": "只买",
+        "value": 1
+      },
+      {
+        "label": "只卖",
+        "value": 2
+      }
+    ],
+    "style": {
+      "width": "100%"
+    },
+    "validate": [
+      {
+        "required": true,
+        "message": "请选择交易方向",
+        "trigger": "change"
+      }
+    ]
+  },
+  {
+    "col": {
+      "span": 6
+    },
+    "type": "select",
+    "field": "tradeMode",
+    "title": "仓位控制方式",
+    "value": "quantity",
+    "options": [
+      {
+        "label": "按指定股数",
+        "value": "quantity"
+      },
+      {
+        "label": "按指定金额",
+        "value": "amount"
+      },
+      {
+        "label": "按指定仓位",
+        "value": "ratio"
+      }
+    ],
+    "control": [
+      {
+        "value": "quantity",
+        "rule": [
+          {
+            "col": {
+              "span": 6
+            },
+            "type": "inputNumber",
+            "field": "quantity",
+            "title": "单次交易最大数量",
+            "value": 100,
+            "props": {
+              "min": 100,
+              "max": 1000000,
+              "step": 100,
+              "controlsPosition": "right"
+            },
+            "style": {
+              "width": "100%"
+            },
+            "validate": [
+              {
+                "required": true,
+                "message": "请输入交易数量",
+                "trigger": "blur"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "value": "amount",
+        "rule": [
+          {
+            "col": {
+              "span": 6
+            },
+            "type": "inputNumber",
+            "field": "amount",
+            "title": "单次交易最大金额(元)",
+            "value": 10000,
+            "props": {
+              "min": 0,
+              "max": 100000000,
+              "step": 100,
+              "controlsPosition": "right"
+            },
+            "style": {
+              "width": "100%"
+            },
+            "validate": [
+              {
+                "required": true,
+                "message": "请输入交易金额",
+                "trigger": "blur"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "value": "ratio",
+        "rule": [
+          {
+            "col": {
+              "span": 6
+            },
+            "type": "inputNumber",
+            "field": "ratio",
+            "title": "单次交易仓位最大比例(%)",
+            "value": 5,
+            "props": {
+              "min": 0,
+              "max": 100,
+              "precision": 2,
+              "step": 0.1,
+              "controlsPosition": "right"
+            },
+            "style": {
+              "width": "100%"
+            },
+            "validate": [
+              {
+                "required": true,
+                "message": "请输入仓位比例",
+                "trigger": "blur"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "style": {
+      "width": "100%"
+    },
+    "validate": [
+      {
+        "required": true,
+        "message": "请选择仓位控制方式",
+        "trigger": "change"
+      }
+    ]
+  },
+
+  {
+    "col": {
+      "span": 6
+    },
+    "type": "inputNumber",
+    "field": "cooldownSeconds",
+    "title": "交易冷却时间 (秒)",
+    "value": 60,
+    "props": {
+      "min": 0,
+      "max": 14400,
+      "step": 10,
+      "controlsPosition": "right",
+      "placeholder": "交易冷却时间"
+    },
+    "style": {
+      "width": "100%"
+    },
+    "info": {
+      "type": "tooltip",
+      "placement": "top",
+      "align": "right",
+      "info": "两次买入操作之间的最小间隔时间，防止频繁交易。0表示无冷却限制。"
+    },
+    "validate": [
+      {
+        "required": true,
+        "message": "请输入交易冷却时间",
+        "trigger": "blur",
+        "type": "integer"
+      }
+    ]
+  },
+  {
+    "type": "div",
+    "style": {
+      "width": "100%"
+    }
+  },
+  {
+    "col": {
+      "span": 6
+    },
+    "type": "inputNumber",
+    "field": "takeProfit",
+    "title": "止盈比例(%)",
+    "value": 80,
+    "props": {
+      "min": 0,
+      "max": 1000,
+      "precision": 2,
+      "step": 0.1,
+      "controlsPosition": "right"
+    },
+    "style": {
+      "width": "100%"
+    },
+    "info": {
+      "info": "0表示不设止盈"
+    }
+  },
+  {
+    "col": {
+      "span": 6
+    },
+    "type": "inputNumber",
+    "field": "stopLoss",
+    "title": "止损比例(%)",
+    "value": 10,
+    "props": {
+      "min": 0,
+      "max": 100,
+      "precision": 2,
+      "step": 0.1,
+      "controlsPosition": "right"
+    },
+    "style": {
+      "width": "100%"
+    },
+    "info": {
+      "info": "0表示不设止损"
+    }
+  },
+  {
+    "type": "elDivider",
+    "props": {
+      "contentPosition": "center"
+    },
+    "children": ["高级设置"]
+  },
+  {
+    "col": {
+      "span": 6
+    },
+    "type": "switch",
+    "field": "ignoreTradingTime",
+    "title": "忽略交易时间限制",
+    "value": false,
+    "props": {
+      "activeText": "是",
+      "inactiveText": "否"
+    },
+    "info": {
+      "type": "tooltip",
+      "placement": "top",
+      "align": "right",
+      "info": "开启后将在非交易时间（如周末、休市）继续运行策略，仅用于测试或其他市场。"
+    }
+  },
+  {
+    "col": {
+      "span": 6
+    },
+    "type": "switch",
+    "field": "enableRealTrade",
+    "title": "开启实盘交易",
+    "value": true,
+    "props": {
+      "inactiveText": "否",
+      "activeText": "是"
+    },
+    "info": {
+      "type": "tooltip",
+      "placement": "top",
+      "align": "right",
+      "info": "关闭时仅进行模拟撮合和日志记录，不发送真实交易指令；开启后将进行真实资金交易。"
+    }
+  },
+  {
+    "col": {
+      "span": 6
+    },
+    "type": "inputNumber",
+    "field": "monitorInterval",
+    "title": "行情监控间隔 (秒)",
+    "value": 60,
+    "props": {
+      "min": 5,
+      "max": 14400,
+      "step": 10,
+      "controlsPosition": "right",
+      "placeholder": "行情监控间隔"
+    },
+    "style": {
+      "width": "100%"
+    },
+    "validate": [
+      {
+        "required": true,
+        "message": "请输入行情监控间隔",
+        "trigger": "blur",
+        "type": "integer"
+      }
+    ]
+  },
+  {
+    "col": {
+      "span": 6
+    },
+    "type": "datePicker",
+    "field": "validityPeriod",
+    "title": "任务有效期",
+    "props": {
+      "type": "date",
+      "placeholder": "请选择截止日期",
+      "format": "YYYY年MM月DD日 [收盘前]",
+      "valueFormat": "YYYY-MM-DD",
+      "clearable": true
+    },
+    "style": {
+      "width": "100%"
+    },
+    "validate": [
+      {
+        "message": "请选择任务有效期",
+        "trigger": "change",
+        "required": false
+      }
+    ]
+  }
+]

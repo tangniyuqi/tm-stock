@@ -1,0 +1,5 @@
+[github.com/flipped-aurora/gin-vue-admin/server]2026-07-29 22:32:50.952	[33mwarn[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:261	Meilisearch service not available, falling back to MySQL
+[github.com/flipped-aurora/gin-vue-admin/server]2026-07-29 22:32:51.969	[33mwarn[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:261	Meilisearch service not available, falling back to MySQL
+[github.com/flipped-aurora/gin-vue-admin/server]2026-07-29 22:34:04.869	[33mwarn[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:261	Meilisearch service not available, falling back to MySQL
+[github.com/flipped-aurora/gin-vue-admin/server]2026-07-29 22:34:05.711	[33mwarn[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:261	Meilisearch service not available, falling back to MySQL
+[github.com/flipped-aurora/gin-vue-admin/server]2026-07-29 22:34:06.058	[33mwarn[0m	/Users/a1/data/go/gin-vue-admin/server/api/v1/quant/news.go:261	Meilisearch service not available, falling back to MySQL

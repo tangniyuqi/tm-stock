@@ -1,0 +1,646 @@
+-- =============================================================================
+-- GVA 3.0 API 表 + Casbin 策略增量补数据脚本（幂等，可安全重复执行）
+-- 适用场景：线上库 go_noooya_com 在旧版本时期初始化，缺失 3.0 新增 API 与
+--           相应角色的 Casbin 授权策略。server/source/system/api.go 的
+--           DataInserted 只检查 /authorityBtn/canRemoveAuthorityBtn，
+--           casbin.go 的 DataInserted 只检查 9528 的 /user/getUserInfo，
+--           都不会自动补齐增量条目。
+--
+-- 说明：
+--   1. 本脚本只做“补齐缺失”的增量操作，已存在的记录不会被重复写入，
+--      可重复执行；不会改动/删除任何已有数据。
+--   2. 本脚本必须在 menu_supplement_gva30.sql 之后执行：
+--      先补菜单与角色菜单关联，再补 API 与 Casbin 策略，角色才能看到
+--      并用上新增模块的接口。
+--   3. sys_apis 条目来源：
+--      - server/source/system/api.go     （系统全部 API，L46-252）
+--      - server/plugin/ai/initialize/api.go（AI 插件 API，L12-70）
+--   4. casbin_rule 条目来源（逐条与源码一致）：
+--      - 888  角色策略：server/source/system/casbin.go  L48-324
+--        （超级管理员，配套菜单脚本中拥有全部菜单）
+--      - 9528 角色策略：server/source/system/casbin.go  L372-421
+--        （测试角色，配套菜单脚本中拥有父级菜单与部分子菜单）
+--      - 8881 普通用户角色策略（L326-370）不在本脚本范围，
+--        与菜单脚本保持一致；如该角色也需要新模块权限，
+--        请在“角色管理”中逐项勾选后保存（系统会自动写策略）。
+--   5. 执行前建议先备份：
+--      mysqldump -h 119.29.82.70 go_noooya_com sys_apis casbin_rule > api_casbin_backup.sql
+--   6. 执行完成后建议：
+--      - 重启后端（让 Casbin 内存缓存重新加载新策略）
+--      - 在前端「菜单管理 → api管理」点击「同步Api」，核对新增 API 已入库
+-- =============================================================================
+
+-- -----------------------------------------------------------------------------
+-- 一、补齐 sys_apis（幂等：仅插入 path+method 不存在的存活记录）
+--     条目照抄 source/system/api.go 与 plugin/ai/initialize/api.go
+-- -----------------------------------------------------------------------------
+INSERT INTO sys_apis (`path`, `description`, `api_group`, `method`, `created_at`, `updated_at`)
+SELECT t.path, t.description, t.api_group, t.method, NOW(), NOW()
+FROM (
+    -- jwt
+    SELECT '/jwt/jsonInBlacklist' AS `path`, 'jwt加入黑名单(退出，必选)' AS `description`, 'jwt' AS `api_group`, 'POST' AS `method`
+    UNION ALL SELECT '/autoCode/initMenu', '生成插件菜单初始化文件', '代码生成器', 'POST'
+    UNION ALL SELECT '/autoCode/initAPI', '生成插件 API 初始化文件', '代码生成器', 'POST'
+    UNION ALL SELECT '/autoCode/initDictionary', '生成插件字典初始化文件', '代码生成器', 'POST'
+    -- 登录日志
+    UNION ALL SELECT '/sysLoginLog/deleteLoginLog', '删除登录日志', '登录日志', 'DELETE'
+    UNION ALL SELECT '/sysLoginLog/deleteLoginLogByIds', '批量删除登录日志', '登录日志', 'DELETE'
+    UNION ALL SELECT '/sysLoginLog/findLoginLog', '根据ID获取登录日志', '登录日志', 'GET'
+    UNION ALL SELECT '/sysLoginLog/getLoginLogList', '获取登录日志列表', '登录日志', 'GET'
+    -- 文件日志
+    UNION ALL SELECT '/logViewer/dates', '获取存在日志的日期', '文件日志', 'GET'
+    UNION ALL SELECT '/logViewer/files', '获取日期下的日志文件', '文件日志', 'GET'
+    UNION ALL SELECT '/logViewer/content', '分块读取日志文件内容', '文件日志', 'GET'
+    -- API Token
+    UNION ALL SELECT '/sysApiToken/createApiToken', '签发API Token', 'API Token', 'POST'
+    UNION ALL SELECT '/sysApiToken/getApiTokenList', '获取API Token列表', 'API Token', 'POST'
+    UNION ALL SELECT '/sysApiToken/deleteApiToken', '作废API Token', 'API Token', 'POST'
+    -- 安全配置
+    UNION ALL SELECT '/securityConfig/getSecurityConfig', '获取安全配置', '安全配置', 'GET'
+    UNION ALL SELECT '/securityConfig/setSecurityConfig', '设置安全配置', '安全配置', 'POST'
+    -- 定时任务
+    UNION ALL SELECT '/timedTask/createTimedTask', '创建定时任务', '定时任务', 'POST'
+    UNION ALL SELECT '/timedTask/updateTimedTask', '更新定时任务', '定时任务', 'PUT'
+    UNION ALL SELECT '/timedTask/deleteTimedTask', '删除定时任务', '定时任务', 'DELETE'
+    UNION ALL SELECT '/timedTask/toggleTimedTask', '启用/停用定时任务', '定时任务', 'POST'
+    UNION ALL SELECT '/timedTask/triggerTimedTask', '手动触发定时任务', '定时任务', 'POST'
+    UNION ALL SELECT '/timedTask/getTimedTaskList', '获取定时任务列表', '定时任务', 'GET'
+    UNION ALL SELECT '/timedTask/getTimedTaskLogList', '获取定时任务执行日志', '定时任务', 'GET'
+    UNION ALL SELECT '/timedTask/getRegisteredMethods', '获取已注册方法列表', '定时任务', 'GET'
+    UNION ALL SELECT '/timedTask/alertStream', '订阅定时任务失败告警(SSE)', '定时任务', 'GET'
+    -- 系统用户
+    UNION ALL SELECT '/user/deleteUser', '删除用户', '系统用户', 'DELETE'
+    UNION ALL SELECT '/user/admin_register', '用户注册', '系统用户', 'POST'
+    UNION ALL SELECT '/user/getUserList', '获取用户列表', '系统用户', 'POST'
+    UNION ALL SELECT '/user/setUserInfo', '设置用户信息', '系统用户', 'PUT'
+    UNION ALL SELECT '/user/setSelfInfo', '设置自身信息(必选)', '系统用户', 'PUT'
+    UNION ALL SELECT '/user/getUserInfo', '获取自身信息(必选)', '系统用户', 'GET'
+    UNION ALL SELECT '/user/setUserAuthorities', '设置权限组', '系统用户', 'POST'
+    UNION ALL SELECT '/user/changePassword', '修改密码（建议选择)', '系统用户', 'POST'
+    UNION ALL SELECT '/user/setUserAuthority', '修改用户角色(必选)', '系统用户', 'POST'
+    UNION ALL SELECT '/user/resetPassword', '重置用户密码', '系统用户', 'POST'
+    UNION ALL SELECT '/user/setSelfSetting', '用户界面配置', '系统用户', 'PUT'
+    UNION ALL SELECT '/user/setUserDepartments', '设置用户归属部门', '系统用户', 'POST'
+    UNION ALL SELECT '/user/setUserPositions', '设置用户岗位', '系统用户', 'POST'
+    -- api
+    UNION ALL SELECT '/api/createApi', '创建api', 'api', 'POST'
+    UNION ALL SELECT '/api/deleteApi', '删除Api', 'api', 'POST'
+    UNION ALL SELECT '/api/updateApi', '更新Api', 'api', 'POST'
+    UNION ALL SELECT '/api/getApiList', '获取api列表', 'api', 'POST'
+    UNION ALL SELECT '/api/getAllApis', '获取所有api', 'api', 'POST'
+    UNION ALL SELECT '/api/getApiById', '获取api详细信息', 'api', 'POST'
+    UNION ALL SELECT '/api/deleteApisByIds', '批量删除api', 'api', 'DELETE'
+    UNION ALL SELECT '/api/syncApi', '获取待同步API', 'api', 'GET'
+    UNION ALL SELECT '/api/getApiGroups', '获取路由组', 'api', 'GET'
+    UNION ALL SELECT '/api/enterSyncApi', '确认同步API', 'api', 'POST'
+    UNION ALL SELECT '/api/ignoreApi', '忽略API', 'api', 'POST'
+    UNION ALL SELECT '/api/getApiRoles', '获取指定API关联角色列表', 'api', 'GET'
+    UNION ALL SELECT '/api/setApiRoles', '全量覆盖API关联角色列表', 'api', 'POST'
+    -- 角色
+    UNION ALL SELECT '/authority/copyAuthority', '拷贝角色', '角色', 'POST'
+    UNION ALL SELECT '/authority/createAuthority', '创建角色', '角色', 'POST'
+    UNION ALL SELECT '/authority/deleteAuthority', '删除角色', '角色', 'POST'
+    UNION ALL SELECT '/authority/updateAuthority', '更新角色信息', '角色', 'PUT'
+    UNION ALL SELECT '/authority/getAuthorityList', '获取角色列表', '角色', 'POST'
+    UNION ALL SELECT '/authority/setDataScope', '设置角色数据权限', '角色', 'POST'
+    UNION ALL SELECT '/authority/getDataScopeDepts', '获取角色自定义部门集', '角色', 'GET'
+    -- 数据权限审计
+    UNION ALL SELECT '/dataAccessLog/getDataAccessLogList', '获取数据权限审计日志', '数据权限审计', 'POST'
+    UNION ALL SELECT '/dataAccessLog/deleteDataAccessLogByIds', '批量删除数据权限审计日志', '数据权限审计', 'DELETE'
+    -- 角色
+    UNION ALL SELECT '/authority/getUsersByAuthority', '获取角色关联用户ID列表', '角色', 'GET'
+    UNION ALL SELECT '/authority/setRoleUsers', '全量覆盖角色关联用户', '角色', 'POST'
+    -- 部门
+    UNION ALL SELECT '/department/createDepartment', '创建部门', '部门', 'POST'
+    UNION ALL SELECT '/department/updateDepartment', '更新部门', '部门', 'PUT'
+    UNION ALL SELECT '/department/deleteDepartment', '删除部门', '部门', 'DELETE'
+    UNION ALL SELECT '/department/getDepartmentList', '获取部门树', '部门', 'POST'
+    UNION ALL SELECT '/department/findDepartment', '根据ID获取部门', '部门', 'GET'
+    UNION ALL SELECT '/department/getDepartmentUsers', '获取部门成员ID列表', '部门', 'GET'
+    UNION ALL SELECT '/department/setDepartmentUsers', '设置部门成员(反向分配)', '部门', 'POST'
+    -- 岗位
+    UNION ALL SELECT '/position/createPosition', '创建岗位', '岗位', 'POST'
+    UNION ALL SELECT '/position/updatePosition', '更新岗位', '岗位', 'PUT'
+    UNION ALL SELECT '/position/deletePosition', '删除岗位', '岗位', 'DELETE'
+    UNION ALL SELECT '/position/getPositionList', '获取岗位列表', '岗位', 'POST'
+    UNION ALL SELECT '/position/findPosition', '根据ID获取岗位', '岗位', 'GET'
+    UNION ALL SELECT '/position/getPositionUsers', '获取岗位成员ID列表', '岗位', 'GET'
+    UNION ALL SELECT '/position/setPositionUsers', '设置岗位成员(反向分配)', '岗位', 'POST'
+    -- casbin
+    UNION ALL SELECT '/casbin/updateCasbin', '更改角色api权限', 'casbin', 'POST'
+    UNION ALL SELECT '/casbin/getPolicyPathByAuthorityId', '获取权限列表', 'casbin', 'POST'
+    -- 菜单
+    UNION ALL SELECT '/menu/addBaseMenu', '新增菜单', '菜单', 'POST'
+    UNION ALL SELECT '/menu/getMenu', '获取菜单树(必选)', '菜单', 'POST'
+    UNION ALL SELECT '/menu/deleteBaseMenu', '删除菜单', '菜单', 'POST'
+    UNION ALL SELECT '/menu/updateBaseMenu', '更新菜单', '菜单', 'POST'
+    UNION ALL SELECT '/menu/getBaseMenuById', '根据id获取菜单', '菜单', 'POST'
+    UNION ALL SELECT '/menu/getMenuList', '分页获取基础menu列表', '菜单', 'POST'
+    UNION ALL SELECT '/menu/getBaseMenuTree', '获取用户动态路由', '菜单', 'POST'
+    UNION ALL SELECT '/menu/getMenuAuthority', '获取指定角色menu', '菜单', 'POST'
+    UNION ALL SELECT '/menu/addMenuAuthority', '增加menu和角色关联关系', '菜单', 'POST'
+    UNION ALL SELECT '/menu/getMenuRoles', '获取菜单关联角色列表', '菜单', 'GET'
+    UNION ALL SELECT '/menu/setMenuRoles', '全量覆盖菜单关联角色列表', '菜单', 'POST'
+    -- 媒体上传
+    UNION ALL SELECT '/mediaUpload/init', '初始化大文件上传', '媒体上传', 'POST'
+    UNION ALL SELECT '/mediaUpload/chunk', '上传分片', '媒体上传', 'POST'
+    UNION ALL SELECT '/mediaUpload/complete', '完成大文件上传', '媒体上传', 'POST'
+    UNION ALL SELECT '/mediaUpload/:uploadId', '取消大文件上传', '媒体上传', 'DELETE'
+    -- 文件上传与下载
+    UNION ALL SELECT '/fileUploadAndDownload/upload', '文件上传（建议选择）', '文件上传与下载', 'POST'
+    UNION ALL SELECT '/fileUploadAndDownload/deleteFile', '删除文件', '文件上传与下载', 'POST'
+    UNION ALL SELECT '/fileUploadAndDownload/editFileName', '文件名或者备注编辑', '文件上传与下载', 'POST'
+    UNION ALL SELECT '/fileUploadAndDownload/getFileList', '获取上传文件列表', '文件上传与下载', 'POST'
+    UNION ALL SELECT '/fileUploadAndDownload/importURL', '导入URL', '文件上传与下载', 'POST'
+    -- 系统服务
+    UNION ALL SELECT '/system/getServerInfo', '获取服务器信息', '系统服务', 'POST'
+    UNION ALL SELECT '/system/getSystemConfig', '获取配置文件内容', '系统服务', 'POST'
+    UNION ALL SELECT '/system/setSystemConfig', '设置配置文件内容', '系统服务', 'POST'
+    -- 客户
+    UNION ALL SELECT '/customer/customer', '更新客户', '客户', 'PUT'
+    UNION ALL SELECT '/customer/customer', '创建客户', '客户', 'POST'
+    UNION ALL SELECT '/customer/customer', '删除客户', '客户', 'DELETE'
+    UNION ALL SELECT '/customer/customer', '获取单一客户', '客户', 'GET'
+    UNION ALL SELECT '/customer/customerList', '获取客户列表', '客户', 'GET'
+    -- 系统字典详情
+    UNION ALL SELECT '/sysDictionaryDetail/updateSysDictionaryDetail', '更新字典内容', '系统字典详情', 'PUT'
+    UNION ALL SELECT '/sysDictionaryDetail/createSysDictionaryDetail', '新增字典内容', '系统字典详情', 'POST'
+    UNION ALL SELECT '/sysDictionaryDetail/deleteSysDictionaryDetail', '删除字典内容', '系统字典详情', 'DELETE'
+    UNION ALL SELECT '/sysDictionaryDetail/findSysDictionaryDetail', '根据ID获取字典内容', '系统字典详情', 'GET'
+    UNION ALL SELECT '/sysDictionaryDetail/getSysDictionaryDetailList', '获取字典内容列表', '系统字典详情', 'GET'
+    UNION ALL SELECT '/sysDictionaryDetail/getDictionaryTreeList', '获取字典数列表', '系统字典详情', 'GET'
+    UNION ALL SELECT '/sysDictionaryDetail/getDictionaryTreeListByType', '根据分类获取字典数列表', '系统字典详情', 'GET'
+    UNION ALL SELECT '/sysDictionaryDetail/getDictionaryDetailsByParent', '根据父级ID获取字典详情', '系统字典详情', 'GET'
+    UNION ALL SELECT '/sysDictionaryDetail/getDictionaryPath', '获取字典详情的完整路径', '系统字典详情', 'GET'
+    -- 系统字典
+    UNION ALL SELECT '/sysDictionary/createSysDictionary', '新增字典', '系统字典', 'POST'
+    UNION ALL SELECT '/sysDictionary/deleteSysDictionary', '删除字典', '系统字典', 'DELETE'
+    UNION ALL SELECT '/sysDictionary/updateSysDictionary', '更新字典', '系统字典', 'PUT'
+    UNION ALL SELECT '/sysDictionary/findSysDictionary', '根据ID获取字典（建议选择）', '系统字典', 'GET'
+    UNION ALL SELECT '/sysDictionary/getSysDictionaryList', '获取字典列表', '系统字典', 'GET'
+    UNION ALL SELECT '/sysDictionary/getSysDictionaryListWithDetails', '获取字典列表(含明细)', '系统字典', 'GET'
+    UNION ALL SELECT '/sysDictionary/importSysDictionary', '导入字典JSON', '系统字典', 'POST'
+    UNION ALL SELECT '/sysDictionary/exportSysDictionary', '导出字典JSON', '系统字典', 'GET'
+    -- 操作记录
+    UNION ALL SELECT '/sysOperationRecord/createSysOperationRecord', '新增操作记录', '操作记录', 'POST'
+    UNION ALL SELECT '/sysOperationRecord/findSysOperationRecord', '根据ID获取操作记录', '操作记录', 'GET'
+    UNION ALL SELECT '/sysOperationRecord/getSysOperationRecordList', '获取操作记录列表', '操作记录', 'GET'
+    UNION ALL SELECT '/sysOperationRecord/deleteSysOperationRecord', '删除操作记录', '操作记录', 'DELETE'
+    UNION ALL SELECT '/sysOperationRecord/deleteSysOperationRecordByIds', '批量删除操作历史', '操作记录', 'DELETE'
+    -- 断点续传(插件版)
+    UNION ALL SELECT '/simpleUploader/upload', '插件版分片上传', '断点续传(插件版)', 'POST'
+    UNION ALL SELECT '/simpleUploader/checkFileMd5', '文件完整度验证', '断点续传(插件版)', 'GET'
+    UNION ALL SELECT '/simpleUploader/mergeFileMd5', '上传完成合并文件', '断点续传(插件版)', 'GET'
+    -- email
+    UNION ALL SELECT '/email/emailTest', '发送测试邮件', 'email', 'POST'
+    UNION ALL SELECT '/email/sendEmail', '发送邮件', 'email', 'POST'
+    -- 按钮权限
+    UNION ALL SELECT '/authorityBtn/setAuthorityBtn', '设置按钮权限', '按钮权限', 'POST'
+    UNION ALL SELECT '/authorityBtn/getAuthorityBtn', '获取已有按钮权限', '按钮权限', 'POST'
+    UNION ALL SELECT '/authorityBtn/canRemoveAuthorityBtn', '删除按钮', '按钮权限', 'POST'
+    -- 导出模板
+    UNION ALL SELECT '/sysExportTemplate/createSysExportTemplate', '新增导出模板', '导出模板', 'POST'
+    UNION ALL SELECT '/sysExportTemplate/deleteSysExportTemplate', '删除导出模板', '导出模板', 'DELETE'
+    UNION ALL SELECT '/sysExportTemplate/deleteSysExportTemplateByIds', '批量删除导出模板', '导出模板', 'DELETE'
+    UNION ALL SELECT '/sysExportTemplate/updateSysExportTemplate', '更新导出模板', '导出模板', 'PUT'
+    UNION ALL SELECT '/sysExportTemplate/findSysExportTemplate', '根据ID获取导出模板', '导出模板', 'GET'
+    UNION ALL SELECT '/sysExportTemplate/getSysExportTemplateList', '获取导出模板列表', '导出模板', 'GET'
+    UNION ALL SELECT '/sysExportTemplate/exportExcel', '导出Excel', '导出模板', 'GET'
+    UNION ALL SELECT '/sysExportTemplate/exportTemplate', '下载模板', '导出模板', 'GET'
+    UNION ALL SELECT '/sysExportTemplate/previewSQL', '预览SQL', '导出模板', 'GET'
+    UNION ALL SELECT '/sysExportTemplate/importExcel', '导入Excel', '导出模板', 'POST'
+    -- 错误日志
+    UNION ALL SELECT '/sysError/createSysError', '新建错误日志', '错误日志', 'POST'
+    UNION ALL SELECT '/sysError/deleteSysError', '删除错误日志', '错误日志', 'DELETE'
+    UNION ALL SELECT '/sysError/deleteSysErrorByIds', '批量删除错误日志', '错误日志', 'DELETE'
+    UNION ALL SELECT '/sysError/updateSysError', '更新错误日志', '错误日志', 'PUT'
+    UNION ALL SELECT '/sysError/findSysError', '根据ID获取错误日志', '错误日志', 'GET'
+    UNION ALL SELECT '/sysError/getSysErrorList', '获取错误日志列表', '错误日志', 'GET'
+    UNION ALL SELECT '/sysError/getSysErrorSolution', '触发错误处理(异步)', '错误日志', 'GET'
+    -- 公告
+    UNION ALL SELECT '/info/createInfo', '新建公告', '公告', 'POST'
+    UNION ALL SELECT '/info/deleteInfo', '删除公告', '公告', 'DELETE'
+    UNION ALL SELECT '/info/deleteInfoByIds', '批量删除公告', '公告', 'DELETE'
+    UNION ALL SELECT '/info/updateInfo', '更新公告', '公告', 'PUT'
+    UNION ALL SELECT '/info/findInfo', '根据ID获取公告', '公告', 'GET'
+    UNION ALL SELECT '/info/getInfoList', '获取公告列表', '公告', 'GET'
+    -- 参数管理
+    UNION ALL SELECT '/sysParams/createSysParams', '新建参数', '参数管理', 'POST'
+    UNION ALL SELECT '/sysParams/deleteSysParams', '删除参数', '参数管理', 'DELETE'
+    UNION ALL SELECT '/sysParams/deleteSysParamsByIds', '批量删除参数', '参数管理', 'DELETE'
+    UNION ALL SELECT '/sysParams/updateSysParams', '更新参数', '参数管理', 'PUT'
+    UNION ALL SELECT '/sysParams/findSysParams', '根据ID获取参数', '参数管理', 'GET'
+    UNION ALL SELECT '/sysParams/getSysParamsList', '获取参数列表', '参数管理', 'GET'
+    UNION ALL SELECT '/sysParams/getSysParam', '获取参数列表', '参数管理', 'GET'
+    -- 媒体库分类
+    UNION ALL SELECT '/attachmentCategory/getCategoryList', '分类列表', '媒体库分类', 'GET'
+    UNION ALL SELECT '/attachmentCategory/addCategory', '添加/编辑分类', '媒体库分类', 'POST'
+    UNION ALL SELECT '/attachmentCategory/deleteCategory', '删除分类', '媒体库分类', 'POST'
+    -- 版本控制
+    UNION ALL SELECT '/sysVersion/findSysVersion', '获取单一版本', '版本控制', 'GET'
+    UNION ALL SELECT '/sysVersion/getSysVersionList', '获取版本列表', '版本控制', 'GET'
+    UNION ALL SELECT '/sysVersion/downloadVersionJson', '下载版本json', '版本控制', 'GET'
+    UNION ALL SELECT '/sysVersion/exportVersion', '创建版本', '版本控制', 'POST'
+    UNION ALL SELECT '/sysVersion/importVersion', '同步版本', '版本控制', 'POST'
+    UNION ALL SELECT '/sysVersion/deleteSysVersion', '删除版本', '版本控制', 'DELETE'
+    UNION ALL SELECT '/sysVersion/deleteSysVersionByIds', '批量删除版本', '版本控制', 'DELETE'
+    -- ========== AI 插件（plugin/ai/initialize/api.go） ==========
+    -- skills
+    UNION ALL SELECT '/skills/getTools', '获取 AI 工具列表', 'skills', 'GET'
+    UNION ALL SELECT '/skills/getSkillList', '获取技能列表', 'skills', 'POST'
+    UNION ALL SELECT '/skills/getSkillDetail', '获取技能详情', 'skills', 'POST'
+    UNION ALL SELECT '/skills/saveSkill', '保存技能', 'skills', 'POST'
+    UNION ALL SELECT '/skills/deleteSkill', '删除技能', 'skills', 'POST'
+    UNION ALL SELECT '/skills/createScript', '创建脚本', 'skills', 'POST'
+    UNION ALL SELECT '/skills/getScript', '获取脚本', 'skills', 'POST'
+    UNION ALL SELECT '/skills/saveScript', '保存脚本', 'skills', 'POST'
+    UNION ALL SELECT '/skills/createResource', '创建资源', 'skills', 'POST'
+    UNION ALL SELECT '/skills/getResource', '获取资源', 'skills', 'POST'
+    UNION ALL SELECT '/skills/saveResource', '保存资源', 'skills', 'POST'
+    UNION ALL SELECT '/skills/createReference', '创建参考资料', 'skills', 'POST'
+    UNION ALL SELECT '/skills/getReference', '获取参考资料', 'skills', 'POST'
+    UNION ALL SELECT '/skills/saveReference', '保存参考资料', 'skills', 'POST'
+    UNION ALL SELECT '/skills/createTemplate', '创建模板', 'skills', 'POST'
+    UNION ALL SELECT '/skills/getTemplate', '获取模板', 'skills', 'POST'
+    UNION ALL SELECT '/skills/saveTemplate', '保存模板', 'skills', 'POST'
+    UNION ALL SELECT '/skills/getGlobalConstraint', '获取全局约束', 'skills', 'POST'
+    UNION ALL SELECT '/skills/saveGlobalConstraint', '保存全局约束', 'skills', 'POST'
+    UNION ALL SELECT '/skills/packageSkill', '打包技能', 'skills', 'POST'
+    UNION ALL SELECT '/skills/downloadOnlineSkill', '下载在线技能', 'skills', 'POST'
+    -- autoCode / mcp（处理逻辑仍在 core，路径前缀沿用 autoCode）
+    UNION ALL SELECT '/autoCode/mcp', '生成 MCP 工具', '代码生成器', 'POST'
+    UNION ALL SELECT '/autoCode/mcpStatus', '获取 MCP 状态', '代码生成器', 'POST'
+    UNION ALL SELECT '/autoCode/mcpStart', '启动 MCP', '代码生成器', 'POST'
+    UNION ALL SELECT '/autoCode/mcpStop', '停止 MCP', '代码生成器', 'POST'
+    UNION ALL SELECT '/autoCode/mcpList', '获取 MCP 工具列表', '代码生成器', 'POST'
+    UNION ALL SELECT '/autoCode/mcpRoutes', '获取 MCP 路由', '代码生成器', 'POST'
+    UNION ALL SELECT '/autoCode/mcpTest', '测试 MCP 调用', '代码生成器', 'POST'
+    -- cli
+    UNION ALL SELECT '/cli/createCli', '创建CLI', 'CLI管理', 'POST'
+    UNION ALL SELECT '/cli/getCliList', '获取CLI列表', 'CLI管理', 'POST'
+    UNION ALL SELECT '/cli/getCliDetail', '获取CLI详情', 'CLI管理', 'POST'
+    UNION ALL SELECT '/cli/updateCli', '更新CLI', 'CLI管理', 'POST'
+    UNION ALL SELECT '/cli/deleteCli', '删除CLI', 'CLI管理', 'POST'
+    UNION ALL SELECT '/cli/addCliApis', '增加CLI关联API', 'CLI管理', 'POST'
+    UNION ALL SELECT '/cli/removeCliApis', '减少CLI关联API', 'CLI管理', 'POST'
+    UNION ALL SELECT '/cli/previewManifest', '预览CLI Manifest', 'CLI管理', 'POST'
+    UNION ALL SELECT '/cli/downloadManifest', '下载CLI Manifest', 'CLI管理', 'POST'
+    UNION ALL SELECT '/cli/buildCli', '编译并下载CLI二进制', 'CLI管理', 'POST'
+    UNION ALL SELECT '/cli/downloadSkill', '下载CLI的AI Skill', 'CLI管理', 'POST'
+    UNION ALL SELECT '/cli/previewApiCommand', '填充API命令', 'CLI管理', 'POST'
+    -- mcpApi（动态 tool 注册）
+    UNION ALL SELECT '/mcpApi/createMcp', '创建MCP', 'MCP管理', 'POST'
+    UNION ALL SELECT '/mcpApi/getMcpList', '获取MCP列表', 'MCP管理', 'POST'
+    UNION ALL SELECT '/mcpApi/getMcpDetail', '获取MCP详情', 'MCP管理', 'POST'
+    UNION ALL SELECT '/mcpApi/updateMcp', '更新MCP', 'MCP管理', 'POST'
+    UNION ALL SELECT '/mcpApi/deleteMcp', '删除MCP', 'MCP管理', 'POST'
+    UNION ALL SELECT '/mcpApi/addMcpApis', '增加MCP关联API', 'MCP管理', 'POST'
+    UNION ALL SELECT '/mcpApi/removeMcpApis', '减少MCP关联API', 'MCP管理', 'POST'
+    UNION ALL SELECT '/mcpApi/previewManifest', '预览MCP能力定义', 'MCP管理', 'POST'
+    UNION ALL SELECT '/mcpApi/previewPrompt', '预览MCP编排prompt', 'MCP管理', 'POST'
+    UNION ALL SELECT '/mcpApi/previewApiCommand', '按API生成能力定义', 'MCP管理', 'POST'
+) t
+LEFT JOIN sys_apis a ON a.path = t.path AND a.method = t.method AND a.deleted_at IS NULL
+WHERE a.id IS NULL;
+
+-- -----------------------------------------------------------------------------
+-- 二、补齐 casbin_rule：888 角色策略（幂等，条目照抄 casbin.go L48-324）
+-- -----------------------------------------------------------------------------
+INSERT INTO casbin_rule (`ptype`, `v0`, `v1`, `v2`, `v3`, `v4`, `v5`)
+SELECT t.ptype, t.v0, t.v1, t.v2, '', '', ''
+FROM (
+    SELECT 'p' AS `ptype`, '888' AS `v0`, '/user/admin_register' AS `v1`, 'POST' AS `v2`
+    UNION ALL SELECT 'p', '888', '/sysLoginLog/deleteLoginLog', 'DELETE'
+    UNION ALL SELECT 'p', '888', '/sysLoginLog/deleteLoginLogByIds', 'DELETE'
+    UNION ALL SELECT 'p', '888', '/sysLoginLog/findLoginLog', 'GET'
+    UNION ALL SELECT 'p', '888', '/sysLoginLog/getLoginLogList', 'GET'
+    UNION ALL SELECT 'p', '888', '/logViewer/dates', 'GET'
+    UNION ALL SELECT 'p', '888', '/logViewer/files', 'GET'
+    UNION ALL SELECT 'p', '888', '/logViewer/content', 'GET'
+    UNION ALL SELECT 'p', '888', '/sysApiToken/createApiToken', 'POST'
+    UNION ALL SELECT 'p', '888', '/sysApiToken/getApiTokenList', 'POST'
+    UNION ALL SELECT 'p', '888', '/sysApiToken/deleteApiToken', 'POST'
+    UNION ALL SELECT 'p', '888', '/securityConfig/getSecurityConfig', 'GET'
+    UNION ALL SELECT 'p', '888', '/securityConfig/setSecurityConfig', 'POST'
+    UNION ALL SELECT 'p', '888', '/timedTask/createTimedTask', 'POST'
+    UNION ALL SELECT 'p', '888', '/timedTask/updateTimedTask', 'PUT'
+    UNION ALL SELECT 'p', '888', '/timedTask/deleteTimedTask', 'DELETE'
+    UNION ALL SELECT 'p', '888', '/timedTask/toggleTimedTask', 'POST'
+    UNION ALL SELECT 'p', '888', '/timedTask/triggerTimedTask', 'POST'
+    UNION ALL SELECT 'p', '888', '/timedTask/getTimedTaskList', 'GET'
+    UNION ALL SELECT 'p', '888', '/timedTask/getTimedTaskLogList', 'GET'
+    UNION ALL SELECT 'p', '888', '/timedTask/getRegisteredMethods', 'GET'
+    UNION ALL SELECT 'p', '888', '/timedTask/alertStream', 'GET'
+    UNION ALL SELECT 'p', '888', '/api/createApi', 'POST'
+    UNION ALL SELECT 'p', '888', '/api/getApiList', 'POST'
+    UNION ALL SELECT 'p', '888', '/api/getApiById', 'POST'
+    UNION ALL SELECT 'p', '888', '/api/deleteApi', 'POST'
+    UNION ALL SELECT 'p', '888', '/api/updateApi', 'POST'
+    UNION ALL SELECT 'p', '888', '/api/getAllApis', 'POST'
+    UNION ALL SELECT 'p', '888', '/api/deleteApisByIds', 'DELETE'
+    UNION ALL SELECT 'p', '888', '/api/syncApi', 'GET'
+    UNION ALL SELECT 'p', '888', '/api/getApiGroups', 'GET'
+    UNION ALL SELECT 'p', '888', '/api/enterSyncApi', 'POST'
+    UNION ALL SELECT 'p', '888', '/api/ignoreApi', 'POST'
+    UNION ALL SELECT 'p', '888', '/api/getApiRoles', 'GET'
+    UNION ALL SELECT 'p', '888', '/api/setApiRoles', 'POST'
+    UNION ALL SELECT 'p', '888', '/authority/copyAuthority', 'POST'
+    UNION ALL SELECT 'p', '888', '/authority/updateAuthority', 'PUT'
+    UNION ALL SELECT 'p', '888', '/authority/createAuthority', 'POST'
+    UNION ALL SELECT 'p', '888', '/authority/deleteAuthority', 'POST'
+    UNION ALL SELECT 'p', '888', '/authority/getAuthorityList', 'POST'
+    UNION ALL SELECT 'p', '888', '/authority/setDataScope', 'POST'
+    UNION ALL SELECT 'p', '888', '/authority/getDataScopeDepts', 'GET'
+    UNION ALL SELECT 'p', '888', '/dataAccessLog/getDataAccessLogList', 'POST'
+    UNION ALL SELECT 'p', '888', '/dataAccessLog/deleteDataAccessLogByIds', 'DELETE'
+    UNION ALL SELECT 'p', '888', '/authority/getUsersByAuthority', 'GET'
+    UNION ALL SELECT 'p', '888', '/authority/setRoleUsers', 'POST'
+    UNION ALL SELECT 'p', '888', '/department/createDepartment', 'POST'
+    UNION ALL SELECT 'p', '888', '/department/updateDepartment', 'PUT'
+    UNION ALL SELECT 'p', '888', '/department/deleteDepartment', 'DELETE'
+    UNION ALL SELECT 'p', '888', '/department/getDepartmentList', 'POST'
+    UNION ALL SELECT 'p', '888', '/department/findDepartment', 'GET'
+    UNION ALL SELECT 'p', '888', '/position/createPosition', 'POST'
+    UNION ALL SELECT 'p', '888', '/position/updatePosition', 'PUT'
+    UNION ALL SELECT 'p', '888', '/position/deletePosition', 'DELETE'
+    UNION ALL SELECT 'p', '888', '/position/getPositionList', 'POST'
+    UNION ALL SELECT 'p', '888', '/position/findPosition', 'GET'
+    UNION ALL SELECT 'p', '888', '/department/getDepartmentUsers', 'GET'
+    UNION ALL SELECT 'p', '888', '/department/setDepartmentUsers', 'POST'
+    UNION ALL SELECT 'p', '888', '/position/getPositionUsers', 'GET'
+    UNION ALL SELECT 'p', '888', '/position/setPositionUsers', 'POST'
+    UNION ALL SELECT 'p', '888', '/menu/getMenu', 'POST'
+    UNION ALL SELECT 'p', '888', '/menu/getMenuList', 'POST'
+    UNION ALL SELECT 'p', '888', '/menu/addBaseMenu', 'POST'
+    UNION ALL SELECT 'p', '888', '/menu/getBaseMenuTree', 'POST'
+    UNION ALL SELECT 'p', '888', '/menu/addMenuAuthority', 'POST'
+    UNION ALL SELECT 'p', '888', '/menu/getMenuAuthority', 'POST'
+    UNION ALL SELECT 'p', '888', '/menu/getMenuRoles', 'GET'
+    UNION ALL SELECT 'p', '888', '/menu/setMenuRoles', 'POST'
+    UNION ALL SELECT 'p', '888', '/menu/deleteBaseMenu', 'POST'
+    UNION ALL SELECT 'p', '888', '/menu/updateBaseMenu', 'POST'
+    UNION ALL SELECT 'p', '888', '/menu/getBaseMenuById', 'POST'
+    UNION ALL SELECT 'p', '888', '/user/getUserInfo', 'GET'
+    UNION ALL SELECT 'p', '888', '/user/setUserInfo', 'PUT'
+    UNION ALL SELECT 'p', '888', '/user/setSelfInfo', 'PUT'
+    UNION ALL SELECT 'p', '888', '/user/getUserList', 'POST'
+    UNION ALL SELECT 'p', '888', '/user/deleteUser', 'DELETE'
+    UNION ALL SELECT 'p', '888', '/user/changePassword', 'POST'
+    UNION ALL SELECT 'p', '888', '/user/setUserAuthority', 'POST'
+    UNION ALL SELECT 'p', '888', '/user/setUserAuthorities', 'POST'
+    UNION ALL SELECT 'p', '888', '/user/resetPassword', 'POST'
+    UNION ALL SELECT 'p', '888', '/user/setSelfSetting', 'PUT'
+    UNION ALL SELECT 'p', '888', '/user/setUserDepartments', 'POST'
+    UNION ALL SELECT 'p', '888', '/user/setUserPositions', 'POST'
+    UNION ALL SELECT 'p', '888', '/mediaUpload/init', 'POST'
+    UNION ALL SELECT 'p', '888', '/mediaUpload/chunk', 'POST'
+    UNION ALL SELECT 'p', '888', '/mediaUpload/complete', 'POST'
+    UNION ALL SELECT 'p', '888', '/mediaUpload/:uploadId', 'DELETE'
+    UNION ALL SELECT 'p', '888', '/fileUploadAndDownload/upload', 'POST'
+    UNION ALL SELECT 'p', '888', '/fileUploadAndDownload/deleteFile', 'POST'
+    UNION ALL SELECT 'p', '888', '/fileUploadAndDownload/editFileName', 'POST'
+    UNION ALL SELECT 'p', '888', '/fileUploadAndDownload/getFileList', 'POST'
+    UNION ALL SELECT 'p', '888', '/fileUploadAndDownload/importURL', 'POST'
+    UNION ALL SELECT 'p', '888', '/casbin/updateCasbin', 'POST'
+    UNION ALL SELECT 'p', '888', '/casbin/getPolicyPathByAuthorityId', 'POST'
+    UNION ALL SELECT 'p', '888', '/jwt/jsonInBlacklist', 'POST'
+    UNION ALL SELECT 'p', '888', '/system/getSystemConfig', 'POST'
+    UNION ALL SELECT 'p', '888', '/system/setSystemConfig', 'POST'
+    UNION ALL SELECT 'p', '888', '/system/getServerInfo', 'POST'
+    -- skills
+    UNION ALL SELECT 'p', '888', '/skills/getTools', 'GET'
+    UNION ALL SELECT 'p', '888', '/skills/getSkillList', 'POST'
+    UNION ALL SELECT 'p', '888', '/skills/getSkillDetail', 'POST'
+    UNION ALL SELECT 'p', '888', '/skills/saveSkill', 'POST'
+    UNION ALL SELECT 'p', '888', '/skills/deleteSkill', 'POST'
+    UNION ALL SELECT 'p', '888', '/skills/createScript', 'POST'
+    UNION ALL SELECT 'p', '888', '/skills/getScript', 'POST'
+    UNION ALL SELECT 'p', '888', '/skills/saveScript', 'POST'
+    UNION ALL SELECT 'p', '888', '/skills/createResource', 'POST'
+    UNION ALL SELECT 'p', '888', '/skills/getResource', 'POST'
+    UNION ALL SELECT 'p', '888', '/skills/saveResource', 'POST'
+    UNION ALL SELECT 'p', '888', '/skills/createReference', 'POST'
+    UNION ALL SELECT 'p', '888', '/skills/getReference', 'POST'
+    UNION ALL SELECT 'p', '888', '/skills/saveReference', 'POST'
+    UNION ALL SELECT 'p', '888', '/skills/createTemplate', 'POST'
+    UNION ALL SELECT 'p', '888', '/skills/getTemplate', 'POST'
+    UNION ALL SELECT 'p', '888', '/skills/saveTemplate', 'POST'
+    UNION ALL SELECT 'p', '888', '/skills/getGlobalConstraint', 'POST'
+    UNION ALL SELECT 'p', '888', '/skills/saveGlobalConstraint', 'POST'
+    UNION ALL SELECT 'p', '888', '/skills/packageSkill', 'POST'
+    -- cli
+    UNION ALL SELECT 'p', '888', '/cli/createCli', 'POST'
+    UNION ALL SELECT 'p', '888', '/cli/getCliList', 'POST'
+    UNION ALL SELECT 'p', '888', '/cli/getCliDetail', 'POST'
+    UNION ALL SELECT 'p', '888', '/cli/updateCli', 'POST'
+    UNION ALL SELECT 'p', '888', '/cli/deleteCli', 'POST'
+    UNION ALL SELECT 'p', '888', '/cli/addCliApis', 'POST'
+    UNION ALL SELECT 'p', '888', '/cli/removeCliApis', 'POST'
+    UNION ALL SELECT 'p', '888', '/cli/previewManifest', 'POST'
+    UNION ALL SELECT 'p', '888', '/cli/downloadManifest', 'POST'
+    UNION ALL SELECT 'p', '888', '/cli/buildCli', 'POST'
+    UNION ALL SELECT 'p', '888', '/cli/downloadSkill', 'POST'
+    UNION ALL SELECT 'p', '888', '/cli/previewApiCommand', 'POST'
+    -- mcpApi
+    UNION ALL SELECT 'p', '888', '/mcpApi/createMcp', 'POST'
+    UNION ALL SELECT 'p', '888', '/mcpApi/getMcpList', 'POST'
+    UNION ALL SELECT 'p', '888', '/mcpApi/getMcpDetail', 'POST'
+    UNION ALL SELECT 'p', '888', '/mcpApi/updateMcp', 'POST'
+    UNION ALL SELECT 'p', '888', '/mcpApi/deleteMcp', 'POST'
+    UNION ALL SELECT 'p', '888', '/mcpApi/addMcpApis', 'POST'
+    UNION ALL SELECT 'p', '888', '/mcpApi/removeMcpApis', 'POST'
+    UNION ALL SELECT 'p', '888', '/mcpApi/previewManifest', 'POST'
+    UNION ALL SELECT 'p', '888', '/mcpApi/previewPrompt', 'POST'
+    UNION ALL SELECT 'p', '888', '/mcpApi/previewApiCommand', 'POST'
+    -- customer
+    UNION ALL SELECT 'p', '888', '/customer/customer', 'GET'
+    UNION ALL SELECT 'p', '888', '/customer/customer', 'PUT'
+    UNION ALL SELECT 'p', '888', '/customer/customer', 'POST'
+    UNION ALL SELECT 'p', '888', '/customer/customer', 'DELETE'
+    UNION ALL SELECT 'p', '888', '/customer/customerList', 'GET'
+    -- autoCode
+    UNION ALL SELECT 'p', '888', '/autoCode/getDB', 'GET'
+    UNION ALL SELECT 'p', '888', '/autoCode/getMeta', 'POST'
+    UNION ALL SELECT 'p', '888', '/autoCode/preview', 'POST'
+    UNION ALL SELECT 'p', '888', '/autoCode/getTables', 'GET'
+    UNION ALL SELECT 'p', '888', '/autoCode/getColumn', 'GET'
+    UNION ALL SELECT 'p', '888', '/autoCode/rollback', 'POST'
+    UNION ALL SELECT 'p', '888', '/autoCode/createTemp', 'POST'
+    UNION ALL SELECT 'p', '888', '/autoCode/delSysHistory', 'POST'
+    UNION ALL SELECT 'p', '888', '/autoCode/getSysHistory', 'POST'
+    UNION ALL SELECT 'p', '888', '/autoCode/createPackage', 'POST'
+    UNION ALL SELECT 'p', '888', '/autoCode/getTemplates', 'GET'
+    UNION ALL SELECT 'p', '888', '/autoCode/getPackage', 'POST'
+    UNION ALL SELECT 'p', '888', '/autoCode/delPackage', 'POST'
+    UNION ALL SELECT 'p', '888', '/autoCode/createPlug', 'POST'
+    UNION ALL SELECT 'p', '888', '/autoCode/installPlugin', 'POST'
+    UNION ALL SELECT 'p', '888', '/autoCode/pubPlug', 'POST'
+    UNION ALL SELECT 'p', '888', '/autoCode/removePlugin', 'POST'
+    UNION ALL SELECT 'p', '888', '/autoCode/getPluginList', 'GET'
+    UNION ALL SELECT 'p', '888', '/autoCode/initMenu', 'POST'
+    UNION ALL SELECT 'p', '888', '/autoCode/initAPI', 'POST'
+    UNION ALL SELECT 'p', '888', '/autoCode/initDictionary', 'POST'
+    UNION ALL SELECT 'p', '888', '/autoCode/addFunc', 'POST'
+    UNION ALL SELECT 'p', '888', '/autoCode/mcp', 'POST'
+    UNION ALL SELECT 'p', '888', '/autoCode/mcpStatus', 'POST'
+    UNION ALL SELECT 'p', '888', '/autoCode/mcpStart', 'POST'
+    UNION ALL SELECT 'p', '888', '/autoCode/mcpStop', 'POST'
+    UNION ALL SELECT 'p', '888', '/autoCode/mcpRoutes', 'POST'
+    UNION ALL SELECT 'p', '888', '/autoCode/mcpTest', 'POST'
+    UNION ALL SELECT 'p', '888', '/autoCode/mcpList', 'POST'
+    -- sysDictionaryDetail
+    UNION ALL SELECT 'p', '888', '/sysDictionaryDetail/findSysDictionaryDetail', 'GET'
+    UNION ALL SELECT 'p', '888', '/sysDictionaryDetail/updateSysDictionaryDetail', 'PUT'
+    UNION ALL SELECT 'p', '888', '/sysDictionaryDetail/createSysDictionaryDetail', 'POST'
+    UNION ALL SELECT 'p', '888', '/sysDictionaryDetail/getSysDictionaryDetailList', 'GET'
+    UNION ALL SELECT 'p', '888', '/sysDictionaryDetail/deleteSysDictionaryDetail', 'DELETE'
+    UNION ALL SELECT 'p', '888', '/sysDictionaryDetail/getDictionaryTreeList', 'GET'
+    UNION ALL SELECT 'p', '888', '/sysDictionaryDetail/getDictionaryTreeListByType', 'GET'
+    UNION ALL SELECT 'p', '888', '/sysDictionaryDetail/getDictionaryDetailsByParent', 'GET'
+    UNION ALL SELECT 'p', '888', '/sysDictionaryDetail/getDictionaryPath', 'GET'
+    -- sysDictionary
+    UNION ALL SELECT 'p', '888', '/sysDictionary/findSysDictionary', 'GET'
+    UNION ALL SELECT 'p', '888', '/sysDictionary/updateSysDictionary', 'PUT'
+    UNION ALL SELECT 'p', '888', '/sysDictionary/getSysDictionaryList', 'GET'
+    UNION ALL SELECT 'p', '888', '/sysDictionary/getSysDictionaryListWithDetails', 'GET'
+    UNION ALL SELECT 'p', '888', '/sysDictionary/createSysDictionary', 'POST'
+    UNION ALL SELECT 'p', '888', '/sysDictionary/deleteSysDictionary', 'DELETE'
+    UNION ALL SELECT 'p', '888', '/sysDictionary/importSysDictionary', 'POST'
+    UNION ALL SELECT 'p', '888', '/sysDictionary/exportSysDictionary', 'GET'
+    -- sysOperationRecord
+    UNION ALL SELECT 'p', '888', '/sysOperationRecord/findSysOperationRecord', 'GET'
+    UNION ALL SELECT 'p', '888', '/sysOperationRecord/updateSysOperationRecord', 'PUT'
+    UNION ALL SELECT 'p', '888', '/sysOperationRecord/createSysOperationRecord', 'POST'
+    UNION ALL SELECT 'p', '888', '/sysOperationRecord/getSysOperationRecordList', 'GET'
+    UNION ALL SELECT 'p', '888', '/sysOperationRecord/deleteSysOperationRecord', 'DELETE'
+    UNION ALL SELECT 'p', '888', '/sysOperationRecord/deleteSysOperationRecordByIds', 'DELETE'
+    -- email
+    UNION ALL SELECT 'p', '888', '/email/emailTest', 'POST'
+    UNION ALL SELECT 'p', '888', '/email/sendEmail', 'POST'
+    -- simpleUploader
+    UNION ALL SELECT 'p', '888', '/simpleUploader/upload', 'POST'
+    UNION ALL SELECT 'p', '888', '/simpleUploader/checkFileMd5', 'GET'
+    UNION ALL SELECT 'p', '888', '/simpleUploader/mergeFileMd5', 'GET'
+    -- authorityBtn
+    UNION ALL SELECT 'p', '888', '/authorityBtn/setAuthorityBtn', 'POST'
+    UNION ALL SELECT 'p', '888', '/authorityBtn/getAuthorityBtn', 'POST'
+    UNION ALL SELECT 'p', '888', '/authorityBtn/canRemoveAuthorityBtn', 'POST'
+    -- sysExportTemplate
+    UNION ALL SELECT 'p', '888', '/sysExportTemplate/createSysExportTemplate', 'POST'
+    UNION ALL SELECT 'p', '888', '/sysExportTemplate/deleteSysExportTemplate', 'DELETE'
+    UNION ALL SELECT 'p', '888', '/sysExportTemplate/deleteSysExportTemplateByIds', 'DELETE'
+    UNION ALL SELECT 'p', '888', '/sysExportTemplate/updateSysExportTemplate', 'PUT'
+    UNION ALL SELECT 'p', '888', '/sysExportTemplate/findSysExportTemplate', 'GET'
+    UNION ALL SELECT 'p', '888', '/sysExportTemplate/getSysExportTemplateList', 'GET'
+    UNION ALL SELECT 'p', '888', '/sysExportTemplate/exportExcel', 'GET'
+    UNION ALL SELECT 'p', '888', '/sysExportTemplate/exportTemplate', 'GET'
+    UNION ALL SELECT 'p', '888', '/sysExportTemplate/previewSQL', 'GET'
+    UNION ALL SELECT 'p', '888', '/sysExportTemplate/importExcel', 'POST'
+    -- sysError
+    UNION ALL SELECT 'p', '888', '/sysError/createSysError', 'POST'
+    UNION ALL SELECT 'p', '888', '/sysError/deleteSysError', 'DELETE'
+    UNION ALL SELECT 'p', '888', '/sysError/deleteSysErrorByIds', 'DELETE'
+    UNION ALL SELECT 'p', '888', '/sysError/updateSysError', 'PUT'
+    UNION ALL SELECT 'p', '888', '/sysError/findSysError', 'GET'
+    UNION ALL SELECT 'p', '888', '/sysError/getSysErrorList', 'GET'
+    UNION ALL SELECT 'p', '888', '/sysError/getSysErrorSolution', 'GET'
+    -- info
+    UNION ALL SELECT 'p', '888', '/info/createInfo', 'POST'
+    UNION ALL SELECT 'p', '888', '/info/deleteInfo', 'DELETE'
+    UNION ALL SELECT 'p', '888', '/info/deleteInfoByIds', 'DELETE'
+    UNION ALL SELECT 'p', '888', '/info/updateInfo', 'PUT'
+    UNION ALL SELECT 'p', '888', '/info/findInfo', 'GET'
+    UNION ALL SELECT 'p', '888', '/info/getInfoList', 'GET'
+    -- sysParams
+    UNION ALL SELECT 'p', '888', '/sysParams/createSysParams', 'POST'
+    UNION ALL SELECT 'p', '888', '/sysParams/deleteSysParams', 'DELETE'
+    UNION ALL SELECT 'p', '888', '/sysParams/deleteSysParamsByIds', 'DELETE'
+    UNION ALL SELECT 'p', '888', '/sysParams/updateSysParams', 'PUT'
+    UNION ALL SELECT 'p', '888', '/sysParams/findSysParams', 'GET'
+    UNION ALL SELECT 'p', '888', '/sysParams/getSysParamsList', 'GET'
+    UNION ALL SELECT 'p', '888', '/sysParams/getSysParam', 'GET'
+    -- attachmentCategory
+    UNION ALL SELECT 'p', '888', '/attachmentCategory/getCategoryList', 'GET'
+    UNION ALL SELECT 'p', '888', '/attachmentCategory/addCategory', 'POST'
+    UNION ALL SELECT 'p', '888', '/attachmentCategory/deleteCategory', 'POST'
+    -- sysVersion
+    UNION ALL SELECT 'p', '888', '/sysVersion/findSysVersion', 'GET'
+    UNION ALL SELECT 'p', '888', '/sysVersion/getSysVersionList', 'GET'
+    UNION ALL SELECT 'p', '888', '/sysVersion/downloadVersionJson', 'GET'
+    UNION ALL SELECT 'p', '888', '/sysVersion/exportVersion', 'POST'
+    UNION ALL SELECT 'p', '888', '/sysVersion/importVersion', 'POST'
+    UNION ALL SELECT 'p', '888', '/sysVersion/deleteSysVersion', 'DELETE'
+    UNION ALL SELECT 'p', '888', '/sysVersion/deleteSysVersionByIds', 'DELETE'
+) t
+LEFT JOIN casbin_rule c ON c.ptype = t.ptype AND c.v0 = t.v0 AND c.v1 = t.v1 AND c.v2 = t.v2
+WHERE c.id IS NULL;
+
+-- -----------------------------------------------------------------------------
+-- 三、补齐 casbin_rule：9528 角色策略（幂等，条目照抄 casbin.go L372-421）
+-- -----------------------------------------------------------------------------
+INSERT INTO casbin_rule (`ptype`, `v0`, `v1`, `v2`, `v3`, `v4`, `v5`)
+SELECT t.ptype, t.v0, t.v1, t.v2, '', '', ''
+FROM (
+    SELECT 'p' AS `ptype`, '9528' AS `v0`, '/user/admin_register' AS `v1`, 'POST' AS `v2`
+    UNION ALL SELECT 'p', '9528', '/api/createApi', 'POST'
+    UNION ALL SELECT 'p', '9528', '/api/getApiList', 'POST'
+    UNION ALL SELECT 'p', '9528', '/api/getApiById', 'POST'
+    UNION ALL SELECT 'p', '9528', '/api/deleteApi', 'POST'
+    UNION ALL SELECT 'p', '9528', '/api/updateApi', 'POST'
+    UNION ALL SELECT 'p', '9528', '/api/getAllApis', 'POST'
+    UNION ALL SELECT 'p', '9528', '/api/getApiRoles', 'GET'
+    UNION ALL SELECT 'p', '9528', '/api/setApiRoles', 'POST'
+    UNION ALL SELECT 'p', '9528', '/authority/createAuthority', 'POST'
+    UNION ALL SELECT 'p', '9528', '/authority/deleteAuthority', 'POST'
+    UNION ALL SELECT 'p', '9528', '/authority/getAuthorityList', 'POST'
+    UNION ALL SELECT 'p', '9528', '/authority/setDataScope', 'POST'
+    UNION ALL SELECT 'p', '9528', '/authority/getUsersByAuthority', 'GET'
+    UNION ALL SELECT 'p', '9528', '/authority/setRoleUsers', 'POST'
+    UNION ALL SELECT 'p', '9528', '/menu/getMenu', 'POST'
+    UNION ALL SELECT 'p', '9528', '/menu/getMenuList', 'POST'
+    UNION ALL SELECT 'p', '9528', '/menu/addBaseMenu', 'POST'
+    UNION ALL SELECT 'p', '9528', '/menu/getBaseMenuTree', 'POST'
+    UNION ALL SELECT 'p', '9528', '/menu/addMenuAuthority', 'POST'
+    UNION ALL SELECT 'p', '9528', '/menu/getMenuAuthority', 'POST'
+    UNION ALL SELECT 'p', '9528', '/menu/getMenuRoles', 'GET'
+    UNION ALL SELECT 'p', '9528', '/menu/setMenuRoles', 'POST'
+    UNION ALL SELECT 'p', '9528', '/menu/deleteBaseMenu', 'POST'
+    UNION ALL SELECT 'p', '9528', '/menu/updateBaseMenu', 'POST'
+    UNION ALL SELECT 'p', '9528', '/menu/getBaseMenuById', 'POST'
+    UNION ALL SELECT 'p', '9528', '/user/changePassword', 'POST'
+    UNION ALL SELECT 'p', '9528', '/user/getUserList', 'POST'
+    UNION ALL SELECT 'p', '9528', '/user/setUserAuthority', 'POST'
+    UNION ALL SELECT 'p', '9528', '/fileUploadAndDownload/upload', 'POST'
+    UNION ALL SELECT 'p', '9528', '/fileUploadAndDownload/getFileList', 'POST'
+    UNION ALL SELECT 'p', '9528', '/fileUploadAndDownload/deleteFile', 'POST'
+    UNION ALL SELECT 'p', '9528', '/fileUploadAndDownload/editFileName', 'POST'
+    UNION ALL SELECT 'p', '9528', '/fileUploadAndDownload/importURL', 'POST'
+    UNION ALL SELECT 'p', '9528', '/jwt/jsonInBlacklist', 'POST'
+    UNION ALL SELECT 'p', '9528', '/system/getSystemConfig', 'POST'
+    UNION ALL SELECT 'p', '9528', '/system/setSystemConfig', 'POST'
+    UNION ALL SELECT 'p', '9528', '/customer/customer', 'PUT'
+    UNION ALL SELECT 'p', '9528', '/customer/customer', 'GET'
+    UNION ALL SELECT 'p', '9528', '/customer/customer', 'POST'
+    UNION ALL SELECT 'p', '9528', '/customer/customer', 'DELETE'
+    UNION ALL SELECT 'p', '9528', '/customer/customerList', 'GET'
+    UNION ALL SELECT 'p', '9528', '/autoCode/createTemp', 'POST'
+    UNION ALL SELECT 'p', '9528', '/autoCode/mcpStatus', 'POST'
+    UNION ALL SELECT 'p', '9528', '/autoCode/mcpStart', 'POST'
+    UNION ALL SELECT 'p', '9528', '/autoCode/mcpStop', 'POST'
+    UNION ALL SELECT 'p', '9528', '/autoCode/mcpRoutes', 'POST'
+    UNION ALL SELECT 'p', '9528', '/user/getUserInfo', 'GET'
+) t
+LEFT JOIN casbin_rule c ON c.ptype = t.ptype AND c.v0 = t.v0 AND c.v1 = t.v1 AND c.v2 = t.v2
+WHERE c.id IS NULL;
+
+-- =============================================================================
+-- 结尾说明
+-- =============================================================================
+-- 1. 本脚本可在 MySQL 客户端或 Navicat 等工具中直接执行；由于所有语句均为
+--    幂等 INSERT，重复执行不会产生重复数据。
+-- 2. 若线上库还有 8881 等历史角色需要新增模块权限，请勿直接改本脚本，
+--    而是进入「角色管理」为该角色勾选对应菜单/API 后保存（系统会自动
+--    写入 sys_authority_menus 与 casbin_rule）。
+-- 3. 执行完成并重启后端后，用 888/9528 账号登录，检查新增菜单是否可见、
+--    对应页面接口是否可正常调用。
+-- =============================================================================
