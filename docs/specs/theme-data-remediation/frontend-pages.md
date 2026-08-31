@@ -36,16 +36,31 @@
 
 ### 1.2 高保真原型覆盖情况
 
-当前核心画板 [`overview.png`](../../prototypes/theme-data-remediation/overview.png) 覆盖：首页·题材动态、题材详情、归属依据浮层 3 个核心画面；[P0 页面原型](../../prototypes/theme-data-remediation/p0.html) 覆盖题材库、会员与账号主流程；新增的 [P0 状态板](../../prototypes/theme-data-remediation/p0-states.html) 将 P0 必须回归的状态拆成 52 个独立手机画面或明确弹层，覆盖：
+当前核心画板 [`overview.png`](../../prototypes/theme-data-remediation/overview.png) 覆盖：首页·题材动态、题材详情、归属依据浮层 3 个核心画面；[P0 页面原型](../../prototypes/theme-data-remediation/p0.html) 覆盖题材库、会员与账号主流程；新增的 [P0 状态板](../../prototypes/theme-data-remediation/p0-states.html) 将 P0 必须回归的状态拆成 53 个独立手机画面或明确弹层，覆盖：
 
 - 题材库输入/提交中/加载/无结果/接口错误/长名称；
 - 题材详情未登录、试吃可用、订阅有效、试吃用尽、无环节、无公司、环节收起与映射过滤；
-- 归属依据加载、成功长摘录、接口失败、四项证据缺失、非 HTTPS 链接、关闭，以及外部原文确认/拦截；
+- 归属依据加载、成功长摘录、接口失败、四项证据缺失、非 HTTPS 链接、关闭，以及外部原文确认/拦截和浏览器返回；
 - 日历日期选择（已选、未来日期和数据起始日前置灰）；
 - 会员中心加载、网络失败、未开通、有效、过期、试吃用尽、退出/注销确认与完成；
 - 登录手机号/验证码校验、过期、频控、发送中、失败与成功回跳；
 - 兑换码空值、格式错误、提交中、成功、码不存在、已使用、已过期、账号不匹配和临时锁定；
 - 全局断网、超时、维护、无数据/小屏与字体放大。
+
+#### P0 状态板索引
+
+| 画板锚点 | 覆盖范围 |
+|---|---|
+| `#theme-loading` · `#theme-searching` · `#theme-no-result` · `#theme-error` · `#theme-long-name` | 题材库加载、搜索提交、无结果、接口错误、长名称与可访问文本 |
+| `#theme-trial` · `#theme-subscribed` · `#theme-trial-exhausted` | 题材详情试吃可用、订阅有效、试吃用尽 |
+| `#theme-no-chain` · `#theme-no-stock` · `#theme-collapsed` · `#theme-filtered` | 无环节、无公司、环节收起、映射过滤 |
+| `#evidence-loading` · `#evidence-error` · `#evidence-incomplete` · `#evidence-success` · `#evidence-invalid-url` | 依据加载、失败、四项缺失、长摘录滚动、链接校验 |
+| `#external-confirm` · `#external-invalid` · `#external-return` · `#calendar-state` | 外链确认/拦截/返回与日期选择浮层 |
+| `#member-loading` · `#member-error` · `#member-unopened` · `#member-expired` · `#member-trial-empty` | 会员中心加载、失败、未开通、过期、试吃耗尽 |
+| `#login-phone-error` 至 `#login-success` | 登录手机号/验证码校验、频控、发送中、失败、成功回跳 |
+| `#logout-confirm` · `#delete-confirm` · `#delete-complete` | 退出、注销确认与完成 |
+| `#redeem-empty` 至 `#redeem-locked` | 兑换码空值、格式、提交、成功、四类失败与临时锁定 |
+| `#service-overview` · `#legal-overview` · `#global-empty` 至 `#global-large-type` | 服务说明/法律文本视觉框架与全局异常/可访问性 |
 
 服务说明与协议/隐私也已提供可评审的视觉框架，但版本号、发布时间和正文仍必须替换为律师审阅后的正式文本。资讯列表、搜索态、快讯详情、资料整理列表/详情及运营后台属于 P1/独立排期，本期不把占位页误报为已完成。真实后端、短信服务、会员规则和外链白名单未就绪前，代码继续保持 fail-closed，不开放真实会员能力。
 

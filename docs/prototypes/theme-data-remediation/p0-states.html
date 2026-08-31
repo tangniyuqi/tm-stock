@@ -226,7 +226,7 @@
     .button-row { display: flex; gap: 8px; margin-top: 14px; }
     .button {
       display: inline-flex;
-      min-height: 42px;
+      min-height: 44px;
       flex: 1;
       align-items: center;
       justify-content: center;
@@ -237,7 +237,7 @@
     .button.primary { color: #fff; background: var(--brand); }
     .button.secondary { color: var(--brand); border: 1px solid #f1b5b5; background: #fff; }
     .button.disabled { color: #a8afb9; background: #edf0f4; }
-    .button.small { min-height: 35px; padding: 0 11px; flex: none; }
+    .button.small { min-height: 44px; padding: 0 11px; flex: none; }
     .notice {
       margin: 14px 4px 0;
       color: #929aa6;
@@ -303,7 +303,7 @@
     .stock-copy { flex: 1; min-width: 0; }
     .stock-name { display: block; font-size: 11px; font-weight: 800; }
     .stock-code { display: block; margin-top: 2px; color: var(--muted); font-size: 9px; }
-    .evidence-link { display: inline-flex; min-height: 38px; align-items: center; color: var(--brand); font-size: 10px; font-weight: 800; }
+    .evidence-link { display: inline-flex; min-height: 44px; align-items: center; color: var(--brand); font-size: 10px; font-weight: 800; }
     .locked {
       margin-top: 10px;
       padding: 19px 14px;
@@ -361,7 +361,7 @@
     .grab { width: 34px; height: 4px; margin: 0 auto 12px; border-radius: 5px; background: #d8dee8; }
     .sheet-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
     .sheet-title { font-size: 16px; font-weight: 900; }
-    .sheet-close { min-height: 38px; color: var(--brand); font-size: 11px; font-weight: 800; }
+    .sheet-close { min-height: 44px; display: inline-flex; align-items: center; color: var(--brand); font-size: 11px; font-weight: 800; }
     .sheet-sub { margin-top: 3px; color: var(--muted); font-size: 10px; }
     .evidence-field { margin-top: 11px; }
     .evidence-label { display: block; margin-bottom: 5px; color: #788395; font-size: 9px; font-weight: 800; }
@@ -431,7 +431,7 @@
     .profile-copy { flex: 1; min-width: 0; }
     .profile-name { display: block; font-size: 14px; font-weight: 900; }
     .profile-note { display: block; margin-top: 4px; color: var(--muted); font-size: 10px; line-height: 15px; }
-    .profile-action { min-height: 38px; display: inline-flex; align-items: center; color: var(--brand); font-size: 10px; font-weight: 800; }
+    .profile-action { min-height: 44px; display: inline-flex; align-items: center; color: var(--brand); font-size: 10px; font-weight: 800; }
     .member-card { margin-top: 10px; padding: 14px; border-radius: 15px; background: #fff; }
     .member-row { display: flex; justify-content: space-between; align-items: center; min-height: 27px; }
     .member-row + .member-row { margin-top: 6px; }
@@ -557,11 +557,11 @@
     </nav>
 
     <section class="coverage" aria-label="P0 状态覆盖概览">
-      <div class="coverage-card"><strong>20</strong><span><em>题材查询</em>与依据状态画面</span></div>
+      <div class="coverage-card"><strong>21</strong><span><em>题材查询</em>与依据状态画面</span></div>
       <div class="coverage-card"><strong>25</strong><span><em>会员/登录/兑换码</em>状态画面</span></div>
       <div class="coverage-card"><strong>2</strong><span><em>服务说明/法律文本</em>视觉框架</span></div>
       <div class="coverage-card"><strong>5</strong><span><em>全局异常</em>与小屏适配画面</span></div>
-      <div class="coverage-card"><strong>52</strong><span>独立手机稿或明确弹层，供开发回归</span></div>
+      <div class="coverage-card"><strong>53</strong><span>独立手机稿或明确弹层，供开发回归</span></div>
     </section>
 
     <section id="topic-states">
@@ -848,6 +848,20 @@
             <div class="screen"><section class="surface"><span class="micro">原文链接</span><div class="title">链接不可用</div><div class="sub">服务端返回的地址未通过安全校验。</div></section></div>
             <div class="modal-dim"></div>
             <div class="modal-wrap"><section class="modal" role="dialog" aria-label="链接校验失败"><div class="modal-kicker">无法打开</div><div class="modal-title">原文链接已拦截</div><div class="modal-copy">仅允许 HTTPS 且通过域名白名单校验的地址。当前记录不会触发外部跳转。</div><div class="button-row"><span class="button primary">知道了</span></div></section></div>
+          </div>
+        </article>
+
+        <article class="prototype" id="external-return">
+          <p class="prototype-label"><span class="step">18A</span><b>外部原文</b>浏览器返回详情</p>
+          <div class="phone compact">
+            <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+            <div class="appbar"><span class="appbar-side">‹</span><span class="appbar-title">题材详情</span><span class="appbar-side">•</span></div>
+            <div class="screen">
+              <section class="surface"><span class="micro">返回路径</span><div class="title">已回到题材详情</div><div class="sub">外部原文页面关闭或浏览器返回后，保留原题材、环节和滚动位置。</div><div class="state-bar"><span>归属依据</span><b>仍可重新打开</b></div></section>
+              <div class="alert"><span class="alert-icon">i</span><span>返回不会重复扣减试吃次数；权限和依据仍以服务端重新校验结果为准。</span></div>
+              <span class="button primary" style="width:100%;margin-top:14px">继续查看题材详情</span>
+              <p class="notice">不把外部页面内容写回本地缓存。</p>
+            </div>
           </div>
         </article>
 
