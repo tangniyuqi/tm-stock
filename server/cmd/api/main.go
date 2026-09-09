@@ -59,6 +59,7 @@ func run() error {
 	log.Println("数据库连接正常")
 
 	repo := repository.NewThemeRepo(db)
+	dailyRepo := repository.NewDailyRepository(db)
 
 	// 行情：一期 Enabled=false（ADR-0006）。QuoteProvider 传 nil，
 	// service 在关闭时不会调用它，涨跌幅一律返回 nil，前端显示「—」。
@@ -82,6 +83,7 @@ func run() error {
 		_, _ = w.Write([]byte(`{"code":0,"msg":"ok"}`))
 	})
 	handler.NewThemeHandler(themeSvc, access).Register(mux)
+	handler.NewThemeDailyHandler(service.NewThemeDailyService(dailyRepo, cfg.QuoteDelayMin, cfg.QuoteMock)).Register(mux)
 
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,
