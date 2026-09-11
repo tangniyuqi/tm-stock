@@ -24,7 +24,7 @@ func (h *ThemeDailyHandler) List(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	sortKey := q.Get("sort")
 	if sortKey == "" {
-		sortKey = "changePct"
+		sortKey = "publishAt"
 	}
 	if sortKey != "changePct" && sortKey != "publishAt" {
 		fail(w, 400, codeBadRequest, "sort 参数非法")
