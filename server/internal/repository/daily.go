@@ -16,7 +16,7 @@ func (r *DailyRepository) ListDaily(ctx context.Context, date time.Time, sortKey
 	if sortKey == "changePct" {
 		order = "q.change_pct DESC, d.id DESC"
 	}
-	q := `SELECT d.id,d.biz_date,d.theme_id,d.title,t.name,d.source,d.source_url,d.publish_at,q.change_pct,q.caliber FROM theme_daily_item d JOIN addon_quant_theme t ON t.id=d.theme_id AND t.deleted_at IS NULL LEFT JOIN theme_daily_quote q ON q.biz_date=d.biz_date AND q.theme_id=d.theme_id WHERE d.biz_date=? ORDER BY ` + order + ` LIMIT ? OFFSET ?`
+	q := `SELECT d.id,d.biz_date,d.theme_id,d.title,t.name,d.source,d.source_url,d.publish_at,q.change_pct,q.caliber FROM theme_daily_item d JOIN addon_quant_theme t ON t.id=d.theme_id AND t.deleted_at IS NULL LEFT JOIN theme_daily_quote q ON q.biz_date=d.biz_date AND q.theme_id=d.theme_id WHERE d.biz_date=? AND d.audit_status=2 AND d.source<>'' AND d.source_url<>'' ORDER BY ` + order + ` LIMIT ? OFFSET ?`
 	rows, err := r.db.QueryContext(ctx, q, date.Format("2006-01-02"), size, (page-1)*size)
 	if err != nil {
 		return nil, 0, fmt.Errorf("查询题材动态失败: %w", err)
@@ -35,7 +35,7 @@ func (r *DailyRepository) ListDaily(ctx context.Context, date time.Time, sortKey
 		out = append(out, x)
 	}
 	var total int
-	err = r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM theme_daily_item WHERE biz_date=?", date.Format("2006-01-02")).Scan(&total)
+	err = r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM theme_daily_item WHERE biz_date=? AND audit_status=2 AND source<>'' AND source_url<>''", date.Format("2006-01-02")).Scan(&total)
 	return out, total, err
 }
 func (r *DailyRepository) Calendar(ctx context.Context, date time.Time) (model.TradingDay, error) {

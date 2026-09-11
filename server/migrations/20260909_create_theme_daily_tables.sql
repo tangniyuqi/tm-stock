@@ -6,10 +6,11 @@ CREATE TABLE IF NOT EXISTS theme_daily_item (
   title VARCHAR(255) NOT NULL,
   source VARCHAR(64) NOT NULL,
   source_url VARCHAR(512) NOT NULL DEFAULT '',
+  audit_status TINYINT NOT NULL DEFAULT 0 COMMENT '2=已审核通过',
   publish_at DATETIME(3) NOT NULL,
   created_at DATETIME(3) NOT NULL,
   updated_at DATETIME(3) NOT NULL,
-  PRIMARY KEY (id), KEY idx_date (biz_date, publish_at, id), KEY idx_theme (theme_id)
+  PRIMARY KEY (id), KEY idx_date (biz_date, audit_status, publish_at, id), KEY idx_theme (theme_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS theme_daily_quote (
