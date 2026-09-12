@@ -1,0 +1,23 @@
+import { rq } from "../request.uts"
+
+// CMS 意见反馈接口（公开，无需登录）
+export class api {
+
+	// 反馈列表
+	public static async getFeedbackList(): Promise<any[] | null> {
+		return await rq<any[]>('/cms/feedback/list', 'GET', {} as UTSJSONObject)
+	}
+
+	// 反馈详情
+	public static async getFeedbackDetail(id: number): Promise<any | null> {
+		return await rq<any>('/cms/feedback/detail', 'GET', {
+			id: id
+		} as UTSJSONObject)
+	}
+
+	// 提交意见反馈（创建）
+	public static async submitFeedback(data: UTSJSONObject): Promise<boolean> {
+		let res = await rq<any>('/cms/feedback/create', 'POST', data)
+		return res != null
+	}
+}

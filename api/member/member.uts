@@ -1,0 +1,57 @@
+import { rqWithToken } from "../request.uts"
+import { MemberProfile, AccountSetting } from "@/types/interface.uts"
+
+// C 端会员接口 - 会员资料（需登录 token）
+export class api {
+
+	// 获取个人资料（含脱敏手机号、VIP、积分）
+	public static async getProfile(): Promise<MemberProfile | null> {
+		return await rqWithToken<MemberProfile>('/member/profile', 'GET', {} as UTSJSONObject, true)
+	}
+
+	// 更新个人资料（昵称、头像、简介、性别、邮箱等）
+	public static async updateProfile(data: UTSJSONObject): Promise<boolean> {
+		let res = await rqWithToken<any>('/member/profile', 'PUT', data, true)
+		return res != null
+	}
+
+	// 绑定 / 修改手机号
+	public static async bindMobile(mobile: string, code: string): Promise<boolean> {
+		let res = await rqWithToken<any>('/member/mobile', 'PUT', {
+			mobile: mobile,
+			code: code
+		} as UTSJSONObject, true)
+		return res != null
+	}
+
+	// 修改密码
+	public static async changePassword(oldPassword: string, newPassword: string): Promise<boolean> {
+		let res = await rqWithToken<any>('/member/password', 'PUT', {
+			oldPassword: oldPassword,
+			newPassword: newPassword
+		} as UTSJSONObject, true)
+		return res != null
+	}
+
+	// 提交实名认证
+	public static async submitRealname(name: string, idCard: string): Promise<boolean> {
+		let res = await rqWithToken<any>('/member/realname', 'POST', {
+			name: name,
+			idCard: idCard
+		} as UTSJSONObject, true)
+		return res != null
+	}
+
+	// 获取账号设置
+	public static async getSettings(): Promise<AccountSetting | null> {
+		return await rqWithToken<AccountSetting>('/member/settings', 'GET', {} as UTSJSONObject, true)
+	}
+
+	// 自定义用户名（账号，可用于登录）
+	public static async updateAccount(name: string): Promise<boolean> {
+		let res = await rqWithToken<any>('/member/name', 'PUT', {
+			name: name
+		} as UTSJSONObject, true)
+		return res != null
+	}
+}

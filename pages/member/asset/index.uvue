@@ -1,0 +1,279 @@
+<template>
+  <z-paging-x
+      ref="pagingX"
+      v-model="logList"
+      :list-is="listType"
+      :paging-style="pagingStyle"
+      refresher-background="#F5F5F5"
+      refresher-default-text="下拉刷新"
+      refresher-pulling-text="松开立即刷新"
+      refresher-refreshing-text="正在刷新…"
+      refresher-complete-text="刷新完成"
+      @query="queryCreditLogs"
+    >
+    <!-- 顶部概况区：当前积分 + 累计统计 -->
+    <template #top>
+      <view class="overview">
+        <view class="overview-main">
+          <x-text class="overview-label" font-size="13" color="rgba(255,255,255,0.78)">当前可用积分</x-text>
+          <view class="overview-num-row">
+            <x-text class="overview-num" font-size="42" color="#FFFFFF">{{ overview.credit }}</x-text>
+          </view>
+        </view>
+
+        <view class="overview-stats">
+          <view class="stat-item">
+            <x-text class="stat-num" font-size="18" color="#FFFFFF">{{ overview.accumulateCredit }}</x-text>
+            <x-text class="stat-label" font-size="12" color="rgba(255,255,255,0.72)">累计获得</x-text>
+          </view>
+          <view class="stat-item">
+            <x-text class="stat-num" font-size="18" color="#FFFFFF">{{ overview.consumeCredit }}</x-text>
+            <x-text class="stat-label" font-size="12" color="rgba(255,255,255,0.72)">累计使用</x-text>
+          </view>
+          <view class="stat-item">
+            <x-text class="stat-num" font-size="18" color="#FFFFFF">{{ overview.giftCredit }}</x-text>
+            <x-text class="stat-label" font-size="12" color="rgba(255,255,255,0.72)">赠送积分</x-text>
+          </view>
+          <view class="stat-item">
+            <x-text class="stat-num" font-size="18" color="#FFFFFF">{{ overview.frozenCredit }}</x-text>
+            <x-text class="stat-label" font-size="12" color="rgba(255,255,255,0.72)">冻结积分</x-text>
+          </view>
+        </view>
+      </view>
+    </template>
+
+    <view class="section-title">
+      <x-text font-size="15" color="#333333" class="text-weight-b">积分明细</x-text>
+    </view>
+
+    <view class="log-card">
+      <view
+        v-for="(item, idx) in logList"
+        :key="idx"
+        class="log-item"
+      >
+        <view class="log-left">
+          <x-text class="log-remark" font-size="15" color="#333333">{{ item.remark || '积分变动' }}</x-text>
+          <x-text class="log-time" font-size="12" color="#999999">{{ item.flowType === 2 ? '扣减' : '增加' }} · {{ item.bizType || '积分' }}</x-text>
+          <x-text class="log-time" font-size="12" color="#BBBBBB">{{ getTime(item.createdAt) }}</x-text>
+        </view>
+        <view class="log-right">
+          <x-text :class="item.change >= 0 ? 'credit-plus' : 'credit-minus'" font-size="16" class="log-change">
+            {{ item.change >= 0 ? '+' + item.change : item.change }}
+          </x-text>
+          <x-text class="log-balance" font-size="12" color="#999999">变动后 {{ item.afterNum }}</x-text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 空态：暂无积分明细 -->
+    <template #empty>
+      <view class="empty-state">
+        <view class="empty-icon">
+          <x-icon name="inbox-line" color="#C7C7C7" font-size="48"></x-icon>
+        </view>
+        <x-text class="empty-title" font-size="15" color="#999999">暂无积分明细</x-text>
+        <x-text class="empty-sub" font-size="12" color="#BBBBBB">积分变动记录会显示在这里</x-text>
+      </view>
+    </template>
+  </z-paging-x>
+</template>
+
+<script lang="ts" setup>
+import { ref } from 'vue'
+import { onLoad } from '@dcloudio/uni-app'
+import { api as assetApi } from '@/api/member/asset.uts'
+import { api as logApi } from '@/api/member/asset_log.uts'
+import { AssetOverview, AssetLogItem } from '@/types/interface.uts'
+
+// 格式化流水时间为可读的日期时间
+const getTime = (t: string): string => {
+	if (!t) {
+		return ''
+	}
+	const d = new Date(t)
+	if (isNaN(d.getTime())) {
+		return t
+	}
+	const pad = (n: number): string => (n < 10 ? '0' + n : '' + n)
+	return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+// 滚动容器类型: H5 / 微信使用 scroll-view(兼容触底加载), 其余原生端使用 list-view
+let listType = 'list-view' as string
+// #ifdef H5 || MP-WEIXIN
+listType = 'scroll-view' as string
+// #endif
+
+const logList = ref<AssetLogItem[]>([])
+const overview = ref<AssetOverview>({
+  assetType: 2,
+  credit: 0,
+  frozenCredit: 0,
+  accumulateCredit: 0,
+  consumeCredit: 0,
+  giftCredit: 0
+})
+
+// z-paging-x 根节点样式（与页面同色的灰背景）
+const pagingStyle = ref<object>({
+  backgroundColor: '#F5F5F5'
+})
+
+// z-paging-x 组件实例
+const pagingX = ref<ZPagingXComponentPublicInstance | null>(null)
+
+// 加载积分概况（顶部统计）
+const loadOverview = async () => {
+  const data = await assetApi.getAssetOverview()
+  if (data != null) {
+    overview.value = data
+  }
+}
+
+// @query 由 z-paging-x 自动触发（首次加载 / 下拉刷新），加载积分明细
+const queryCreditLogs = async (pageNo: number, pageSize: number, from: string) => {
+  const data = await logApi.getList({
+    page: pageNo,
+    pageSize: pageSize
+  } as UTSJSONObject)
+  const list = data?.list || []
+  pagingX.value?.completeByTotal(list, (data?.total != null ? data.total : list.length ))
+}
+
+onLoad(() => {
+  loadOverview()
+})
+</script>
+
+<style scoped>
+.overview {
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(135deg, #C52233 0%, #E93030 58%, #EF5A5A 100%);
+  padding: 36px 24px 24px;
+}
+
+.overview-main {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 24px;
+}
+
+.overview-num-row {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+}
+
+.overview-label {
+  margin-bottom: 4px;
+}
+
+.overview-num {
+  font-weight: bold;
+}
+
+.overview-stats {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+}
+
+.stat-num {
+  margin-bottom: 4px;
+  font-weight: bold;
+}
+
+.section-title {
+  padding: 20px 16px 12px;
+}
+
+.log-card {
+  background: #FFFFFF;
+  margin: 0 16px;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.log-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px #F0F0F0 solid;
+}
+
+.log-item:last-child {
+  border-bottom-width: 0;
+}
+
+.log-left {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.log-remark {
+  margin-bottom: 4px;
+}
+
+.log-time {
+  margin-top: 2px;
+}
+
+.log-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.log-balance {
+  margin-top: 4px;
+}
+
+.credit-plus {
+  color: #2BA245;
+  font-weight: bold;
+}
+
+.credit-minus {
+  color: #E93030;
+  font-weight: bold;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 72px 0 88px;
+}
+
+.empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: #ECECEC;
+  margin-bottom: 18px;
+}
+
+.empty-title {
+  margin-bottom: 8px;
+}
+
+.empty-sub {
+  opacity: 0.9;
+}
+</style>

@@ -1,0 +1,57 @@
+import { rq } from "./request.uts"
+import { LoginResp } from "@/types/interface.uts"
+
+// C 端鉴权接口（公开，无需登录 token）
+export class api {
+
+	// 登录（密码或验证码）
+	public static async login(mobile: string, password: string, code: string): Promise<LoginResp | null> {
+		return await rq<LoginResp>('/auth/login', 'POST', {
+			mobile: mobile,
+			password: password,
+			code: code
+		} as UTSJSONObject)
+	}
+
+	// 发送短信验证码（type: login/register/forgot/bind_mobile）
+	public static async sendCode(mobile: string, type: string): Promise<boolean> {
+		let res = await rq<any>('/auth/send-code', 'POST', {
+			mobile: mobile,
+			type: type
+		} as UTSJSONObject)
+		return res != null
+	}
+
+	// 注册
+	public static async register(mobile: string, code: string, password: string): Promise<LoginResp | null> {
+		return await rq<LoginResp>('/auth/register', 'POST', {
+			mobile: mobile,
+			code: code,
+			password: password
+		} as UTSJSONObject)
+	}
+
+	// 找回密码（发送验证码）
+	public static async forgotPwd(mobile: string): Promise<boolean> {
+		let res = await rq<any>('/auth/forgot-pwd', 'POST', {
+			mobile: mobile
+		} as UTSJSONObject)
+		return res != null
+	}
+
+	// 重置密码
+	public static async resetPwd(mobile: string, code: string, password: string): Promise<boolean> {
+		let res = await rq<any>('/auth/reset-pwd', 'POST', {
+			mobile: mobile,
+			code: code,
+			password: password
+		} as UTSJSONObject)
+		return res != null
+	}
+
+	// 登出
+	public static async logout(): Promise<boolean> {
+		let res = await rq<any>('/auth/logout', 'POST', {} as UTSJSONObject)
+		return res != null
+	}
+}

@@ -1,0 +1,151 @@
+<template>
+  <z-paging-x
+      ref="pagingX"
+      v-model="helpList"
+      :list-is="listType"
+      :paging-style="pagingStyle"
+      empty-text="暂无帮助文章"
+      refresher-background="#F5F5F5"
+      refresher-default-text="下拉刷新"
+      refresher-pulling-text="松开立即刷新"
+      refresher-refreshing-text="正在刷新…"
+      refresher-complete-text="刷新完成"
+      @query="queryHelp"
+    >
+    <!-- 顶部固定区：banner 置顶 -->
+    <template #top>
+      <view class="banner">
+        <text class="banner-subtitle">帮助中心 / HELP</text>
+        <text class="banner-title">常见问题答疑</text>
+      </view>
+    </template>
+
+    <view class="content">
+      <view class="expand-all-sheet" @click="onExpandAll">
+        <x-icon font-size="14" color="#999" :name="expandAll ? 'arrow-up-s-line' : 'arrow-down-s-line'" />
+        <x-text font-size="12" color="#999">{{ expandAll ? '全部折叠' : '全部展开' }}</x-text>
+      </view>
+
+      <x-sheet class="help-card" margin="0" padding="0" :round="['16','16','16','16']" :shadow="['10','24','rgba(0,0,0,0.06)']">
+        <!-- 关键：数据加载完成后刷新 key，规避 x-collapse-item 响应式修改的限制 -->
+        <x-collapse v-if="helpList.length > 0" :key="helpRenderKey" v-model="activeNames" :multiple="expandAll">
+          <x-collapse-item
+            v-for="(item, idx) in helpList"
+            :key="idx"
+            :name="'help-' + idx"
+            :title="item.title"
+            title-font-size="16px"
+            title-color="#333333"
+            active-color="#E93030"
+            :show-bottom-line="idx !== helpList.length - 1"
+            padding="0"
+          >
+            <view class="help-body">
+              <x-text v-if="(item.description || '') != ''" class="help-desc" font-size="13" color="#999999" :lines="2">{{ item.description }}</x-text>
+              <x-cmarkdown :value="item.content" font-size="14px" />
+            </view>
+          </x-collapse-item>
+        </x-collapse>
+      </x-sheet>
+    </view>
+  </z-paging-x>
+</template>
+
+<script lang="ts" setup>
+import { ref } from 'vue'
+import { api as cmsArticleApi } from '@/api/cms/article.uts'
+import { CmsArticle } from '@/types/interface.uts'
+
+// 滚动容器类型: H5 / 微信使用 scroll-view(兼容触底加载), 其余原生端使用 list-view
+let listType = 'list-view' as string
+// #ifdef H5 || MP-WEIXIN
+listType = 'scroll-view' as string
+// #endif
+
+const helpList = ref<CmsArticle[]>([])
+const activeNames = ref<string[]>([])
+const expandAll = ref(false)
+const helpRenderKey = ref(0)
+
+// z-paging-x 根节点样式（与页面同色的灰背景）
+const pagingStyle = ref<object>({
+  backgroundColor: '#F5F5F5'
+})
+
+// z-paging-x 组件实例
+const pagingX = ref<ZPagingXComponentPublicInstance | null>(null)
+
+// @query 由 z-paging-x 自动触发（首次加载 / 下拉刷新），此处统一重新拉取帮助文章列表
+const queryHelp = async (pageNo: number, pageSize: number, from: string) => {
+  const data = await cmsArticleApi.getArticleList(0)
+  const list = data || []
+  // 数据加载完成后刷新 key，规避 x-collapse-item 响应式修改的限制
+  helpRenderKey.value++
+  pagingX.value?.completeByTotal(list, list.length)
+}
+
+const onExpandAll = () => {
+  expandAll.value = !expandAll.value
+  if (expandAll.value) {
+    activeNames.value = helpList.value.map((_, i) => 'help-' + i)
+  } else {
+    activeNames.value = []
+  }
+}
+</script>
+
+<style scoped>
+.page {
+  /* 关键：z-paging-x 的滚动容器依赖父级有确定高度才能撑满视口并触发滚动 */
+  height: 100vh;
+  background: #F5F5F5;
+}
+
+.content {
+  padding: 16px 16px 28px;
+}
+
+/* Banner 区（固定顶部）：通栏背景，沿用全局主题色 #E93030 同色系渐变 */
+.banner {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 36px 24px;
+  background: linear-gradient(135deg, #C52233 0%, #E93030 58%, #EF5A5A 100%);
+}
+
+.banner-subtitle {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.75);
+  letter-spacing: 2px;
+  margin-bottom: 8px;
+}
+
+.banner-title {
+  font-size: 22px;
+  font-weight: bold;
+  color: #FFFFFF;
+}
+
+.expand-all-sheet {
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.help-card {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.help-body {
+  padding: 8px 16px 16px;
+}
+
+.help-desc {
+  margin-bottom: 6px;
+  line-height: 20px;
+}
+</style>

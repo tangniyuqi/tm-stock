@@ -1,0 +1,172 @@
+<template>
+  <view class="page">
+    <view class="brand">
+      <view class="brand-title">
+        <x-text fontSize="24" _style="font-weight:bold" color="#333333">账号设置</x-text>
+      </view>
+      <view class="brand-sub">
+        <x-text fontSize="13" color="#999999">自定义账号，账号可用于登录</x-text>
+      </view>
+    </view>
+
+    <view class="form-card">
+      <view class="cur-account-row">
+        <text class="cur-account-label">当前账号</text>
+        <text class="cur-account-value">{{ currentName }}</text>
+      </view>
+    </view>
+
+    <view class="section-title">
+      <text class="section-title-text">设置新账号</text>
+    </view>
+
+    <view class="form-card">
+      <view class="field">
+        <x-input v-model="username" placeholder="请输入新账号（可用于登录）" round="12" leftIcon="user-3-line" :maxlength="20" height="48"></x-input>
+      </view>
+      <view class="tip">
+        <x-text fontSize="12" color="#999999">新账号须以字母开头，英文、数字或下划线，长度 5-20 位</x-text>
+      </view>
+
+      <view class="btn-wrap">
+        <x-button color="#E93030" fontColor="#FFFFFF" :block="true" :round="28" :height="48" :loading="saving" :disabled="saving" @click="saveAccount">保存</x-button>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script lang="ts" setup>
+import { ref } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
+import { api as memberApi } from '@/api/member/member.uts'
+
+const currentName = ref('')
+const username = ref('')
+const saving = ref(false)
+
+const refreshAccount = async () => {
+	let settings = await memberApi.getSettings()
+	if (settings != null) {
+		currentName.value = settings.name || ''
+	}
+}
+
+// 保留字(系统账号等)不允许作为用户名
+const reservedNames: string[] = ['admin', 'root', 'system', 'manager', 'administrator', 'operator', 'guest', 'test']
+// 只能英文、数字、下划线，且必须以字母开头
+const accountReg = /^[A-Za-z][A-Za-z0-9_]{0,19}$/
+
+const saveAccount = async () => {
+	const name: string = username.value.trim()
+	if (name.length < 5) {
+		uni.showToast({ title: '账号长度不能少于 5 位', icon: 'none' })
+		return
+	}
+	if (!accountReg.test(name)) {
+		uni.showToast({ title: '账号需以字母开头，仅含英文、数字或下划线', icon: 'none' })
+		return
+	}
+	const lowerName = name.toLowerCase()
+	if (reservedNames.some((w) => lowerName.indexOf(w) != -1)) {
+		uni.showToast({ title: '用户名不能包含保留字', icon: 'none' })
+		return
+	}
+	if (name == currentName.value) {
+		uni.showToast({ title: '新账号与当前账号相同', icon: 'none' })
+		return
+	}
+	saving.value = true
+	try {
+		let ok = await memberApi.updateAccount(name)
+		if (ok) {
+			uni.setStorageSync('username', name)
+			uni.showToast({ title: '保存成功', icon: 'success' })
+			currentName.value = name
+			username.value = ''
+		} else {
+			uni.showToast({ title: '保存失败，请重试', icon: 'none' })
+		}
+	} finally {
+		saving.value = false
+	}
+}
+
+onShow(() => {
+	refreshAccount()
+})
+</script>
+
+<style scoped>
+.page {
+	min-height: 100vh;
+	background: #F5F5F5;
+	flex-direction: column;
+	padding: 24px 16px 32px;
+}
+
+.brand {
+	padding: 8px 0 20px;
+}
+
+.brand-title {
+	font-size: 24px;
+	font-weight: bold;
+	color: #333333;
+	padding-left: 4px;
+}
+
+.brand-sub {
+	margin-top: 8px;
+	font-size: 13px;
+	color: #999999;
+	padding-left: 4px;
+}
+
+.cur-account-row {
+	flex-direction: row;
+	align-items: center;
+	justify-content: space-between;
+	padding: 4px 2px;
+}
+
+.cur-account-label {
+	font-size: 14px;
+	color: #666666;
+}
+
+.cur-account-value {
+	font-size: 15px;
+	color: #333333;
+	font-weight: bold;
+}
+
+.section-title {
+	padding: 20px 4px 12px;
+}
+
+.section-title-text {
+	font-size: 15px;
+	font-weight: bold;
+	color: #333333;
+}
+
+.form-card {
+	background: #FFFFFF;
+	border-radius: 16px;
+	padding: 24px 20px 20px;
+	box-shadow: 0 10px 24px rgba(0, 0, 0, 0.06);
+}
+
+.field {
+	margin-bottom: 16px;
+}
+
+.tip {
+	margin: -6px 0 20px;
+	padding-left: 2px;
+}
+
+.btn-wrap {
+	padding: 4px 0 0;
+}
+</style>

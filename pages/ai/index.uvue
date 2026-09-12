@@ -1,56 +1,18 @@
-<script setup lang="ts">
-import PageHeader from '@/pages/components/PageHeader.uvue'
-
-const openThemeQuery = () : void => {
-	uni.navigateTo({ url: '/pages/segment/index' })
-}
-</script>
-
 <template>
-	<view class="shell">
-		<PageHeader title="资料整理" :showBack="false"></PageHeader>
-		<scroll-view class="page" scroll-y="true">
-			<view class="hero">
-				<view class="hero-icon"><text class="hero-icon-copy">资</text></view>
-				<view class="hero-copy">
-					<text class="eyebrow">公开资料索引</text>
-					<text class="title">资料整理准备中</text>
-					<text class="subtitle">该栏目只会收录来源、原文链接、采集时点和审核状态完整的公开资料。</text>
-				</view>
-			</view>
-
-			<view class="state-card">
-				<text class="state-title">暂无可发布资料</text>
-				<text class="state-copy">资料索引服务和审核链路尚未接入。为保证内容可追溯，当前不提供搜索、模拟资料或未审核内容。</text>
-				<view class="state-rule">
-					<text class="state-rule-copy">资料卡不包含模型理由、个股分析或行情数值。</text>
-				</view>
-				<text class="theme-action" @click="openThemeQuery">前往题材查询</text>
-			</view>
-
-			<view class="notice">
-				<text class="notice-copy">本平台为公开信息聚合与历史数据统计，不构成任何投资建议。</text>
-			</view>
-		</scroll-view>
+	<view class="page-container">
+		<x-text>AI功能，敬请期待...</x-text>
 	</view>
 </template>
 
+<script setup lang="ts">
+</script>
+
 <style scoped>
-.shell, .page { flex: 1; }
-.page { padding-bottom: 64px; background-color: #f5f6f8; }
-.hero { padding: 28px 20px 24px; flex-direction: row; align-items: center; background-color: #ffffff; }
-.hero-icon { width: 56px; height: 56px; margin-right: 14px; justify-content: center; align-items: center; border-radius: 16px; background-color: #fff0f0; }
-.hero-icon-copy { font-size: 19px; font-weight: 700; color: #e93030; }
-.hero-copy { flex: 1; }
-.eyebrow { font-size: 13px; font-weight: 600; color: #e93030; }
-.title { margin-top: 4px; font-size: 24px; font-weight: 700; color: #20242b; }
-.subtitle { margin-top: 7px; font-size: 14px; line-height: 20px; color: #737983; }
-.state-card { margin: 18px 16px; padding: 26px 20px; align-items: center; border-radius: 18px; background-color: #ffffff; }
-.state-title { font-size: 17px; font-weight: 700; color: #30343b; text-align: center; }
-.state-copy { margin-top: 9px; font-size: 14px; line-height: 22px; color: #737983; text-align: center; }
-.state-rule { margin-top: 16px; padding: 12px; border-radius: 12px; background-color: #fff8eb; }
-.state-rule-copy { font-size: 12px; line-height: 18px; color: #89642b; text-align: center; }
-.theme-action { min-height: 44px; margin-top: 16px; padding: 12px 16px; font-size: 14px; font-weight: 700; color: #e93030; }
-.notice { margin: 24px; }
-.notice-copy { font-size: 12px; line-height: 18px; color: #9aa1aa; text-align: center; }
+.page-container {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	height: 100%;
+	padding: 20px;
+}
 </style>

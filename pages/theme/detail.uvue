@@ -1,0 +1,83 @@
+<template>
+<view class="page">
+  <!-- 加载 / 空态 -->
+  <view v-if="loading" class="state-tip flex flex-center py-80">
+    <x-text color="#999" fontSize="14">详情加载中...</x-text>
+  </view>
+
+  <view v-else-if="detail == null" class="state-tip flex flex-center py-80">
+    <x-text color="#999" fontSize="14">内容不存在或已下线</x-text>
+  </view>
+
+  <template v-else>
+    <x-sheet :round="0" :padding="[20, 0, 20, 0]" :margin="[0, 0, 0, 0]">
+      <!-- 题材标签 -->
+      <view class="flex flex-row align-center">
+        <x-tag size="small" color="primary">{{ detail.themeName }}</x-tag>
+        <x-tag v-if="detail.top" size="small" color="error" class="ml-10">置顶</x-tag>
+        <x-tag v-if="detail.hot" size="small" class="ml-10">热门</x-tag>
+      </view>
+
+      <!-- 标题 -->
+      <x-text color="#000" fontSize="20" fontWeight="bold" lineHeight="1.5" class="mt-16">{{ detail.title }}</x-text>
+
+      <!-- 发布时间 -->
+      <view class="flex flex-row align-center mt-16">
+        <x-text color="#999" fontSize="13">{{ detail.publishTime }}</x-text>
+        <x-text v-if="detail.source != ''" color="#999" fontSize="13" class="ml-12">来源：{{ detail.source }}</x-text>
+      </view>
+
+      <!-- 摘要 -->
+      <x-text v-if="detail.summary != ''" color="#666" fontSize="15" lineHeight="1.7" class="mt-20">{{ detail.summary }}</x-text>
+
+      <!-- 正文 -->
+      <view class="mt-20">
+        <x-text color="#333" fontSize="15" lineHeight="1.9">{{ detail.content }}</x-text>
+      </view>
+
+      <!-- 底部阅读数据 -->
+      <view class="flex flex-row align-center mt-32">
+        <view class="flex-1"></view>
+        <x-text color="#BBB" fontSize="12">阅读 {{ detail.view }} · 分享 {{ detail.share }}</x-text>
+      </view>
+    </x-sheet>
+  </template>
+
+  <view class="py-32"></view>
+</view>
+</template>
+
+<script setup lang="ts">
+import { ref } from 'vue';
+import { onLoad } from '@dcloudio/uni-app';
+import { api } from '@/api/quant/themeTopic.uts';
+import { TopicDetailResp } from '@/types/interface.uts';
+
+const detail = ref<TopicDetailResp | null>(null);
+const loading = ref(false);
+
+const loadDetail = async (id: number) => {
+  loading.value = true;
+  const result = await api.getThemeTopicDetail(id);
+  loading.value = false;
+  detail.value = result;
+};
+
+onLoad((options: OnLoadOptions | null) => {
+  const idStr = options != null && options.id != null ? String(options.id) : '';
+  if (idStr == '') return;
+  const id = parseInt(idStr, 10);
+  if (isNaN(id)) return;
+  loadDetail(id);
+});
+</script>
+
+<style scoped>
+.page {
+  background: #FFF;
+}
+
+.state-tip {
+  height: 300px;
+}
+</style>

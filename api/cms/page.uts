@@ -1,0 +1,24 @@
+import { rq } from "../request.uts"
+import { CmsPage } from "@/types/interface.uts"
+
+// CMS 单页接口（公开，无需登录）
+// 按 name 标识区分单页内容，如 about（关于我们）/ contact（联系方式）
+export class api {
+
+	// 单页列表
+	public static async getPageList(): Promise<CmsPage[] | null> {
+		return await rq<CmsPage[]>('/cms/page/list', 'GET', {} as UTSJSONObject)
+	}
+
+	// 单页详情（按 name 标识）
+	public static async getPageDetail(name: string): Promise<CmsPage | null> {
+		return await rq<CmsPage>('/cms/page/detail', 'GET', {
+			name: name
+		} as UTSJSONObject)
+	}
+
+	// 创建单页
+	public static async createPage(data: UTSJSONObject): Promise<CmsPage | null> {
+		return await rq<CmsPage>('/cms/page/create', 'POST', data)
+	}
+}

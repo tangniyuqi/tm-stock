@@ -1,0 +1,207 @@
+<template>
+  <scroll-view class="page" scroll-y="true" show-scrollbar="false">
+    <!-- 顶部渐变头部 -->
+    <x-sheet class="hero" :linearGradient="['bottom','#A9100F','#E93030','#FF6A5E']" margin="0" :round="['0','0','0','0']">
+      <view class="hero-inner" @click="handleHeroClick">
+        <view class="avatar-wrap">
+          <image class="avatar-logo" :src="avatar" mode="aspectFill"></image>
+        </view>
+      </view>
+    </x-sheet>
+
+    <view class="content">
+      <!-- 账号相关设置 -->
+      <x-sheet class="menu-card" margin="0" padding="6px 0" :round="['16','16','16','16']" :shadow="['10','24','rgba(0,0,0,0.06)']">
+        <x-cell icon="phone-line" icon-color="#E93030" icon-size="18" title="手机号码"
+          title-color="#333333" title-size="16" :label="maskedMobile" label-size="13" link :card="false" bottomBorderInsert @click="goMobile"></x-cell>
+
+        <x-cell icon="key-2-line" icon-color="#E93030" icon-size="18" title="账号设置"
+          title-color="#333333" title-size="16" :label="username" label-size="13" link :card="false" bottomBorderInsert @click="goAccount"></x-cell>
+
+        <x-cell icon="user-line" icon-color="#E93030" icon-size="18" title="个人资料"
+          title-color="#333333" title-size="16" :label="nickSet ? '可修改' : '需完善'" label-size="13" :label-color="nickSet ? '#999999' : '#E93030'"
+          link :card="false" bottomBorderInsert @click="goProfile"></x-cell>
+
+        <x-cell icon="shield-check-line" icon-color="#E93030" icon-size="18" title="实名认证"
+          title-color="#333333" title-size="16" :label="verified ? '已认证' : '未认证'" label-size="13" :label-color="verified ? '#999999' : '#E93030'"
+          link :card="false" bottomBorderInsert @click="goRealname"></x-cell>
+
+        <x-cell icon="lock-2-line" icon-color="#E93030" icon-size="18" title="修改密码"
+          title-color="#333333" title-size="16" :label="'建议定期修改'" label-size="13" label-color="#999999"
+          link :card="false" :showBottomBorder="false" @click="goChangePassword"></x-cell>
+      </x-sheet>
+
+      <!-- 退出登录 -->
+      <view class="logout-wrap">
+        <x-button fontColor="#E93030" block skin="outline" :round="16" :height="48" @click="doLogout">退出登录</x-button>
+      </view>
+
+    </view>
+  </scroll-view>
+</template>
+
+<script lang="ts" setup>
+import { ref } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
+import { api as memberApi } from '@/api/member/member.uts'
+import { api as authApi } from '@/api/auth.uts'
+
+// 头像
+const avatar = ref('/static/images/avatar.png')
+const userName = ref('题材助手')
+const username = ref('')
+const maskedMobile = ref('未绑定手机号')
+const verified = ref(false)
+const nickSet = ref(false)
+
+const maskPhone = (num: string) => {
+  const cleaned = (num || '').trim()
+  if (cleaned.length < 7) return cleaned || '未绑定手机号'
+  return cleaned.slice(0, 3) + '****' + cleaned.slice(-4)
+}
+
+const isLoggedIn = () : boolean => {
+	return (uni.getStorageSync('token') || '') != ''
+}
+
+const refreshProfile = async () => {
+	if (!isLoggedIn()) {
+		userName.value = '点击登录 / 注册'
+		maskedMobile.value = '登录后解锁更多功能'
+		return
+	}
+	let profile = await memberApi.getProfile()
+	if (profile != null) {
+		userName.value = profile.nickname || '题材助手'
+		nickSet.value = !!profile.nickname
+		maskedMobile.value = maskPhone(profile.mobile)
+		avatar.value = profile.avatar || '/static/images/avatar.png'
+		verified.value = profile.verified || false
+	}
+	let settings = await memberApi.getSettings()
+	if (settings != null) {
+		username.value = settings.name || ''
+	}
+}
+
+const goLogin = () => {
+	uni.navigateTo({ url: '/pages/member/login' })
+}
+
+const handleHeroClick = () => {
+	if (!isLoggedIn()) {
+		goLogin()
+	}
+}
+
+// 个人数据页统一加登录守卫，未登录时先登录
+const guardNavigate = (url: string) => {
+	if (!isLoggedIn()) {
+		goLogin()
+		return
+	}
+	uni.navigateTo({ url })
+}
+
+const goMobile = () => {
+	guardNavigate('/pages/member/setting/mobile')
+}
+
+const goAccount = () => {
+	guardNavigate('/pages/member/setting/account')
+}
+
+const goProfile = () => {
+	guardNavigate('/pages/member/setting/profile')
+}
+
+const goRealname = () => {
+	guardNavigate('/pages/member/setting/realname')
+}
+
+const goChangePassword = () => {
+	guardNavigate('/pages/member/setting/change-password')
+}
+
+const doLogout = () => {
+	if (!isLoggedIn()) {
+		uni.showToast({ title: '尚未登录', icon: 'none' })
+		return
+	}
+	uni.showModal({
+		title: '提示',
+		content: '确定要退出登录吗？',
+		success: (res) => {
+			if (res.confirm) {
+				clearAndGoHome()
+			}
+		},
+	})
+}
+
+const clearAndGoHome = async () => {
+	await authApi.logout()
+	uni.removeStorageSync('token')
+	uni.removeStorageSync('nickname')
+	uni.removeStorageSync('mobile')
+	uni.removeStorageSync('credit')
+	uni.removeStorageSync('vipExpire')
+	uni.removeStorageSync('level')
+	uni.showToast({ title: '已退出登录', icon: 'none' })
+	uni.switchTab({ url: '/pages/member/index' })
+}
+
+onShow(() => {
+	refreshProfile()
+})
+</script>
+
+<style scoped>
+.page {
+	min-height: 100vh;
+	background: #F5F5F5;
+}
+
+.hero {
+	margin: 0;
+	padding: 0;
+}
+
+.hero-inner {
+	align-items: center;
+	justify-content: center;
+	padding: 30px 16px 30px 16px;
+}
+
+.avatar-wrap {
+	width: 90px;
+	height: 90px;
+	border-radius: 50%;
+	border-width: 2px;
+	border-style: solid;
+	border-color: rgba(255, 255, 255, 0.76);
+	background: rgba(255, 255, 255, 0.2);
+	align-items: center;
+	justify-content: center;
+}
+
+.avatar-logo {
+	width: 86px;
+	height: 86px;
+	border-radius: 30px;
+}
+
+.content {
+	margin-top: 20px;
+	padding: 0 16px 28px;
+}
+
+.menu-card {
+	margin: 0;
+	padding: 6px 0;
+}
+
+.logout-wrap {
+	margin-top: 24px;
+}
+</style>

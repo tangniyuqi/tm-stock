@@ -1,0 +1,213 @@
+<template>
+  <scroll-view class="page" scroll-y="true" show-scrollbar="false">
+    <view class="content">
+      <!-- 顶部 Banner 区（通栏背景，沿用全局主题色 #E93030 同色系渐变） -->
+      <view class="banner">
+        <text class="banner-subtitle">意见反馈 / FEEDBACK</text>
+        <text class="banner-title">期待听见您的声音</text>
+      </view>
+
+      <x-sheet class="form-card" margin="0" padding="20px 16px" :round="['16','16','16','16']" :shadow="['10','24','rgba(0,0,0,0.06)']">
+        <view class="feedback-field">
+          <text class="feedback-label">反馈类型</text>
+          <picker mode="selector" :range="typeOptions" range-key="label" :value="typeIndex"
+            @change="onTypeChange">
+            <view class="feedback-input feedback-picker">
+              <text :class="feedbackType ? 'picker-value' : 'picker-placeholder'">
+                {{ feedbackType ? dictLabel(typeOptions, feedbackType) : '请选择反馈类型' }}
+              </text>
+            </view>
+          </picker>
+        </view>        
+
+        <view class="feedback-field">
+          <text class="feedback-label">反馈标题（选填）</text>
+          <input class="feedback-input" v-model="feedbackTitle" placeholder="请输入反馈标题" :maxlength="50" />
+        </view>
+
+        <view class="feedback-field">
+          <text class="feedback-label">反馈内容</text>
+          <textarea class="feedback-textarea" v-model="feedbackContent" placeholder="请详细描述您的意见或建议" :maxlength="500" />
+        </view>
+
+        <view>
+          <text class="feedback-label">联系方式（选填）</text>
+          <x-more :height="1" :maskBgColor="['rgba(255,255,255,1)','rgba(255,255,255,1)']">
+            <view class="feedback-field">
+              <input class="feedback-input" v-model="feedbackWechat" placeholder="请输入微信号" :maxlength="50" />
+            </view>
+
+            <view class="feedback-field">
+              <input class="feedback-input" v-model="feedbackMobile" placeholder="请输入手机号" :maxlength="50" />
+            </view>
+
+            <view class="feedback-field">
+              <input class="feedback-input" v-model="feedbackEmail" placeholder="请输入电子邮箱" :maxlength="50" />
+            </view>
+          </x-more>
+        </view>
+
+        <view class="feedback-btn-wrap">
+          <x-button color="#E93030" fontColor="#FFFFFF" :block="true" :round="28" :height="44"
+            :loading="feedbackLoading" :disabled="feedbackLoading" @click="submitFeedback">提交反馈</x-button>
+        </view>
+      </x-sheet>
+    </view>
+  </scroll-view>
+</template>
+
+<script lang="ts" setup>
+import { ref } from 'vue'
+import { api as cmsFeedbackApi } from '@/api/cms/feedback.uts'
+import { getDict, dictLabel } from '@/api/system/dict.uts'
+import { DictDetail } from '@/types/interface.uts'
+
+const feedbackTitle = ref('')
+const feedbackContent = ref('')
+const feedbackMobile = ref('')
+const feedbackWechat = ref('')
+const feedbackEmail = ref('')
+const feedbackLoading = ref(false)
+
+// 反馈类型字典（cms_feedback_type，带缓存的统一加载方法）
+const typeOptions = ref<DictDetail[]>([])
+const typeIndex = ref(0)
+const feedbackType = ref('')
+
+getDict('cms_feedback_type').then((list: DictDetail[]) => {
+  typeOptions.value = list
+})
+
+// picker 选择回调：按索引从字典取 value
+const onTypeChange = (e: any) => {
+  const idx = e.detail.value as number
+  const item = typeOptions.value[idx]
+  feedbackType.value = item == null ? '' : item.value
+  typeIndex.value = idx
+}
+
+const submitFeedback = async () => {
+  if (feedbackLoading.value) {
+    return
+  }
+  if (feedbackType.value == '') {
+    uni.showToast({ title: '请选择反馈类型', icon: 'none' })
+    return
+  }
+  if ((feedbackContent.value || '').trim() == '') {
+    uni.showToast({ title: '请输入反馈内容', icon: 'none' })
+    return
+  }
+
+  feedbackLoading.value = true
+  try {
+    let ok = await cmsFeedbackApi.submitFeedback({
+      title: feedbackTitle.value.trim(),
+      content: feedbackContent.value.trim(),
+      type: feedbackType.value == '' ? null : Number(feedbackType.value),
+      mobile: feedbackMobile.value.trim(),
+      wechat: feedbackWechat.value.trim(),
+      email: feedbackEmail.value.trim()
+    } as UTSJSONObject)
+    if (ok) {
+      uni.showToast({ title: '感谢您的反馈！', icon: 'success' })
+      setTimeout(() => {
+        uni.switchTab({ url: '/pages/member/index' })
+      }, 600)
+    } else {
+      uni.showToast({ title: '提交失败，请稍后再试', icon: 'none' })
+    }
+  } finally {
+    feedbackLoading.value = false
+  }
+}
+</script>
+
+<style scoped>
+.page {
+  min-height: 100vh;
+  background: #F5F5F5;
+}
+
+.content {
+  padding: 0 16px 28px;
+}
+
+/* Banner 区：通栏背景，沿用全局主题色 #E93030 同色系渐变 */
+.banner {
+  display: flex;
+  flex-direction: column;
+  margin: 0 -16px 20px;
+  padding: 36px 24px;
+  background: linear-gradient(135deg, #C52233 0%, #E93030 58%, #EF5A5A 100%);
+}
+
+.banner-subtitle {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.75);
+  letter-spacing: 2px;
+  margin-bottom: 8px;
+}
+
+.banner-title {
+  font-size: 22px;
+  font-weight: bold;
+  color: #FFFFFF;
+}
+
+.form-card {
+  margin: 0;
+  padding: 20px 16px;
+}
+
+.feedback-field {
+  margin-bottom: 16px;
+}
+
+.feedback-label {
+  font-size: 14px;
+  color: #333333;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.feedback-input {
+  height: 44px;
+  padding: 0 12px;
+  background: #F5F5F5;
+  border-radius: 10px;
+  font-size: 15px;
+  color: #333333;
+}
+
+/* picker 点击域与占位/选中态 */
+.feedback-picker {
+  display: flex;
+  /* align-items: center; */
+  line-height: 44px;
+}
+
+.picker-value {
+  font-size: 15px;
+  color: #333333;
+}
+
+.picker-placeholder {
+  font-size: 15px;
+  color: #999999;
+}
+
+.feedback-textarea {
+  width: 100%;
+  height: 120px;
+  padding: 12px;
+  background: #F5F5F5;
+  border-radius: 10px;
+  font-size: 15px;
+  color: #333333;
+}
+
+.feedback-btn-wrap {
+  padding: 4px 0 0;
+}
+</style>

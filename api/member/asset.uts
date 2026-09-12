@@ -1,0 +1,11 @@
+import { rqWithToken } from "../request.uts"
+import { AssetOverview } from "@/types/interface.uts"
+
+// C 端会员接口 - 资产概况（需登录 token）
+export class api {
+
+	// 获取资产概况（当前默认积分，type=2）
+	public static async getAssetOverview(): Promise<AssetOverview | null> {
+		return await rqWithToken<AssetOverview>('/member/asset/detail', 'GET', {} as UTSJSONObject, true)
+	}
+}

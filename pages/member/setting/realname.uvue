@@ -1,0 +1,201 @@
+<template>
+  <view class="page">
+    <view class="brand">
+      <view class="brand-title">
+        <x-text fontSize="24" _style="font-weight:bold" color="#333333">实名认证</x-text>
+      </view>
+      <view class="brand-sub">
+        <x-text fontSize="13" color="#999999">实名信息用于账号安全与合规校验</x-text>
+      </view>
+    </view>
+
+    <!-- 认证状态 -->
+    <view class="form-card">
+      <view class="status-row">
+        <view class="status-icon">
+          <x-icon :name="realnameDone ? 'shield-check-line' : 'shield-line'" :color="realnameDone ? '#07C160' : '#E93030'" font-size="22"></x-icon>
+        </view>
+        <text class="status-text" :class="realnameDone ? 'status-text-done' : ''">{{ statusLabel }}</text>
+      </view>
+    </view>
+
+    <!-- 认证表单卡片 -->
+    <view class="section-title">
+      <text class="section-title-text">填写认证信息</text>
+    </view>
+
+    <view class="form-card">
+      <view class="field">
+        <x-input v-model="realName" placeholder="请输入真实姓名" round="12" leftIcon="user-line" :maxlength="20" height="48"></x-input>
+      </view>
+
+      <view class="field">
+        <x-input v-model="idCard" placeholder="请输入身份证号" round="12" inputmode="numeric" :maxlength="18" leftIcon="id-card-line" height="48"></x-input>
+      </view>
+
+      <view class="btn-wrap">
+        <x-button color="#E93030" fontColor="#FFFFFF" :block="true" :round="28" :height="48" :loading="loading" :disabled="loading" @click="doSubmit">{{ realnameDone ? '已认证' : '提交认证' }}</x-button>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script lang="ts" setup>
+import { ref } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
+import { api as memberApi } from '@/api/member/member.uts'
+
+const realName = ref('')
+const idCard = ref('')
+const loading = ref(false)
+
+const realnameDone = ref(false)
+const statusLabel = ref('未认证')
+
+const isLoggedIn = () : boolean => {
+	return (uni.getStorageSync('token') || '') != ''
+}
+
+const refreshStatus = async () => {
+	realnameDone.value = false
+	statusLabel.value = '尚未实名认证，完成认证后可解锁相应功能'
+	if (!isLoggedIn()) {
+		return
+	}
+	try {
+		// 认证状态以后端会员资料为准（数据库驱动），不再依赖本地缓存
+		const profile = await memberApi.getProfile()
+		if (profile != null && profile.verified) {
+			realnameDone.value = true
+			statusLabel.value = '已完成实名认证'
+		}
+	} catch (err) {
+		// 拉取失败时保持未认证展示
+	}
+}
+
+const isValidIdCard = (val : string) : boolean => {
+	let v = (val || '').trim().toUpperCase()
+	if (v.length != 18) {
+		return false
+	}
+	return true
+}
+
+const doSubmit = async () => {
+	if (loading.value) {
+		return
+	}
+	if (realnameDone.value) {
+		uni.showToast({ title: '已完成实名认证', icon: 'none' })
+		return
+	}
+	if (!isLoggedIn()) {
+		uni.showToast({ title: '请先登录', icon: 'none' })
+		uni.navigateTo({ url: '/pages/member/login' })
+		return
+	}
+	if ((realName.value || '').trim() == '') {
+		uni.showToast({ title: '请输入真实姓名', icon: 'none' })
+		return
+	}
+	if (!isValidIdCard(idCard.value)) {
+		uni.showToast({ title: '请输入正确的身份证号', icon: 'none' })
+		return
+	}
+
+	loading.value = true
+	try {
+		let ok = await memberApi.submitRealname(realName.value.trim(), idCard.value.trim().toUpperCase())
+		if (ok) {
+			uni.showToast({ title: '认证提交成功', icon: 'success' })
+			await refreshStatus()
+		}
+	} finally {
+		loading.value = false
+	}
+}
+
+onShow(() => {
+	refreshStatus()
+})
+</script>
+
+<style scoped>
+.page {
+	min-height: 100vh;
+	background: #F5F5F5;
+	flex-direction: column;
+	padding: 24px 16px 32px;
+}
+
+.brand {
+	padding: 8px 0 20px;
+}
+
+.brand-title {
+	font-size: 24px;
+	font-weight: bold;
+	color: #333333;
+	padding-left: 4px;
+}
+
+.brand-sub {
+	margin-top: 8px;
+	font-size: 13px;
+	color: #999999;
+	padding-left: 4px;
+}
+
+.section-title {
+	padding: 20px 4px 12px;
+}
+
+.section-title-text {
+	font-size: 15px;
+	font-weight: bold;
+	color: #333333;
+}
+
+.form-card {
+	background: #FFFFFF;
+	border-radius: 16px;
+	padding: 24px 20px 20px;
+	box-shadow: 0 10px 24px rgba(0, 0, 0, 0.06);
+}
+
+.status-row {
+	flex-direction: row;
+	align-items: center;
+	padding: 4px 2px;
+}
+
+.status-icon {
+	width: 40px;
+	height: 40px;
+	border-radius: 20px;
+	background: #FFF0F0;
+	align-items: center;
+	justify-content: center;
+	margin-right: 12px;
+}
+
+.status-text {
+	flex: 1;
+	font-size: 14px;
+	color: #999999;
+	line-height: 20px;
+}
+
+.status-text-done {
+	color: #07C160;
+}
+
+.field {
+	margin-bottom: 16px;
+}
+
+.btn-wrap {
+	padding: 4px 0 0;
+}
+</style>

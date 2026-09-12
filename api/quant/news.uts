@@ -1,0 +1,15 @@
+import { rq } from "../request.uts";
+import { resultListType, NewsItem, NewsDetailResp } from "@/types/interface.uts"
+
+// 7x24 快讯相关接口，统一在 api 类中管理
+export class api {
+	// 快讯列表（keyword 支持搜索命中高亮）
+	public static async getNewsList(arg: UTSJSONObject): Promise<resultListType<NewsItem> | null> {
+		return await rq<resultListType<NewsItem>>('/quant/news/list', 'GET', arg)
+	}
+
+	// 快讯详情
+	public static async getNewsDetail(id: string): Promise<NewsDetailResp | null> {
+		return await rq<NewsDetailResp>('/quant/news/detail', 'GET', { id: id } as UTSJSONObject)
+	}
+}

@@ -1,0 +1,10 @@
+// 后端服务地址（站点级配置）
+// C 端公开接口（/client/quant/...）无需登录。
+// H5（web）端统一用 /api/client 前缀发起请求，由 vite 代理把 /api/client 重写为后端实际的 /client 前缀转发过去，避免跨域；
+// （前缀必须是精确的 /api/client：源码 api/ 目录模块路径是 /api/themeTopic.uts 等，若代理是宽松的 /api 前缀，
+//   模块加载请求会被拦走向后端 404，导致页面白屏/超时）
+// App 端直连后端。联调通过后需替换为线上正式域名。
+let __platform = uni.getSystemInfoSync().uniPlatform
+export const baseUrl: string = __platform == 'web'
+	? '/api/client'
+	: 'http://127.0.0.1:8881/client'

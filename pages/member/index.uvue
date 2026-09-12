@@ -1,351 +1,291 @@
-<script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import PageHeader from '@/pages/components/PageHeader.uvue'
-import { MemberApi } from '@/pages/libs/member-api.uts'
-import { MemberProfile, MemberStatus, MemberViewState, formatMemberExpiry, getMemberStatusLabel, getMemberViewState, isValidMemberProfile } from '@/pages/libs/member.uts'
+<template>
+  <scroll-view class="page" scroll-y="true" show-scrollbar="false">
+    <!-- 顶部渐变头部 -->
+    <x-sheet class="hero" :linearGradient="['bottom','#F2554F','#E93030']" margin="0" :round="['0','0','0','0']">
+      <view class="hero-inner">
+        <view class="hero-settings" @click="goSetting">
+          <x-icon name="settings-3-line" color="#FFFFFF" font-size="20"></x-icon>
+        </view>
 
-// 会员后端与正式协议尚未就绪。默认保持访客态，不能用本地数据伪造会员权益。
-const memberBackendReady : boolean = false
-const memberState = ref<MemberViewState>(memberBackendReady ? 'loading' : 'guest')
-const profile = ref<MemberProfile | null>(null)
-const errorMessage = ref<string>('')
-let profileRequestSequence : number = 0
+        <view class="profile-card">
+          <view class="avatar-wrap" @click="handleProfileClick">
+            <image class="avatar-logo" :src="avatar" mode="aspectFill"></image>
+          </view>
 
-const isLoggedIn = computed(() : boolean => {
-	return profile.value != null && memberState.value != 'guest' && memberState.value != 'error'
-})
+          <view class="profile-info" @click="handleProfileClick">
+            <x-text color="#FFFFFF" font-size="15" class="text-weight-b">{{ nickname }}</x-text>
 
-const profileStatus = computed(() : MemberStatus => {
-	if (profile.value == null) {
-		return 'NONE'
-	}
-	return profile.value.memberStatus
-})
+            <x-text v-if="name != ''" color="#FFFFFF" font-size="14" alpha="0.8">{{ name }}</x-text>
 
-const profileStatusLabel = computed(() : string => getMemberStatusLabel(profileStatus.value))
+            <x-text color="#FFFFFF" font-size="14" alpha="0.85">{{ maskedMobile }}</x-text>
+          </view>
+        </view>
+      </view>
+    </x-sheet>
 
-const profileExpiryLabel = computed(() : string => {
-	if (profile.value == null) {
-		return '尚未开通'
-	}
-	return formatMemberExpiry(profile.value.expireAt)
-})
+    <view class="content">
+      <!-- 常用功能卡片 -->
+      <x-sheet class="menu-card" margin="0" padding="6px 0" :round="['16','16','16','16']" :shadow="['10','24','rgba(0,0,0,0.06)']">
+        <x-cell icon="vip-crown-2-line" icon-color="#E93030" icon-size="18" title="VIP会员"
+          title-color="#333333" title-size="16" :label="isLoggedIn() ? vipExpire : '未登录'" link :card="false" bottomBorderInsert @click="comingSoon"></x-cell>
 
-const trialLabel = computed(() : string => {
-	if (profile.value == null) {
-		return '暂无服务端数据'
-	}
-	return profile.value.trialLeft.toString() + ' 次'
-})
+        <x-cell icon="coin-line" icon-color="#E93030" icon-size="18" title="我的积分"
+          title-color="#333333" title-size="16" :label="isLoggedIn() ? credit : '未登录'" link :card="false" bottomBorderInsert @click="goCredit"></x-cell>
+        
+        <x-cell icon="settings-3-line" icon-color="#E93030" icon-size="18" title="个人设置"
+          title-color="#333333" title-size="16" :label="isLoggedIn() ? '' : '未登录'" link :card="false" bottomBorderInsert :showBottomBorder="false" @click="goSetting"></x-cell>
+      </x-sheet>
 
-const setGuestState = () : void => {
-	profile.value = null
-	memberState.value = 'guest'
-	errorMessage.value = ''
+      <!-- 服务与支持宫格 -->
+      <x-sheet class="support-card" margin="18px 0 0 0" :round="['16','16','16','16']" :shadow="['10','24','rgba(0,0,0,0.06)']">
+        <x-grid :col="3" icon-color="#9E9E9E" text-color="#666666" font-size="14" icon-size="28"
+          :show-border="false">
+          <x-grid-item :order="0" icon="information-line" text="关于我们" @click="goCmsSingle('About')"></x-grid-item>
+          <x-grid-item :order="1" icon="mail-line" text="联系方式" @click="goCmsSingle('Contacts')"></x-grid-item>
+          <x-grid-item :order="3" icon="message-3-line" text="意见反馈" @click="goFeedback"></x-grid-item>
+          <x-grid-item :order="2" icon="question-line" text="帮助中心" @click="goHelp"></x-grid-item>
+        </x-grid>
+      </x-sheet>
+
+      <!-- 底部合规免责 -->
+      <view class="footer">
+        <x-text font-size="13" color="#B5B5B5" class="footer-version">题材助手 v1.0.0</x-text>
+      </view>
+    </view>
+  </scroll-view>
+</template>
+
+<script lang="ts" setup>
+import { ref } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
+import { api as memberApi } from '@/api/member/member.uts'
+import { MemberProfile } from '@/types/interface.uts'
+
+// 头像默认
+const avatar = ref('/static/images/avatar.png')
+
+// 用户信息
+const nickname = ref('登录 / 注册')
+const name = ref('')
+const maskedMobile = ref('登录后解锁更多功能')
+const credit = ref('0')
+const vipExpire = ref('未开通或已过期')
+
+// 手机号脱敏
+const maskPhone = (num: string) => {
+  const cleaned = (num || '').trim()
+  if (cleaned.length < 7) return cleaned || '未绑定手机号'
+  return cleaned.slice(0, 3) + '****' + cleaned.slice(-4)
 }
 
-const applyProfile = (nextProfile : MemberProfile) : void => {
-	if (!isValidMemberProfile(nextProfile)) {
-		profile.value = null
-		memberState.value = 'error'
-		errorMessage.value = '服务返回的会员信息不完整，请稍后重试'
-		return
-	}
-	profile.value = nextProfile
-	memberState.value = getMemberViewState(nextProfile)
-	errorMessage.value = ''
+// 是否已登录
+const isLoggedIn = () : boolean => {
+	return (uni.getStorageSync('token') || '') != ''
 }
 
-const loadProfile = async () : Promise<void> => {
-	const requestID = profileRequestSequence + 1
-	profileRequestSequence = requestID
-	if (!memberBackendReady) {
-		setGuestState()
+// 刷新用户信息（从后端获取）
+const refreshProfile = async () => {
+	if (!isLoggedIn()) {
+		nickname.value = '登录 / 注册'
+		name.value = ''
+		maskedMobile.value = '登录后解锁更多功能'
+		credit.value = '0'
+		vipExpire.value = '未开通或已过期'
 		return
 	}
-	memberState.value = 'loading'
-	errorMessage.value = ''
-	const result = await MemberApi.profile()
-	if (requestID != profileRequestSequence) {
-		return
+
+	// 获取用户名（账号，可登录用）
+	let acc = await memberApi.getSettings()
+	name.value = (acc != null && acc.name != '') ? acc.name : ''
+
+	let profile: MemberProfile | null = null
+	try {
+		profile = await memberApi.getProfile()
+	} catch (e) {
+		// 请求失败时回退本地缓存，避免中断资料刷新
+		profile = null
 	}
-	if (result.code == 40100) {
-		uni.removeStorageSync('tm_member_token')
-		setGuestState()
-		return
+	if (profile != null) {
+		nickname.value = profile.nickname || '题材助手'
+		maskedMobile.value = maskPhone(profile.mobile)
+		credit.value = String(profile.credit)
+		avatar.value = profile.avatar || '/static/images/avatar.png'
+		let level = profile.level
+		vipExpire.value = level > 0 ? 'VIP' + level : '未开通或已过期'
+
+		// 更新本地缓存（兼容旧逻辑）
+		uni.setStorageSync('nickname', profile.nickname)
+		uni.setStorageSync('mobile', profile.mobile)
+		uni.setStorageSync('credit', String(profile.credit))
+		uni.setStorageSync('level', String(level))
+	} else {
+		// API 失败时回退到本地缓存，避免已登录用户看到「登录 / 注册」
+		let cachedNickname = uni.getStorageSync('nickname') as string
+		let cachedMobile = uni.getStorageSync('mobile') as string
+		let cachedCredit = uni.getStorageSync('credit') as string
+		let cachedLevel = uni.getStorageSync('level') as string
+		if (cachedNickname != null && cachedNickname != '') {
+			nickname.value = cachedNickname
+		} else {
+			nickname.value = '已登录'
+		}
+		if (cachedMobile != null && cachedMobile != '') {
+			maskedMobile.value = maskPhone(cachedMobile)
+		} else {
+			let loginMobile = uni.getStorageSync('loginMobile') as string
+			maskedMobile.value = (loginMobile != null && loginMobile != '') ? maskPhone(loginMobile) : '已登录'
+		}
+		if (cachedCredit != null && cachedCredit != '') {
+			credit.value = cachedCredit
+		}
+		if (cachedLevel != null && cachedLevel != '') {
+			let lv = parseInt(cachedLevel)
+			vipExpire.value = lv > 0 ? 'VIP' + lv : '未开通或已过期'
+		}
 	}
-	if (result.code != 0 || result.data == null) {
-		profile.value = null
-		memberState.value = 'error'
-		errorMessage.value = result.message
-		return
-	}
-	applyProfile(result.data)
 }
 
-const openLogin = () : void => {
+// 跳转登录
+const goLogin = () => {
 	uni.navigateTo({ url: '/pages/member/login' })
 }
 
-const openService = () : void => {
-	uni.navigateTo({ url: '/pages/member/service' })
-}
-
-const openPrivacy = () : void => {
-	uni.navigateTo({ url: '/pages/member/privacy' })
-}
-
-const openRedeem = () : void => {
-	uni.navigateTo({ url: '/pages/member/redeem' })
-}
-
-const showUnavailable = (title : string) : void => {
-	uni.showToast({ title: title, icon: 'none' })
-}
-
-const finishLocalLogout = () : void => {
-	uni.removeStorageSync('tm_member_token')
-	setGuestState()
-}
-
-const showLogoutConfirm = () : void => {
-	if (!isLoggedIn.value) {
-		openLogin()
-		return
+// 未登录时点击进入登录，已登录时进入个人设置
+const handleProfileClick = () => {
+	if (!isLoggedIn()) {
+		goLogin()
+	} else {
+		goSetting()
 	}
-	if (!memberBackendReady) {
-		showUnavailable('退出登录服务尚未开放')
-		return
-	}
-	uni.showModal({
-		title: '退出登录',
-		content: '退出后将清除当前设备的登录态，会员服务不会被注销。',
-		confirmText: '确认退出',
-		cancelText: '暂不退出',
-		success: (result) => {
-			if (result.confirm == true) {
-				finishLocalLogout()
-			}
-		}
-	})
 }
 
-const deactivateAccount = async () : Promise<void> => {
-	const result = await MemberApi.deactivate(true)
-	if (result.code == 0) {
-		finishLocalLogout()
-		uni.showToast({ title: '账号已注销', icon: 'none' })
-		return
-	}
-	showUnavailable(result.message)
-}
-
-const showDeactivateConfirm = () : void => {
-	if (!isLoggedIn.value) {
-		openLogin()
-		return
-	}
-	if (!memberBackendReady) {
-		showUnavailable('账号注销服务尚未开放')
-		return
-	}
-	uni.showModal({
-		title: '确认注销账号？',
-		content: '注销后登录态立即失效，会员剩余期限作废且不退款；账号信息不可恢复。',
-		confirmText: '确认注销',
-		cancelText: '取消',
-		success: (result) => {
-			if (result.confirm == true) {
-				deactivateAccount()
-			}
-		}
-	})
-}
-
-const retryProfile = () : void => {
-	loadProfile()
-}
-
-onMounted(() => {
-	loadProfile()
+onShow(() => {
+	refreshProfile()
 })
 
-onBeforeUnmount(() => {
-	profileRequestSequence = profileRequestSequence + 1
-})
+// 跳转设置（未登录时需先登录）
+const goSetting = () => {
+  if (!isLoggedIn()) {
+    uni.navigateTo({ url: '/pages/member/login' })
+    return
+  }
+  uni.navigateTo({ url: '/pages/member/setting/index' })
+}
+
+// 跳转积分详情（未登录时需先登录）
+const goCredit = () => {
+  if (!isLoggedIn()) {
+    uni.navigateTo({ url: '/pages/member/login' })
+    return
+  }
+  uni.navigateTo({ url: '/pages/member/asset/index' })
+}
+
+// ============ 服务与支持（跳转独立页面） ============
+
+// 关于我们 / 联系方式：跳转共用单页模板，按 name 区分
+const goCmsSingle = (name: string) => {
+	uni.navigateTo({ url: '/pages/cms/page/detail?name=' + name })
+}
+
+// 意见反馈：跳转表单页
+const goFeedback = () => {
+	uni.navigateTo({ url: '/pages/cms/feedback/index' })
+}
+
+// 帮助中心：x-collapse 折叠文章页
+const goHelp = () => {
+	uni.navigateTo({ url: '/pages/cms/help/index' })
+}
+
+// 尚未开放的功能
+const comingSoon = () => {
+  uni.showToast({ title: '功能筹备中，敬请期待', icon: 'none' })
+}
 </script>
 
-<template>
-	<view class="shell">
-		<PageHeader title="我的" :showBack="false"></PageHeader>
-		<scroll-view class="page" scroll-y="true">
-			<view v-if="memberState == 'guest'" class="profile-card">
-				<view class="avatar"><text class="avatar-copy">题</text></view>
-				<view class="profile-copy">
-					<text class="profile-title">尚未登录</text>
-					<text class="profile-subtitle">登录后查看会员状态与试吃次数；当前入口保持关闭。</text>
-				</view>
-				<text class="login-action" @click="openLogin">登录 ›</text>
-			</view>
-
-			<view v-else-if="memberState == 'loading'" class="state-card">
-				<view class="loading-dot"></view>
-				<text class="state-title">正在加载会员状态</text>
-				<text class="state-copy">仅展示服务端返回的账号与服务信息。</text>
-			</view>
-
-			<view v-else-if="memberState == 'error'" class="state-card">
-				<view class="state-icon"><text class="state-icon-copy">!</text></view>
-				<text class="state-title">会员状态加载失败</text>
-				<text class="state-copy">{{ errorMessage }}</text>
-				<text class="retry-action" @click="retryProfile">重新加载</text>
-			</view>
-
-			<view v-else-if="profile != null" class="profile-card logged-card">
-				<view class="avatar"><text class="avatar-copy">题</text></view>
-				<view class="profile-copy">
-					<text class="profile-title">{{ profile.phoneMasked }}</text>
-					<text class="profile-subtitle">账号信息由服务端脱敏后展示。</text>
-				</view>
-				<text class="logout-action" @click="showLogoutConfirm">退出</text>
-			</view>
-
-			<view class="section-heading">
-				<view class="heading-mark"></view>
-				<text class="heading-copy">账号服务</text>
-			</view>
-			<view v-if="memberState != 'loading' && profile == null" class="menu-card">
-				<view class="menu-row" @click="openLogin">
-					<view class="menu-icon account-icon"><text class="menu-icon-copy">登</text></view>
-					<text class="menu-title">登录与注册</text>
-					<text class="menu-status">准备中</text>
-					<text class="menu-arrow">›</text>
-				</view>
-				<view class="menu-row" @click="openRedeem">
-					<view class="menu-icon code-icon"><text class="menu-icon-copy">码</text></view>
-					<text class="menu-title">兑换码服务</text>
-					<text class="menu-status">准备中</text>
-					<text class="menu-arrow">›</text>
-				</view>
-			</view>
-			<view v-else-if="profile != null" class="menu-card">
-				<view class="menu-row" @click="openRedeem">
-					<view class="menu-icon code-icon"><text class="menu-icon-copy">码</text></view>
-					<text class="menu-title">兑换码服务</text>
-					<text class="menu-note">激活新服务</text>
-					<text class="menu-arrow">›</text>
-				</view>
-				<view class="menu-row" @click="showDeactivateConfirm">
-					<view class="menu-icon privacy-icon"><text class="menu-icon-copy">注</text></view>
-					<text class="menu-title">注销账号</text>
-					<text class="menu-note">不可恢复</text>
-					<text class="menu-arrow">›</text>
-				</view>
-			</view>
-
-			<view v-if="profile != null" class="member-card">
-				<view class="member-row">
-					<text class="member-label">会员状态</text>
-					<text v-if="profileStatus == 'ACTIVE'" class="status-badge">{{ profileStatusLabel }}</text>
-					<text v-else class="status-badge status-badge-muted">{{ profileStatusLabel }}</text>
-				</view>
-				<view class="member-row">
-					<text class="member-label">有效期至</text>
-					<text class="member-value">{{ profileExpiryLabel }}</text>
-				</view>
-				<view class="member-row">
-					<text class="member-label">今日试吃</text>
-					<text class="member-value">{{ trialLabel }}</text>
-				</view>
-				<view v-if="memberState == 'trial_exhausted'" class="trial-note">今日试吃次数已用尽，额度以 GMT+8 次日 00:00 重置。</view>
-			</view>
-
-			<view class="section-heading">
-				<view class="heading-mark"></view>
-				<text class="heading-copy">服务说明</text>
-			</view>
-			<view class="menu-card">
-				<view class="menu-row" @click="openService">
-					<view class="menu-icon info-icon"><text class="menu-icon-copy">说</text></view>
-					<text class="menu-title">如何开通</text>
-					<text class="menu-note">以正式说明为准</text>
-					<text class="menu-arrow">›</text>
-				</view>
-				<view class="menu-row" @click="openPrivacy">
-					<view class="menu-icon privacy-icon"><text class="menu-icon-copy">隐</text></view>
-					<text class="menu-title">协议与隐私</text>
-					<text class="menu-note">版本审阅中</text>
-					<text class="menu-arrow">›</text>
-				</view>
-			</view>
-
-			<view class="status-card">
-				<text class="status-title">服务边界</text>
-				<text class="status-copy">登录、兑换码和账号注销会在协议、数据保护机制及相关服务准备完成后开放。本应用不提供在线支付入口。</text>
-			</view>
-
-			<view class="hint-card">
-				<view class="hint-icon"><text class="hint-icon-copy">i</text></view>
-				<text class="hint-copy">当前不收集个人信息；服务开放前，页面只展示状态说明，不会用示例会员信息填充。</text>
-			</view>
-
-			<view class="notice">
-				<text class="notice-copy">本平台为公开信息聚合与历史数据统计，不构成任何投资建议。</text>
-			</view>
-		</scroll-view>
-	</view>
-</template>
-
 <style scoped>
-.shell, .page { flex: 1; }
-.page { padding-bottom: 64px; background-color: #f5f6f8; }
-.profile-card { margin: 16px; padding: 20px; min-height: 96px; flex-direction: row; align-items: center; border-radius: 18px; background-color: #ffffff; }
-.avatar { width: 56px; height: 56px; margin-right: 14px; justify-content: center; align-items: center; border-radius: 28px; background-color: #fff0f0; }
-.avatar-copy { font-size: 23px; font-weight: 700; color: #e93030; }
-.profile-copy { flex: 1; }
-.profile-title { font-size: 18px; font-weight: 700; color: #292d34; }
-.profile-subtitle { margin-top: 7px; font-size: 13px; line-height: 19px; color: #858b94; }
-.login-action, .logout-action { min-width: 44px; min-height: 44px; padding-top: 12px; font-size: 15px; font-weight: 600; text-align: right; }
-.login-action { color: #e93030; }
-.logout-action { color: #60656e; }
-.state-card { margin: 16px; padding: 28px 20px; align-items: center; border-radius: 18px; background-color: #ffffff; }
-.loading-dot { width: 22px; height: 22px; border-width: 3px; border-color: #f0d0d0; border-top-color: #e93030; border-radius: 14px; }
-.state-icon { width: 48px; height: 48px; justify-content: center; align-items: center; border-radius: 14px; background-color: #fff8eb; }
-.state-icon-copy { font-size: 20px; font-weight: 700; color: #edaa2b; }
-.state-title { margin-top: 14px; font-size: 17px; font-weight: 700; color: #30343b; text-align: center; }
-.state-copy { margin-top: 8px; font-size: 14px; line-height: 21px; color: #7a818c; text-align: center; }
-.retry-action { min-height: 44px; margin-top: 12px; padding: 12px 16px; font-size: 14px; font-weight: 700; color: #e93030; }
-.section-heading { margin: 22px 16px 12px; flex-direction: row; align-items: center; }
-.heading-mark { width: 4px; height: 18px; margin-right: 8px; border-radius: 2px; background-color: #e93030; }
-.heading-copy { font-size: 17px; font-weight: 700; color: #2c3037; }
-.menu-card, .status-card, .member-card { margin: 0 16px; border-radius: 18px; background-color: #ffffff; overflow: hidden; }
-.menu-row { min-height: 68px; padding: 12px 16px; flex-direction: row; align-items: center; border-bottom-width: 1px; border-bottom-color: #f0f1f3; }
-.menu-row:last-child { border-bottom-width: 0; }
-.menu-icon { width: 34px; height: 34px; margin-right: 12px; justify-content: center; align-items: center; border-radius: 17px; }
-.account-icon { background-color: #fff0f0; }
-.code-icon { background-color: #fff6e7; }
-.info-icon { background-color: #edf5ff; }
-.privacy-icon { background-color: #f2f1ff; }
-.menu-icon-copy { font-size: 14px; font-weight: 700; color: #e93030; }
-.menu-title { flex: 1; font-size: 15px; color: #3d424a; }
-.menu-status, .menu-note { font-size: 12px; color: #a0a5ad; }
-.menu-status { padding: 4px 8px; border-radius: 10px; background-color: #f5f6f8; }
-.menu-arrow { min-width: 30px; min-height: 44px; margin-left: 8px; padding-top: 9px; font-size: 22px; color: #bec2c8; text-align: right; }
-.member-card { margin-top: 16px; padding: 16px; overflow: visible; }
-.member-row { min-height: 31px; flex-direction: row; justify-content: space-between; align-items: center; }
-.member-row + .member-row { margin-top: 8px; }
-.member-label { font-size: 12px; color: #7a818c; }
-.member-value { font-size: 13px; font-weight: 700; color: #30343b; }
-.status-badge { padding: 5px 8px; border-radius: 9px; font-size: 11px; font-weight: 700; color: #2d8a57; background-color: #edf9f1; }
-.status-badge-muted { color: #7c8490; background-color: #f0f2f5; }
-.trial-note { margin-top: 12px; padding: 10px 12px; border-radius: 11px; font-size: 12px; line-height: 18px; color: #89642b; background-color: #fff8eb; }
-.status-card { margin-top: 16px; padding: 18px; }
-.status-title { font-size: 16px; font-weight: 600; color: #30343b; }
-.status-copy { margin-top: 8px; font-size: 14px; line-height: 21px; color: #7a818c; }
-.hint-card { margin: 16px; padding: 13px 14px; flex-direction: row; align-items: flex-start; border-radius: 13px; background-color: #fff8eb; }
-.hint-icon { width: 18px; height: 18px; margin: 1px 8px 0 0; justify-content: center; align-items: center; border-radius: 9px; background-color: #edaa2b; }
-.hint-icon-copy { font-size: 11px; font-weight: 700; color: #ffffff; }
-.hint-copy { flex: 1; font-size: 12px; line-height: 18px; color: #89642b; }
-.notice { margin: 24px; }
-.notice-copy { font-size: 12px; line-height: 18px; color: #9aa1aa; text-align: center; }
+.page {
+  min-height: 100vh;
+  background: #F5F5F5;
+}
+
+.hero {
+  margin: 0;
+  padding: 0;
+}
+
+.hero-inner {
+  padding: 18px 16px 40px 16px;
+}
+
+.hero-settings {
+  width: 40px;
+  height: 40px;
+  margin-left: auto;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.24);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.profile-card {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-top: 40px;
+}
+
+.avatar-wrap {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  border-width: 2px;
+  border-style: solid;
+  border-color: rgba(255, 255, 255, 0.76);
+  background: rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-logo {
+  width: 76px;
+  height: 76px;
+  border-radius: 30px;
+}
+
+.profile-info {
+  display: flex;
+  flex-direction: column;
+  margin-left: 16px;
+  flex: 1;
+}
+
+.content {
+  margin-top: 20px;
+  padding: 0 16px 28px;
+}
+
+.menu-card {
+  margin: 0;
+  padding: 6px 0;
+}
+
+.support-card {
+  margin: 18px 0 0;
+  padding: 22px 8px 6px;
+}
+
+.footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 30px 16px 8px;
+}
+
+.footer-version {
+	line-height: 20px;
+}
 </style>

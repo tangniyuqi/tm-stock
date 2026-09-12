@@ -1,0 +1,26 @@
+import { rq } from "../request.uts"
+import { CmsArticle } from "@/types/interface.uts"
+
+// CMS 文章接口（公开，无需登录）
+// 帮助中心按文章列表展示
+export class api {
+
+	// 文章列表（cateId 可选）
+	public static async getArticleList(cateId: number = 0): Promise<CmsArticle[] | null> {
+		return await rq<CmsArticle[]>('/cms/article/list', 'GET', {
+			cateId: cateId
+		} as UTSJSONObject)
+	}
+
+	// 文章详情
+	public static async getArticleDetail(id: number): Promise<CmsArticle | null> {
+		return await rq<CmsArticle>('/cms/article/detail', 'GET', {
+			id: id
+		} as UTSJSONObject)
+	}
+
+	// 创建文章
+	public static async createArticle(data: UTSJSONObject): Promise<CmsArticle | null> {
+		return await rq<CmsArticle>('/cms/article/create', 'POST', data)
+	}
+}

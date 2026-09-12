@@ -1,0 +1,86 @@
+import { xRequest } from "@/uni_modules/tmx-ui/index.uts";
+import { xRequestMethond, xRequestOptions, xRequestResult } from "@/uni_modules/tmx-ui/interface.uts";
+import { baseUrl } from "@/config/baseUrl.uts";
+import { resultDataType } from "@/types/interface.uts"
+
+// 统一请求封装（基于 tmx-ui 的 xRequest），供各业务接口文件复用
+// C 端公开接口（/client/quant/...）无需登录，因此不携带 token。
+// 失败统一在此处提示，页面 catch 内不再重复弹错。
+// showLoadToast/showErrorToast 关闭 xRequest 内置提示，由本函数统一控制。
+export function rq<T>(url: string, method: xRequestMethond, customData: UTSJSONObject): Promise<T | null> {
+	return rqWithToken<T>(url, method, customData, false)
+}
+
+// 带 token 鉴权的请求封装，authRequired=true 时自动附加 Authorization header
+export function rqWithToken<T>(url: string, method: xRequestMethond, customData: UTSJSONObject, authRequired: boolean): Promise<T | null> {
+	let xrq = new xRequest()
+	xRequest.setHostUrl(baseUrl)
+
+	let headers: UTSJSONObject = {
+		"Content-Type": "application/json"
+	} as UTSJSONObject
+
+	if (authRequired) {
+		let token = uni.getStorageSync('token') as string | null
+		if (token != null && token != '') {
+			// 后端 C 端鉴权（ClientJWTAuth -> utils.GetToken）兼容标准 Authorization: Bearer
+			headers['Authorization'] = 'Bearer ' + token
+		}
+	}
+
+	return new Promise((resolve, rej) => {
+		xrq.request({
+			url: url,
+			method: method,
+			data: customData,
+			useCache: false,
+			showLoadToast: false,
+			showSuccessToast: false,
+			showErrorToast: false,
+			header: headers
+		} as xRequestOptions)
+		.then((resBydata) => {
+			let res = resBydata! as xRequestResult
+
+			if (res.statusCode != 200) {
+				uni.showModal({
+					title: "系统错误",
+					content: `错误码:${res.statusCode},发生了系统错误,请重试`
+				})
+				rej(null)
+				return
+			}
+
+			let reqData = res.data as any | null
+			if (typeof reqData == 'string') {
+				reqData = JSON.parseObject(reqData! as string)
+			}
+			if (typeof reqData != 'object' || reqData == null) {
+				uni.showModal({
+					title: "服务器异常",
+					content: `服务器没有正确返回json数据格式`
+				})
+				rej(null)
+				return
+			}
+
+			let rdata = reqData! as UTSJSONObject
+			let msgdata = JSON.stringify(rdata) as string
+			let d = JSON.parse<resultDataType | null>(msgdata)
+
+			if (d == null) {
+				rej(null)
+				return
+			}
+
+			if (d.code != 0) {
+				uni.showToast({ title: d.msg, icon: "none" })
+				rej(null)
+				return
+			}
+
+			resolve(d.data as T | null)
+		})
+		.catch(() => { rej(null) })
+	})
+}

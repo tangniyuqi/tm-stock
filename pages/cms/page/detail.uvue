@@ -1,0 +1,136 @@
+<template>
+  <z-paging-x
+    ref="pagingX"
+    v-model="pageData"
+    :list-is="listType"
+    :paging-style="pagingStyle"
+    :load-more-enabled="false"
+    refresher-background="#F5F5F5"
+    refresher-default-text="下拉刷新"
+    refresher-pulling-text="松开立即刷新"
+    refresher-refreshing-text="正在刷新…"
+    refresher-complete-text="刷新完成"
+    @query="queryPage"
+  >
+    <!-- 顶部固定区：banner 置顶，不随内容滚动 -->
+    <template #top>
+      <view class="banner">
+        <text class="banner-subtitle">{{ pageName }}</text>
+        <text class="banner-title">{{ pageTitle }}</text>
+      </view>
+    </template>
+
+    <view class="content">
+      <!-- 单页内容卡片（关于我们/联系方式共用模板，按 name 区分） -->
+      <x-sheet class="single-card" margin="0" padding="24px 18px" :shadow="['10','24','rgba(0,0,0,0.06)']">
+        <view class="single-desc">
+          <x-cmarkdown :value="pageContent" font-size="15px" />
+        </view>
+      </x-sheet>
+    </view>
+  </z-paging-x>
+</template>
+
+<script lang="ts" setup>
+import { ref } from 'vue'
+import { onLoad } from '@dcloudio/uni-app'
+import { api as cmsPageApi } from '@/api/cms/page.uts'
+
+// 滚动容器类型: H5 / 微信使用 scroll-view(兼容触底加载), 其余原生端使用 list-view
+let listType = 'list-view' as string
+// #ifdef H5 || MP-WEIXIN
+listType = 'scroll-view' as string
+// #endif
+
+// 当前单页标识（About / Contacts）
+const pageName = ref('About')
+
+// 页内标题（默认文案，接口返回时覆盖）
+const pageTitle = ref('关于我们')
+
+// 页内正文
+const pageContent = ref('')
+
+// 标题兜底文案
+const fallbackTitles = { About: '关于我们', Contacts: '联系方式' } as Record<string, string>
+
+// 供 z-paging-x 判断数据非空的单条数据（渲染仍用 pageTitle / pageContent），避免进入空态
+const pageData = ref<any[]>([])
+
+// z-paging-x 根节点样式（与页面同色的灰背景）
+const pagingStyle = ref<object>({
+  backgroundColor: '#F5F5F5'
+})
+
+// z-paging-x 组件实例
+const pagingX = ref<ZPagingXComponentPublicInstance | null>(null)
+
+const loadPage = async () => {
+  const name = pageName.value
+  const fallbackTitle = fallbackTitles[name] || '关于我们'
+  pageTitle.value = fallbackTitle
+  try {
+    uni.setNavigationBarTitle({ title: fallbackTitle })
+  } catch (e) {
+    // 个别平台不支持动态改标题时保持系统默认
+  }
+
+  let page = await cmsPageApi.getPageDetail(name)
+  if (page != null) {
+    pageName.value = page.name || ''
+    pageTitle.value = page.title || fallbackTitle
+    pageContent.value = page.content || ''
+  } else {
+    pageContent.value = '暂无内容，请稍后查看。'
+  }
+
+  // 始终维持一条内容，保证页面不是空态
+  pagingX.value?.completeByTotal([{ title: pageTitle.value, content: pageContent.value }], 1)
+}
+
+// @query 由 z-paging-x 自动触发（首次加载 / 下拉刷新），此处统一重新拉取单页内容
+const queryPage = (pageNo: number, pageSize: number, from: string) => {
+  loadPage()
+}
+
+onLoad((options) => {
+  pageName.value = (options != null && options.name) ? options.name : 'About'
+})
+</script>
+
+<style scoped>
+.content {
+  padding: 20px 16px 28px;
+}
+
+/* Banner 区（固定顶部）：通栏背景，沿用全局主题色 #E93030 做同色系渐变 */
+.banner {
+  display: flex;
+  flex-direction: column;
+  padding: 36px 24px;
+  background: linear-gradient(135deg, #C52233 0%, #E93030 58%, #EF5A5A 100%);
+}
+
+.banner-subtitle {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.75);
+  letter-spacing: 2px;
+  margin-bottom: 8px;
+}
+
+.banner-title {
+  font-size: 22px;
+  font-weight: bold;
+  color: #FFFFFF;
+}
+
+.single-card {
+  margin: 0;
+  padding: 0 18px;
+}
+
+.single-desc {
+  min-height: 200px;
+  margin-top: 16px;
+}
+</style>

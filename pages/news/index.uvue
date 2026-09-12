@@ -1,65 +1,358 @@
-<script setup lang="ts">
-import PageHeader from '@/pages/components/PageHeader.uvue'
-
-const openHome = () : void => {
-	uni.switchTab({ url: '/pages/index/index' })
-}
-
-const openThemeQuery = () : void => {
-	uni.navigateTo({ url: '/pages/segment/index' })
-}
-</script>
-
 <template>
-	<view class="shell">
-		<PageHeader title="资讯服务" :showBack="false"></PageHeader>
-		<scroll-view class="page" scroll-y="true">
-			<view class="hero">
-				<view class="section-tabs">
-					<view class="section-tab" @click="openHome"><text class="section-tab-copy">首页</text></view>
-					<view class="section-tab section-tab-active"><text class="section-tab-copy active-copy">资讯</text></view>
-					<view class="section-tab" @click="openThemeQuery"><text class="section-tab-copy">题材库</text></view>
-				</view>
-				<text class="eyebrow">内容服务</text>
-				<text class="title">资讯快讯准备中</text>
-				<text class="subtitle">仅在第三方内容授权、来源核验、原文链接与审核流程完整后，才会在这里展示公开资讯。</text>
-			</view>
+	<z-paging-x
+		ref="pagingX"
+		v-model="newsList"
+		:default-page-size="pageSize"
+		:paging-style="pagingStyle"
+		:clean-list-when-reload="false"
+		:list-is="listType"
+		empty-text="暂无符合条件的快讯"
+		@query="queryList"
+	>
+		<!-- 顶部固定搜索栏 -->
+		<template #top>
+			<x-sheet :round="[0, 0, 16, 16]" :padding="[20, 24, 20, 12]" margin="0">
+				<x-search
+					v-model="keyword"
+					placeholder="快讯搜索"
+					@input="handleInput"
+					@cancel="handleReset"
+					@clear="handleReset"
+				></x-search>
 
-			<view class="state-card">
-				<view class="state-icon"><text class="state-icon-copy">讯</text></view>
-				<text class="state-title">当前暂无可发布快讯</text>
-				<text class="state-copy">为避免无授权转载或缺少来源的内容进入服务，列表、搜索和详情目前保持关闭。不会用模拟资讯或其他内容填充。</text>
-				<view class="state-rule">
-					<text class="state-rule-copy">开放条件：来源名称、原文链接、发布时间与审核状态均完整。</text>
+				<!-- 来源过滤标签（「全部」+ 各来源，点击筛选） -->
+				<view class="source-filter mt-6">
+					<x-tag
+						v-for="(f, i) in sourceFilterList"
+						:key="i"
+						fontSize="12"
+						:round="6"
+						:skin="activeSource == f.value ? 'outline' : 'outline'"
+						:color="activeSource == f.value ? '#E93030' : '#666'"
+						:borderColor="activeSource == f.value ? '#E93030' : '#666'"
+						@click="onSourceChange(f.value)"
+					>{{ f.label }}</x-tag>
+				</view>
+			</x-sheet>
+		</template>
+
+		<!-- 首次加载骨架屏（模拟快讯列表项布局，多条） -->
+		<view v-if="showSkeleton" class="skeleton-block">
+			<view v-for="n in 6" :key="n" class="news-item-wrapper py-16">
+				<x-skeleton height="20" width="75%" round="4" />
+
+				<view class="skeleton-body mt-6">
+					<x-skeleton height="20" round="4" />
+					<x-skeleton height="20" round="4" class="mt-6" />
+					<x-skeleton height="20" width="70%" round="4" class="mt-6" />
+					<view class="meta-row mt-12">
+						<x-skeleton width="64" height="20" round="4" />
+						<x-skeleton width="80" height="20" round="4" />
+					</view>
 				</view>
 			</view>
+		</view>
 
-			<view class="notice">
-				<text class="notice-copy">本平台为公开信息聚合与历史数据统计，不构成任何投资建议。</text>
+		<!-- 列表项 -->
+		<view
+			v-for="(item, index) in newsList"
+			:key="item.id"
+			class="news-item-wrapper py-16"
+			@click="toggleExpand(item.id)"
+		>
+			<!-- 标题（搜索命中按关键字高亮） -->
+			<view class="title-row">
+				<x-text
+					:label="item.title"
+					:highlight="keyword != '' ? [keyword] : []"
+					highlightColor="#E93030"
+					color="#E93030"
+					fontSize="14.5"
+					lineHeight="1.5"
+				/>
 			</view>
-		</scroll-view>
-	</view>
+			<!-- 正文摘要（点击展开/收起全部） -->
+			<view class="content-card mt-6">
+				<x-text
+					:label="item.content"
+					:highlight="keyword != '' ? [keyword] : []"
+					highlightColor="#E93030"
+					color="#333"
+					fontSize="14"
+					lineHeight="1.6"
+					:lines="isExpanded(item.id) ? 0 : 3"
+				/>
+
+				<view class="meta-row">
+					<view class="meta-left">
+						<x-text
+							:label="item.ctime"
+							color="#666"
+							fontSize="14"
+						/>
+
+						<!-- 复制该条快讯（标题+内容+时间） -->
+						<x-icon
+							name="file-copy-line"
+							fontSize="14"
+							color="#999"
+							@click.stop="copyNews(item)"
+						/>
+					</view>
+
+					<x-text
+						:label="dictLabel(sourceOptions, item.source)"
+						color="#999"
+						fontSize="12"
+					/>
+				</view>
+			</view>
+		</view>
+
+		<!-- 上拉加载提示 -->
+		<template #loadMore="slotProps">
+			<view class="load-more-bar py-24 flex-row flex-center">
+				<x-loading
+					v-if="slotProps.loadMoreStatus == 'loading'"
+					color="#999"
+					textSize="14"
+					:vertical="false"
+					label="正在加载更多…"
+				/>
+				<x-text
+					v-else
+					:label="loadMoreText(slotProps.loadMoreStatus)"
+					color="#999"
+					fontSize="14"
+				/>
+			</view>
+		</template>
+	</z-paging-x>
 </template>
 
+<script setup lang="ts">
+import { ref } from 'vue';
+import { api } from '@/api/quant/news.uts';
+import { getDict, dictLabel } from '@/api/system/dict.uts';
+import { NewsItem, DictDetail } from '@/types/interface.uts';
+
+// 来源过滤选项（首项「全部」+ 字典来源项）
+type SourceOption = {
+	value: string,
+	label: string
+}
+
+// 搜索关键字
+const keyword = ref('');
+
+// 当前选中的来源编码（'' 表示全部）
+const activeSource = ref('');
+
+// 来源过滤标签列表
+const sourceFilterList = ref<Array<SourceOption>>([
+	{ value: '', label: '全部' } as SourceOption
+]);
+
+// 快讯来源字典项（quant_news_source，后台「系统设置-数据字典」维护）
+const sourceOptions = ref<DictDetail[]>([]);
+
+// 统一加载来源字典（参考后台 getDict：带缓存，页面无需自行维护请求）
+getDict('quant_news_source').then((list: DictDetail[]) => {
+	sourceOptions.value = list;
+	// 重建过滤标签：首项「全部」+ 每个来源一项（遍历全部字典项，含首项）
+	sourceFilterList.value = [{ value: '', label: '全部' } as SourceOption];
+	for (let i = 1; i < list.length; i++) {
+		sourceFilterList.value.push({ value: list[i].value, label: list[i].label } as SourceOption);
+	}
+});
+
+// 滚动容器类型: H5 / 微信使用 scroll-view(兼容触底加载), 其余原生端使用 list-view(长列表性能更优)
+let listType = 'list-view' as string;
+// #ifdef H5 || MP-WEIXIN
+listType = 'scroll-view' as string;
+// #endif
+
+// 快讯列表（由 z-paging-x 通过 v-model 维护，内部支持下拉刷新与上拉加载）
+const newsList = ref<NewsItem[]>([]);
+
+// 首次加载骨架屏（仅首次加载期间显示，加载完成后隐藏）
+const showSkeleton = ref(true);
+
+// 每页条数
+const pageSize = 20;
+
+// z-paging-x 根节点样式（白底）
+const pagingStyle = ref<object>({
+	backgroundColor: '#FFF'
+});
+
+// z-paging-x 组件实例
+const pagingX = ref<ZPagingXComponentPublicInstance | null>(null);
+
+// 已展开的快讯 id 集合
+const expandedIds = ref<Array<string>>([]);
+
+// 判断某条快讯是否已展开
+const isExpanded = (id: string): boolean => {
+	return expandedIds.value.indexOf(id) >= 0;
+};
+
+// 点击条目切换展开/收起
+const toggleExpand = (id: string) => {
+	const idx = expandedIds.value.indexOf(id);
+	if (idx >= 0) {
+		expandedIds.value.splice(idx, 1);
+	} else {
+		expandedIds.value.push(id);
+	}
+};
+
+// 复制快讯：内容为「标题 + 内容 + 时间」
+const copyNews = (item: NewsItem) => {
+	uni.setClipboardData({
+		data: `${item.title}\n${item.content}\n${item.ctime}`,
+		success: () => {
+			uni.showToast({ title: '已复制', icon: 'none' })
+		}
+	});
+};
+
+// 点击来源过滤标签：切换选中来源并回到第一页重新拉取
+const onSourceChange = (val: string) => {
+	// 再次点击当前选中项则取消筛选（回到「全部」）
+	if (activeSource.value == val) {
+		activeSource.value = '';
+	} else {
+		activeSource.value = val;
+	}
+	pagingX.value?.reload();
+};
+
+// @query 由 z-paging-x 自动触发（首次加载/下拉刷新/上拉加载）
+// pageNo 与 pageSize 已由组件自动计算，无需自行维护页码
+const queryList = (pageNo: number, pageSize: number, from: string) => {
+	// 记录本次请求的条件快照，用于请求返回时判断是否为过期响应
+	const snapKeyword = keyword.value;
+	const snapSource = activeSource.value;
+	api
+		.getNewsList({ keyword: snapKeyword, source: snapSource, page: pageNo, pageSize: pageSize } as UTSJSONObject)
+		.then((result) => {
+			// 过期响应过滤：请求期间搜索条件已变化或已被取消，则忽略，避免覆盖刚恢复的列表/缓存
+			if (snapKeyword != keyword.value || snapSource != activeSource.value) {
+				return;
+			}
+			// 首次加载完成后隐藏骨架屏（下拉刷新/上拉加载不再显示）
+			if (showSkeleton.value) {
+				showSkeleton.value = false;
+			}
+			const px = pagingX.value;
+			if (result == null) {
+				px?.complete([]);
+				return;
+			}
+			// completeByTotal 根据 total 判断是否还有更多数据
+			px?.completeByTotal(result.list, result.total);
+		});
+};
+
+// 上拉加载提示文案（loadMoreStatus 由 z-paging-x 传入）
+const loadMoreText = (status: string): string => {
+	switch (status) {
+		case 'loading':
+			return '正在加载更多…';
+		case 'no-more':
+			return '没有更多快讯了';
+		case 'fail':
+			return '加载失败，上拉重试';
+		default:
+			return '上拉加载更多';
+	}
+};
+
+// 未搜索状态的完整列表缓存（供取消时快速恢复，随后仍请求最新数据覆盖）
+const cachedFullList = ref<NewsItem[]>([]);
+// 是否已缓存未搜索列表（避免重复缓存）
+const hasCachedFullList = ref(false);
+
+// 输入防抖定时器 id（避免高频输入频繁请求）
+let inputTimer = 0;
+
+// 输入变化时自动搜索（防抖 300ms，keyword 由 v-model 实时同步）
+const handleInput = () => {
+	// 首次进入搜索（关键字从空变非空）时，缓存当前未搜索的完整列表，供取消时快速恢复
+	if (keyword.value != '' && !hasCachedFullList.value) {
+		cachedFullList.value = [...newsList.value];
+		hasCachedFullList.value = true;
+	}
+	clearTimeout(inputTimer);
+	inputTimer = setTimeout(() => {
+		pagingX.value?.reload();
+	}, 300);
+};
+
+// 点击取消/清除搜索：清空关键字，先立即恢复缓存列表（不等网络），最新数据延迟后台刷新覆盖
+const handleReset = () => {
+	clearTimeout(inputTimer);
+	keyword.value = '';
+	const px = pagingX.value;
+	// 有缓存：立即 complete 展示缓存，保证取消后秒级恢复
+	if (hasCachedFullList.value) {
+		hasCachedFullList.value = false;
+		const cached = [...cachedFullList.value];
+		cachedFullList.value = [];
+		px?.complete(cached);
+		// 缓存先渲染稳定后，再延迟发起一次 reload 拉取最新数据覆盖（后台进行，不阻塞恢复）
+		inputTimer = setTimeout(() => {
+			px?.reload();
+		}, 400);
+		return;
+	}
+	// 无缓存时直接刷新
+	px?.reload();
+};
+</script>
+
 <style scoped>
-.shell, .page { flex: 1; }
-.page { padding-bottom: 64px; background-color: #f5f6f8; }
-.hero { padding: 0 20px 24px; background-color: #ffffff; }
-.section-tabs { height: 58px; flex-direction: row; align-items: center; }
-.section-tab { min-width: 58px; height: 58px; margin-right: 28px; justify-content: center; align-items: center; border-bottom-width: 3px; border-bottom-color: transparent; }
-.section-tab-copy { font-size: 16px; font-weight: 600; color: #60656e; }
-.section-tab-active { border-bottom-color: #e93030; }
-.active-copy { color: #e93030; }
-.eyebrow { font-size: 12px; font-weight: 600; color: #e93030; }
-.title { margin-top: 8px; font-size: 24px; font-weight: 700; color: #1f2329; }
-.subtitle { margin-top: 8px; font-size: 14px; line-height: 21px; color: #6b7280; }
-.state-card { margin: 18px 16px; padding: 28px 20px; align-items: center; border-radius: 18px; background-color: #ffffff; }
-.state-icon { width: 54px; height: 54px; justify-content: center; align-items: center; border-radius: 16px; background-color: #fff0f0; }
-.state-icon-copy { font-size: 21px; font-weight: 700; color: #e93030; }
-.state-title { margin-top: 15px; font-size: 17px; font-weight: 700; color: #30343b; text-align: center; }
-.state-copy { margin-top: 9px; font-size: 14px; line-height: 22px; color: #737983; text-align: center; }
-.state-rule { margin-top: 18px; padding: 12px; border-radius: 12px; background-color: #fff8eb; }
-.state-rule-copy { font-size: 12px; line-height: 18px; color: #89642b; text-align: center; }
-.notice { margin: 24px; }
-.notice-copy { font-size: 12px; line-height: 18px; color: #9aa1aa; text-align: center; }
+.source-filter {
+	display: flex;
+	flex-direction: row;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.news-item-wrapper {
+	margin: 0 20px;
+	border-bottom: 1px solid #f0f0f0;
+}
+
+.news-item-wrapper:last-child {
+	border-bottom: none;
+}
+
+.title-row {
+	display: flex;
+	align-items: flex-start;
+}
+
+.content-card {
+	gap: 6px;
+}
+
+.meta-row {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.meta-left {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	gap: 6px;
+}
+
+.load-more-bar {
+	text-align: center;
+}
 </style>

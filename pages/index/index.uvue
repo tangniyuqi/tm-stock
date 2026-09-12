@@ -1,382 +1,325 @@
-<script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import PageHeader from '@/pages/components/PageHeader.uvue'
-import { isSafeExternalUrl, openSafeExternalUrl } from '@/pages/libs/external-link.uts'
-import { ThemeApi } from '@/pages/libs/theme-api.uts'
-import { ThemeDailyEmptyReason, ThemeDailyItem, ThemeDailyPage, formatMillis } from '@/pages/libs/theme.uts'
-
-const pageSize = 20
-
-const dailyItems = ref<ThemeDailyItem[]>([])
-const selectedDate = ref<string>('')
-const todayDate = ref<string>('')
-const dataFrom = ref<string>('')
-const emptyReason = ref<ThemeDailyEmptyReason>('')
-const errorMessage = ref<string>('')
-const isLoading = ref<boolean>(true)
-const isLoadingMore = ref<boolean>(false)
-const hasMore = ref<boolean>(false)
-const currentPage = ref<number>(0)
-let requestSequence = 0
-
-const toDateKey = (date : Date) : string => {
-	const month = date.getMonth() + 1
-	const day = date.getDate()
-	const monthText = month < 10 ? '0' + month.toString() : month.toString()
-	const dayText = day < 10 ? '0' + day.toString() : day.toString()
-	return date.getFullYear().toString() + '-' + monthText + '-' + dayText
-}
-
-const shiftDate = (dateKey : string, offset : number) : string => {
-	const values = dateKey.split('-')
-	if (values.length != 3) {
-		return dateKey
-	}
-	const date = new Date(Number(values[0]), Number(values[1]) - 1, Number(values[2]))
-	date.setDate(date.getDate() + offset)
-	return toDateKey(date)
-}
-
-const isDateKey = (value : string) : boolean => {
-	if (value.length != 10 || value.charAt(4) != '-' || value.charAt(7) != '-') {
-		return false
-	}
-	const values = value.split('-')
-	if (values.length != 3) {
-		return false
-	}
-	const year = Number(values[0])
-	const month = Number(values[1])
-	const day = Number(values[2])
-	if (isNaN(year) || isNaN(month) || isNaN(day) || year < 2000 || month < 1 || month > 12 || day < 1 || day > 31) {
-		return false
-	}
-	const date = new Date(year, month - 1, day)
-	return date.getFullYear() == year && date.getMonth() == month - 1 && date.getDate() == day
-}
-
-const isPublishableItem = (item : ThemeDailyItem) : boolean => {
-	return item != null
-		&& typeof item.id == 'number'
-		&& typeof item.themeId == 'number'
-		&& typeof item.title == 'string'
-		&& typeof item.themeName == 'string'
-		&& typeof item.publishAt == 'number'
-		&& typeof item.source == 'string'
-		&& typeof item.sourceUrl == 'string'
-		&& item.id > 0
-		&& item.themeId > 0
-		&& item.title.trim().length > 0
-		&& item.themeName.trim().length > 0
-		&& item.publishAt > 0
-		&& item.source.trim().length > 0
-		&& isSafeExternalUrl(item.sourceUrl)
-}
-
-const isDailyEmptyReason = (value : string) : boolean => {
-	return value == '' || value == 'NON_TRADING_DAY' || value == 'NO_DATA' || value == 'BEFORE_RANGE'
-}
-
-const isDailyPageValid = (pageData : ThemeDailyPage) : boolean => {
-	if (pageData == null
-		|| typeof pageData.date != 'string'
-		|| typeof pageData.emptyReason != 'string'
-		|| typeof pageData.dataFrom != 'string'
-		|| typeof pageData.sort != 'string'
-		|| typeof pageData.isTradingDay != 'boolean'
-		|| typeof pageData.total != 'number'
-		|| typeof pageData.hasMore != 'boolean'
-		|| !Array.isArray(pageData.list)) {
-		return false
-	}
-	if (!isDateKey(pageData.date) || pageData.date != selectedDate.value || !isDailyEmptyReason(pageData.emptyReason)) {
-		return false
-	}
-	if (pageData.dataFrom.length > 0 && !isDateKey(pageData.dataFrom)) {
-		return false
-	}
-	return pageData.sort == 'publishAt' && pageData.total >= 0
-}
-
-const mergeDistinctItems = (current : ThemeDailyItem[], incoming : ThemeDailyItem[]) : ThemeDailyItem[] => {
-	const result = current.slice()
-	for (let index = 0; index < incoming.length; index++) {
-		const candidate = incoming[index]
-		let alreadyIncluded = false
-		for (let currentIndex = 0; currentIndex < result.length; currentIndex++) {
-			if (result[currentIndex].id == candidate.id) {
-				alreadyIncluded = true
-				break
-			}
-		}
-		if (!alreadyIncluded) {
-			result.push(candidate)
-		}
-	}
-	return result
-}
-
-const filterPublishableItems = (items : ThemeDailyItem[]) : ThemeDailyItem[] => {
-	const result : ThemeDailyItem[] = []
-	for (let index = 0; index < items.length; index++) {
-		if (isPublishableItem(items[index])) {
-			result.push(items[index])
-		}
-	}
-	return result
-}
-
-const isToday = computed(() : boolean => selectedDate.value == todayDate.value)
-const datePickerStart = computed(() : string => isDateKey(dataFrom.value) ? dataFrom.value : '2000-01-01')
-
-const emptyTitle = computed(() : string => {
-	if (emptyReason.value == 'NON_TRADING_DAY') {
-		return '当前日期为非交易日'
-	}
-	if (emptyReason.value == 'BEFORE_RANGE') {
-		return '该日期暂未覆盖'
-	}
-	return '暂无已审核动态'
-})
-
-const emptyCopy = computed(() : string => {
-	if (emptyReason.value == 'NON_TRADING_DAY') {
-		return '非交易日不会用最近交易日的内容补齐，请选择其他日期查看。'
-	}
-	if (emptyReason.value == 'BEFORE_RANGE') {
-		return '该日期早于当前服务的数据起始范围，不会用旧内容代替。'
-	}
-	return '来源、原文链接、发布时间或审核状态不完整的内容不会在这里展示。'
-})
-
-const loadDaily = async (reset : boolean) : Promise<void> => {
-	if (!reset && (!hasMore.value || isLoading.value || isLoadingMore.value)) {
-		return
-	}
-	const requestID = requestSequence + 1
-	requestSequence = requestID
-	const page = reset ? 1 : currentPage.value + 1
-	if (reset) {
-		isLoading.value = true
-		isLoadingMore.value = false
-		errorMessage.value = ''
-		emptyReason.value = ''
-		dailyItems.value = []
-		hasMore.value = false
-		currentPage.value = 0
-	} else {
-		isLoadingMore.value = true
-	}
-
-	const result = await ThemeApi.dailyList(selectedDate.value, page, pageSize)
-	if (requestID != requestSequence) {
-		return
-	}
-	isLoading.value = false
-	isLoadingMore.value = false
-	if (result.code != 0 || result.data == null) {
-		errorMessage.value = result.message
-		hasMore.value = false
-		return
-	}
-
-	const pageData = result.data as ThemeDailyPage
-	if (!isDailyPageValid(pageData)) {
-		errorMessage.value = '服务返回的数据不完整，请稍后重试'
-		hasMore.value = false
-		return
-	}
-	const nextItems = filterPublishableItems(pageData.list)
-	if (reset) {
-		dailyItems.value = mergeDistinctItems([], nextItems)
-	} else {
-		dailyItems.value = mergeDistinctItems(dailyItems.value, nextItems)
-	}
-	if (isDateKey(pageData.dataFrom)) {
-		dataFrom.value = pageData.dataFrom
-	}
-	emptyReason.value = pageData.emptyReason
-	currentPage.value = page
-	hasMore.value = pageData.hasMore
-	if (dailyItems.value.length == 0 && emptyReason.value.length == 0) {
-		emptyReason.value = 'NO_DATA'
-	}
-}
-
-const selectPreviousDate = () : void => {
-	selectedDate.value = shiftDate(selectedDate.value, -1)
-	loadDaily(true)
-}
-
-const selectNextDate = () : void => {
-	if (isToday.value) {
-		return
-	}
-	selectedDate.value = shiftDate(selectedDate.value, 1)
-	loadDaily(true)
-}
-
-const selectDate = (event : UniPickerChangeEvent) : void => {
-	const nextDate = event.detail.value as string
-	if (!isDateKey(nextDate) || nextDate > todayDate.value || nextDate == selectedDate.value) {
-		return
-	}
-	selectedDate.value = nextDate
-	loadDaily(true)
-}
-
-const retryLoad = () : void => {
-	loadDaily(true)
-}
-
-const loadMore = () : void => {
-	loadDaily(false)
-}
-
-const openTheme = (item : ThemeDailyItem) : void => {
-	uni.navigateTo({ url: '/pages/segment/detail?id=' + item.themeId.toString() })
-}
-
-const openSource = (item : ThemeDailyItem) : void => {
-	openSafeExternalUrl(item.sourceUrl)
-}
-
-const openThemeQuery = () : void => {
-	uni.navigateTo({ url: '/pages/segment/index' })
-}
-
-onMounted(() => {
-	const currentDate = toDateKey(new Date())
-	todayDate.value = currentDate
-	selectedDate.value = currentDate
-	loadDaily(true)
-})
-</script>
-
 <template>
-	<view class="shell">
-		<PageHeader title="题材动态" :showBack="false"></PageHeader>
-		<scroll-view class="page" scroll-y="true" lower-threshold="120" @scrolltolower="loadMore">
-			<view class="hero">
-				<view class="section-tabs">
-					<view class="section-tab section-tab-active"><text class="section-tab-copy active-copy">题材动态</text></view>
-					<view class="section-tab" @click="openThemeQuery"><text class="section-tab-copy">题材库</text></view>
-				</view>
-				<text class="eyebrow">公开资料整理</text>
-				<text class="title">题材动态</text>
-				<text class="subtitle">仅展示来源、原文链接、发布时间和审核状态完整的公开信息；固定按发布时间排序。</text>
-			</view>
+<view class="page">
+  <z-paging-x
+    ref="pagingX"
+    v-model="newsList"
+    :default-page-size="pageSize"
+    :paging-style="pagingStyle"
+    :list-is="listType"
+    empty-text="当日暂无题材动态"
+    refresher-default-text="下拉刷新"
+    refresher-pulling-text="松开立即刷新"
+    refresher-refreshing-text="正在刷新…"
+    refresher-complete-text="刷新完成"
+    refresher-background="#F5F5F5"
+    @query="queryList"
+  >
+    <!-- 顶部固定：标签页 + 日期切换 -->
+    <template #top>
+      <x-sticky>
+        <view class="my-tabs px-6 pt-4 pb-2">
+          <x-tabs :list="tabList" v-model="activeTab" color="#FFF" :line-full="false" activeFontSize="18" :line-width="28" :line-color="xConfig.color" titleColor="#333" @change="handleTabChange" />
+        </view>
+      </x-sticky>
 
-			<view class="date-card">
-				<view class="date-action date-action-left" @click="selectPreviousDate"><text>‹ 上一日</text></view>
-				<picker class="date-picker" mode="date" :value="selectedDate" :start="datePickerStart" :end="todayDate" @change="selectDate">
-					<view class="date-center">
-						<text class="date-value">{{ selectedDate }}</text>
-						<text class="sort-copy">按发布时间排序</text>
-					</view>
-				</picker>
-				<view v-if="isToday" class="date-action date-action-right date-action-disabled"><text>下一日 ›</text></view>
-				<view v-else class="date-action date-action-right" @click="selectNextDate"><text>下一日 ›</text></view>
-			</view>
+      <!-- 日期切换 -->
+      <view class="flex flex-row align-center justify-between px-25 py-12 bg-white date-switcher">
+        <x-text :color="isPrevDisabled ? '#CCC' : '#666'" fontSize="14" @click="prevDay">上一日</x-text>
 
-			<view v-if="isLoading" class="skeleton-list">
-				<view v-for="item in 3" :key="item" class="skeleton-card">
-					<view class="skeleton skeleton-time"></view>
-					<view class="skeleton skeleton-title"></view>
-					<view class="skeleton skeleton-footer"></view>
-				</view>
-			</view>
+        <view class="flex-1"></view>
 
-			<view v-else-if="errorMessage.length > 0" class="state-card">
-				<text class="state-title">动态加载失败</text>
-				<text class="state-copy">{{ errorMessage }}</text>
-				<view class="state-actions">
-					<text class="retry-action" @click="retryLoad">重新加载</text>
-					<text class="secondary-action" @click="openThemeQuery">前往题材库</text>
-				</view>
-			</view>
+        <view class="flex flex-row align-center flex-row-center-between" @click="showCalendar = true">
+          <x-icon name="calendar-line" size="14" color="#999" />
+          <x-text color="#666" fontSize="15" class="font-weight-b ml-4">{{ currentDate }}</x-text>
+        </view>
 
-			<view v-else-if="dailyItems.length == 0" class="state-card">
-				<view class="state-icon"><text class="state-icon-copy">动</text></view>
-				<text class="state-title">{{ emptyTitle }}</text>
-				<text class="state-copy">{{ emptyCopy }}</text>
-				<view class="state-rule"><text class="state-rule-copy">不会使用示例内容、其他日期内容或未审核内容补齐页面。</text></view>
-				<view class="state-actions">
-					<text class="retry-action" @click="retryLoad">重新加载</text>
-					<text class="secondary-action" @click="openThemeQuery">前往题材库</text>
-				</view>
-			</view>
+        <view class="flex-1"></view>
 
-			<view v-else class="daily-list">
-				<view v-for="item in dailyItems" :key="item.id" class="daily-card">
-					<text class="daily-time">{{ formatMillis(item.publishAt) }}</text>
-					<text class="daily-title">{{ item.title }}</text>
-					<view class="daily-footer">
-						<text class="theme-tag" @click="openTheme(item)">{{ item.themeName }}</text>
-						<text class="source-copy">{{ item.source }}</text>
-						<text class="source-action" @click="openSource(item)">查看原文</text>
-					</view>
-				</view>
-				<view v-if="isLoadingMore" class="load-more"><text class="load-more-copy">正在加载更多内容</text></view>
-				<view v-else-if="!hasMore" class="load-more"><text class="load-more-copy">已显示当前日期的全部已审核内容</text></view>
-			</view>
+        <x-text :color="isNextDisabled ? '#CCC' : '#666'" fontSize="14" @click="nextDay">下一日</x-text>
+      </view>
+    </template>
 
-			<view class="notice">
-				<text class="notice-copy">本平台为公开信息聚合与历史数据统计，不构成任何投资建议。</text>
-			</view>
-		</scroll-view>
-	</view>
+    <x-sheet :margin="[12, 0, 12, 16]" :padding="[0, 12, 0, 12]">
+      <!-- 首次加载骨架屏（模拟题材动态列表项布局，x-sheet 白底包裹） -->
+      <view v-if="showSkeleton" class="skeleton-block">
+        <view v-for="n in 7" :key="n" class="news-item-wrapper px-18 py-12">
+          <view class="flex flex-row align-start">
+            <x-skeleton width="20" height="20" round="4" class="mt-6 mr-12" />
+
+            <view class="flex-1">
+              <x-skeleton height="20" round="4" />
+
+              <view class="flex flex-row align-center mt-10">
+                <x-skeleton width="70" height="20" round="6" class="mr-10" />
+                <x-skeleton width="45" height="16" round="6" class="mt-2" />
+                <view class="flex-1"></view>
+                <x-skeleton width="70" height="20" round="6" />
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- 列表项 -->
+      <view v-for="(item, index) in newsList" class="news-item-wrapper px-12 py-12" @click="goDetail(item)" :key="item.id">
+        <view class="flex flex-row align-start">
+          <x-text :color="getIndexColor(index)" fontSize="24" class="mr-12 news-index">{{ index + 1 }}</x-text>
+
+          <view class="flex-1">
+            <x-text color="#333" fontSize="15" lineHeight="1.5" class="flex-1 text-base text-black font-weight-b text-overflow-2">{{ item.title }}</x-text>
+
+            <view class="flex flex-row align-center mt-10">
+              <view class="flex flex-row flex-row-center-start">
+                <x-tag skin="thin" color="primary" class="mr-10">{{ item.tag }}</x-tag>
+                <x-text :color="getChangeColor(item.change)" fontSize="13" class="font-weight-b">{{ item.change }}</x-text>
+              </view>
+
+              <view class="flex-1"></view>
+
+              <x-text color="#999" fontSize="13" class="ml-10">{{ item.datetime }}</x-text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </x-sheet>
+
+    <!-- 上拉加载提示 -->
+    <template #loadMore="slotProps">
+      <view class="load-more-bar pb-24 flex-row flex-center">
+        <x-loading
+          v-if="slotProps.loadMoreStatus == 'loading'"
+          color="#999"
+          textSize="14"
+          :vertical="false"
+          label="正在加载更多…"
+        />
+        <x-text
+          v-else
+          :label="loadMoreText(slotProps.loadMoreStatus)"
+          color="#999"
+          fontSize="14"
+        />
+      </view>
+    </template>
+
+    <!-- Footer：固定在页面最底部（#bottom 位于滚动列表之外，不随列表滚动） -->
+    <!-- <template #bottom>
+      <view class="footer py-20 flex-center">
+        <x-text fontSize="12" color="#CCC">题材助手 · 洞察市场主线</x-text>
+        <x-text fontSize="12" color="#DDD" class="mt-6">所有数据仅供参考，不作收益保证，据此操作风险自负。</x-text>
+        <x-text fontSize="12" color="#DDD">— 投资有风险，入市须谨慎 —</x-text>
+      </view>
+    </template> -->
+  </z-paging-x>
+
+  <!-- 日历弹窗 -->
+  <x-drawer v-model:show="showCalendar" title="选择日期" :showFooter="false" size="540" round="24">
+    <view class="calendar-drawer-content">
+      <x-calendar-view
+        v-model="currentDate"
+        :startDate="minDateStr"
+        :endDate="maxDateStr"
+        :showClear="false"
+        activeFontColor="#FFFFFF"
+        headBgColor="#F7F8FA"
+        headFontColor="#333333"
+        headStyle="border-radius: 12px; padding: 4px 0;"
+        @change="onCalendarChange"
+      ></x-calendar-view>
+    </view>
+  </x-drawer>
+</view>
 </template>
 
+<script setup lang="ts">
+import { ref, computed } from 'vue';
+import { xConfig } from '@/uni_modules/tmx-ui/config/xConfig.uts';
+import { xDate } from '@/uni_modules/tmx-ui/core/util/xDate.uts';
+import { api } from '@/api/quant/themeTopic.uts';
+import { ThemeHotItem } from '@/types/interface.uts';
+
+// 标签页数据
+const tabList = ref([
+  { id: 2, title: '题材动态' },
+  { id: 3, title: '题材轮动' },
+  { id: 4, title: '题材库' }
+]);
+
+const activeTab = ref('2');
+
+// 日期限制
+const minDateStr = '2026-07-21';
+const maxDateStr = new xDate().format("YYYY-MM-DD");
+
+// 当前选中的日期
+const currentDate = ref(maxDateStr);
+const showCalendar = ref(false);
+
+// 是否禁用上一日/下一日
+const isPrevDisabled = computed(() : boolean => currentDate.value <= minDateStr);
+const isNextDisabled = computed(() : boolean => currentDate.value >= maxDateStr);
+
+// 滚动容器类型: H5 / 微信使用 scroll-view(兼容触底加载), 其余原生端使用 list-view(长列表性能更优)
+let listType = 'list-view' as string;
+// #ifdef H5 || MP-WEIXIN
+listType = 'scroll-view' as string;
+// #endif
+
+// 题材动态列表（真实数据，由 z-paging-x 通过 v-model 维护，支持下拉刷新与上拉加载）
+const newsList = ref<ThemeHotItem[]>([]);
+
+// 首次加载骨架屏（仅首次加载期间显示，加载完成后隐藏）
+const showSkeleton = ref(true);
+
+const pageSize = 20;
+
+// z-paging-x 根节点样式（白底）
+const pagingStyle = ref<object>({
+  // backgroundColor: '#FFF'
+});
+
+// z-paging-x 组件实例
+const pagingX = ref<ZPagingXComponentPublicInstance | null>(null);
+
+// 刷新列表（回到第一页重新拉取）
+const reloadData = () => {
+  pagingX.value?.reload();
+};
+
+const goDetail = (item: ThemeHotItem) => {
+  uni.navigateTo({
+    url: '/pages/theme_topic/detail?id=' + item.id
+  });
+};
+
+const getIndexColor = (index: number): string => {
+  if (index == 0) return '#FF4D4F'; // 1st - Red
+  if (index == 1) return '#FA8C16'; // 2nd - Orange
+  if (index == 2) return '#FADB14'; // 3rd - Yellow
+  return '#BBB'; // Others - Grey
+};
+
+const getChangeColor = (change: string): string => {
+  if (change.startsWith('+')) return '#FF4D4F';
+  if (change.startsWith('-')) return '#52C41A';
+  return '#999';
+};
+
+const handleTabChange = (item: any, index: number) => {
+  switch(item.id) {
+    case '2':
+      // 题材动态
+      reloadData();
+      break;
+  }
+};
+
+// 上拉加载提示文案（loadMoreStatus 由 z-paging-x 传入）
+const loadMoreText = (status: string): string => {
+  switch (status) {
+    case 'loading':
+      return '正在加载更多…';
+    case 'no-more':
+      return '没有更多动态了';
+    case 'fail':
+      return '加载失败，上拉重试';
+    default:
+      return '上拉加载更多';
+  }
+};
+
+// 日期操作
+const prevDay = () => {
+  if (isPrevDisabled.value) return;
+  const d = new xDate(currentDate.value);
+  d.subtraction(1, 'd');
+  currentDate.value = d.format("YYYY-MM-DD");
+  showSkeleton.value = true;
+  reloadData();
+};
+
+const nextDay = () => {
+  if (isNextDisabled.value) return;
+  const d = new xDate(currentDate.value);
+  d.add(1, 'd');
+  currentDate.value = d.format("YYYY-MM-DD");
+  showSkeleton.value = true;
+  reloadData();
+};
+
+const onCalendarChange = (val: string) => {
+  if (!val) return;
+  currentDate.value = val;
+  showCalendar.value = false;
+  showSkeleton.value = true;
+  reloadData();
+};
+
+// @query 由 z-paging-x 自动触发（首次加载/下拉刷新/上拉加载）
+// pageNo 与 pageSize 已由组件自动计算，无需自行维护页码
+const queryList = (pageNo: number, pageSize: number, from: string) => {
+  api
+    .getThemeTopicList({ publish_date: currentDate.value, page: pageNo, pageSize: pageSize } as UTSJSONObject)
+    .then((result) => {
+      // 首次加载完成后隐藏骨架屏（下拉刷新/上拉加载不再显示）
+      if (showSkeleton.value) {
+        showSkeleton.value = false;
+      }
+      const px = pagingX.value;
+      if (result == null) {
+        px?.complete([]);
+        return;
+      }
+      // completeByTotal 根据 total 判断是否还有更多数据
+      px?.completeByTotal(result.list, result.total);
+    });
+};
+</script>
+
 <style scoped>
-.shell, .page { flex: 1; }
-.page { padding-bottom: 64px; background-color: #f5f6f8; }
-.hero { padding: 0 20px 22px; background-color: #ffffff; }
-.section-tabs { height: 58px; flex-direction: row; align-items: center; }
-.section-tab { min-width: 76px; height: 58px; margin-right: 20px; justify-content: center; align-items: center; border-bottom-width: 3px; border-bottom-color: transparent; }
-.section-tab-copy { font-size: 16px; font-weight: 600; color: #60656e; }
-.section-tab-active { border-bottom-color: #e93030; }
-.active-copy { color: #e93030; }
-.eyebrow { font-size: 13px; font-weight: 600; color: #e93030; }
-.title { margin-top: 7px; font-size: 25px; font-weight: 700; color: #20242b; }
-.subtitle { margin-top: 9px; font-size: 14px; line-height: 21px; color: #737983; }
-.date-card { min-height: 70px; margin: 16px; padding: 7px 8px; flex-direction: row; align-items: center; border-radius: 16px; background-color: #ffffff; }
-.date-action { min-width: 0; min-height: 44px; flex: 1; justify-content: center; padding-top: 13px; font-size: 13px; font-weight: 700; color: #e93030; text-align: center; }
-.date-action-left { align-items: flex-start; padding-left: 4px; }
-.date-action-right { align-items: flex-end; padding-right: 4px; }
-.date-action-disabled { color: #c9cdd3; }
-.date-picker { width: 122px; min-width: 122px; height: 52px; flex-shrink: 0; }
-.date-center { height: 52px; justify-content: center; align-items: center; }
-.date-value { font-size: 15px; font-weight: 700; color: #30343b; text-align: center; }
-.sort-copy { margin-top: 4px; font-size: 11px; color: #89909a; text-align: center; }
-.skeleton-list, .state-card, .daily-list { margin: 16px; }
-.skeleton-card, .state-card, .daily-list { border-radius: 18px; background-color: #ffffff; }
-.skeleton-card { margin-bottom: 12px; padding: 18px; }
-.skeleton { border-radius: 6px; background-color: #edf0f3; }
-.skeleton-time { width: 48px; height: 13px; }
-.skeleton-title { width: 90%; height: 20px; margin-top: 13px; }
-.skeleton-footer { width: 70%; height: 14px; margin-top: 17px; }
-.state-card { padding: 26px 20px; align-items: center; }
-.state-icon { width: 48px; height: 48px; justify-content: center; align-items: center; border-radius: 14px; background-color: #fff0f0; }
-.state-icon-copy { font-size: 19px; font-weight: 700; color: #e93030; }
-.state-title { margin-top: 14px; font-size: 17px; font-weight: 700; color: #30343b; text-align: center; }
-.state-copy { margin-top: 8px; font-size: 14px; line-height: 21px; color: #7a818c; text-align: center; }
-.state-rule { margin-top: 16px; padding: 11px 12px; border-radius: 12px; background-color: #fff8eb; }
-.state-rule-copy { font-size: 12px; line-height: 18px; color: #89642b; text-align: center; }
-.state-actions { margin-top: 14px; flex-direction: row; align-items: center; }
-.retry-action, .secondary-action { min-height: 44px; padding: 12px 16px; font-size: 14px; font-weight: 700; }
-.retry-action { color: #e93030; }
-.secondary-action { margin-left: 4px; color: #60656e; }
-.daily-list { overflow: hidden; }
-.daily-card { padding: 18px 16px 14px; border-bottom-width: 1px; border-bottom-color: #f0f1f3; }
-.daily-time { font-size: 12px; font-weight: 700; color: #e93030; }
-.daily-title { margin-top: 8px; font-size: 16px; font-weight: 700; line-height: 23px; color: #30343b; lines: 2; }
-.daily-footer { min-height: 44px; margin-top: 12px; flex-direction: row; align-items: center; }
-.theme-tag { max-width: 102px; min-height: 44px; padding: 14px 10px 0; border-radius: 10px; background-color: #fff0f0; font-size: 12px; font-weight: 700; color: #e93030; lines: 1; text-overflow: ellipsis; }
-.source-copy { flex: 1; margin-left: 8px; font-size: 12px; color: #89909a; lines: 1; text-overflow: ellipsis; }
-.source-action { min-width: 76px; min-height: 44px; margin-left: 8px; padding-top: 13px; font-size: 12px; font-weight: 700; color: #e93030; text-align: right; }
-.load-more { min-height: 52px; justify-content: center; align-items: center; }
-.load-more-copy { font-size: 12px; color: #89909a; text-align: center; }
-.notice { margin: 24px 24px 36px; }
-.notice-copy { font-size: 12px; line-height: 18px; color: #9aa1aa; text-align: center; }
+.page {
+  padding: 0 0 0 0;
+  display: flex;
+  flex-direction: column;
+  /* 关键：z-paging-x 的滚动容器依赖父级有确定高度才能撑满视口并触发触底加载 */
+  height: 100vh;
+}
+
+.my-tabs {
+  background: #FFF;
+}
+
+.date-switcher {
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.calendar-drawer-content {
+  padding: 10px 15px 30px 15px;
+}
+
+.news-item-wrapper {
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.news-item-wrapper:last-child {
+  border-bottom: none;
+}
+
+.news-index {
+  font-family: Georgia, "Times New Roman", Times, serif;;
+  font-style: italic;
+  font-weight: bold;
+}
+
+.load-more-bar {
+  text-align: center;
+}
+
+.text-overflow-2 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  line-height: 1.4;
+}
 </style>

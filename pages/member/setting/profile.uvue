@@ -1,0 +1,239 @@
+<template>
+  <view class="page">
+    <view class="brand">
+      <view class="brand-title">
+        <x-text fontSize="24" _style="font-weight:bold" color="#333333">个人资料</x-text>
+      </view>
+      <view class="brand-sub">
+        <x-text fontSize="13" color="#999999">完善个人信息，方便内容服务个性化展示</x-text>
+      </view>
+    </view>
+
+    <!-- 资料表单卡片 -->
+    <view class="form-card">
+      <view class="avatar-field">
+        <view class="avatar-wrap">
+          <image class="avatar-img" :src="avatar" mode="aspectFill"></image>
+        </view>
+        <text class="avatar-edit">点击上传头像</text>
+      </view>
+
+      <view class="field">
+        <x-input v-model="nickname" placeholder="请输入昵称" round="12" leftIcon="user-line" :maxlength="20" height="48"></x-input>
+      </view>
+
+      <view class="gender-field">
+        <view class="gender-tabs">
+          <view class="gender-tab" :class="gender == 1 ? 'gender-tab-active' : ''" @click="selectGender(1)">
+            <text :class="gender == 1 ? 'text-active' : ''">男</text>
+          </view>
+
+          <view class="gender-tab" :class="gender == 2 ? 'gender-tab-active' : ''" @click="selectGender(2)">
+            <text :class="gender == 2 ? 'text-active' : ''">女</text>
+          </view>
+
+          <view class="gender-tab" :class="gender == 0 ? 'gender-tab-active' : ''" @click="selectGender(0)">
+            <text :class="gender == 0 ? 'text-active' : ''">保密</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="field">
+        <x-input v-model="wechat" round="12" leftIcon="wechat-line" :maxlength="50" height="48" placeholder="请输入微信号（可选）"></x-input>
+      </view>
+
+      <view class="field">
+        <x-input v-model="email" round="12" leftIcon="mail-line" :maxlength="50" height="48" placeholder="请输入电子邮箱（可选）"></x-input>
+      </view>
+
+      <view class="field">
+        <x-input v-model="bio" type="textarea" confirmType="send" darkBgColor="" showFooter height="100" round="12" :maxlength="255" placeholder="一句话介绍自己（可选）"></x-input>
+      </view>
+
+      <view class="btn-wrap">
+        <x-button color="#E93030" fontColor="#FFFFFF" :block="true" :round="28" :height="48" :loading="loading" :disabled="loading" @click="doSave">保存资料</x-button>
+      </view>
+    </view>
+
+  </view>
+</template>
+
+<script lang="ts" setup>
+import { ref } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
+import { api as memberApi } from '@/api/member/member.uts'
+
+const avatar = ref('/static/images/avatar.png')
+
+const nickname = ref('')
+const gender = ref(0)
+const email = ref('')
+const wechat = ref('')
+const bio = ref('')
+const loading = ref(false)
+
+const isLoggedIn = () : boolean => {
+	return (uni.getStorageSync('token') || '') != ''
+}
+
+const refreshProfile = async () => {
+	if (!isLoggedIn()) {
+		return
+	}
+	let profile = await memberApi.getProfile()
+	if (profile != null) {
+		nickname.value = profile.nickname || ''
+		gender.value = profile.gender || 0
+		email.value = profile.email || ''
+		wechat.value = profile.wechat || ''
+		bio.value = profile.bio || ''
+	}
+}
+
+const selectGender = (val: number) => {
+	gender.value = val
+}
+
+const doSave = async () => {
+	if (loading.value) {
+		return
+	}
+
+	if (!isLoggedIn()) {
+		uni.showToast({ title: '请先登录', icon: 'none' })
+		uni.navigateTo({ url: '/pages/member/login' })
+		return
+	}
+
+	if ((nickname.value || '').trim() == '') {
+		uni.showToast({ title: '请输入昵称', icon: 'none' })
+		return
+	}
+
+	loading.value = true
+	try {
+		let ok = await memberApi.updateProfile({
+			nickname: nickname.value.trim(),
+			gender: gender.value,
+			email: email.value.trim(),
+			wechat: wechat.value.trim(),
+			bio: bio.value.trim()
+		} as UTSJSONObject)
+		if (ok) {
+			uni.setStorageSync('nickname', nickname.value.trim())
+			uni.showToast({ title: '保存成功', icon: 'success' })
+			uni.navigateBack()
+		}
+	} finally {
+		loading.value = false
+	}
+}
+
+onShow(() => {
+	refreshProfile()
+})
+</script>
+
+<style scoped>
+.page {
+	min-height: 100vh;
+	background: #F5F5F5;
+	flex-direction: column;
+	padding: 24px 12px 32px;
+}
+
+.brand {
+	padding: 8px 0 20px;
+}
+
+.brand-title {
+	font-size: 24px;
+	font-weight: bold;
+	color: #333333;
+	padding-left: 4px;
+}
+
+.brand-sub {
+	margin-top: 8px;
+	font-size: 13px;
+	color: #999999;
+	padding-left: 4px;
+}
+
+.form-card {
+	background: #FFFFFF;
+	border-radius: 16px;
+	padding: 24px 16px 20px;
+	box-shadow: 0 10px 24px rgba(0, 0, 0, 0.06);
+}
+
+.avatar-field {
+	align-items: center;
+	justify-content: center;
+	margin-bottom: 24px;
+}
+
+.avatar-wrap {
+	width: 72px;
+	height: 72px;
+	border-radius: 50%;
+	background: #F5F5F5;
+	align-items: center;
+	justify-content: center;
+	overflow: hidden;
+}
+
+.avatar-img {
+	width: 72px;
+	height: 72px;
+	border-radius: 36px;
+}
+
+.avatar-edit {
+	margin-top: 8px;
+	font-size: 13px;
+	color: #666666;
+}
+
+.field {
+	margin-bottom: 16px;
+}
+
+.gender-field {
+	margin-bottom: 16px;
+}
+
+.gender-tabs {
+	flex-direction: row;
+	border-radius: 12px;
+	background: #F5F5F5;
+	padding: 4px;
+}
+
+.gender-tab {
+	flex: 1;
+	height: 44px;
+	align-items: center;
+	justify-content: center;
+	border-radius: 10px;
+	background: #F5F5F5;
+}
+
+.gender-tab-active {
+	background: #E93030;
+}
+
+.text-active {
+	color: #FFFFFF !important;
+	font-weight: bold;
+}
+
+.gender-tab text {
+	font-size: 15px;
+	color: #666666;
+}
+
+.btn-wrap {
+	padding: 4px 0 0;
+}
+</style>

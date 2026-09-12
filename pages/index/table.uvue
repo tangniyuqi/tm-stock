@@ -1,0 +1,156 @@
+<template>
+  <x-sheet>
+    <x-text font-size="16" class="text-weight-b mb-8">PCB印制电路板</x-text>
+    <x-text color="#999" font-size="12" class="mb-8">
+      PCB 全称印制电路板，是所有电子产品的核心载体：在绝缘基材上通过蚀刻铜箔形成固定导电线路，实现元器件机械支撑 + 电气互连，是电子设备的 “骨架 + 神经线路”。
+    </x-text>
+  </x-sheet>
+
+  <!-- 核心表格 -->
+  <x-sheet color="#FFF" padding="12">
+    <x-table
+      :list="tableList"
+      :columns="tableColumns"
+      cell-height="46"
+      font-size="12"
+      header-bg-color="#f5f7fa"
+      header-font-color="#1d2129"
+      @check-change="handleCheckChange"
+multi-row-float
+	  hide-head
+    >
+    </x-table>
+  </x-sheet>
+</template>
+
+<script>
+import { xTableColumns } from "@/uni_modules/tmx-ui/interface.uts"
+
+export default {
+  data() {
+    // 表格列配置
+    const tableColumns: xTableColumns[] = [
+      {
+        title: "姓名",
+        key: "name",
+		merge: {
+          name: { colspan: 2 }
+        },
+      },
+      {
+        title: "住址",
+        key: "address",
+      },
+      {
+        title: "备注",
+        key: "remark",
+      }
+    ]
+
+    // 表格数据源
+    const tableList = [
+      {
+        key: "1",
+        name: "PCB印制电路板",
+        float: true,
+        merge: {
+          name: { colspan: 3 }
+        },
+        style: {
+          name: {
+            textStyle: "color: black; font-size: 14px; font-weight: bold;"
+          }
+        }
+      },
+      {
+        key: "2",
+        name: "张三",
+        age: "26",
+        address: "成都市锦江区春熙路",
+        remark: "普通数据行",
+		merge: {
+          name: { rowspan: 3 }
+        },
+      },
+      {
+        key: "5",
+        name: "赵六",
+        age: "29",
+        address: "成都市高新区软件园",
+        remark: "无特殊配置"
+      },
+      {
+        key: "5",
+        name: "赵六",
+        age: "29",
+        address: "成都市高新区软件园",
+        remark: "无特殊配置"
+      },
+      {
+        key: "5",
+        name: "赵六",
+        age: "29",
+        address: "成都市高新区软件园",
+        remark: "无特殊配置"
+      },
+      {
+        key: "5",
+        name: "赵六",
+        age: "29",
+        address: "成都市高新区软件园",
+        remark: "无特殊配置"
+      },
+      {
+        key: "5",
+        name: "赵六",
+        age: "29",
+        address: "成都市高新区软件园",
+        remark: "无特殊配置"
+      },
+      {
+        key: "5",
+        name: "赵六",
+        age: "29",
+        address: "成都市高新区软件园",
+        remark: "无特殊配置"
+      },
+      {
+        key: "5",
+        name: "赵六",
+        age: "29",
+        address: "成都市高新区软件园",
+        remark: "无特殊配置"
+      }
+    ]
+
+    return {
+      tableColumns,
+      tableList,
+    }
+  },
+  methods: {
+    
+  }
+}
+</script>
+
+<style lang="scss">
+// 表格红色边框样式
+:deep(.xTable) {
+  border: 1px solid red;
+}
+
+:deep(.xTabelHoz) {
+  border-bottom: 1px solid red;
+}
+
+:deep(.xTabelHozItemContent),
+:deep(.xTabelHozItem) {
+  border-right: 1px solid red;
+}
+
+:deep(.xTabelHozItemContent:last-child),
+:deep(.xTabelHozItem:last-child) {
+  border-right: none;
+}
+</style>

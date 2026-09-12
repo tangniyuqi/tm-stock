@@ -1,0 +1,504 @@
+<template>
+  <z-paging-x
+    ref="pagingX"
+    v-model="pageData"
+    :list-is="listType"
+    :paging-style="pagingStyle"
+    :load-more-enabled="false"
+    refresher-background="#F5F5F5"
+    refresher-default-text="下拉刷新"
+    refresher-pulling-text="松开立即刷新"
+    refresher-refreshing-text="正在刷新…"
+    refresher-complete-text="刷新完成"
+    @query="queryDetail"
+  >
+<view class="page">
+  <!-- 加载 / 空态 -->
+  <view v-if="loading" class="state-tip flex flex-center py-80">
+    <x-text color="#999" fontSize="14">详情加载中...</x-text>
+  </view>
+
+  <view v-else-if="detail == null" class="state-tip flex flex-center py-80">
+    <x-text color="#999" fontSize="14">内容不存在或已下线</x-text>
+  </view>
+
+  <template v-else>
+    <x-sheet :padding="[20, 20, 20, 20]" :margin="[0, 0, 0, 0]">
+      <!-- 标题 -->
+      <x-text color="#000" fontSize="20" fontWeight="bold" lineHeight="1.5">{{ detail.title }}</x-text>
+
+      <!-- 发布时间 + 阅读分享数据，同行展示 -->
+      <view class="flex flex-row align-center mt-16">
+        <x-text color="#999" fontSize="13">{{ detail.publishTime }}</x-text>
+        <x-text v-if="detail.source != ''" color="#999" fontSize="13" class="ml-12">来源：{{ detail.source }}</x-text>
+        <view class="flex-1"></view>
+        <x-text color="#BBB" fontSize="12">阅读 {{ detail.view }} · 分享 {{ detail.share }}</x-text>
+      </view>
+
+      <x-more v-model="contentOpened" height="120" :text="['展开', '收起']">
+        <!-- 摘要 -->
+        <view v-if="detail.summary != ''" class="summary-box mt-16"  @click="onContentClick">
+          <x-text color="#666" fontSize="15" lineHeight="1.7">{{ detail.summary }}</x-text>
+        </view>
+
+        <!-- 正文：超过指定高度自动折叠，可展开/收起；单击正文区域同样可切换 -->
+      
+        <view class="detail-content mt-16" @click="onContentClick">
+          <x-text color="#333" fontSize="15" lineHeight="1.9">{{ detail.content }}</x-text>
+        </view>
+      </x-more>
+    </x-sheet>
+
+    <!-- 相关题材个股板块：细分领域折叠面板 + 股票表，样式复刻题材宝典 -->
+
+    <!-- 板块标题 + 展开全部 / 折叠全部：同一行，标题在左、按钮在右 -->
+    <view class="theme-header-row">
+      <x-text fontSize="16" class="text-weight-b" color="#333">关联题材【{{ detail.themeName }}】</x-text>
+      <view class="theme-header-action" @click="onExpandAll">
+        <x-icon fontSize="14" color="#999" :name="expandAll ? 'arrow-up-s-line' : 'arrow-down-s-line'" />
+        <x-text fontSize="12" color="#999">{{ expandAll ? '全部折叠' : '全部展开' }}</x-text>
+      </view>
+    </view>
+
+    <!-- 细分领域折叠面板 -->
+    <x-sheet color="#FFF" padding="0" round="16">
+      <x-collapse v-model="activeNames" :multiple="expandAll">
+        <x-collapse-item
+          v-for="(item, index) in items"
+          :key="index"
+          :name="'field-' + index"
+          activeColor="#000"
+          :show-bottom-line="index !== items.length - 1"
+          padding="0"
+        >
+          <!-- 标题插槽：status 为当前展开状态，展开时变色 -->
+          <template #title="{ status }">
+            <x-text fontSize="16" :color="status ? '#000' : '#333'">{{ item.segment.name }}</x-text>
+          </template>
+
+          <!-- 子题材描述：最多两行截断，尾部查看按钮；点击后底部弹出抽屉查看全部内容 -->
+          <view class="theme-desc mb-20" @click="onViewDesc(item.desc, item.segment.name)">
+            <x-text fontSize="13" color="#666" :lines="2" class="theme-desc-text">{{ item.desc }}</x-text>
+            <view class="theme-view-btn">
+              <x-text fontSize="13" color="#333">查看</x-text>
+              <x-icon fontSize="13" color="#333" name="arrow-right-s-line" />
+            </view>
+          </view>
+
+          <ix-table
+            :columns="tableColumns"
+            :list="item.symbols"
+            headerBgColor="#f5f7fa"
+            headerFontColor="#1d2129"
+            fontSize="12"
+            cellHeight="48"
+          >
+            <!-- 股票名称：龙头股加标识，涨跌幅放在名称下方 -->
+            <template #cell="{ item, key }">
+              <view v-if="key == 'name'" class="theme-name-cell" @click="onViewReason(item, item.name)">
+                <x-text font-size="13" class="text-weight-b" color="#1d2129">{{ item.name }}</x-text>
+                <x-text font-size="12" :color="item.pct >= 0 ? '#EB4436' : '#2F7A55'">{{ item.pct >= 0 ? '+' : '' }}{{ item.pct }}%</x-text>
+              </view>
+              <!-- 入选原因：内容左对齐，点击在抽屉中查看完整原因 -->
+              <text v-else class="theme-reason-cell" @click="onViewReason(item, item.name)">{{ item.reason }}</text>
+            </template>
+          </ix-table>
+        </x-collapse-item>
+      </x-collapse>
+    </x-sheet>
+
+    <!-- 底部抽屉：查看题材完整描述 -->
+    <x-drawer v-model:show="showDesc" :title="drawerTitle" showClose :showFooter="false" size="90%" round="12" contentMargin="0">
+      <view class="drawer-desc">
+        <x-text fontSize="14" color="#333" lineHeight="1.8">{{ currentDesc }}</x-text>
+      </view>
+    </x-drawer>
+
+    <!-- 底部抽屉：查看个股入选逻辑，分【AI题材逻辑】与【精选逻辑】两个区块 -->
+    <x-drawer v-model:show="showReason" :title="reasonTitle" showClose showFooter size="90%" round="12" contentMargin="0">
+      <view class="drawer-reason">
+        <x-tabs
+          :list="reasonTabs"
+          :modelValue="reasonActive"
+          @change="onReasonTabChange"
+          fontSize="15"
+          activeTitleColor="#e93030"
+          titleColor="#888888"
+          lineColor="#e93030"
+          height="40"
+          titlePadding="14px"
+        />
+
+        <view class="reason-block">
+          <x-text fontSize="14" color="#333" lineHeight="1.6" class="reason-text">{{ currentReasonByTab }}</x-text>
+        </view>
+
+        <!-- 更新时间 -->
+        <view class="reason-update">
+          <x-text fontSize="13" color="#999">更新时间：{{ updateTime }}</x-text>
+        </view>
+      </view>
+
+      <!-- 底部操作栏：查看完整分析 -->
+      <template #footer>
+        <view class="drawer-footer-btn">
+          <x-button skin="outline" fontColor="#e93030" block @click="onViewFullAnalysis">查看更多分析</x-button>
+        </view>
+      </template>
+    </x-drawer>
+  </template>
+
+    <view class="py-32"></view>
+  </view>
+  </z-paging-x>
+</template>
+
+<script setup lang="ts">
+import { ref, computed } from 'vue';
+import { onLoad } from '@dcloudio/uni-app';
+import { api } from '@/api/quant/themeTopic.uts';
+import { TopicDetailResp } from '@/types/interface.uts';
+
+const detail = ref<TopicDetailResp | null>(null);
+const loading = ref(false);
+
+// 正文展开/收起状态，与 x-more 双向绑定
+const contentOpened = ref(false);
+// 单击正文区域：切换展开/收起
+const onContentClick = () => {
+  contentOpened.value = !contentOpened.value;
+};
+
+// ---- z-paging-x 下拉刷新 ----
+// 滚动容器类型：H5 / 微信使用 scroll-view(兼容触底加载), 其余原生端使用 list-view
+let listType = 'list-view' as string;
+// #ifdef H5 || MP-WEIXIN
+listType = 'scroll-view' as string;
+// #endif
+
+// 供 z-paging-x 判断数据非空的单条数据（渲染仍用 detail），避免进入空态
+const pageData = ref<any[]>([]);
+
+// z-paging-x 根节点样式（与页面同色的灰背景）
+const pagingStyle = ref<object>({
+  backgroundColor: '#F5F5F5',
+});
+
+// z-paging-x 组件实例
+const pagingX = ref<ZPagingXComponentPublicInstance | null>(null);
+
+// 当前题材 ID，供 @query（首次加载 / 下拉刷新）重新拉取详情
+const currentId = ref(0);
+
+const loadDetail = async (id: number) => {
+  loading.value = true;
+  const result = await api.getThemeTopicDetail(id);
+  loading.value = false;
+  detail.value = result;
+  // 维持一条数据，保证页面不是空态
+  pagingX.value?.completeByTotal([{ id }], 1);
+};
+
+// @query 由 z-paging-x 自动触发（首次加载 / 下拉刷新），统一重新拉取详情
+const queryDetail = (pageNo: number, pageSize: number, from: string) => {
+  if (currentId.value > 0) loadDetail(currentId.value);
+};
+
+onLoad((options: OnLoadOptions | null) => {
+  const idStr = options != null && options.id != null ? String(options.id) : '';
+  if (idStr == '') return;
+  const id = parseInt(idStr, 10);
+  if (isNaN(id)) return;
+  currentId.value = id;
+  loadDetail(id);
+});
+
+// ---- 相关题材个股板块：细分领域折叠面板 + 股票表 ----
+// 数据为前端静态占位，样式复刻题材宝典 theme/index.uvue，后续接入真实接口再替换
+
+// 细分领域数据源
+const items = [
+  {
+    segment: {
+      id: 10001,
+      name: '光源',
+    },
+    desc: '光刻机光源系统负责产生曝光所需的高能光束，是光刻照明系统的核心环节，上游涉及激光器件、光学晶体等零部件。',
+    symbols: [
+      {
+        key: '10001',
+        id: 10001,
+        name: '茂莱光学',
+        leader: 1,
+        pct: 6.85,
+        reason: '精密光学龙头，光刻机光源系统核心供应商',
+        manualReason: '精密光学细分领域的代表性厂商，长期专注于高端光学元件与精密光学系统的研发制造，是光刻机光源环节的核心配套供应商。',
+        aiReason: 'AI梳理：根据公开资料，公司主营精密光学元件与系统，覆盖半导体高端制造领域，与光刻机光源系统的用光环节存在直接业务对应关系。'
+      },
+      {
+        key: '10002',
+        id: 10002,
+        name: '波长光电',
+        leader: 0,
+        pct: 4.52,
+        reason: '红外光学元器件厂商，受益光源需求增长',
+        manualReason: '深耕红外光学元器件领域，产品覆盖光刻机光源系统中所需的红外光电部件，属于产业链上的核心配套环节。',
+        aiReason: 'AI梳理：公司业务以红外光学器件为主，其产品类型与光源系统的红外元器件需求存在对应关系。'
+      }
+    ]
+  },
+  {
+    segment: {
+      id: 10002,
+      name: '物镜',
+    },
+    desc: '物镜是光刻机成像系统的关键环节，负责将掩模图形高精度投影到晶圆表面，涉及精密镜体加工与镀膜等工艺环节。',
+    symbols: [
+      {
+        key: '10001',
+        id: 10001,
+        name: '赛微电子',
+        leader: 1,
+        pct: 5.34,
+        reason: 'MEMS光学器件布局，物镜核心环节',
+        manualReason: '在 MEMS 光学器件方向有明确布局，物镜环节所需的微型光学执行部件与其业务相衔接。',
+        aiReason: 'AI梳理：公司布局 MEMS 光学器件，与物镜环节的精密光学部件需求相关联。'
+      }
+    ]
+  },
+  {
+    segment: {
+      id: 10003,
+      name: '光刻胶',
+    },
+    desc: '光刻胶是光刻工艺中最核心的感光材料，通过涂布、曝光、显影将掩模图形转移到晶圆表面，直接决定曝光分辨率与良率。',
+    symbols: [
+      {
+        key: '10001',
+        id: 10001,
+        name: '容大感光',
+        leader: 1,
+        pct: 5.81,
+        reason: '光刻胶国产化，PCB及半导体双布局',
+        manualReason: '光刻胶赛道的重要国产厂商，在 PCB 光刻胶领域已形成规模放量，并向半导体光刻胶方向持续突破，是国产替代的代表性标的。',
+        aiReason: 'AI梳理：公司主营光刻胶，覆盖 PCB 与半导体两大应用领域，与光刻工艺的核心感光材料需求直接对应。'
+      }
+    ]
+  },
+  {
+    segment: {
+      id: 10004,
+      name: '掩膜版',
+    },
+    desc: '掩膜版是承载集成电路图形的母版，光刻时其上的图形被投影到晶圆表面，精度直接决定芯片制造极限。',
+    symbols: [
+      {
+        key: '10001',
+        id: 10001,
+        name: '清溢光电',
+        leader: 1,
+        pct: 6.37,
+        reason: '掩膜版龙头，半导体及平板显示全覆盖',
+        manualReason: '掩膜版领域的代表性厂商，产品覆盖半导体与平板显示两大领域，处于国产掩膜版产业链的关键环节。',
+        aiReason: 'AI梳理：公司主营掩膜版，覆盖半导体与显示两大下游，与光刻工艺的图形母版需求直接对应。'
+      }
+    ]
+  },
+  {
+    segment: {
+      id: 10005,
+      name: '双工件台',
+    },
+    desc: '双工件台系统通过左右交替承载晶圆实现边测量边曝光，大幅提升光刻机产率，是高端光刻机的核心子系统。',
+    symbols: [
+      {
+        key: '10001',
+        id: 10001,
+        name: '华卓精科',
+        leader: 1,
+        pct: 7.02,
+        reason: '双工件台核心厂商，光刻机关键子系统',
+        manualReason: '双工件台方向的代表性厂商，掌握精密运动控制与光栅尺测量等核心技术，是高端光刻机核心子系统的关键配套标的。',
+        aiReason: 'AI梳理：公司主营双工件台系统，是光刻机边测量边曝光的核心子系统，业务对应关系直观。'
+      }
+    ]
+  }
+]
+
+// 折叠面板激活项（默认展开第一个细分领域）
+const activeNames = ref<string[]>(['field-0'])
+// 展开全部开关状态
+const expandAll = ref(false)
+
+// 表格列配置（两列：股票名称下方带涨跌幅、入选原因）
+const tableColumns = [
+  { title: '股票名称', key: 'name', width: '28%', align: 'center' },
+  { title: '入选原因', key: 'reason', align: 'flex-start' },
+]
+
+// 题材描述抽屉：当前查看的描述内容与标题
+const showDesc = ref(false)
+const currentDesc = ref('')
+const drawerTitle = ref('题材介绍')
+
+// 入选逻辑抽屉：精选逻辑（人工）与 AI 入选逻辑，通过 x-tabs 切换
+const showReason = ref(false)
+const currentManualReason = ref('')
+const currentAiReason = ref('')
+const reasonTitle = ref('入选逻辑')
+
+// x-tabs 数据与绑定：0=AI题材逻辑、1=精选逻辑（人工补充）
+const reasonTabs = [
+  { title: 'AI题材逻辑' },
+  { title: '精选逻辑' },
+]
+const reasonActive = ref(0)
+// 入选逻辑更新时间（静态占位，后续接入真实更新时间）
+const updateTime = '2026-09-04 09:30'
+
+// 根据当前激活 tab 展示对应内容
+const currentReasonByTab = computed((): string => {
+  if (reasonActive.value == 0) return currentAiReason.value
+  return currentManualReason.value
+})
+
+// 切换 tab：记录当前激活项
+const onReasonTabChange = (item: any, index: number) => {
+  reasonActive.value = index
+}
+
+// 点击查看：记录描述内容与标题并打开题材描述抽屉
+const onViewDesc = (desc: string, title: string = '题材介绍') => {
+  currentDesc.value = desc
+  drawerTitle.value = title
+  showDesc.value = true
+}
+
+// 点击个股入选原因：记录两条逻辑并打开入选逻辑抽屉
+const onViewReason = (symbol: any, title: string) => {
+  currentManualReason.value = symbol.manualReason
+  currentAiReason.value = symbol.aiReason
+  reasonTitle.value = title
+  reasonActive.value = 0
+  showReason.value = true
+}
+
+// 查看完整分析：落地页待接入，当前先关闭抽屉占位
+const onViewFullAnalysis = () => {
+  showReason.value = false
+}
+
+// 展开全部 / 折叠全部：点击时切换状态，并同步折叠面板
+const onExpandAll = () => {
+  expandAll.value = !expandAll.value
+  if (expandAll.value) {
+    activeNames.value = items.map((_, i) => 'field-' + i)
+  } else {
+    activeNames.value = []
+  }
+}
+</script>
+
+<style scoped lang="scss">
+.page {
+  
+}
+
+.state-tip {
+  height: 300px;
+}
+
+// 相关题材板块标题行：标题在左、展开/折叠按钮在右，同一行两端对齐
+.theme-header-row {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  margin: 24px 20px;
+}
+
+// 右侧展开/折叠按钮：图标 + 文字横向居中排列
+.theme-header-action {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+// 摘要区块：浅灰底、圆角、内边距
+.summary-box {
+  padding: 12px;
+  background-color: #F5F5F5;
+  border-radius: 8px;
+}
+
+// 子题材描述：两行截断，查看按钮贴最后一行行尾
+.theme-desc {
+  padding: 0 4px;
+  position: relative;
+}
+
+// 描述文本：行高撑出两行高度（lines 由模板控制）
+.theme-desc-text {
+  line-height: 1.6;
+}
+
+// 查看按钮：绝对定位到文字最后一行的行尾（右下角）
+// 左侧渐隐，文字滑入按钮下方自然衔接
+.theme-view-btn {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  flex-direction: row;
+  align-items: center;
+  padding-left: 36px;
+  background-image: linear-gradient(to left, #FFF 60%, rgba(255, 243, 241, 0));
+  border-radius: 0 4px 4px 0;
+}
+
+// 底部抽屉内完整描述：上下留白，行高宽松
+.drawer-desc {
+  padding: 12px 12px 32px 12px;
+}
+
+// 底部抽屉内个股入选逻辑：x-tabs 切换、正文在下
+.drawer-reason {
+  padding: 4px 12px 32px 12px;
+}
+
+// 更新时间：右侧弱化
+.reason-update {
+  padding: 8px 0 4px 0;
+  align-items: flex-end;
+}
+
+// 单个逻辑区块
+.reason-block {
+  padding: 12px 0 4px 0;
+}
+
+// 逻辑正文：行高宽松
+.reason-text {
+  margin-top: 8px;
+}
+
+// 抽屉底部按钮容器：左右留白
+.drawer-footer-btn {
+  padding: 8px 16px 8px 16px;
+}
+
+// 股票名称单元格：名称在上、涨跌幅在下，垂直水平居中
+.theme-name-cell {
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+// 入选原因单元格：左对齐（列 align 已设 flex-start）
+.theme-reason-cell {
+  width: 100%;
+  font-size: 13px;
+  color: #1d2129;
+}
+</style>

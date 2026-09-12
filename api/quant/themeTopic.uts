@@ -1,0 +1,15 @@
+import { rq } from "../request.uts";
+import { resultListType, ThemeHotItem, TopicDetailResp } from "@/types/interface.uts"
+
+// 题材动态相关接口，统一在 api 类中管理
+export class api {
+	// 题材动态列表（date 为 YYYY-MM-DD，仅回显，默认当天）
+	public static async getThemeTopicList(arg: UTSJSONObject): Promise<resultListType<ThemeHotItem> | null> {
+		return await rq<resultListType<ThemeHotItem>>('/quant/themeTopic/list', 'GET', arg)
+	}
+
+	// 题材动态详情
+	public static async getThemeTopicDetail(id: number): Promise<TopicDetailResp | null> {
+		return await rq<TopicDetailResp>('/quant/themeTopic/detail', 'GET', { id: id } as UTSJSONObject)
+	}
+}

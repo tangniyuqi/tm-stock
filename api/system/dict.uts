@@ -1,0 +1,41 @@
+import { rq } from "../request.uts";
+import { DictResp, DictDetail } from "@/types/interface.uts"
+
+// 系统字典接口（C 端公开路由 /client/system/dictionary，免登录只读）
+export class dict {
+	// 按字典英名读取启用明细（参考后台 filterDict 的字典翻译数据源）
+	public static async getDictDetailList(type: string): Promise<DictDetail[] | null> {
+		const res = await rq<DictResp>('/system/dictionary', 'GET', { type: type } as UTSJSONObject)
+		if (res == null || res.sysDictionaryDetails == null) {
+			return null
+		}
+		return res.sysDictionaryDetails
+	}
+}
+
+// 字典内存缓存（内存中以字典英名为 key）
+const dictCache: UTSJSONObject = {}
+
+// 统一字典加载方法（参考后台 getDict：带缓存；调用失败/无数据时兜底返回空数组）
+export function getDict(type: string): Promise<DictDetail[]> {
+	const cached = dictCache[type] as DictDetail[] | null
+	if (cached != null) {
+		return Promise.resolve(cached)
+	}
+	return dict.getDictDetailList(type).then((list: DictDetail[] | null) => {
+		const arr = list == null ? ([] as DictDetail[]) : list
+		dictCache[type] = arr
+		return arr
+	})
+}
+
+// 统一字典翻译（参考后台 showDictLabel）：按字典值匹配 label，未命中返回空串
+export function dictLabel(dict: DictDetail[], code: number | string): string {
+	const val = String(code)
+	for (let i = 0; i < dict.length; i++) {
+		if (dict[i].value == val) {
+			return dict[i].label
+		}
+	}
+	return ''
+}

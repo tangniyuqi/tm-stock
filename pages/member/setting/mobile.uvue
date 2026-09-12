@@ -1,0 +1,267 @@
+<template>
+  <view class="page">
+    <view class="brand">
+      <view class="brand-title">
+        <x-text fontSize="24" _style="font-weight:bold" color="#333333">手机号码</x-text>
+      </view>
+      <view class="brand-sub">
+        <x-text fontSize="13" color="#999999">当前绑定手机号已展示，修改需验证</x-text>
+      </view>
+    </view>
+
+    <view class="form-card">
+      <view class="cur-phone-row">
+        <text class="cur-phone-label">当前绑定的手机号</text>
+        <text class="cur-phone-value">{{ maskedPhone }}</text>
+      </view>
+    </view>
+
+    <view class="section-title">
+      <text class="section-title-text">修改手机号</text>
+    </view>
+
+    <view class="form-card">
+      <view class="field">
+        <x-input v-model="phone" placeholder="请输入新手机号" round="12" type="tel" inputmode="numeric" :maxlength="11" leftIcon="phone-line" height="48"></x-input>
+      </view>
+
+      <view class="field">
+        <view class="code-row">
+          <x-input v-model="smsCode" class="code-input" placeholder="请输入验证码" round="12" type="number" inputmode="numeric" :maxlength="6" height="48"></x-input>
+          <view class="get-code" :class="countdown > 0 ? 'get-code-disabled' : ''" @click="getSmsCode">
+            <text class="get-code-text">{{ countdown > 0 ? countdown + 's后重发' : '获取验证码' }}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="btn-wrap">
+        <x-button color="#E93030" fontColor="#FFFFFF" :block="true" :round="28" :height="48" :loading="loading" :disabled="loading" @click="doChange">确认修改</x-button>
+      </view>
+    </view>
+
+  </view>
+</template>
+
+<script lang="ts" setup>
+import { ref, onBeforeUnmount } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
+import { api as memberApi } from '@/api/member/member.uts'
+
+const rawPhone = ref('')
+const maskPhone = (num: string) => {
+  const cleaned = (num || '').trim()
+  if (cleaned.length < 7) return cleaned || '未绑定'
+  return cleaned.slice(0, 3) + '****' + cleaned.slice(-4)
+}
+const maskedPhone = ref('未绑定')
+
+const phone = ref('')
+const smsCode = ref('')
+const countdown = ref(0)
+const loading = ref(false)
+
+let intervalId : number = -1
+
+const isValidPhone = (num : string) : boolean => {
+	let n = (num || '').trim()
+	if (n.length != 11) {
+		return false
+	}
+	return n.charAt(0) == '1'
+}
+
+const isLoggedIn = () : boolean => {
+	return (uni.getStorageSync('token') || '') != ''
+}
+
+const refreshProfile = async () => {
+	if (!isLoggedIn()) {
+		return
+	}
+	let profile = await memberApi.getProfile()
+	if (profile != null) {
+		rawPhone.value = profile.mobile
+		maskedPhone.value = maskPhone(profile.mobile)
+	}
+}
+
+const stopCountdown = () => {
+	if (intervalId != -1) {
+		clearInterval(intervalId)
+		intervalId = -1
+	}
+}
+
+const startCountdown = () => {
+	countdown.value = 60
+	intervalId = setInterval(() : void => {
+		countdown.value = countdown.value - 1
+		if (countdown.value <= 0) {
+			stopCountdown()
+		}
+	}, 1000)
+}
+
+const getSmsCode = async () => {
+	if (countdown.value > 0) {
+		return
+	}
+	if (!isValidPhone(phone.value)) {
+		uni.showToast({ title: '请输入正确的手机号', icon: 'none' })
+		return
+	}
+	let ok = await authApi.sendCode(phone.value.trim(), 'bind_mobile')
+	if (ok) {
+		uni.showToast({ title: '验证码已发送', icon: 'none' })
+		startCountdown()
+	}
+}
+
+const doChange = async () => {
+	if (loading.value) {
+		return
+	}
+	if (!isLoggedIn()) {
+		uni.showToast({ title: '请先登录', icon: 'none' })
+		uni.navigateTo({ url: '/pages/member/login' })
+		return
+	}
+	if (!isValidPhone(phone.value)) {
+		uni.showToast({ title: '请输入正确的手机号', icon: 'none' })
+		return
+	}
+	if (phone.value.trim() == rawPhone.value) {
+		uni.showToast({ title: '新手机号与当前绑定相同', icon: 'none' })
+		return
+	}
+	if ((smsCode.value || '').trim() == '') {
+		uni.showToast({ title: '请输入验证码', icon: 'none' })
+		return
+	}
+
+	loading.value = true
+	try {
+		let ok = await memberApi.bindMobile(phone.value.trim(), smsCode.value.trim())
+		if (ok) {
+			uni.setStorageSync('mobile', phone.value.trim())
+			uni.showToast({ title: '修改成功', icon: 'success' })
+			await refreshProfile()
+			uni.navigateBack()
+		}
+	} finally {
+		loading.value = false
+	}
+}
+
+onShow(() => {
+	refreshProfile()
+})
+
+onBeforeUnmount(() => {
+	stopCountdown()
+})
+</script>
+
+<style scoped>
+.page {
+	min-height: 100vh;
+	background: #F5F5F5;
+	flex-direction: column;
+	padding: 24px 16px 32px;
+}
+
+.brand {
+	padding: 8px 0 20px;
+}
+
+.brand-title {
+	font-size: 24px;
+	font-weight: bold;
+	color: #333333;
+	padding-left: 4px;
+}
+
+.brand-sub {
+	margin-top: 8px;
+	font-size: 13px;
+	color: #999999;
+	padding-left: 4px;
+}
+
+.cur-phone-row {
+	flex-direction: row;
+	align-items: center;
+	justify-content: space-between;
+	padding: 4px 2px;
+}
+
+.cur-phone-label {
+	font-size: 14px;
+	color: #666666;
+}
+
+.cur-phone-value {
+	font-size: 15px;
+	color: #333333;
+	font-weight: bold;
+}
+
+.section-title {
+	padding: 20px 4px 12px;
+}
+
+.section-title-text {
+	font-size: 15px;
+	font-weight: bold;
+	color: #333333;
+}
+
+.form-card {
+	background: #FFFFFF;
+	border-radius: 16px;
+	padding: 24px 20px 20px;
+	box-shadow: 0 10px 24px rgba(0, 0, 0, 0.06);
+}
+
+.field {
+	margin-bottom: 16px;
+}
+
+.code-row {
+	flex-direction: row;
+	align-items: center;
+}
+
+.code-input {
+	flex: 1;
+}
+
+.get-code {
+	margin-left: 12px;
+	height: 48px;
+	padding: 0 18px;
+	border-radius: 12px;
+	background: #FFF0F0;
+	align-items: center;
+	justify-content: center;
+	border: 1rpx solid #F7C7C7;
+}
+
+.get-code-disabled {
+	background: #F5F5F5;
+	border-color: #EEEEEE;
+}
+
+.get-code-text {
+	font-size: 13px;
+	color: #E93030;
+}
+
+.get-code-disabled .get-code-text {
+	color: #999999;
+}
+
+.btn-wrap {
+	padding: 4px 0 0;
+}
+</style>

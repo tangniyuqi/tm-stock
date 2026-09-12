@@ -1,0 +1,12 @@
+import { rqWithToken } from "../request.uts"
+import { AssetLogItem } from "@/types/interface.uts"
+import { resultListType } from "@/types/interface.uts"
+
+// C 端会员接口 - 资产流水（需登录 token）
+export class api {
+
+	// 获取资产流水（分页，资产类型在 query 中指定，默认积分 type=2）
+	public static async getList(arg: UTSJSONObject): Promise<resultListType<AssetLogItem> | null> {
+		return await rqWithToken<resultListType<AssetLogItem>>('/member/asset_log/list', 'GET', arg, true)
+	}
+}

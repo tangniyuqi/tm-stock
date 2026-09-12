@@ -1,37 +1,77 @@
-<script setup lang="ts">
-import PageHeader from '@/pages/components/PageHeader.uvue'
-
-const openNews = () : void => {
-	uni.switchTab({ url: '/pages/news/index' })
-}
-</script>
-
 <template>
-	<view class="shell">
-		<PageHeader title="快讯详情" :showBack="true"></PageHeader>
-		<scroll-view class="page" scroll-y="true">
-			<view class="state-card">
-				<view class="state-icon"><text class="state-icon-copy">讯</text></view>
-				<text class="state-title">资讯服务尚未开放</text>
-				<text class="state-copy">快讯详情仅在内容授权、来源核验和审核完成后才会提供。当前没有可展示的详情内容。</text>
-				<text class="back-action" @click="openNews">返回快讯列表</text>
-			</view>
-			<view class="notice">
-				<text class="notice-copy">本平台为公开信息聚合与历史数据统计，不构成任何投资建议。</text>
-			</view>
-		</scroll-view>
-	</view>
+<view class="page">
+  <!-- 加载 / 空态 / 错误态 -->
+  <view v-if="loading" class="state-tip flex flex-center py-80">
+    <x-text color="#999" fontSize="14">详情加载中...</x-text>
+  </view>
+
+  <view v-else-if="detail == null" class="state-tip flex flex-center py-80">
+    <x-text color="#999" fontSize="14">快讯不存在或已下线</x-text>
+  </view>
+
+  <template v-else>
+    <x-sheet :round="0" :padding="[20, 0, 20, 0]" :margin="[0, 0, 0, 0]">
+      <!-- 标题 -->
+      <x-text color="#000" fontSize="20" fontWeight="bold" lineHeight="1.5">{{ detail.title }}</x-text>
+
+      <!-- 元信息 -->
+      <view class="flex flex-row align-center mt-16">
+        <x-text color="#999" fontSize="13">{{ detail.ctime }}</x-text>
+        <x-text v-if="detail.author != ''" color="#999" fontSize="13" class="ml-12">来源：{{ detail.author }}</x-text>
+        <x-text v-if="detail.isHot" color="#E93030" fontSize="13" skin="thin" class="ml-12">热点</x-text>
+      </view>
+
+      <!-- 标签 -->
+      <view v-if="detail.tags.length > 0" class="flex flex-row flex-wrap mt-16">
+        <x-tag v-for="(tag, index) in detail.tags" :key="index" size="mini" class="mr-10 mb-6">{{ tag }}</x-tag>
+      </view>
+
+      <!-- 正文 -->
+      <view class="mt-24">
+        <x-text color="#333" fontSize="15" lineHeight="1.8">{{ detail.content }}</x-text>
+      </view>
+
+      <!-- 底部阅读数据 -->
+      <view class="flex flex-row align-center mt-32">
+        <view class="flex-1"></view>
+        <x-text color="#BBB" fontSize="12">阅读 {{ detail.view }} · 分享 {{ detail.share }}</x-text>
+      </view>
+    </x-sheet>
+  </template>
+
+  <view class="py-32"></view>
+</view>
 </template>
 
+<script setup lang="ts">
+import { ref } from 'vue';
+import { onLoad } from '@dcloudio/uni-app';
+import { api } from '@/api/quant/news.uts';
+import { NewsDetailResp } from '@/types/interface.uts';
+
+const detail = ref<NewsDetailResp | null>(null);
+const loading = ref(false);
+
+const loadDetail = async (id: string) => {
+  loading.value = true;
+  const result = await api.getNewsDetail(id);
+  loading.value = false;
+  detail.value = result;
+};
+
+onLoad((options: OnLoadOptions | null) => {
+  const id = options != null && options.id != null ? String(options.id) : '';
+  if (id == '') return;
+  loadDetail(id);
+});
+</script>
+
 <style scoped>
-.shell, .page { flex: 1; }
-.page { padding-bottom: 64px; background-color: #f5f6f8; }
-.state-card { margin: 18px 16px; padding: 30px 20px; align-items: center; border-radius: 18px; background-color: #ffffff; }
-.state-icon { width: 54px; height: 54px; justify-content: center; align-items: center; border-radius: 16px; background-color: #fff0f0; }
-.state-icon-copy { font-size: 21px; font-weight: 700; color: #e93030; }
-.state-title { margin-top: 15px; font-size: 17px; font-weight: 700; color: #30343b; text-align: center; }
-.state-copy { margin-top: 9px; font-size: 14px; line-height: 22px; color: #737983; text-align: center; }
-.back-action { min-height: 44px; margin-top: 16px; padding: 12px 16px; font-size: 14px; font-weight: 700; color: #e93030; }
-.notice { margin: 24px; }
-.notice-copy { font-size: 12px; line-height: 18px; color: #9aa1aa; text-align: center; }
+.page {
+  background: #FFF;
+}
+
+.state-tip {
+  height: 300px;
+}
 </style>

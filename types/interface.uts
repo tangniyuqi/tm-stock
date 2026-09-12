@@ -1,0 +1,154 @@
+// 统一接口类型定义（UTS 平铺 type，禁止嵌套）
+// 字段与后端（gin-vue-admin）响应契约逐一对应，命名与 JSON 保持一致
+
+// 统一响应结构体（对应后端 response.Response）
+export type resultDataType = {
+	msg: string,
+	code: number,
+	data?: any
+}
+
+// 统一列表分页结构体（对应后端 response.PageResult，JSON 字段 list/total/page/pageSize）
+export type resultListType<T> = {
+	list: T[],
+	total: number,
+	page: number,
+	pageSize: number
+}
+
+// 7x24 快讯单条（对应后端 NewsItem）
+export type NewsItem = {
+	id: string,
+	title: string,
+	content: string,
+	source: number,
+	sourceName: string,
+	ctime: string,
+	isHot: boolean,
+	cover?: string
+}
+
+// 7x24 快讯详情（对应后端 NewsDetailResp）
+export type NewsDetailResp = {
+	id: string,
+	title: string,
+	content: string,
+	tags: string[],
+	author: string,
+	source: number,
+	datetime: string,
+	isHot: boolean,
+	view: number,
+	share: number
+}
+
+// 题材动态单条（对应后端 ThemeHotItem）
+export type ThemeHotItem = {
+	id: string,
+	title: string,
+	tag: string,
+	change: string,
+	datetime: string,
+	isHot: boolean,
+	cover?: string
+}
+
+// 题材动态详情（对应后端 TopicDetailResp）
+export type TopicDetailResp = {
+	id: number,
+	themeId: number,
+	themeName: string,
+	title: string,
+	summary: string,
+	content: string,
+	type: number,
+	sentiment: number,
+	source: string,
+	url: string,
+	hot: boolean,
+	top: boolean,
+	view: number,
+	share: number,
+	publishTime: string
+}
+
+// 字典明细项（对应后端 sys_dictionary_detail 的 label/value/sort，C 端字典公开路由返回）
+export type DictDetail = {
+	label: string, // 展示值（字典名称）
+	value: string, // 字典值（编码）
+	sort: number   // 排序
+}
+
+// 字典响应（对应后端 SysDictionary，仅取启用明细）
+export type DictResp = {
+	sysDictionaryDetails: DictDetail[]
+}
+
+// ============ C 端会员与 CMS 类型 ============
+
+// 会员资料响应（对应后端 MemberProfile，字段与后端 json 一致）
+export type MemberProfile = {
+	nickname: string,
+	avatar: string,
+	mobile: string,
+	level: number,
+	credit: number,
+	gender: number,
+	email: string,
+	wechat: string,
+	bio: string,
+	verified: boolean
+}
+
+// 登录响应（对应后端 LoginResp）
+export type LoginResp = {
+	token: string
+}
+
+// 账号设置响应（对应后端 AccountSetting）
+export type AccountSetting = {
+	name: string // 用户名（name，可用于登录，可自定义）
+	createdAt: string // 账号创建时间
+}
+
+// 资产概况响应（对应后端 AssetOverview，当前为积分资产 assetType=2，字段与后端 json 一致）
+export type AssetOverview = {
+	assetType: number, // 资产类型（2=积分）
+	credit: number, // 当前可用
+	frozenCredit: number, // 冻结
+	accumulateCredit: number, // 累计获得
+	consumeCredit: number, // 累计消费
+	giftCredit: number // 累计赠送
+}
+
+// 资产流水单条（对应后端 AssetLogItem，数据源 addon_member_asset_log，当前为积分 type=2）
+export type AssetLogItem = {
+	id: number,
+	change: number, // 资产变动数量（正=获得，负=扣减）
+	afterNum: number, // 变动后数值
+	flowType: number, // 流向（1增加 2减少）
+	bizType: string, // 关联业务类型
+	remark: string, // 备注
+	createdAt: string // 流水发生时间
+}
+
+// 单页内容（对应后端 CMS Page，C 端公开字段）
+export type CmsPage = {
+	id: string,
+	title: string,
+	content: string,
+	cover: string,
+	description: string,
+	name: string
+}
+
+// 文章内容（对应后端 CMS Article，C 端公开字段）
+export type CmsArticle = {
+	id: string,
+	title: string,
+	cover: string,
+	description: string,
+	content: string,
+	view: number,
+	createdAt: string
+}
