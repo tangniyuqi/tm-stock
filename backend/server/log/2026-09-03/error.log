@@ -1,0 +1,815 @@
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 01:13:19.371	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT * FROM `addon_quant_ai_task` WHERE (status = 4 AND scheduled_at IS NOT NULL AND scheduled_at <= '2026-09-03 00:57:26.209') AND `addon_quant_ai_task`.`deleted_at` IS NULL", "rows": 0, "elapsed_ms": 30003, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "invalid connection", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Find\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Find
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 01:13:19.372	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422	查询待调度AI任务失败	{"node": "", "app_id": "", "env": "", "error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 01:14:20.119	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT * FROM `addon_quant_ai_task` WHERE (status = 4 AND scheduled_at IS NOT NULL AND scheduled_at <= '2026-09-03 01:13:47.234') AND `addon_quant_ai_task`.`deleted_at` IS NULL", "rows": 0, "elapsed_ms": 32879, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "invalid connection", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Find\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Find
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 01:14:20.121	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422	查询待调度AI任务失败	{"node": "", "app_id": "", "env": "", "error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 01:30:12.801	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT * FROM `addon_quant_ai_task` WHERE (status = 4 AND scheduled_at IS NOT NULL AND scheduled_at <= '2026-09-03 01:29:50.685') AND `addon_quant_ai_task`.`deleted_at` IS NULL", "rows": 0, "elapsed_ms": 22147, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "invalid connection", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Find\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Find
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 01:30:12.824	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422	查询待调度AI任务失败	{"node": "", "app_id": "", "env": "", "error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 02:02:48.548	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT * FROM `addon_quant_ai_task` WHERE (status = 4 AND scheduled_at IS NOT NULL AND scheduled_at <= '2026-09-03 01:46:10.845') AND `addon_quant_ai_task`.`deleted_at` IS NULL", "rows": 0, "elapsed_ms": 71971, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "invalid connection", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Find\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Find
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 02:02:48.567	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422	查询待调度AI任务失败	{"node": "", "app_id": "", "env": "", "error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 02:34:59.694	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT * FROM `addon_quant_ai_task` WHERE (status = 4 AND scheduled_at IS NOT NULL AND scheduled_at <= '2026-09-03 02:19:02.316') AND `addon_quant_ai_task`.`deleted_at` IS NULL", "rows": 0, "elapsed_ms": 31701, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "invalid connection", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Find\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Find
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 02:34:59.694	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422	查询待调度AI任务失败	{"node": "", "app_id": "", "env": "", "error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 02:57:57.006	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT * FROM `addon_quant_ai_task` WHERE (status = 4 AND scheduled_at IS NOT NULL AND scheduled_at <= '2026-09-03 02:42:11.088') AND `addon_quant_ai_task`.`deleted_at` IS NULL", "rows": 0, "elapsed_ms": 38180, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "invalid connection", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Find\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Find
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 02:57:57.007	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422	查询待调度AI任务失败	{"node": "", "app_id": "", "env": "", "error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 03:30:47.239	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT * FROM `addon_quant_ai_task` WHERE (status = 4 AND scheduled_at IS NOT NULL AND scheduled_at <= '2026-09-03 03:14:14.526') AND `addon_quant_ai_task`.`deleted_at` IS NULL", "rows": 0, "elapsed_ms": 67004, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "invalid connection", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Find\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Find
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 03:30:47.240	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422	查询待调度AI任务失败	{"node": "", "app_id": "", "env": "", "error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 04:03:03.571	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT * FROM `addon_quant_ai_task` WHERE (status = 4 AND scheduled_at IS NOT NULL AND scheduled_at <= '2026-09-03 03:47:05.978') AND `addon_quant_ai_task`.`deleted_at` IS NULL", "rows": 0, "elapsed_ms": 31871, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "invalid connection", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Find\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Find
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 04:03:03.572	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422	查询待调度AI任务失败	{"node": "", "app_id": "", "env": "", "error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 04:35:28.333	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT * FROM `addon_quant_ai_task` WHERE (status = 4 AND scheduled_at IS NOT NULL AND scheduled_at <= '2026-09-03 04:19:27.437') AND `addon_quant_ai_task`.`deleted_at` IS NULL", "rows": 0, "elapsed_ms": 39517, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "invalid connection", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Find\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Find
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 04:35:28.333	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422	查询待调度AI任务失败	{"node": "", "app_id": "", "env": "", "error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 05:16:11.811	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT * FROM `addon_quant_ai_task` WHERE (status = 4 AND scheduled_at IS NOT NULL AND scheduled_at <= '2026-09-03 05:00:03.378') AND `addon_quant_ai_task`.`deleted_at` IS NULL", "rows": 0, "elapsed_ms": 42789, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "invalid connection", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Find\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Find
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 05:16:11.811	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422	查询待调度AI任务失败	{"node": "", "app_id": "", "env": "", "error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 05:49:19.041	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT * FROM `addon_quant_ai_task` WHERE (status = 4 AND scheduled_at IS NOT NULL AND scheduled_at <= '2026-09-03 05:32:24.613') AND `addon_quant_ai_task`.`deleted_at` IS NULL", "rows": 0, "elapsed_ms": 88726, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "invalid connection", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Find\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Find
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 05:49:19.056	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422	查询待调度AI任务失败	{"node": "", "app_id": "", "env": "", "error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 06:21:10.350	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT * FROM `addon_quant_ai_task` WHERE (status = 4 AND scheduled_at IS NOT NULL AND scheduled_at <= '2026-09-03 06:05:14.21') AND `addon_quant_ai_task`.`deleted_at` IS NULL", "rows": 0, "elapsed_ms": 30472, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "invalid connection", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Find\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Find
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 06:21:10.351	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422	查询待调度AI任务失败	{"node": "", "app_id": "", "env": "", "error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 06:34:56.000	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT * FROM `addon_quant_ai_task` WHERE (status = 4 AND scheduled_at IS NOT NULL AND scheduled_at <= '2026-09-03 06:34:11.588') AND `addon_quant_ai_task`.`deleted_at` IS NULL", "rows": 0, "elapsed_ms": 44428, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "invalid connection", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Find\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Find
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 06:34:56.002	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422	查询待调度AI任务失败	{"node": "", "app_id": "", "env": "", "error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 07:26:10.374	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT * FROM `addon_quant_ai_task` WHERE (status = 4 AND scheduled_at IS NOT NULL AND scheduled_at <= '2026-09-03 07:10:04.189') AND `addon_quant_ai_task`.`deleted_at` IS NULL", "rows": 0, "elapsed_ms": 40527, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "invalid connection", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Find\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Find
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 07:26:10.375	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422	查询待调度AI任务失败	{"node": "", "app_id": "", "env": "", "error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 07:46:58.541	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT * FROM `addon_quant_ai_task` WHERE (status = 4 AND scheduled_at IS NOT NULL AND scheduled_at <= '2026-09-03 07:42:25.537') AND `addon_quant_ai_task`.`deleted_at` IS NULL", "rows": 0, "elapsed_ms": 135646, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "invalid connection", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Find\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Find
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 07:46:58.542	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422	查询待调度AI任务失败	{"node": "", "app_id": "", "env": "", "error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 08:03:14.085	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT * FROM `addon_quant_ai_task` WHERE (status = 4 AND scheduled_at IS NOT NULL AND scheduled_at <= '2026-09-03 08:02:38.613') AND `addon_quant_ai_task`.`deleted_at` IS NULL", "rows": 0, "elapsed_ms": 35471, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "invalid connection", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Find\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Find
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 08:03:14.086	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422	查询待调度AI任务失败	{"node": "", "app_id": "", "env": "", "error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 08:31:44.804	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT * FROM `addon_quant_ai_task` WHERE (status = 4 AND scheduled_at IS NOT NULL AND scheduled_at <= '2026-09-03 08:19:12.289') AND `addon_quant_ai_task`.`deleted_at` IS NULL", "rows": 0, "elapsed_ms": 21508, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "invalid connection", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Find\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Find
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 08:31:44.805	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422	查询待调度AI任务失败	{"node": "", "app_id": "", "env": "", "error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 08:54:24.776	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT * FROM `addon_quant_ai_task` WHERE (status = 4 AND scheduled_at IS NOT NULL AND scheduled_at <= '2026-09-03 08:53:53.363') AND `addon_quant_ai_task`.`deleted_at` IS NULL", "rows": 0, "elapsed_ms": 31414, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "invalid connection", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Find\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Find
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 08:54:24.777	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422	查询待调度AI任务失败	{"node": "", "app_id": "", "env": "", "error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 08:55:13.322	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT `authority_id`,`data_scope` FROM `sys_authorities` WHERE authority_id = 1 ORDER BY `sys_authorities`.`authority_id` LIMIT 1", "rows": 0, "elapsed_ms": 7867, "mod": "sql", "request_id": "cd12eda8-9417-42c0-820a-c2c2918d9014", "trace_id": "349bd44066c52550bd7c48855af2e993", "device_id": "", "client_ip": "127.0.0.1", "http_method": "GET", "http_path": "/cloud/document/getDocumentList", "span_id": "de65802e4e23d6c8", "error_msg": "context canceled", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).First\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:131\ngithub.com/flipped-aurora/gin-vue-admin/server/service/system.(*DataScopeService).BuildIdentity\n\t/Users/a1/data/go/gin-vue-admin/server/service/system/data_scope.go:24\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.DataScope.func8\n\t/Users/a1/data/go/gin-vue-admin/server/middleware/data_scope.go:22\ngithub.com/gin-gonic/gin.(*Context).Next\n\t/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func7\n\t/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30\ngithub.com/gin-gonic/gin.(*Context).Next\n\t/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.MustChangePwdGuard.func6\n\t/Users/a1/data/go/gin-vue-admin/server/middleware/must_change_pwd.go:29\ngithub.com/gin-gonic/gin.(*Context).Next\n\t/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func5\n\t/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69\ngithub.com/gin-gonic/gin.(*Context).Next\n\t/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185\ngithub.com/flipped-aurora/gin-vue-admin/server/middleware.UploadResponseHeaders.func1\n\t/Users/a1/data/go/gin-vue-admin/server/middleware/upload_security.go:25\ngithub.com/gin-gonic/gin.(*Context).Next\n\t/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185\ngithub.com/gin-gonic/gin.LoggerWithConfig.func1\n\t/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249\ngithub.com/gin-gonic/gin.(*Context).Next\n\t/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.AccessLog.func4\n\t/Users/a1/data/go/gin-vue-admin/server/middleware/access_log.go:73\ngithub.com/gin-gonic/gin.(*Context).Next\n\t/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func3\n\t/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:56\ngithub.com/gin-gonic/gin.(*Context).Next\n\t/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.RequestMeta.func2\n\t/Users/a1/data/go/gin-vue-admin/server/middleware/request_meta.go:39\ngithub.com/gin-gonic/gin.(*Context).Next\n\t/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185\ngithub.com/gin-gonic/gin.(*Engine).handleHTTPRequest\n\t/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633\ngithub.com/gin-gonic/gin.(*Engine).ServeHTTP\n\t/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589\nnet/http.serverHandler.ServeHTTP\n\t/usr/local/go/src/net/http/server.go:3311\nnet/http.(*conn).serve\n\t/usr/local/go/src/net/http/server.go:2073"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).First
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:131
+github.com/flipped-aurora/gin-vue-admin/server/service/system.(*DataScopeService).BuildIdentity
+	/Users/a1/data/go/gin-vue-admin/server/service/system/data_scope.go:24
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.DataScope.func8
+	/Users/a1/data/go/gin-vue-admin/server/middleware/data_scope.go:22
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func7
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.MustChangePwdGuard.func6
+	/Users/a1/data/go/gin-vue-admin/server/middleware/must_change_pwd.go:29
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func5
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/middleware.UploadResponseHeaders.func1
+	/Users/a1/data/go/gin-vue-admin/server/middleware/upload_security.go:25
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.AccessLog.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/access_log.go:73
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:56
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.RequestMeta.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/request_meta.go:39
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 08:55:13.357	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT `id`,`dept_id` FROM `sys_users` WHERE id = 1 AND `sys_users`.`deleted_at` IS NULL ORDER BY `sys_users`.`id` LIMIT 1", "rows": 0, "elapsed_ms": 0, "mod": "sql", "request_id": "cd12eda8-9417-42c0-820a-c2c2918d9014", "trace_id": "349bd44066c52550bd7c48855af2e993", "device_id": "", "client_ip": "127.0.0.1", "http_method": "GET", "http_path": "/cloud/document/getDocumentList", "span_id": "de65802e4e23d6c8", "error_msg": "context canceled", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).First\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:131\ngithub.com/flipped-aurora/gin-vue-admin/server/service/system.(*DataScopeService).BuildIdentity\n\t/Users/a1/data/go/gin-vue-admin/server/service/system/data_scope.go:34\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.DataScope.func8\n\t/Users/a1/data/go/gin-vue-admin/server/middleware/data_scope.go:22\ngithub.com/gin-gonic/gin.(*Context).Next\n\t/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func7\n\t/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30\ngithub.com/gin-gonic/gin.(*Context).Next\n\t/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.MustChangePwdGuard.func6\n\t/Users/a1/data/go/gin-vue-admin/server/middleware/must_change_pwd.go:29\ngithub.com/gin-gonic/gin.(*Context).Next\n\t/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func5\n\t/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69\ngithub.com/gin-gonic/gin.(*Context).Next\n\t/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185\ngithub.com/flipped-aurora/gin-vue-admin/server/middleware.UploadResponseHeaders.func1\n\t/Users/a1/data/go/gin-vue-admin/server/middleware/upload_security.go:25\ngithub.com/gin-gonic/gin.(*Context).Next\n\t/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185\ngithub.com/gin-gonic/gin.LoggerWithConfig.func1\n\t/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249\ngithub.com/gin-gonic/gin.(*Context).Next\n\t/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.AccessLog.func4\n\t/Users/a1/data/go/gin-vue-admin/server/middleware/access_log.go:73\ngithub.com/gin-gonic/gin.(*Context).Next\n\t/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func3\n\t/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:56\ngithub.com/gin-gonic/gin.(*Context).Next\n\t/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.RequestMeta.func2\n\t/Users/a1/data/go/gin-vue-admin/server/middleware/request_meta.go:39\ngithub.com/gin-gonic/gin.(*Context).Next\n\t/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185\ngithub.com/gin-gonic/gin.(*Engine).handleHTTPRequest\n\t/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633\ngithub.com/gin-gonic/gin.(*Engine).ServeHTTP\n\t/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589\nnet/http.serverHandler.ServeHTTP\n\t/usr/local/go/src/net/http/server.go:3311\nnet/http.(*conn).serve\n\t/usr/local/go/src/net/http/server.go:2073"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).First
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:131
+github.com/flipped-aurora/gin-vue-admin/server/service/system.(*DataScopeService).BuildIdentity
+	/Users/a1/data/go/gin-vue-admin/server/service/system/data_scope.go:34
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.DataScope.func8
+	/Users/a1/data/go/gin-vue-admin/server/middleware/data_scope.go:22
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func7
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.MustChangePwdGuard.func6
+	/Users/a1/data/go/gin-vue-admin/server/middleware/must_change_pwd.go:29
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func5
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/middleware.UploadResponseHeaders.func1
+	/Users/a1/data/go/gin-vue-admin/server/middleware/upload_security.go:25
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.AccessLog.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/access_log.go:73
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:56
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.RequestMeta.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/request_meta.go:39
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 08:55:13.359	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT `sys_department_id` FROM `sys_user_departments` WHERE sys_user_id = 1", "rows": 0, "elapsed_ms": 0, "mod": "sql", "request_id": "cd12eda8-9417-42c0-820a-c2c2918d9014", "trace_id": "349bd44066c52550bd7c48855af2e993", "device_id": "", "client_ip": "127.0.0.1", "http_method": "GET", "http_path": "/cloud/document/getDocumentList", "span_id": "de65802e4e23d6c8", "error_msg": "context canceled", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Pluck\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:574\ngithub.com/flipped-aurora/gin-vue-admin/server/service/system.(*DataScopeService).BuildIdentity\n\t/Users/a1/data/go/gin-vue-admin/server/service/system/data_scope.go:43\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.DataScope.func8\n\t/Users/a1/data/go/gin-vue-admin/server/middleware/data_scope.go:22\ngithub.com/gin-gonic/gin.(*Context).Next\n\t/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func7\n\t/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30\ngithub.com/gin-gonic/gin.(*Context).Next\n\t/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.MustChangePwdGuard.func6\n\t/Users/a1/data/go/gin-vue-admin/server/middleware/must_change_pwd.go:29\ngithub.com/gin-gonic/gin.(*Context).Next\n\t/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func5\n\t/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69\ngithub.com/gin-gonic/gin.(*Context).Next\n\t/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185\ngithub.com/flipped-aurora/gin-vue-admin/server/middleware.UploadResponseHeaders.func1\n\t/Users/a1/data/go/gin-vue-admin/server/middleware/upload_security.go:25\ngithub.com/gin-gonic/gin.(*Context).Next\n\t/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185\ngithub.com/gin-gonic/gin.LoggerWithConfig.func1\n\t/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249\ngithub.com/gin-gonic/gin.(*Context).Next\n\t/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.AccessLog.func4\n\t/Users/a1/data/go/gin-vue-admin/server/middleware/access_log.go:73\ngithub.com/gin-gonic/gin.(*Context).Next\n\t/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func3\n\t/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:56\ngithub.com/gin-gonic/gin.(*Context).Next\n\t/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.RequestMeta.func2\n\t/Users/a1/data/go/gin-vue-admin/server/middleware/request_meta.go:39\ngithub.com/gin-gonic/gin.(*Context).Next\n\t/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185\ngithub.com/gin-gonic/gin.(*Engine).handleHTTPRequest\n\t/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633\ngithub.com/gin-gonic/gin.(*Engine).ServeHTTP\n\t/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589\nnet/http.serverHandler.ServeHTTP\n\t/usr/local/go/src/net/http/server.go:3311\nnet/http.(*conn).serve\n\t/usr/local/go/src/net/http/server.go:2073"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Pluck
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:574
+github.com/flipped-aurora/gin-vue-admin/server/service/system.(*DataScopeService).BuildIdentity
+	/Users/a1/data/go/gin-vue-admin/server/service/system/data_scope.go:43
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.DataScope.func8
+	/Users/a1/data/go/gin-vue-admin/server/middleware/data_scope.go:22
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.CasbinHandler.func7
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.MustChangePwdGuard.func6
+	/Users/a1/data/go/gin-vue-admin/server/middleware/must_change_pwd.go:29
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.JWTAuth.func5
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/middleware.UploadResponseHeaders.func1
+	/Users/a1/data/go/gin-vue-admin/server/middleware/upload_security.go:25
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.AccessLog.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/access_log.go:73
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:56
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.RequestMeta.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/request_meta.go:39
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 08:55:21.603	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT * FROM `addon_quant_ai_task` WHERE (status = 4 AND scheduled_at IS NOT NULL AND scheduled_at <= '2026-09-03 08:54:57.891') AND `addon_quant_ai_task`.`deleted_at` IS NULL", "rows": 0, "elapsed_ms": 23712, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "invalid connection", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Find\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Find
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 08:55:21.605	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422	查询待调度AI任务失败	{"node": "", "app_id": "", "env": "", "error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 12:20:36.442	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT * FROM `addon_quant_ai_task` WHERE (status = 4 AND scheduled_at IS NOT NULL AND scheduled_at <= '2026-09-03 12:04:45.217') AND `addon_quant_ai_task`.`deleted_at` IS NULL", "rows": 0, "elapsed_ms": 25697, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "invalid connection", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Find\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Find
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 12:20:36.443	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422	查询待调度AI任务失败	{"node": "", "app_id": "", "env": "", "error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 12:29:53.178	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT * FROM `addon_quant_ai_task` WHERE (status = 4 AND scheduled_at IS NOT NULL AND scheduled_at <= '2026-09-03 12:21:12.56') AND `addon_quant_ai_task`.`deleted_at` IS NULL", "rows": 0, "elapsed_ms": 29916, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "invalid connection", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Find\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Find
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 12:29:53.178	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422	查询待调度AI任务失败	{"node": "", "app_id": "", "env": "", "error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 13:06:19.785	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT * FROM `addon_quant_ai_task` WHERE (status = 4 AND scheduled_at IS NOT NULL AND scheduled_at <= '2026-09-03 12:50:12.848') AND `addon_quant_ai_task`.`deleted_at` IS NULL", "rows": 0, "elapsed_ms": 40625, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "invalid connection", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Find\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Find
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 13:06:19.785	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422	查询待调度AI任务失败	{"node": "", "app_id": "", "env": "", "error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 13:29:05.955	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT * FROM `addon_quant_ai_task` WHERE (status = 4 AND scheduled_at IS NOT NULL AND scheduled_at <= '2026-09-03 13:13:01.317') AND `addon_quant_ai_task`.`deleted_at` IS NULL", "rows": 0, "elapsed_ms": 39083, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "invalid connection", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Find\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Find
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 13:29:05.955	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422	查询待调度AI任务失败	{"node": "", "app_id": "", "env": "", "error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 14:00:08.564	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT * FROM `addon_quant_ai_task` WHERE (status = 4 AND scheduled_at IS NOT NULL AND scheduled_at <= '2026-09-03 13:45:23.198') AND `addon_quant_ai_task`.`deleted_at` IS NULL", "rows": 0, "elapsed_ms": 51688, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "invalid connection", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Find\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Find
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 14:00:08.566	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422	查询待调度AI任务失败	{"node": "", "app_id": "", "env": "", "error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 16:07:38.929	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT * FROM `addon_quant_ai_task` WHERE (status = 4 AND scheduled_at IS NOT NULL AND scheduled_at <= '2026-09-03 16:06:55.594') AND `addon_quant_ai_task`.`deleted_at` IS NULL", "rows": 0, "elapsed_ms": 43327, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "invalid connection", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Find\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Find
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 16:07:38.931	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422	查询待调度AI任务失败	{"node": "", "app_id": "", "env": "", "error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 16:09:14.913	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT * FROM `addon_quant_ai_task` WHERE (status = 4 AND scheduled_at IS NOT NULL AND scheduled_at <= '2026-09-03 16:08:06.804') AND `addon_quant_ai_task`.`deleted_at` IS NULL", "rows": 0, "elapsed_ms": 68107, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "invalid connection", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Find\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Find
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 16:09:14.913	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422	查询待调度AI任务失败	{"node": "", "app_id": "", "env": "", "error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 17:50:12.574	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT * FROM `addon_quant_ai_task` WHERE (status = 4 AND scheduled_at IS NOT NULL AND scheduled_at <= '2026-09-03 17:37:52.401') AND `addon_quant_ai_task`.`deleted_at` IS NULL", "rows": 0, "elapsed_ms": 31001, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "invalid connection", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Find\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Find
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 17:50:12.575	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422	查询待调度AI任务失败	{"node": "", "app_id": "", "env": "", "error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 17:51:24.143	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT * FROM `addon_quant_ai_task` WHERE (status = 4 AND scheduled_at IS NOT NULL AND scheduled_at <= '2026-09-03 17:50:50.168') AND `addon_quant_ai_task`.`deleted_at` IS NULL", "rows": 0, "elapsed_ms": 33967, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "invalid connection", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Find\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Find
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 17:51:24.144	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422	查询待调度AI任务失败	{"node": "", "app_id": "", "env": "", "error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 18:29:40.676	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT * FROM `addon_quant_ai_task` WHERE (status = 4 AND scheduled_at IS NOT NULL AND scheduled_at <= '2026-09-03 18:29:08.81') AND `addon_quant_ai_task`.`deleted_at` IS NULL", "rows": 0, "elapsed_ms": 31864, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "invalid connection", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Find\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Find
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 18:29:40.677	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422	查询待调度AI任务失败	{"node": "", "app_id": "", "env": "", "error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 18:46:01.803	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT * FROM `addon_quant_ai_task` WHERE (status = 4 AND scheduled_at IS NOT NULL AND scheduled_at <= '2026-09-03 18:45:21.589') AND `addon_quant_ai_task`.`deleted_at` IS NULL", "rows": 0, "elapsed_ms": 40202, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "invalid connection", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Find\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Find
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 18:46:01.837	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422	查询待调度AI任务失败	{"node": "", "app_id": "", "env": "", "error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 19:08:49.186	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT * FROM `addon_quant_ai_task` WHERE (status = 4 AND scheduled_at IS NOT NULL AND scheduled_at <= '2026-09-03 19:08:15.465') AND `addon_quant_ai_task`.`deleted_at` IS NULL", "rows": 0, "elapsed_ms": 33705, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "invalid connection", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Find\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Find
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 19:08:49.187	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422	查询待调度AI任务失败	{"node": "", "app_id": "", "env": "", "error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 19:24:51.659	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT * FROM `addon_quant_ai_task` WHERE (status = 4 AND scheduled_at IS NOT NULL AND scheduled_at <= '2026-09-03 19:24:18.16') AND `addon_quant_ai_task`.`deleted_at` IS NULL", "rows": 0, "elapsed_ms": 33494, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "invalid connection", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Find\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Find
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 19:24:51.670	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422	查询待调度AI任务失败	{"node": "", "app_id": "", "env": "", "error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 20:13:05.106	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT * FROM `addon_quant_ai_task` WHERE (status = 4 AND scheduled_at IS NOT NULL AND scheduled_at <= '2026-09-03 19:57:04.74') AND `addon_quant_ai_task`.`deleted_at` IS NULL", "rows": 0, "elapsed_ms": 34856, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "invalid connection", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Find\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Find
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 20:13:05.106	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422	查询待调度AI任务失败	{"node": "", "app_id": "", "env": "", "error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 20:45:26.103	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT * FROM `addon_quant_ai_task` WHERE (status = 4 AND scheduled_at IS NOT NULL AND scheduled_at <= '2026-09-03 20:29:26.653') AND `addon_quant_ai_task`.`deleted_at` IS NULL", "rows": 0, "elapsed_ms": 33948, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "invalid connection", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Find\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Find
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 20:45:26.104	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422	查询待调度AI任务失败	{"node": "", "app_id": "", "env": "", "error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 21:08:57.158	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT * FROM `addon_quant_ai_task` WHERE (status = 4 AND scheduled_at IS NOT NULL AND scheduled_at <= '2026-09-03 20:52:53.602') AND `addon_quant_ai_task`.`deleted_at` IS NULL", "rows": 0, "elapsed_ms": 37234, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "invalid connection", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Find\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Find
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 21:08:57.158	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422	查询待调度AI任务失败	{"node": "", "app_id": "", "env": "", "error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 21:41:26.649	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT * FROM `addon_quant_ai_task` WHERE (status = 4 AND scheduled_at IS NOT NULL AND scheduled_at <= '2026-09-03 21:25:16.272') AND `addon_quant_ai_task`.`deleted_at` IS NULL", "rows": 0, "elapsed_ms": 44052, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "invalid connection", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Find\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Find
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 21:41:26.650	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422	查询待调度AI任务失败	{"node": "", "app_id": "", "env": "", "error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 22:03:58.853	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT * FROM `addon_quant_ai_task` WHERE (status = 4 AND scheduled_at IS NOT NULL AND scheduled_at <= '2026-09-03 21:53:45.433') AND `addon_quant_ai_task`.`deleted_at` IS NULL", "rows": 0, "elapsed_ms": 47149, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "invalid connection", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Find\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Find
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 22:03:58.855	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422	查询待调度AI任务失败	{"node": "", "app_id": "", "env": "", "error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 22:22:42.784	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT * FROM `addon_quant_ai_task` WHERE (status = 4 AND scheduled_at IS NOT NULL AND scheduled_at <= '2026-09-03 22:22:08.113') AND `addon_quant_ai_task`.`deleted_at` IS NULL", "rows": 0, "elapsed_ms": 34687, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "invalid connection", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Find\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Find
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 22:22:42.808	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422	查询待调度AI任务失败	{"node": "", "app_id": "", "env": "", "error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 22:38:11.700	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT * FROM `addon_quant_ai_task` WHERE (status = 4 AND scheduled_at IS NOT NULL AND scheduled_at <= '2026-09-03 22:37:40.654') AND `addon_quant_ai_task`.`deleted_at` IS NULL", "rows": 0, "elapsed_ms": 33011, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "invalid connection", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Find\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Find
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 22:38:11.701	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422	查询待调度AI任务失败	{"node": "", "app_id": "", "env": "", "error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 23:42:49.702	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT * FROM `addon_quant_ai_task` WHERE (status = 4 AND scheduled_at IS NOT NULL AND scheduled_at <= '2026-09-03 23:42:08.035') AND `addon_quant_ai_task`.`deleted_at` IS NULL", "rows": 0, "elapsed_ms": 41666, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "invalid connection", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Find\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Find
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 23:42:49.702	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422	查询待调度AI任务失败	{"node": "", "app_id": "", "env": "", "error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 23:43:53.688	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54	SQL 执行错误	{"node": "", "app_id": "", "env": "", "sql": "SELECT * FROM `addon_quant_ai_task` WHERE (status = 4 AND scheduled_at IS NOT NULL AND scheduled_at <= '2026-09-03 23:43:21.663') AND `addon_quant_ai_task`.`deleted_at` IS NULL", "rows": 0, "elapsed_ms": 32024, "mod": "sql", "request_id": "", "trace_id": "", "device_id": "", "client_ip": "", "http_method": "", "http_path": "", "error_msg": "invalid connection", "error_stack": "github.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).assemble\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:64\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).log\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:75\ngithub.com/flipped-aurora/gin-vue-admin/server/utils/logger.(*Builder).Error\n\t/Users/a1/data/go/gin-vue-admin/server/utils/logger/builder.go:81\ngithub.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace\n\t/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54\ngorm.io/gorm.(*processor).Execute\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140\ngorm.io/gorm.(*DB).Find\n\t/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421\ngithub.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1\n\t/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410"}
+github.com/flipped-aurora/gin-vue-admin/server/initialize/internal.(*GormLogger).Trace
+	/Users/a1/data/go/gin-vue-admin/server/initialize/internal/gorm_logger_writer.go:54
+gorm.io/gorm.(*processor).Execute
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/callbacks.go:140
+gorm.io/gorm.(*DB).Find
+	/Users/a1/go/pkg/mod/gorm.io/gorm@v1.31.1/finisher_api.go:172
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:421
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-03 23:43:53.690	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422	查询待调度AI任务失败	{"node": "", "app_id": "", "env": "", "error": "invalid connection"}
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.(*AiTaskService).dispatchScheduledTasks
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:422
+github.com/flipped-aurora/gin-vue-admin/server/service/quant.StartAiTaskScheduler.func1.1
+	/Users/a1/data/go/gin-vue-admin/server/service/quant/ai_task_service.go:410

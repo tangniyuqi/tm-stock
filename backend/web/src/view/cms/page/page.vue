@@ -1,0 +1,549 @@
+<template>
+  <div>
+    <div class="gva-search-box">
+      <el-form ref="elSearchFormRef" :inline="true" :model="searchInfo" class="demo-form-inline"
+        @keyup.enter="onSubmit">
+        <el-form-item label="标题" prop="title">
+          <el-input v-model="searchInfo.title" clearable placeholder="请输入标题" />
+        </el-form-item>
+
+        <el-form-item label="标识" prop="name">
+          <el-input v-model="searchInfo.name" clearable placeholder="请输入标识" />
+        </el-form-item>
+
+        <el-form-item label="显示" prop="display">
+          <el-select v-model="searchInfo.display" placeholder="请选择显示" clearable>
+            <el-option label="显示" :value="true" />
+            <el-option label="隐藏" :value="false" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="状态" prop="status">
+          <el-select v-model="searchInfo.status" placeholder="请选择状态" clearable>
+            <el-option label="启用" :value="true" />
+            <el-option label="禁用" :value="false" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item>
+          <el-button type="primary" icon="search" @click="onSubmit">查询</el-button>
+          <el-button icon="refresh" @click="onReset">重置</el-button>
+        </el-form-item>
+      </el-form>
+    </div>
+
+    <div class="gva-table-box">
+      <div class="gva-btn-list">
+        <el-button type="primary" icon="plus" @click="openDialog()">新增</el-button>
+        <el-button icon="delete" style="margin-left: 10px" :disabled="!multipleSelection.length"
+          @click="onDelete">删除</el-button>
+      </div>
+
+      <el-table ref="multipleTable" style="width: 100%" tooltip-effect="dark" :data="tableData" row-key="id"
+        @selection-change="handleSelectionChange">
+        <el-table-column align="center" type="selection" width="60" />
+
+        <el-table-column align="left" label="ID" prop="id" width="80" />
+
+        <el-table-column align="left" label="标题" prop="title" min-width="200">
+          <template #default="scope">
+            <span>{{ scope.row.title || '-' }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column align="left" label="分类ID" prop="cateId" width="100" />
+
+        <el-table-column align="left" label="标识" prop="name" width="140" />
+
+        <el-table-column align="left" label="作者" prop="author" width="120" />
+
+        <el-table-column align="left" label="封面" min-width="120">
+          <template #default="scope">
+            <el-image v-if="scope.row.cover" :src="scope.row.cover" style="width: 80px; height: 45px" fit="cover"
+              :preview-src-list="[scope.row.cover]" />
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column align="left" label="简介" prop="description" min-width="160">
+          <template #default="scope">
+            <span>{{ scope.row.description || '-' }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column align="left" label="排序" prop="sort" width="90" />
+
+        <el-table-column align="left" label="浏览量" prop="view" width="90" />
+
+        <el-table-column align="center" label="显示" prop="display" width="90">
+          <template #default="scope">
+            <el-tag :type="scope.row.display ? 'success' : 'info'">{{ formatBoolean(scope.row.display) }}</el-tag>
+          </template>
+        </el-table-column>
+
+        <el-table-column align="center" label="审核" prop="review" width="90">
+          <template #default="scope">
+            <el-tag :type="scope.row.review ? 'success' : 'info'">{{ formatBoolean(scope.row.review) }}</el-tag>
+          </template>
+        </el-table-column>
+
+        <el-table-column align="center" label="状态" prop="status" width="90">
+          <template #default="scope">
+            <el-tag :type="scope.row.status ? 'success' : 'info'">{{ formatBoolean(scope.row.status) }}</el-tag>
+          </template>
+        </el-table-column>
+
+        <el-table-column sortable align="left" label="创建日期" prop="createdAt" width="180">
+          <template #default="scope">{{ formatDate(scope.row.created_at) }}</template>
+        </el-table-column>
+
+        <el-table-column align="left" label="操作" fixed="right" :min-width="appStore.operateMinWith">
+          <template #default="scope">
+            <el-button type="primary" link class="table-button" @click="getDetails(scope.row)">
+              <el-icon style="margin-right: 5px">
+                <InfoFilled />
+              </el-icon>
+              查看
+            </el-button>
+            <el-button type="primary" link icon="edit" class="table-button"
+              @click="updatePageFunc(scope.row)">编辑</el-button>
+            <el-button type="primary" link icon="delete" @click="deleteRow(scope.row)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <div class="gva-pagination">
+        <el-pagination layout="total, sizes, prev, pager, next, jumper" :current-page="page" :page-size="pageSize"
+          :page-sizes="[10, 30, 50, 100]" :total="total" @current-change="handleCurrentChange"
+          @size-change="handleSizeChange" />
+      </div>
+    </div>
+
+    <el-drawer destroy-on-close :size="appStore.drawerSize" v-model="dialogFormVisible" :show-close="false"
+      :before-close="closeDialog">
+      <template #header>
+        <div class="flex justify-between items-center">
+          <span class="text-lg">{{ type === 'create' ? '新增' : '编辑' }}</span>
+          <div>
+            <el-button :loading="btnLoading" type="primary" @click="enterDialog">确 定</el-button>
+            <el-button @click="closeDialog">取 消</el-button>
+          </div>
+        </div>
+      </template>
+
+      <el-form :model="formData" label-position="top" ref="elFormRef" :rules="rule" label-width="80px">
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="标题" prop="title">
+              <el-input v-model="formData.title" :clearable="true" placeholder="请输入标题" />
+            </el-form-item>
+          </el-col>
+
+          <el-col :span="12">
+            <el-form-item label="分类ID" prop="cateId">
+              <el-input-number v-model="formData.cate_id" :min="0" :controls="false" style="width: 100%" clearable
+                placeholder="请输入分类ID" />
+            </el-form-item>
+          </el-col>
+
+          <el-col :span="12">
+            <el-form-item label="作者" prop="author">
+              <el-input v-model="formData.author" :clearable="true" placeholder="请输入作者" />
+            </el-form-item>
+          </el-col>
+
+          <el-col :span="12">
+            <el-form-item label="链接" prop="link">
+              <el-input v-model="formData.link" :clearable="true" placeholder="请输入链接" />
+            </el-form-item>
+          </el-col>
+
+          <el-col :span="12">
+            <el-form-item label="标识" prop="name">
+              <el-input v-model="formData.name" :clearable="true" placeholder="请输入标识" />
+            </el-form-item>
+          </el-col>
+
+          <el-col :span="12">
+            <el-form-item label="封面" prop="cover">
+              <el-input v-model="formData.cover" :clearable="true" placeholder="请输入封面地址" />
+            </el-form-item>
+          </el-col>
+
+          <el-col :span="12">
+            <el-form-item label="图集" prop="images">
+              <el-input v-model="formData.images" :clearable="true" placeholder="请输入图集（JSON）" />
+            </el-form-item>
+          </el-col>
+
+          <el-col :span="12">
+            <el-form-item label="SEO关键词" prop="seoKeywords">
+              <el-input v-model="formData.seo_keywords" :clearable="true" placeholder="请输入SEO关键词" />
+            </el-form-item>
+          </el-col>
+
+          <el-col :span="12">
+            <el-form-item label="SEO描述" prop="seoDescription">
+              <el-input v-model="formData.seo_description" :clearable="true" placeholder="请输入SEO描述" />
+            </el-form-item>
+          </el-col>
+
+          <el-col :span="12">
+            <el-form-item label="简介" prop="description">
+              <el-input v-model="formData.description" :clearable="true" placeholder="请输入简介" />
+            </el-form-item>
+          </el-col>
+
+          <el-col :span="12">
+            <el-form-item label="排序" prop="sort">
+              <el-input-number v-model="formData.sort" :min="0" :controls="false" style="width: 100%" clearable
+                placeholder="请输入排序" />
+            </el-form-item>
+          </el-col>
+
+          <el-col :span="12">
+            <el-form-item label="显示" prop="display">
+              <el-switch v-model="formData.display" />
+            </el-form-item>
+          </el-col>
+
+          <el-col :span="12">
+            <el-form-item label="浏览量" prop="view">
+              <el-input-number v-model="formData.view" :min="0" :controls="false" style="width: 100%" clearable
+                placeholder="请输入浏览量" />
+            </el-form-item>
+          </el-col>
+
+          <el-col :span="12">
+            <el-form-item label="审核" prop="review">
+              <el-switch v-model="formData.review" />
+            </el-form-item>
+          </el-col>
+
+          <el-col :span="12">
+            <el-form-item label="状态" prop="status">
+              <el-switch v-model="formData.status" />
+            </el-form-item>
+          </el-col>
+
+          <el-col :span="24">
+            <el-form-item label="内容" prop="content">
+              <VditorEditor v-model="formData.content" :min-height="320" cache-id="cms-page-editor" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+    </el-drawer>
+
+    <el-drawer destroy-on-close :size="appStore.drawerSize" v-model="detailShow" :show-close="true"
+      :before-close="closeDetailShow" title="查看">
+      <el-descriptions :column="1" border>
+        <el-descriptions-item label="标题">
+          {{ detailForm.title }}
+        </el-descriptions-item>
+        <el-descriptions-item label="分类ID">
+          {{ detailForm.cate_id }}
+        </el-descriptions-item>
+        <el-descriptions-item label="作者">
+          {{ detailForm.author }}
+        </el-descriptions-item>
+        <el-descriptions-item label="链接">
+          {{ detailForm.link }}
+        </el-descriptions-item>
+        <el-descriptions-item label="标识">
+          {{ detailForm.name }}
+        </el-descriptions-item>
+        <el-descriptions-item label="封面">
+          {{ detailForm.cover }}
+        </el-descriptions-item>
+        <el-descriptions-item label="图集">
+          {{ detailForm.images }}
+        </el-descriptions-item>
+        <el-descriptions-item label="SEO关键词">
+          {{ detailForm.seo_keywords }}
+        </el-descriptions-item>
+        <el-descriptions-item label="SEO描述">
+          {{ detailForm.seo_description }}
+        </el-descriptions-item>
+        <el-descriptions-item label="简介">
+          {{ detailForm.description }}
+        </el-descriptions-item>
+        <el-descriptions-item label="排序">
+          {{ detailForm.sort }}
+        </el-descriptions-item>
+        <el-descriptions-item label="显示">
+          {{ formatBoolean(detailForm.display) }}
+        </el-descriptions-item>
+        <el-descriptions-item label="浏览量">
+          {{ detailForm.view }}
+        </el-descriptions-item>
+        <el-descriptions-item label="审核">
+          {{ formatBoolean(detailForm.review) }}
+        </el-descriptions-item>
+        <el-descriptions-item label="内容">
+          {{ detailForm.content }}
+        </el-descriptions-item>
+        <el-descriptions-item label="状态">
+          {{ formatBoolean(detailForm.status) }}
+        </el-descriptions-item>
+      </el-descriptions>
+    </el-drawer>
+  </div>
+</template>
+
+<script setup>
+import { ref, reactive } from 'vue';
+import { useAppStore } from '@/pinia';
+import { ElMessage, ElMessageBox } from 'element-plus';
+import { formatDate, formatBoolean } from '@/utils/format';
+import { createPage, deletePage, deletePageByIds, updatePage, findPage, getPageList } from '@/api/cms/page'
+import VditorEditor from '@/components/vditorEditor/VditorEditor.vue'
+
+defineOptions({
+  name: 'Page'
+});
+
+// 提交按钮loading
+const btnLoading = ref(false);
+const appStore = useAppStore();
+
+const formData = ref({
+  title: '',
+  cate_id: undefined,
+  author: '',
+  link: '',
+  name: '',
+  cover: '',
+  images: '',
+  seo_keywords: '',
+  seo_description: '',
+  description: '',
+  content: '',
+  sort: undefined,
+  display: false,
+  view: undefined,
+  review: false,
+  status: false
+});
+
+// 验证规则
+const rule = reactive({});
+
+const elFormRef = ref();
+const elSearchFormRef = ref();
+
+// =========== 表格控制部分 ===========
+const page = ref(1);
+const total = ref(0);
+const pageSize = ref(10);
+const tableData = ref([]);
+const searchInfo = ref({});
+// 重置
+const onReset = () => {
+  searchInfo.value = {};
+  getTableData();
+};
+
+// 搜索
+const onSubmit = () => {
+  elSearchFormRef.value?.validate(async (valid) => {
+    if (!valid) return;
+    page.value = 1;
+    getTableData();
+  });
+};
+
+// 分页
+const handleSizeChange = (val) => {
+  pageSize.value = val;
+  getTableData();
+};
+
+// 修改页面容量
+const handleCurrentChange = (val) => {
+  page.value = val;
+  getTableData();
+};
+
+// 查询
+const getTableData = async () => {
+  const table = await getPageList({ page: page.value, pageSize: pageSize.value, ...searchInfo.value });
+  if (table.code === 0) {
+    tableData.value = table.data.list;
+    total.value = table.data.total;
+    page.value = table.data.page;
+    pageSize.value = table.data.pageSize;
+  }
+};
+
+getTableData();
+
+// ============== 表格控制部分结束 ===============
+
+// 多选数据
+const multipleSelection = ref([]);
+// 多选
+const handleSelectionChange = (val) => {
+  multipleSelection.value = val;
+};
+
+// 删除行
+const deleteRow = (row) => {
+  ElMessageBox.confirm('确定要删除吗?', '提示', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning'
+  }).then(() => {
+    deletePageFunc(row);
+  });
+};
+
+// 多选删除
+const onDelete = async () => {
+  ElMessageBox.confirm('确定要删除吗?', '提示', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning'
+  }).then(async () => {
+    const ids = [];
+    if (multipleSelection.value.length === 0) {
+      ElMessage({
+        type: 'warning',
+        message: '请选择要删除的数据'
+      });
+      return;
+    }
+    multipleSelection.value &&
+      multipleSelection.value.map((item) => {
+        ids.push(item.id);
+      });
+    const res = await deletePageByIds({ ids });
+    if (res.code === 0) {
+      ElMessage({
+        type: 'success',
+        message: '删除成功'
+      });
+      if (tableData.value.length === ids.length && page.value > 1) {
+        page.value--;
+      }
+      getTableData();
+    }
+  });
+};
+
+// 行为控制标记（弹窗内部需要增还是改）
+const type = ref('');
+
+// 更新行
+const updatePageFunc = async (row) => {
+  const res = await findPage({ id: row.id });
+  type.value = 'update';
+  if (res.code === 0) {
+    formData.value = res.data;
+    dialogFormVisible.value = true;
+  }
+};
+
+// 删除行
+const deletePageFunc = async (row) => {
+  const res = await deletePage({ id: row.id });
+  if (res.code === 0) {
+    ElMessage({
+      type: 'success',
+      message: '删除成功'
+    });
+    if (tableData.value.length === 1 && page.value > 1) {
+      page.value--;
+    }
+    getTableData();
+  }
+};
+
+// 弹窗控制标记
+const dialogFormVisible = ref(false);
+
+// 打开弹窗
+const openDialog = () => {
+  type.value = 'create';
+  dialogFormVisible.value = true;
+};
+
+// 关闭弹窗
+const closeDialog = () => {
+  dialogFormVisible.value = false;
+  formData.value = {
+    title: '',
+    cate_id: undefined,
+    author: '',
+    link: '',
+    name: '',
+    cover: '',
+    images: '',
+    seo_keywords: '',
+    seo_description: '',
+    description: '',
+    content: '',
+    sort: undefined,
+    display: false,
+    view: undefined,
+    review: false,
+    status: false
+  };
+};
+// 弹窗确定
+const enterDialog = async () => {
+  btnLoading.value = true;
+  elFormRef.value?.validate(async (valid) => {
+    if (!valid) return (btnLoading.value = false);
+    let res;
+    switch (type.value) {
+      case 'create':
+        res = await createPage(formData.value);
+        break;
+      case 'update':
+        res = await updatePage(formData.value);
+        break;
+      default:
+        res = await createPage(formData.value);
+        break;
+    }
+    btnLoading.value = false;
+    if (res.code === 0) {
+      ElMessage({
+        type: 'success',
+        message: '创建/更改成功'
+      });
+      closeDialog();
+      getTableData();
+    }
+  });
+};
+
+const detailForm = ref({});
+
+// 查看详情控制标记
+const detailShow = ref(false);
+
+// 打开详情弹窗
+const openDetailShow = () => {
+  detailShow.value = true;
+};
+
+// 打开详情
+const getDetails = async (row) => {
+  // 打开弹窗
+  const res = await findPage({ id: row.id });
+  if (res.code === 0) {
+    detailForm.value = res.data;
+    openDetailShow();
+  }
+};
+
+// 关闭详情弹窗
+const closeDetailShow = () => {
+  detailShow.value = false;
+  detailForm.value = {};
+};
+</script>
+
+<style></style>

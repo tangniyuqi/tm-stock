@@ -14,6 +14,21 @@ func initBizRouter(routers ...*gin.RouterGroup) {
 	publicGroup := routers[1]
 	holder(publicGroup, privateGroup)
 	{
+		memberRouter := router.RouterGroupApp.Member
+		memberRouter.InitMemberRouter(privateGroup, publicGroup)
+		memberRouter.InitSmsLogRouter(privateGroup, publicGroup)
+	}
+	{
+		clientRouter := router.RouterGroupApp.Client
+		clientRouter.InitAuthRouter(privateGroup, publicGroup)
+		clientRouter.InitMemberRouter(privateGroup, publicGroup)
+		clientRouter.InitNewsRouter(privateGroup, publicGroup)
+		clientRouter.InitThemeRouter(privateGroup, publicGroup)
+		clientRouter.InitThemeTopicRouter(privateGroup, publicGroup)
+		clientRouter.InitDictionaryRouter(privateGroup, publicGroup)
+		clientRouter.InitDictionaryDetailRouter(privateGroup, publicGroup)
+	}
+	{
 		addonRouter := router.RouterGroupApp.Addon
 		addonRouter.InitWeishiRouter(privateGroup, publicGroup)
 	}
@@ -53,6 +68,13 @@ func initBizRouter(routers ...*gin.RouterGroup) {
 		quantRouter.InitThemeTopicRouter(privateGroup, publicGroup)
 		quantRouter.InitThemeStockRouter(privateGroup, publicGroup)
 		quantRouter.InitAiTaskRouter(privateGroup, publicGroup)
+	}
+	{
+		cmsRouter := router.RouterGroupApp.Cms
+		cmsRouter.InitAdRouter(privateGroup, publicGroup)
+		cmsRouter.InitArticleRouter(privateGroup, publicGroup)
+		cmsRouter.InitFeedbackRouter(privateGroup, publicGroup)
+		cmsRouter.InitPageRouter(privateGroup, publicGroup)
 	}
 
 }

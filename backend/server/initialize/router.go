@@ -60,8 +60,8 @@ func Routers() *gin.Engine {
 	Router.Use(middleware.UploadResponseHeaders(global.GVA_CONFIG.Local.StorePath))
 	Router.StaticFS(global.GVA_CONFIG.Local.StorePath, justFilesFilesystem{http.Dir(global.GVA_CONFIG.Local.StorePath)})
 	// Router.Use(middleware.LoadTls())  // 如果需要使用https 请打开此中间件 然后前往 core/server.go 将启动模式 更变为 Router.RunTLS("端口","你的cre/pem文件","你的key文件")
-	// 跨域，如需跨域可以打开下面的注释
-	// Router.Use(middleware.Cors()) // 直接放行全部跨域请求
+	// 跨域：C 端独立前端（题材宝典 H5/App）跨域访问本服务，故放行全部跨域请求
+	Router.Use(middleware.Cors()) // 直接放行全部跨域请求
 	// Router.Use(middleware.CorsByRules()) // 按照配置的规则放行跨域请求
 	docs.SwaggerInfo.BasePath = global.GVA_CONFIG.System.RouterPrefix
 	Router.GET(global.GVA_CONFIG.System.RouterPrefix+"/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))

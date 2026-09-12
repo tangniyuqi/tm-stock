@@ -91,6 +91,11 @@ func (themeTopicService *ThemeTopicService) GetThemeTopicInfoList(ctx context.Co
 		db = db.Where("status = ?", *info.Status)
 	}
 
+	// 按发布日过滤（publish_date=YYYY-MM-DD）
+	if info.PublishDate != nil && *info.PublishDate != "" {
+		db = db.Where("publish_date = ?", *info.PublishDate)
+	}
+
 	if len(info.CreatedAtRange) == 2 {
 		db = db.Where("created_at BETWEEN ? AND ?", info.CreatedAtRange[0], info.CreatedAtRange[1])
 	}

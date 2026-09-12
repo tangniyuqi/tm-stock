@@ -249,6 +249,13 @@ func (i *initApi) InitializeData(ctx context.Context) (context.Context, error) {
 		{ApiGroup: "版本控制", Method: "POST", Path: "/sysVersion/importVersion", Description: "同步版本"},
 		{ApiGroup: "版本控制", Method: "DELETE", Path: "/sysVersion/deleteSysVersion", Description: "删除版本"},
 		{ApiGroup: "版本控制", Method: "DELETE", Path: "/sysVersion/deleteSysVersionByIds", Description: "批量删除版本"},
+
+		{ApiGroup: "会员管理", Method: "POST", Path: "/member/member/createMember", Description: "创建C端会员"},
+		{ApiGroup: "会员管理", Method: "DELETE", Path: "/member/member/deleteMember", Description: "删除C端会员"},
+		{ApiGroup: "会员管理", Method: "DELETE", Path: "/member/member/deleteMemberByIds", Description: "批量删除C端会员"},
+		{ApiGroup: "会员管理", Method: "PUT", Path: "/member/member/updateMember", Description: "更新C端会员"},
+		{ApiGroup: "会员管理", Method: "GET", Path: "/member/member/findMember", Description: "用id查询C端会员"},
+		{ApiGroup: "会员管理", Method: "GET", Path: "/member/member/getMemberList", Description: "分页获取C端会员列表"},
 	}
 	if err := db.Create(&entities).Error; err != nil {
 		return ctx, errors.Wrap(err, sysModel.SysApi{}.TableName()+"表数据初始化失败!")

@@ -1,0 +1,131 @@
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-13 00:01:03.420	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/service/system/auto_code_plugin.go:115	非标准插件，请按照文档自动迁移使用	{"node": "", "app_id": "", "env": ""}
+github.com/flipped-aurora/gin-vue-admin/server/service/system.(*autoCodePlugin).installTopLevel
+	/Users/a1/data/go/gin-vue-admin/server/service/system/auto_code_plugin.go:115
+github.com/flipped-aurora/gin-vue-admin/server/service/system.(*autoCodePlugin).Install
+	/Users/a1/data/go/gin-vue-admin/server/service/system/auto_code_plugin.go:37
+github.com/flipped-aurora/gin-vue-admin/server/api/v1/system.(*AutoCodePluginApi).Install
+	/Users/a1/data/go/gin-vue-admin/server/api/v1/system/auto_code_plugin.go:36
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/plugin/auto/initialize.InitializeRouter.DataScope.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/data_scope.go:26
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/plugin/auto/initialize.InitializeRouter.CasbinHandler.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/casbin_rbac.go:30
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/plugin/auto/initialize.InitializeRouter.MustChangePwdGuard.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/must_change_pwd.go:29
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/plugin/auto/initialize.InitializeRouter.JWTAuth.func1
+	/Users/a1/data/go/gin-vue-admin/server/middleware/jwt.go:69
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.Cors.func5
+	/Users/a1/data/go/gin-vue-admin/server/middleware/cors.go:26
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/middleware.UploadResponseHeaders.func1
+	/Users/a1/data/go/gin-vue-admin/server/middleware/upload_security.go:25
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.AccessLog.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/access_log.go:73
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:56
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.RequestMeta.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/request_meta.go:39
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-13 00:12:47.592	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/client/v1/member/auth.go:43	登录失败!	{"node": "", "app_id": "", "env": "", "error": "密码错误"}
+github.com/flipped-aurora/gin-vue-admin/server/api/client/v1/member.(*AuthApi).Login
+	/Users/a1/data/go/gin-vue-admin/server/api/client/v1/member/auth.go:43
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.Cors.func5
+	/Users/a1/data/go/gin-vue-admin/server/middleware/cors.go:26
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/middleware.UploadResponseHeaders.func1
+	/Users/a1/data/go/gin-vue-admin/server/middleware/upload_security.go:25
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.AccessLog.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/access_log.go:73
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:56
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.RequestMeta.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/request_meta.go:39
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
+[github.com/flipped-aurora/gin-vue-admin/server]2026-09-13 00:12:53.240	[31merror[0m	/Users/a1/data/go/gin-vue-admin/server/api/client/v1/member/auth.go:43	登录失败!	{"node": "", "app_id": "", "env": "", "error": "账号未注册"}
+github.com/flipped-aurora/gin-vue-admin/server/api/client/v1/member.(*AuthApi).Login
+	/Users/a1/data/go/gin-vue-admin/server/api/client/v1/member/auth.go:43
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.Cors.func5
+	/Users/a1/data/go/gin-vue-admin/server/middleware/cors.go:26
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/middleware.UploadResponseHeaders.func1
+	/Users/a1/data/go/gin-vue-admin/server/middleware/upload_security.go:25
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.LoggerWithConfig.func1
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/logger.go:249
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.AccessLog.func4
+	/Users/a1/data/go/gin-vue-admin/server/middleware/access_log.go:73
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.GinRecovery.func3
+	/Users/a1/data/go/gin-vue-admin/server/middleware/error.go:56
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/flipped-aurora/gin-vue-admin/server/initialize.Routers.RequestMeta.func2
+	/Users/a1/data/go/gin-vue-admin/server/middleware/request_meta.go:39
+github.com/gin-gonic/gin.(*Context).Next
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/context.go:185
+github.com/gin-gonic/gin.(*Engine).handleHTTPRequest
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:633
+github.com/gin-gonic/gin.(*Engine).ServeHTTP
+	/Users/a1/go/pkg/mod/github.com/gin-gonic/gin@v1.10.0/gin.go:589
+net/http.serverHandler.ServeHTTP
+	/usr/local/go/src/net/http/server.go:3311
+net/http.(*conn).serve
+	/usr/local/go/src/net/http/server.go:2073
