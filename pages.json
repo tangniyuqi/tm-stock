@@ -43,9 +43,128 @@
       }
     },
     {
+      "path": "pages/theme/index",
+      "style": {
+        "navigationBarTitleText": "题材宝典",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/theme/detail",
+      "style": {
+        "navigationBarTitleText": "题材详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/theme/treasure",
+      "style": {
+        "navigationBarTitleText": "题材资料",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/theme_topic/detail",
+      "style": {
+        "navigationBarTitleText": "题材动态",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/member/index",
       "style": {
         "navigationBarTitleText": "我的",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/member/asset/index",
+      "style": {
+        "navigationBarTitleText": "我的积分",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/member/register",
+      "style": {
+        "navigationBarTitleText": "注册",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/member/forget",
+      "style": {
+        "navigationBarTitleText": "找回密码",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/member/reset-password",
+      "style": {
+        "navigationBarTitleText": "重置密码",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/member/setting/index",
+      "style": {
+        "navigationBarTitleText": "账号设置",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/member/setting/account",
+      "style": {
+        "navigationBarTitleText": "账号信息",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/member/setting/change-password",
+      "style": {
+        "navigationBarTitleText": "修改密码",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/member/setting/mobile",
+      "style": {
+        "navigationBarTitleText": "修改手机号",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/member/setting/profile",
+      "style": {
+        "navigationBarTitleText": "个人资料",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/member/setting/realname",
+      "style": {
+        "navigationBarTitleText": "实名认证",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/cms/feedback/index",
+      "style": {
+        "navigationBarTitleText": "意见反馈",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/cms/help/index",
+      "style": {
+        "navigationBarTitleText": "帮助中心",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/cms/page/detail",
+      "style": {
+        "navigationBarTitleText": "内容详情",
         "navigationStyle": "custom"
       }
     },
