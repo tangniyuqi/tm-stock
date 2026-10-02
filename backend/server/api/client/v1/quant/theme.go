@@ -9,7 +9,6 @@ import (
 
 	"github.com/flipped-aurora/gin-vue-admin/server/model/common/response"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/quant"
-	quantReq "github.com/flipped-aurora/gin-vue-admin/server/model/quant/request"
 	"github.com/flipped-aurora/gin-vue-admin/server/service"
 	"github.com/gin-gonic/gin"
 )
@@ -139,11 +138,10 @@ func (t *ThemeApi) Treasure(c *gin.Context) {
 	var latest time.Time
 	for _, th := range list {
 		rows = append(rows, ThemeRowItem{
-			Id:      strconv.FormatUint(uint64(th.ID), 10),
-			Name:    strVal(th.Name),
-			Change:  floatVal(th.ChangePct),
-			Heat:    int(int32Val(th.StockCount)),
-			Leaders: t.loadThemeLeaders(ctx, int32(th.ID), 3),
+			Id:     strconv.FormatUint(uint64(th.ID), 10),
+			Name:   strVal(th.Name),
+			Change: floatVal(th.ChangePct),
+			Heat:   int(int32Val(th.StockCount)),
 		})
 		if th.UpdatedAt.After(latest) {
 			latest = th.UpdatedAt
@@ -159,27 +157,6 @@ func (t *ThemeApi) Treasure(c *gin.Context) {
 		TopThemes:  top,
 		ThemeList:  rows,
 	}, "获取成功", c)
-}
-
-// loadThemeLeaders 取题材的领涨股名称（tier=1 龙头）
-func (t *ThemeApi) loadThemeLeaders(ctx context.Context, themeID int32, limit int) []string {
-	info := quantReq.ThemeStockSearch{}
-	info.Page = 1
-	info.PageSize = limit
-	tier := int32(1)
-	info.Tier = &tier
-	info.ThemeId = &themeID
-	list, _, err := themeStockService.GetThemeStockInfoList(ctx, info)
-	if err != nil {
-		return []string{}
-	}
-	names := make([]string, 0, len(list))
-	for _, ts := range list {
-		if ts.Stock != nil && ts.Stock.Name != nil {
-			names = append(names, *ts.Stock.Name)
-		}
-	}
-	return names
 }
 
 // ============ 题材详情 ============
@@ -230,12 +207,8 @@ func (t *ThemeApi) buildFieldGroup(ctx context.Context, child *quant.Theme) Them
 		Desc:    strVal(child.Description),
 		Symbols: []ThemeStockItem{},
 	}
-	themeID := int32(child.ID)
-	info := quantReq.ThemeStockSearch{}
-	info.Page = 1
-	info.PageSize = 100
-	info.ThemeId = &themeID
-	list, _, err := themeStockService.GetThemeStockInfoList(ctx, info)
+	// 只取 C 端可见的关联。后台列表会返回草稿与已驳回的记录，不能拿来给 C 端用。
+	list, err := themeStockService.ListPublicThemeStocks(ctx, int32(child.ID), 100)
 	if err != nil {
 		return group
 	}
@@ -245,24 +218,38 @@ func (t *ThemeApi) buildFieldGroup(ctx context.Context, child *quant.Theme) Them
 	return group
 }
 
-// mapThemeStock 题材入选标的映射
+// themeStockSourceNames 依据类型的展示名（与库里 source_type 的取值一致）
+var themeStockSourceNames = map[int8]string{
+	quant.ThemeStockSourceAnnouncement: "公告",
+	quant.ThemeStockSourceAnnualReport: "年报",
+	quant.ThemeStockSourceProspectus:   "招股书",
+	quant.ThemeStockSourceCatalog:      "官方产业目录",
+	quant.ThemeStockSourceInteractive:  "互动易问答",
+}
+
+// mapThemeStock 题材入选标的映射。
+// 只输出客观事实：股票名称与代码、涨跌幅、以及"凭什么归到这个题材"的依据（类型、原文摘录、链接、采集时点）。
+// 不输出任何评价性内容：没有地位标识、没有梯队、没有相关度、没有 AI 或人工的"入选逻辑"。
 func (t *ThemeApi) mapThemeStock(ts quant.ThemeStock) ThemeStockItem {
 	item := ThemeStockItem{
-		Key:          strconv.FormatUint(uint64(ts.ID), 10),
-		Id:           int64Val(ts.StockId),
-		Reason:       strVal(ts.Reason),
-		ManualReason: strVal(ts.Reason),
-		AiReason:     strVal(ts.AiReason),
+		Key: strconv.FormatUint(uint64(ts.ID), 10),
+		Id:  int64Val(ts.StockId),
+		Evidence: ThemeStockEvidence{
+			Excerpt: ts.SourceExcerpt,
+			Url:     ts.SourceUrl,
+		},
 	}
-	if ts.Tier != nil && *ts.Tier == 1 {
-		item.Leader = 1
+	if ts.SourceType != nil {
+		item.Evidence.SourceType = themeStockSourceNames[*ts.SourceType]
+	}
+	if ts.CollectedAt != nil {
+		item.Evidence.CollectedAt = ts.CollectedAt.UnixMilli()
+		item.UpdateAt = ts.CollectedAt.Format("2006-01-02 15:04")
 	}
 	if ts.Stock != nil {
 		item.Name = strVal(ts.Stock.Name)
+		item.Code = ts.TsCode
 		item.Pct = floatVal(ts.Stock.ChangePct)
-	}
-	if ts.InDate != nil {
-		item.UpdateAt = ts.InDate.Format("2006-01-02 15:04")
 	}
 	return item
 }
@@ -278,11 +265,10 @@ type TopThemeItem struct {
 
 // ThemeRowItem 题材全景表行
 type ThemeRowItem struct {
-	Id      string   `json:"id"`      // 题材ID
-	Name    string   `json:"name"`    // 题材名称
-	Change  float64  `json:"change"`  // 涨跌幅（%）
-	Heat    int      `json:"heat"`    // 热度
-	Leaders []string `json:"leaders"` // 领涨股名称列表
+	Id     string  `json:"id"`     // 题材ID
+	Name   string  `json:"name"`   // 题材名称
+	Change float64 `json:"change"` // 涨跌幅（%）
+	Heat   int     `json:"heat"`   // 热度
 }
 
 // TreasureResp 题材宝典概览
@@ -298,17 +284,23 @@ type SegmentInfo struct {
 	Name string `json:"name"` // 细分领域名称
 }
 
-// ThemeStockItem 入选标的
+// ThemeStockEvidence 归属依据：这家公司凭什么归到这个题材（客观事实，可溯源）
+type ThemeStockEvidence struct {
+	SourceType  string `json:"sourceType"`  // 依据类型：公告/年报/招股书/官方产业目录/互动易问答
+	Excerpt     string `json:"excerpt"`     // 原文摘录
+	Url         string `json:"url"`         // 原文链接
+	CollectedAt int64  `json:"collectedAt"` // 采集时点（毫秒时间戳）
+}
+
+// ThemeStockItem 入选标的。只含客观事实，不含任何评价性字段（地位标识、梯队、相关度、入选逻辑）。
 type ThemeStockItem struct {
-	Key          string  `json:"key"`          // 行标识
-	Id           int64   `json:"id"`           // 标的ID
-	Name         string  `json:"name"`         // 股票名称
-	Leader       int     `json:"leader"`       // 是否龙头：1是 / 0否
-	Pct          float64 `json:"pct"`          // 涨跌幅（%）
-	Reason       string  `json:"reason"`       // 入选原因（列表展示）
-	ManualReason string  `json:"manualReason"` // 精选逻辑（人工，抽屉展示）
-	AiReason     string  `json:"aiReason"`     // AI 入选逻辑（抽屉展示）
-	UpdateAt     string  `json:"updateAt"`     // 入选逻辑更新时间
+	Key      string             `json:"key"`      // 行标识
+	Id       int64              `json:"id"`       // 标的ID
+	Name     string             `json:"name"`     // 股票名称
+	Code     string             `json:"code"`     // TS 代码
+	Pct      float64            `json:"pct"`      // 涨跌幅（%）
+	Evidence ThemeStockEvidence `json:"evidence"` // 归属依据
+	UpdateAt string             `json:"updateAt"` // 依据采集时间
 }
 
 // ThemeFieldGroup 题材下的一个细分领域分组

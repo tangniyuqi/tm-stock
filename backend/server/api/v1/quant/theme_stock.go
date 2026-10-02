@@ -5,6 +5,7 @@ import (
 	"github.com/flipped-aurora/gin-vue-admin/server/model/common/response"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/quant"
 	quantReq "github.com/flipped-aurora/gin-vue-admin/server/model/quant/request"
+	serviceQuant "github.com/flipped-aurora/gin-vue-admin/server/service/quant"
 	"github.com/flipped-aurora/gin-vue-admin/server/utils"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -34,11 +35,16 @@ func (themeStockApi *ThemeStockApi) CreateThemeStock(c *gin.Context) {
 	themeStock.CreatedBy = utils.GetUserID(c)
 	err = themeStockService.CreateThemeStock(ctx, &themeStock)
 	if err != nil {
+		if serviceQuant.IsThemeStockEvidenceError(err) {
+			// 依据校验失败是操作员可以自己修的问题，不是系统错误：直接回显原因，不记错误日志
+			response.FailWithMessage("创建失败:"+err.Error(), c)
+			return
+		}
 		global.GVA_LOG.Error("创建失败!", zap.Error(err))
 		response.FailWithMessage("创建失败:"+err.Error(), c)
 		return
 	}
-	response.OkWithMessage("创建成功", c)
+	response.OkWithMessage("创建成功（新建的关联默认为草稿，审核通过后才会对 C 端可见）", c)
 }
 
 // DeleteThemeStock 删除题材股票
@@ -108,10 +114,18 @@ func (themeStockApi *ThemeStockApi) UpdateThemeStock(c *gin.Context) {
 		return
 	}
 	themeStock.UpdatedBy = utils.GetUserID(c)
-	err = themeStockService.UpdateThemeStock(ctx, themeStock)
+	auditReset, err := themeStockService.UpdateThemeStock(ctx, themeStock)
 	if err != nil {
+		if serviceQuant.IsThemeStockEvidenceError(err) {
+			response.FailWithMessage("更新失败:"+err.Error(), c)
+			return
+		}
 		global.GVA_LOG.Error("更新失败!", zap.Error(err))
 		response.FailWithMessage("更新失败:"+err.Error(), c)
+		return
+	}
+	if auditReset {
+		response.OkWithMessage("更新成功。关联键或依据已变动，原审核结论作废，已重置为草稿，需重新审核", c)
 		return
 	}
 	response.OkWithMessage("更新成功", c)
@@ -190,94 +204,4 @@ func (themeStockApi *ThemeStockApi) GetThemeStockPublic(c *gin.Context) {
 	response.OkWithDetailed(gin.H{
 		"info": "不需要鉴权的题材股票接口信息",
 	}, "获取成功", c)
-}
-
-// AiAddThemeStocks AI智能添加题材股票（异步任务化）
-// @Tags ThemeStock
-// @Summary AI智能为题材添加股票（已存在股票可按配置覆盖或跳过；存量暴雷股自动标记下架），提交后立即返回任务ID，执行进度可通过任务接口查询
-// @Security ApiKeyAuth
-// @Accept application/json
-// @Produce application/json
-// @Param data body quantReq.AiAddThemeStockReq true "AI智能添加题材股票请求"
-// @Success 200 {object} response.Response{data=object,msg=string} "任务已创建"
-// @Router /themeStock/aiAddThemeStocks [post]
-func (themeStockApi *ThemeStockApi) AiAddThemeStocks(c *gin.Context) {
-	// 创建业务用Context
-	ctx := c.Request.Context()
-
-	var req quantReq.AiAddThemeStockReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.FailWithMessage(err.Error(), c)
-		return
-	}
-	userID := utils.GetUserID(c)
-	taskID, err := themeStockService.AiAddThemeStocks(ctx, req, userID)
-	if err != nil {
-		global.GVA_LOG.Error("AI添加题材股票任务创建失败!", zap.Error(err))
-		response.FailWithMessage("AI添加题材股票失败:"+err.Error(), c)
-		return
-	}
-	response.OkWithDetailed(gin.H{
-		"task_id": taskID,
-	}, "任务已创建，可前往执行记录查看进度", c)
-}
-
-// AiUpdateThemeStock AI智能更新题材股票（异步任务化）
-// @Tags ThemeStock
-// @Summary AI一键更新个股的入选逻辑、梯队、相关度，提交后立即返回任务ID
-// @Security ApiKeyAuth
-// @Accept application/json
-// @Produce application/json
-// @Param data body quantReq.AiUpdateThemeStockReq true "AI更新题材股票请求"
-// @Success 200 {object} response.Response{data=object,msg=string} "任务已创建"
-// @Router /themeStock/aiUpdateThemeStock [post]
-func (themeStockApi *ThemeStockApi) AiUpdateThemeStock(c *gin.Context) {
-	// 创建业务用Context
-	ctx := c.Request.Context()
-
-	var req quantReq.AiUpdateThemeStockReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.FailWithMessage(err.Error(), c)
-		return
-	}
-	userID := utils.GetUserID(c)
-	taskID, err := themeStockService.AiUpdateThemeStock(ctx, req, userID)
-	if err != nil {
-		global.GVA_LOG.Error("AI更新题材股票任务创建失败!", zap.Error(err))
-		response.FailWithMessage("AI更新题材股票失败:"+err.Error(), c)
-		return
-	}
-	response.OkWithDetailed(gin.H{
-		"task_id": taskID,
-	}, "任务已创建，可前往执行记录查看进度", c)
-}
-
-// AiUpdateThemeStocks AI批量更新题材股票（异步任务化）
-// @Tags ThemeStock
-// @Summary AI批量更新所选个股的入选逻辑、梯队、相关度，提交后立即返回任务ID
-// @Security ApiKeyAuth
-// @Accept application/json
-// @Produce application/json
-// @Param data body quantReq.AiUpdateThemeStocksReq true "AI批量更新题材股票请求"
-// @Success 200 {object} response.Response{data=object,msg=string} "任务已创建"
-// @Router /themeStock/aiUpdateThemeStocks [post]
-func (themeStockApi *ThemeStockApi) AiUpdateThemeStocks(c *gin.Context) {
-	// 创建业务用Context
-	ctx := c.Request.Context()
-
-	var req quantReq.AiUpdateThemeStocksReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.FailWithMessage(err.Error(), c)
-		return
-	}
-	userID := utils.GetUserID(c)
-	taskID, err := themeStockService.AiUpdateThemeStocks(ctx, req, userID)
-	if err != nil {
-		global.GVA_LOG.Error("AI批量更新题材股票任务创建失败!", zap.Error(err))
-		response.FailWithMessage("AI批量更新题材股票失败:"+err.Error(), c)
-		return
-	}
-	response.OkWithDetailed(gin.H{
-		"task_id": taskID,
-	}, "任务已创建，可前往执行记录查看进度", c)
 }

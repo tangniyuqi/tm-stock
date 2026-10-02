@@ -22,7 +22,6 @@ func (s *BaseStockRouter) InitBaseStockRouter(Router *gin.RouterGroup, PublicRou
 		baseStockRouter.PUT("updateBaseStock", baseStockApi.UpdateBaseStock)              // 更新基础股票
 		baseStockRouter.GET("sync", baseStockApi.Sync)                                    // 同步基础股票数据
 		baseStockRouter.POST("updateAllChangePct", baseStockApi.UpdateAllChangePct)       // 一键更新全部股票涨跌幅
-		baseStockRouter.POST("aiAnalyzeStocks", baseStockApi.AiAnalyzeStocks)             // AI自动分析股票
 		baseStockRouter.DELETE("clear", baseStockApi.Clear)                               // 清除全部基础股票数据
 	}
 	{

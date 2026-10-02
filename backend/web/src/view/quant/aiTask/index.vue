@@ -175,11 +175,13 @@ defineOptions({
 const route = useRoute();
 
 // 任务类型映射
+// 四类 AI 任务已全部下线（docs/specs/ai-analysis：AI 不再生成题材↔个股归属、梯队、相关度，也不再给个股写评价类分析），
+// 这里仅保留类型名，用于查看历史任务；调度器会把遗留任务直接落成失败，也不能重启。
 const taskTypeOptions = [
-  { value: 'ai_add', label: '题材股票（选股）' },
-  { value: 'ai_update_one', label: '题材股票' },
-  { value: 'ai_update_batch', label: '题材股票（批量）' },
-  { value: 'ai_analyze', label: '基础股票' },
+  { value: 'ai_add', label: '题材股票（选股）· 已下线' },
+  { value: 'ai_update_one', label: '题材股票 · 已下线' },
+  { value: 'ai_update_batch', label: '题材股票（批量）· 已下线' },
+  { value: 'ai_analyze', label: '基础股票（分析）· 已下线' },
 ];
 const taskTypeMap = Object.fromEntries(taskTypeOptions.map(item => [item.value, item]));
 

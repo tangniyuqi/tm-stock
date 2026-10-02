@@ -60,6 +60,8 @@
       </view>
     </view>
 
+    <view class="mock-tip"><x-text fontSize="12" color="#E6A23C">示例数据：下列个股、涨跌幅与说明均为界面示例，非真实行情与真实依据</x-text></view>
+
     <!-- 细分领域折叠面板 -->
     <x-sheet color="#FFF" padding="0" round="16">
       <x-collapse v-model="activeNames" :multiple="expandAll">
@@ -93,7 +95,7 @@
             fontSize="12"
             cellHeight="48"
           >
-            <!-- 股票名称：龙头股加标识，涨跌幅放在名称下方 -->
+            <!-- 股票名称，涨跌幅放在名称下方（不加任何评价性标识） -->
             <template #cell="{ item, key }">
               <view v-if="key == 'name'" class="theme-name-cell" @click="onViewReason(item, item.name)">
                 <x-text font-size="13" class="text-weight-b" color="#1d2129">{{ item.name }}</x-text>
@@ -114,20 +116,9 @@
       </view>
     </x-drawer>
 
-    <!-- 底部抽屉：查看个股入选逻辑，分【AI题材逻辑】与【精选逻辑】两个区块 -->
+    <!-- 底部抽屉：查看个股入选依据 -->
     <x-drawer v-model:show="showReason" :title="reasonTitle" showClose showFooter size="90%" round="12" contentMargin="0">
       <view class="drawer-reason">
-        <x-tabs
-          :list="reasonTabs"
-          :modelValue="reasonActive"
-          @change="onReasonTabChange"
-          fontSize="15"
-          activeTitleColor="#e93030"
-          titleColor="#888888"
-          lineColor="#e93030"
-          height="40"
-          titlePadding="14px"
-        />
 
         <view class="reason-block">
           <x-text fontSize="14" color="#333" lineHeight="1.6" class="reason-text">{{ currentReasonByTab }}</x-text>
@@ -139,10 +130,10 @@
         </view>
       </view>
 
-      <!-- 底部操作栏：查看完整分析 -->
+      <!-- 底部操作栏：查看依据原文（原文链接待接入） -->
       <template #footer>
         <view class="drawer-footer-btn">
-          <x-button skin="outline" fontColor="#e93030" block @click="onViewFullAnalysis">查看更多分析</x-button>
+          <x-button skin="outline" fontColor="#e93030" block @click="onViewEvidence">查看依据原文</x-button>
         </view>
       </template>
     </x-drawer>
@@ -229,21 +220,17 @@ const items = [
         key: '10001',
         id: 10001,
         name: '茂莱光学',
-        leader: 1,
         pct: 6.85,
-        reason: '精密光学龙头，光刻机光源系统核心供应商',
-        manualReason: '精密光学细分领域的代表性厂商，长期专注于高端光学元件与精密光学系统的研发制造，是光刻机光源环节的核心配套供应商。',
-        aiReason: 'AI梳理：根据公开资料，公司主营精密光学元件与系统，覆盖半导体高端制造领域，与光刻机光源系统的用光环节存在直接业务对应关系。'
+        reason: '精密光学元件与系统业务',
+        manualReason: '公司业务包括精密光学元件与精密光学系统的研发与制造，涉及光刻机光源系统所需的光学部件。'
       },
       {
         key: '10002',
         id: 10002,
         name: '波长光电',
-        leader: 0,
         pct: 4.52,
-        reason: '红外光学元器件厂商，受益光源需求增长',
-        manualReason: '深耕红外光学元器件领域，产品覆盖光刻机光源系统中所需的红外光电部件，属于产业链上的核心配套环节。',
-        aiReason: 'AI梳理：公司业务以红外光学器件为主，其产品类型与光源系统的红外元器件需求存在对应关系。'
+        reason: '红外光学元器件业务',
+        manualReason: '公司业务包括红外光学元器件，产品涉及光刻机光源系统所需的红外光电部件。'
       }
     ]
   },
@@ -258,11 +245,9 @@ const items = [
         key: '10001',
         id: 10001,
         name: '赛微电子',
-        leader: 1,
         pct: 5.34,
-        reason: 'MEMS光学器件布局，物镜核心环节',
-        manualReason: '在 MEMS 光学器件方向有明确布局，物镜环节所需的微型光学执行部件与其业务相衔接。',
-        aiReason: 'AI梳理：公司布局 MEMS 光学器件，与物镜环节的精密光学部件需求相关联。'
+        reason: 'MEMS光学器件业务',
+        manualReason: '公司在 MEMS 光学器件方向有业务布局，涉及物镜环节所需的微型光学执行部件。'
       }
     ]
   },
@@ -277,11 +262,9 @@ const items = [
         key: '10001',
         id: 10001,
         name: '容大感光',
-        leader: 1,
         pct: 5.81,
-        reason: '光刻胶国产化，PCB及半导体双布局',
-        manualReason: '光刻胶赛道的重要国产厂商，在 PCB 光刻胶领域已形成规模放量，并向半导体光刻胶方向持续突破，是国产替代的代表性标的。',
-        aiReason: 'AI梳理：公司主营光刻胶，覆盖 PCB 与半导体两大应用领域，与光刻工艺的核心感光材料需求直接对应。'
+        reason: '光刻胶业务，涉及PCB及半导体领域',
+        manualReason: '公司业务包括光刻胶产品，应用于 PCB 与半导体领域。'
       }
     ]
   },
@@ -296,11 +279,9 @@ const items = [
         key: '10001',
         id: 10001,
         name: '清溢光电',
-        leader: 1,
         pct: 6.37,
-        reason: '掩膜版龙头，半导体及平板显示全覆盖',
-        manualReason: '掩膜版领域的代表性厂商，产品覆盖半导体与平板显示两大领域，处于国产掩膜版产业链的关键环节。',
-        aiReason: 'AI梳理：公司主营掩膜版，覆盖半导体与显示两大下游，与光刻工艺的图形母版需求直接对应。'
+        reason: '掩膜版业务，涉及半导体及平板显示领域',
+        manualReason: '公司业务包括掩膜版产品，应用于半导体与平板显示领域。'
       }
     ]
   },
@@ -315,11 +296,9 @@ const items = [
         key: '10001',
         id: 10001,
         name: '华卓精科',
-        leader: 1,
         pct: 7.02,
-        reason: '双工件台核心厂商，光刻机关键子系统',
-        manualReason: '双工件台方向的代表性厂商，掌握精密运动控制与光栅尺测量等核心技术，是高端光刻机核心子系统的关键配套标的。',
-        aiReason: 'AI梳理：公司主营双工件台系统，是光刻机边测量边曝光的核心子系统，业务对应关系直观。'
+        reason: '双工件台业务',
+        manualReason: '公司业务包括双工件台系统，涉及精密运动控制与光栅尺测量。'
       }
     ]
   }
@@ -341,31 +320,19 @@ const showDesc = ref(false)
 const currentDesc = ref('')
 const drawerTitle = ref('题材介绍')
 
-// 入选逻辑抽屉：精选逻辑（人工）与 AI 入选逻辑，通过 x-tabs 切换
+// 入选依据抽屉：展示该个股的入选依据（当前为示例文案）
 const showReason = ref(false)
 const currentManualReason = ref('')
-const currentAiReason = ref('')
 const reasonTitle = ref('入选逻辑')
 
-// x-tabs 数据与绑定：0=AI题材逻辑、1=精选逻辑（人工补充）
-const reasonTabs = [
-  { title: 'AI题材逻辑' },
-  { title: '精选逻辑' },
-]
-const reasonActive = ref(0)
 // 入选逻辑更新时间（静态占位，后续接入真实更新时间）
 const updateTime = '2026-09-04 09:30'
 
 // 根据当前激活 tab 展示对应内容
 const currentReasonByTab = computed((): string => {
-  if (reasonActive.value == 0) return currentAiReason.value
   return currentManualReason.value
 })
 
-// 切换 tab：记录当前激活项
-const onReasonTabChange = (item: any, index: number) => {
-  reasonActive.value = index
-}
 
 // 点击查看：记录描述内容与标题并打开题材描述抽屉
 const onViewDesc = (desc: string, title: string = '题材介绍') => {
@@ -374,17 +341,15 @@ const onViewDesc = (desc: string, title: string = '题材介绍') => {
   showDesc.value = true
 }
 
-// 点击个股入选原因：记录两条逻辑并打开入选逻辑抽屉
+// 点击个股入选原因：记录入选依据并打开抽屉
 const onViewReason = (symbol: any, title: string) => {
   currentManualReason.value = symbol.manualReason
-  currentAiReason.value = symbol.aiReason
   reasonTitle.value = title
-  reasonActive.value = 0
   showReason.value = true
 }
 
-// 查看完整分析：落地页待接入，当前先关闭抽屉占位
-const onViewFullAnalysis = () => {
+// 查看依据原文：原文链接待接入，当前先关闭抽屉占位
+const onViewEvidence = () => {
   showReason.value = false
 }
 
@@ -461,7 +426,7 @@ const onExpandAll = () => {
   padding: 12px 12px 32px 12px;
 }
 
-// 底部抽屉内个股入选逻辑：x-tabs 切换、正文在下
+// 底部抽屉内个股入选依据：正文在下
 .drawer-reason {
   padding: 4px 12px 32px 12px;
 }
@@ -500,5 +465,9 @@ const onExpandAll = () => {
   width: 100%;
   font-size: 13px;
   color: #1d2129;
+}
+
+.mock-tip {
+	padding: 4px 16px 8px 16px;
 }
 </style>

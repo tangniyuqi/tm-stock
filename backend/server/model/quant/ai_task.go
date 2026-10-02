@@ -10,7 +10,7 @@ import (
 // 记录 AI 智能选股 / AI 更新 / AI 分析等异步任务的执行状态与进度，供前端执行进度页面轮询展示
 type QuantAiTask struct {
 	global.GVA_MODEL_ADDON
-	Type        string     `json:"type" gorm:"comment:任务类型;column:type;size:32;index"`       // 任务类型: ai_add=AI智能选股 ai_update_one=AI单只更新 ai_update_batch=题材股票批量更新 ai_analyze=AI股票分析
+	Type        string     `json:"type" gorm:"comment:任务类型;column:type;size:32;index"`       // 任务类型（四类均已下线，仅用于查看历史）: ai_add=AI智能选股 ai_update_one=AI单只更新 ai_update_batch=题材股票批量更新 ai_analyze=AI股票分析
 	Name        string     `json:"name" gorm:"comment:任务名称;column:name;size:128"`            // 任务名称（如"AI智能选股：机器人概念"）
 	Status      int        `json:"status" gorm:"comment:任务状态;column:status;size:8;index"`    // 任务状态: 0=运行中 1=成功 2=失败 3=已取消 4=待调度
 	Total       int        `json:"total" gorm:"comment:总进度;column:total;size:8"`             // 总进度（AI选股为预估数，实际以完成时为准）

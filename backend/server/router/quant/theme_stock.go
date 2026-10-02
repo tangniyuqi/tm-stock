@@ -17,9 +17,6 @@ func (s *ThemeStockRouter) InitThemeStockRouter(Router *gin.RouterGroup, PublicR
 	themeStockRouterWithoutAuth := quantRouterWithoutAuth.Group("themeStock")
 	{
 		themeStockRouter.POST("createThemeStock", themeStockApi.CreateThemeStock)             // 新建题材股票
-		themeStockRouter.POST("aiAddThemeStocks", themeStockApi.AiAddThemeStocks)             // AI智能添加题材股票
-		themeStockRouter.POST("aiUpdateThemeStock", themeStockApi.AiUpdateThemeStock)         // AI智能更新题材股票
-		themeStockRouter.POST("aiUpdateThemeStocks", themeStockApi.AiUpdateThemeStocks)       // AI智能批量更新题材股票
 		themeStockRouter.DELETE("deleteThemeStock", themeStockApi.DeleteThemeStock)           // 删除题材股票
 		themeStockRouter.DELETE("deleteThemeStockByIds", themeStockApi.DeleteThemeStockByIds) // 批量删除题材股票
 		themeStockRouter.PUT("updateThemeStock", themeStockApi.UpdateThemeStock)              // 更新题材股票
@@ -30,7 +27,5 @@ func (s *ThemeStockRouter) InitThemeStockRouter(Router *gin.RouterGroup, PublicR
 	}
 	{
 		themeStockRouterWithoutAuth.GET("getThemeStockPublic", themeStockApi.GetThemeStockPublic) // 题材股票开放接口
-		themeStockRouterWithoutAuth.GET("find", themeStockApi.FindThemeStock)                     // 根据ID获取题材股票（开放接口）
-		themeStockRouterWithoutAuth.GET("list", themeStockApi.GetThemeStockList)                  // 获取题材股票列表（开放接口）
 	}
 }

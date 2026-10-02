@@ -141,26 +141,6 @@ export const clear = () => {
 };
 
 // @Tags BaseStock
-// @Summary AI自动分析股票基本面
-// @Security ApiKeyAuth
-// @Accept application/json
-// @Produce application/json
-// @Param data body quantReq.AiAnalyzeStockReq true "AI自动分析股票请求"
-// @Success 200 {object} response.Response{data=object,msg=string} "分析完成"
-// @Router /quant/baseStock/aiAnalyzeStocks [post]
-export const aiAnalyzeStocks = (data, config = {}) => {
-  return service({
-    url: '/quant/baseStock/aiAnalyzeStocks',
-    method: 'post',
-    data,
-    // AI 分析耗时长，默认不显示全局 loading，避免整个页面被遮罩；如需显示可传 donNotShowLoading: false
-    donNotShowLoading: true,
-    // 支持透传 axios 配置（如 signal 用于取消请求）
-    ...config,
-  });
-};
-
-// @Tags BaseStock
 // @Summary 一键更新全部股票涨跌幅（通过 Tushare 获取最近交易日行情）
 // @Security ApiKeyAuth
 // @Accept application/json
