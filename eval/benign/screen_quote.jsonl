@@ -1,0 +1,15 @@
+{"id":"BSQ-001","kind":"screen_quote","channel":"quote","tags":["pass","neutral_fact"],"note":"普通业绩事实","quote":"星河科技2025年上半年营业收入为12.80亿元，同比增长9.3%。","expect":{"action":"pass"}}
+{"id":"BSQ-002","kind":"screen_quote","channel":"quote","tags":["pass","reduction_plan"],"note":"减持计划公告属于事实披露","quote":"控股股东拟减持公司股份不超过总股本的1%。","expect":{"action":"pass"}}
+{"id":"BSQ-003","kind":"screen_quote","channel":"quote","tags":["pass","near_neighbor"],"note":"预计后不接涨跌词","quote":"公司预计2026年二季度完成设备安装调试。","expect":{"action":"pass"}}
+{"id":"BSQ-004","kind":"screen_quote","channel":"quote","tags":["pass","near_neighbor"],"note":"目标≠目标价；龙岗区只是地名","quote":"公司目标是完成年度生产计划。龙岗区厂房已竣工验收。","expect":{"action":"pass"}}
+{"id":"BSQ-005","kind":"screen_quote","channel":"quote","tags":["pass","multi_sentence"],"note":"多句干净","quote":"云岫算力成立于2010年。公司总部位于杭州。公司主营算力服务。","expect":{"action":"pass"}}
+{"id":"BSQ-006","kind":"screen_quote","channel":"quote","tags":["pass","zero_width"],"note":"零宽字符在规范化后消失，剩余干净","quote":"星河科技\u200b披露了算力业务进展。","expect":{"action":"pass"}}
+{"id":"BSQ-007","kind":"screen_quote","channel":"quote","tags":["pass","fullwidth_mix"],"note":"全角数字规范化后干净","quote":"公司２０２５年上半年营业收入为１２．８亿元。","expect":{"action":"pass"}}
+{"id":"BSQ-008","kind":"screen_quote","channel":"quote","tags":["pass","newline"],"note":"标题行加正文","quote":"公告摘要\n星河科技披露了算力业务进展。","expect":{"action":"pass"}}
+{"id":"BSQ-009","kind":"screen_quote","channel":"quote","tags":["pass","near_neighbor"],"note":"同比增长一倍不是“翻倍”","quote":"公司2025年上半年净利润同比增长一倍。","expect":{"action":"pass"}}
+{"id":"BSQ-010","kind":"screen_quote","channel":"quote","tags":["pass","near_neighbor"],"note":"建议后接非买卖动作","quote":"董事会建议股东大会审议年度利润分配预案。","expect":{"action":"pass"}}
+{"id":"BSQ-011","kind":"screen_quote","channel":"quote","tags":["pass","neutral_fact"],"note":"题材归属事实加依据","quote":"星河科技（388801）属于算力题材。依据为《2025年半年度报告》第三节。","expect":{"action":"pass"}}
+{"id":"BSQ-012","kind":"screen_quote","channel":"quote","tags":["pass","quote_marks"],"note":"带引号的普通法律表述","quote":"公司公告称：“本次交易不构成重大资产重组。”","expect":{"action":"pass"}}
+{"id":"BSQ-013","kind":"screen_quote","channel":"quote","tags":["pass","neutral_fact"],"note":"客观涨跌幅事实与口径说明","quote":"星河科技今日收盘上涨3.2%，成交额为8.6亿元。数据来源交易所，延时15分钟。","expect":{"action":"pass"}}
+{"id":"BSQ-014","kind":"screen_quote","channel":"quote","tags":["pass","near_neighbor"],"note":"受益前无预计/有望/将","quote":"本期净利润增长主要受益于产品销量增加。","expect":{"action":"pass"}}
+{"id":"BSQ-015","kind":"screen_quote","channel":"quote","tags":["pass","near_neighbor"],"note":"龙岗区与单独的“持有”","quote":"公司全资子公司在深圳市龙岗区租赁厂房用于生产。公司持有该子公司100%的股权。","expect":{"action":"pass"}}

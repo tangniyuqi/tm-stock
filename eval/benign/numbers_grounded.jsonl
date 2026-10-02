@@ -1,0 +1,22 @@
+{"id":"BNG-001","kind":"numbers_grounded","channel":"model_output","tags":["exact"],"note":"逐字一致","display":"营业收入为12.5亿元","quote":"营业收入为12.5亿元","allowed":[],"expect":{"ok":true}}
+{"id":"BNG-002","kind":"numbers_grounded","channel":"source_body","tags":["fullwidth_mix"],"note":"display 用全角数字，规范化后一致","display":"营业收入为１２．５亿元","quote":"营业收入为12.5亿元","allowed":[],"expect":{"ok":true}}
+{"id":"BNG-003","kind":"numbers_grounded","channel":"model_output","tags":["fullwidth_mix"],"note":"quote 用全角数字，规范化后一致","display":"营业收入为12.5亿元","quote":"营业收入为１２．５亿元","allowed":[],"expect":{"ok":true}}
+{"id":"BNG-004","kind":"numbers_grounded","channel":"source_body","tags":["percent"],"note":"百分号被忽略","display":"同比增长9.3%","quote":"同比增长9.3","allowed":[],"expect":{"ok":true}}
+{"id":"BNG-005","kind":"numbers_grounded","channel":"model_output","tags":["thousands_separator"],"note":"千分位写法一致","display":"金额为1,234万元","quote":"金额为1,234万元","allowed":[],"expect":{"ok":true}}
+{"id":"BNG-006","kind":"numbers_grounded","channel":"source_body","tags":["date"],"note":"日期写法一致，拆成 2025、03、31 三个记号","display":"披露日为2025-03-31","quote":"披露日为2025-03-31","allowed":[],"expect":{"ok":true}}
+{"id":"BNG-007","kind":"numbers_grounded","channel":"model_output","tags":["date"],"note":"display 只用到 quote 日期的前两个记号","display":"披露于2025年3月","quote":"披露于2025年3月31日","allowed":[],"expect":{"ok":true}}
+{"id":"BNG-008","kind":"numbers_grounded","channel":"source_body","tags":["date"],"note":"记号可以从 quote 的任意位置取得","display":"披露于3月31日","quote":"披露于2025年3月31日","allowed":[],"expect":{"ok":true}}
+{"id":"BNG-009","kind":"numbers_grounded","channel":"model_output","tags":["code","allowed"],"note":"代码由 allowed 支撑","display":"星河科技(388801)","quote":"星河科技披露了年度报告","allowed":["388801"],"expect":{"ok":true}}
+{"id":"BNG-010","kind":"numbers_grounded","channel":"source_body","tags":["code","date","allowed"],"note":"allowed 里有代码与完整日期","display":"代码388801，披露日2025-10-15","quote":"","allowed":["388801","2025-10-15"],"expect":{"ok":true}}
+{"id":"BNG-011","kind":"numbers_grounded","channel":"model_output","tags":["chinese_numerals"],"note":"中文数字不是数字记号，无需对账","display":"营业收入为十二点五亿元","quote":"营业收入为12.5亿元","allowed":[],"expect":{"ok":true}}
+{"id":"BNG-012","kind":"numbers_grounded","channel":"source_body","tags":["no_digits"],"note":"display 里没有数字记号","display":"公司披露了业绩快报","quote":"","allowed":[],"expect":{"ok":true}}
+{"id":"BNG-013","kind":"numbers_grounded","channel":"model_output","tags":["repeated_number"],"note":"同一记号重复出现","display":"12.5亿元，即12.5亿元","quote":"营业收入为12.5亿元","allowed":[],"expect":{"ok":true}}
+{"id":"BNG-014","kind":"numbers_grounded","channel":"source_body","tags":["sentence_final_dot"],"note":"句末的点不属于记号","display":"营收增长12.","quote":"营收增长12","allowed":[],"expect":{"ok":true}}
+{"id":"BNG-015","kind":"numbers_grounded","channel":"model_output","tags":["adjacent_letters"],"note":"数字紧邻字母","display":"采用5G技术","quote":"采用5G技术","allowed":[],"expect":{"ok":true}}
+{"id":"BNG-016","kind":"numbers_grounded","channel":"source_body","tags":["quote_has_more"],"note":"quote 里多出来的数字不影响","display":"营业收入为12.5亿元","quote":"营业收入为12.5亿元，同比增长9.3%，净利润1.52亿元","allowed":[],"expect":{"ok":true}}
+{"id":"BNG-017","kind":"numbers_grounded","channel":"model_output","tags":["zero_width"],"note":"零宽字符在规范化时去除，display 还原为 12.5","display":"营收12\u200b.5亿元","quote":"营收12.5亿元","allowed":[],"expect":{"ok":true}}
+{"id":"BNG-018","kind":"numbers_grounded","channel":"source_body","tags":["range"],"note":"区间两个端点各自是记号","display":"产能为10-15万吨","quote":"产能为10-15万吨","allowed":[],"expect":{"ok":true}}
+{"id":"BNG-019","kind":"numbers_grounded","channel":"model_output","tags":["time"],"note":"时间拆成 14 与 45","display":"数据时点14:45","quote":"数据时点14:45","allowed":[],"expect":{"ok":true}}
+{"id":"BNG-020","kind":"numbers_grounded","channel":"source_body","tags":["code","mixed_sources"],"note":"一个来自 allowed，一个来自 quote；逗号两侧不是数字，不会把两个数连成一个记号","display":"代码388801，营收12.5亿元","quote":"营收12.5亿元","allowed":["388801"],"expect":{"ok":true}}
+{"id":"BNG-021","kind":"numbers_grounded","channel":"model_output","tags":["quarter"],"note":"记号 3 在 quote 中出现","display":"第3季度","quote":"2025年第3季度","allowed":[],"expect":{"ok":true}}
+{"id":"BNG-022","kind":"numbers_grounded","channel":"source_body","tags":["fullwidth_mix","percent"],"note":"全角数字与全角百分号规范化后一致","display":"毛利率为２３．４５％","quote":"毛利率为23.45%","allowed":[],"expect":{"ok":true}}
