@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
+	"github.com/flipped-aurora/gin-vue-admin/server/model/system"
 	"github.com/flipped-aurora/gin-vue-admin/server/utils"
 	"github.com/golang-jwt/jwt/v5"
 
@@ -41,6 +42,10 @@ func JWTAuth() gin.HandlerFunc {
 			response.NoAuth(err.Error(), c)
 			utils.ClearToken(c)
 			c.Abort()
+			return
+		}
+		// 后台与 C 端共用签名密钥，必须按令牌类型隔离：会员令牌不得进入后台（也不清 cookie，它不是后台会话）
+		if !requireTokenType(c, claims, system.UserTypeAdmin) {
 			return
 		}
 
