@@ -20,7 +20,7 @@
 
 SET NAMES utf8mb4;
 
-CREATE TABLE `addon_quant_theme_stock` (
+CREATE TABLE IF NOT EXISTS `addon_quant_theme_stock` (
   `id`       bigint UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'ID',
 
   -- ── 关联主体 ──

@@ -20,9 +20,20 @@
 #   初版每次探测都 docker exec，共 ~80 个宿主进程，
 #   在内存吃紧的 Windows 上直接把 Git Bash 的 fork 打崩。
 #
+# 共表收敛（AC-O1）：本脚本按文件名顺序执行全部迁移，其中 20261002_converge_* 在"tm-stock 先建表"的库上
+#   必须是空操作（下面断言它记录的分支是 already_converged）。"GVA 先启动 / tm-stock 先执行 / 重复多次"
+#   各种形态的收敛由 server/internal/repository/migration_converge_integration_test.go 真实执行，
+#   用 scripts/dev/verify-repository.sh 跑（CI 的 integration 任务也跑）。
+#
 # 用法：
 #   bash scripts/dev/verify-migrations.sh          # 跑完自动清理
 #   bash scripts/dev/verify-migrations.sh --keep   # 保留容器供手工排查
+#
+# 没有 Docker 时的"原生模式"（2026-10-02 加入）：指定本机已有的 MySQL，不起容器，其余断言完全相同。
+#   TM_VERIFY_MYSQL_CLIENT=/path/to/mysql.exe  TM_VERIFY_PASSWORD=...  [TM_VERIFY_PORT=3306]  \
+#     [TM_VERIFY_HOST=127.0.0.1]  [TM_VERIFY_USER=root]  bash scripts/dev/verify-migrations.sh
+#   ⚠️ 原生模式会 DROP 并重建数据库 tm_stock_verify，所以只允许连回环地址；口令只从环境变量读取，脚本里没有默认值。
+#   用它可以在不同 MySQL 版本上各跑一遍（上线库是 9.7.0，本机与 CI 是 8.0.x，见 ADR-0008）。
 # =============================================================================
 set -uo pipefail
 
@@ -33,6 +44,9 @@ ROOT_PW="fake-local-verify-only"    # 一次性容器，不映射端口，不含
 IMAGE="mysql:8.0"
 KEEP=false
 [ "${1:-}" = "--keep" ] && KEEP=true
+# 原生模式：给了 mysql 客户端路径就不用 Docker（见上面的用法）
+NATIVE=false
+[ -n "${TM_VERIFY_MYSQL_CLIENT:-}" ] && NATIVE=true
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PASS=0; FAIL=0
@@ -40,6 +54,12 @@ ok()  { echo "  [OK] $1"; PASS=$((PASS+1)); }
 bad() { echo "  [X]  $1"; FAIL=$((FAIL+1)); }
 
 cleanup() {
+  if [ "$NATIVE" = true ]; then
+    if [ "$KEEP" = false ] && type native_sql >/dev/null 2>&1; then
+      printf 'DROP DATABASE IF EXISTS %s;\n' "$DB" | native_sql >/dev/null 2>&1 || true
+    fi
+    return
+  fi
   if [ "$KEEP" = false ]; then
     docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
   else
@@ -49,6 +69,28 @@ cleanup() {
 }
 trap cleanup EXIT
 
+if [ "$NATIVE" = true ]; then
+  # ── 原生模式：连本机已有的 MySQL，重建 $DB，不起容器 ──
+  N_HOST="${TM_VERIFY_HOST:-127.0.0.1}"; N_PORT="${TM_VERIFY_PORT:-3306}"; N_USER="${TM_VERIFY_USER:-root}"
+  case "$N_HOST" in
+    127.0.0.1|localhost|::1) ;;
+    *) echo "[X] 原生模式会 DROP DATABASE $DB，只允许连回环地址，收到 $N_HOST"; exit 1 ;;
+  esac
+  [ -n "${TM_VERIFY_PASSWORD:-}" ] || { echo "[X] 原生模式需要环境变量 TM_VERIFY_PASSWORD（脚本里不放默认口令）"; exit 1; }
+  [ -f "$TM_VERIFY_MYSQL_CLIENT" ] || { echo "[X] 找不到 mysql 客户端：$TM_VERIFY_MYSQL_CLIENT"; exit 1; }
+  native_sql() {
+    MYSQL_PWD="$TM_VERIFY_PASSWORD" "$TM_VERIFY_MYSQL_CLIENT" -h"$N_HOST" -P"$N_PORT" -u"$N_USER" \
+      --protocol=TCP --default-character-set=utf8mb4 --force -N -B "$@" 2>&1 | tr -d '\r'
+  }
+  echo "▶ 原生模式：连 $N_HOST:$N_PORT，重建数据库 $DB（不用 Docker）"
+  if ! printf 'SELECT 1;\n' | native_sql | grep -q '^1$'; then
+    echo "[X] 连不上 MySQL（$N_HOST:$N_PORT）。"
+    exit 1
+  fi
+  printf 'DROP DATABASE IF EXISTS %s;\nCREATE DATABASE %s CHARACTER SET utf8mb4;\n' "$DB" "$DB" | native_sql >/dev/null
+  # 与 Docker 模式的 MYSQL_RUN 同一个口径：--force、-N -B、utf8mb4、去掉回车
+  MYSQL_RUN() { native_sql "$DB"; }
+else
 # 环境不具备时【优雅跳过】而不是失败（known-pitfalls P9：红灯常态化=门禁失效）
 command -v docker >/dev/null 2>&1 || { echo "[跳过] 本机无 docker"; exit 0; }
 if ! docker version --format '{{.Server.Version}}' >/dev/null 2>&1; then
@@ -92,13 +134,14 @@ fi
 MYSQL_RUN() { docker exec -i "$CONTAINER" mysql -h 127.0.0.1 --protocol=TCP \
                 -uroot -p"$ROOT_PW" --default-character-set=utf8mb4 \
                 --force -N -B "$DB" 2>&1 | tr -d '\r'; }
+fi
 
 VER="$(printf 'SELECT VERSION();\n' | MYSQL_RUN | grep -v Warning | head -1)"
 # ★ 空结果守卫：初版没有这条，于是拿着空结果一路跑出一堆假失败，
 #   把「连不上」误报成「表全缺失 + 约束全失效」。空结果必须当错误处理。
 if [ -z "$VER" ]; then
   echo "[X] 已就绪但取不到版本号 —— 连接异常，中止（不带着空结果继续断言）"
-  docker logs --tail 15 "$CONTAINER"
+  [ "$NATIVE" = true ] || docker logs --tail 15 "$CONTAINER"
   exit 1
 fi
 echo "  MySQL 版本：$VER"
@@ -206,6 +249,7 @@ fi
 f() { printf '%s\n' "$OUT" | awk -F'\t' -v k="$1" '$1==k{print $2}'; }
 TABLES="$(f TABLES)"; ROWS="$(f ROWS)"; COUNT="$(f COUNT)"
 AFTER_READD="$(f AFTER_READD)"; C_BEFORE="$(f CSIDE_BEFORE_AUDIT)"; C_AFTER="$(f CSIDE_AFTER_AUDIT)"
+CONVERGE_STATE="$(f converge_addon_quant_theme_stock)"
 
 # ── 5) 断言 ──
 echo ""
@@ -213,6 +257,12 @@ echo "▶ 表结构"
 for t in addon_quant_theme addon_quant_base_stock addon_quant_theme_stock; do
   case ",$TABLES," in *",$t,"*) ok "表 $t 存在" ;; *) bad "表 $t 缺失（TABLES=$TABLES）" ;; esac
 done
+
+echo ""
+echo "▶ 共表收敛迁移"
+[ "$CONVERGE_STATE" = "already_converged" ] \
+  && ok "收敛迁移在 tm-stock 先建表的库上是空操作（already_converged）" \
+  || bad "收敛迁移记录的分支应为 already_converged，实际「$CONVERGE_STATE」——空值表示它没执行成功或中途中止"
 
 echo ""
 echo "▶ 🔴 合规约束实测（判据 = 实际落库结果）"
