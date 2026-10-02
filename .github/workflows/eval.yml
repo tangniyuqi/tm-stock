@@ -1,0 +1,51 @@
+name: eval
+
+# 护栏评测的夜间作业：跑红队集（必须被拦）与对照集（必须放行），产出汇总报告。
+#
+# 触发：每天定时一次，也可以在 Actions 页面手动触发（workflow_dispatch）。
+# 范围：只评测确定性护栏（server/internal/ai/guard）。真实模型的评测（蕴含裁判精确率、抽取质量）
+#       要等 P1-7 拿到模型 API 账号之后才有——现在没有任何模型，所以这里也没有 promptfoo 之类的占位配置。
+# 日常 PR 的 CI（ci.yml）已经会跑这些夹具；本作业的价值是：留存每天的汇总报告、观察"已知缺口"的数量趋势，
+# 以及在夹具与词表被改动后提供一个随时可手动触发的复核入口。
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 18 * * *'   # UTC 18:00，即北京时间次日 02:00
+
+jobs:
+  guard-eval:
+    name: 护栏评测（红队集与对照集）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+          cache: false
+
+      - name: 跑全部夹具（任何一条红队样本漏拦或对照样本误杀都会失败）
+        working-directory: server
+        run: go test ./internal/ai/guard/ -run 'TestRedTeam|TestBenign' -count=1 -v 2>&1 | tail -25
+
+      - name: 生成汇总报告
+        working-directory: server
+        run: go test ./internal/ai/guard/ -run TestEvalReport -count=1 -v -args -report=../../../../eval/report.json
+
+      - name: 把汇总写进作业页面
+        run: |
+          {
+            echo "### 护栏评测报告"
+            echo ""
+            echo "| 集 | 类别 | 总数 | 通过 | 失败 | 已知缺口 |"
+            echo "|---|---|---|---|---|---|"
+            jq -r '.rows[] | "| \(.Dir) | \(.Kind) | \(.Total) | \(.Passed) | \(.Failed) | \(.Gaps) |"' eval/report.json
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: guard-eval-report
+          path: eval/report.json
+          if-no-files-found: error
+          retention-days: 90

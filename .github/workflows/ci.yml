@@ -19,12 +19,21 @@ jobs:
       - name: 合规禁用词扫描
         run: bash scripts/check-compliance-words.sh --all
 
+      # 门禁自己的测试：范围（含 backend/server 的 api/client、model、service/quant、config）、
+      # 词表副本与 eval/ 夹具放行、三种模式（--all、单文件、暂存区）口径一致。
+      - name: 合规词门禁自测（范围与三种模式口径）
+        run: bash scripts/dev/verify-compliance-gate.sh
+
+      # GVA 与 server/internal/ai/guard 各嵌入一份词表副本，单一源是 scripts/compliance-forbidden-words.txt。
+      - name: 词表副本与单一源一致
+        run: bash scripts/sync-guard-words.sh --check
+
       - name: 明文密钥扫描
         run: bash scripts/check-secret-scan.sh --all
 
       # 给门禁本身写测试：门禁失效是【静默】的——它照样打印 [OK]，只是什么都没拦住。
       # 已实测到两例这样的失效（见 known-pitfalls P16），故必须自测。
-      - name: 密钥扫描器自测（13 项正反例）
+      - name: 密钥扫描器自测（28 项正反例）
         run: bash scripts/dev/verify-secret-scan.sh
 
       - name: 禁用词表未被削弱（只增不减）
@@ -94,8 +103,49 @@ jobs:
           echo "通过 $PASS 项 / 失败 $FAIL 项"
           echo "### Go 单测：通过 $PASS 项，失败 $FAIL 项" >> "$GITHUB_STEP_SUMMARY"
           # 下限只增不减。新增测试后请同步上调；调低必须在 PR 说明理由。
-          # 当前本地实测 44 项（service + repository SQL 守护 + handler），下限留 4 项余量。
-          MIN=40
+          # 当前本地实测 827 项（go1.24.0 + -race；含 ai/guard、ai/render、provider 与 repository；另有 1 项 TestEvalReport 按设计跳过），下限 800，余量 27 项。
+          MIN=800
+          if [ "$PASS" -lt "$MIN" ]; then
+            echo "::error::实际执行 $PASS 项测试，低于下限 $MIN —— 要么测试没被执行，要么有测试被删。"
+            exit 1
+          fi
+
+      # 合规与计费链路上的关键包（护栏、渲染器、模型适配层）：覆盖率只增不减，下限登记在 scripts/coverage-floors.txt。
+      - name: 关键包覆盖率棘轮
+        working-directory: .
+        run: bash scripts/check-coverage-floor.sh
+
+  # GVA（backend/server）此前完全不在 CI 里：令牌类型隔离、题材股票的依据与审核、AI 任务下线、
+  # AutoMigrate 守卫这些改动没有任何自动化兜底。这里只跑与这些改动相关的关键包（包清单与
+  # scripts/harness-checks.sh 的 [3.2/4] 保持一致）；GVA 其余上游代码的测试不在本作业范围内。
+  gva-backend:
+    name: GVA 后端（关键包）
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend/server
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/server/go.mod
+          cache: false
+
+      - name: 关键包单测（-race）+ 执行数下限守卫
+        run: |
+          set -o pipefail
+          go test -race ./middleware/... ./service/member/... ./router/... ./api/client/... ./initialize/... ./service/quant/... ./utils -count=1 -v 2>&1 | tee /tmp/gva.log | tail -40
+          PASS=$(grep -c '^[[:space:]]*--- PASS' /tmp/gva.log || true)
+          FAIL=$(grep -c '^[[:space:]]*--- FAIL' /tmp/gva.log || true)
+          SKIP=$(grep -c '^[[:space:]]*--- SKIP' /tmp/gva.log || true)
+          echo "通过 $PASS 项 / 失败 $FAIL 项 / 跳过 $SKIP 项"
+          echo "### GVA 关键包单测：通过 $PASS 项，失败 $FAIL 项，跳过 $SKIP 项" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$SKIP" -gt 0 ]; then
+            echo "::error::有 $SKIP 项被跳过，等于没测到"; exit 1
+          fi
+          # 下限只增不减。本地实测 158 项，下限留 13 项余量；调低必须在 PR 说明理由。
+          MIN=145
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项测试，低于下限 $MIN —— 要么测试没被执行，要么有测试被删。"
             exit 1
@@ -156,8 +206,36 @@ jobs:
           if [ "$SKIP" -gt 0 ]; then
             echo "::error::有 $SKIP 项被跳过 —— TM_TEST_DSN 未生效，等于没测到"; exit 1
           fi
-          # 下限只增不减。本地实测 15 项（8 集成 + 7 静态断言）。
-          MIN=13
+          # 下限只增不减。本地实测 38 项（含收敛迁移的两种启动顺序、重复多次、认不出的形态主动中止，以及静态断言）。
+          MIN=34
+          if [ "$PASS" -lt "$MIN" ]; then
+            echo "::error::实际执行 $PASS 项，低于下限 $MIN —— 要么没跑，要么有测试被删。"; exit 1
+          fi
+
+      # GVA（backend/server）的 MySQL 集成测试：题材与股票表用 GVA 的模型建，题材股票表用本仓库迁移建，
+      # 验证联表、LIKE 转义、NULL 状态比较，以及库约束的错误翻译。
+      # 必须排在上一步之后串行执行：两边都会清掉并重建 addon_quant_theme、addon_quant_base_stock、addon_quant_theme_stock。
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/server/go.mod
+          cache: false
+
+      - name: GVA 集成测试 + 执行数下限守卫
+        working-directory: backend/server
+        env:
+          TM_TEST_DSN: "root:fake-ci-only-not-a-secret@tcp(127.0.0.1:3306)/tm_stock_it?parseTime=true&multiStatements=true&charset=utf8mb4&loc=Local"
+        run: |
+          set -o pipefail
+          go test -tags=integration ./service/quant/ -run MySQL -count=1 -v 2>&1 | tee /tmp/gva_it.log | tail -30
+          PASS=$(grep -c '^[[:space:]]*--- PASS' /tmp/gva_it.log || true)
+          SKIP=$(grep -c '^[[:space:]]*--- SKIP' /tmp/gva_it.log || true)
+          echo "通过 $PASS 项 / 跳过 $SKIP 项"
+          echo "### GVA 集成测试：通过 $PASS 项，跳过 $SKIP 项" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$SKIP" -gt 0 ]; then
+            echo "::error::有 $SKIP 项被跳过 —— TM_TEST_DSN 未生效，等于没测到"; exit 1
+          fi
+          # 下限只增不减。本地实测 3 项。
+          MIN=3
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项，低于下限 $MIN —— 要么没跑，要么有测试被删。"; exit 1
           fi

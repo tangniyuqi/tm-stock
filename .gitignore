@@ -13,6 +13,11 @@ unpackage/
 *-credentials
 *.pem
 *.key
+# GVA 运行配置：initdb 会在 backend/server/ 下生成 config.yaml，内含 JWT 签名密钥与数据库口令，只能存在于部署环境
+/backend/server/config.yaml
+/backend/server/config.*.yaml
+# 护栏评测的汇总报告（生成物）
+/eval/report.json
 
 # Go
 server/coverage.out

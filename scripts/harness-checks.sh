@@ -15,6 +15,22 @@ for a in "$@"; do case $a in --with-lint) WITH_LINT=true;; --with-coverage) WITH
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"; cd "$REPO_ROOT"
 RESULT=0
 
+# run_selftest <说明> <命令...>：跑一个门禁自测。通过时只显示结论行，失败时打印输出的末尾。
+# 门禁失效是【静默】的（照样打印 OK，只是什么都没拦住），所以门禁本身必须有测试，且测试必须一起跑。
+run_selftest() {
+  local label="$1" out rc summary
+  shift
+  out="$("$@" 2>&1)"; rc=$?
+  if [ "$rc" -eq 0 ]; then
+    summary="$(printf '%s' "$out" | grep -E '通过 [0-9]+ 项' | tail -1 | sed 's/[═ ]//g')"
+    echo -e "${GREEN}  ✅ ${label}${NC}${summary:+（$summary）}"
+  else
+    echo -e "${RED}  ❌ ${label}${NC}"
+    printf '%s' "$out" | tail -40
+    RESULT=1
+  fi
+}
+
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "${BLUE}  tm-stock Harness Check${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -26,6 +42,8 @@ if bash scripts/check-compliance-words.sh --all; then
 else
   echo -e "${RED}  ❌ 存在合规禁用词（公司级风险，必须修）${NC}"; RESULT=1
 fi
+run_selftest "合规词门禁自测（范围与三种模式口径）" bash scripts/dev/verify-compliance-gate.sh
+run_selftest "词表副本与单一源一致（GVA 与 ai/guard 各一份）" bash scripts/sync-guard-words.sh --check
 
 # [2] 明文密钥
 echo -e "\n${BLUE}[2/4] 明文密钥扫描...${NC}"
@@ -34,6 +52,7 @@ if bash scripts/check-secret-scan.sh --all; then
 else
   echo -e "${RED}  ❌ 发现疑似明文密钥${NC}"; RESULT=1
 fi
+run_selftest "密钥扫描器自测（正反例）" bash scripts/dev/verify-secret-scan.sh
 
 # [3] Go 后端
 echo -e "\n${BLUE}[3/4] Go 后端（格式 / 编译 / 测试）...${NC}"
@@ -68,8 +87,26 @@ else
   if [ "$WITH_COVERAGE" = true ]; then
     go test ./... -coverprofile=coverage.out >/dev/null 2>&1 || true
     [ -f coverage.out ] && echo "  覆盖率：$(go tool cover -func=coverage.out | tail -1 | awk '{print $3}')（新增代码目标 ≥70%）"
+    # 关键包（护栏、渲染器、模型适配层）的覆盖率棘轮，下限登记在 scripts/coverage-floors.txt
+    (cd "$REPO_ROOT" && bash scripts/check-coverage-floor.sh) || { echo -e "${RED}  ❌ 关键包覆盖率低于登记的下限${NC}"; RESULT=1; }
   fi
   cd "$REPO_ROOT"
+fi
+
+# [3.2] GVA 后端（backend/server）关键包：令牌类型隔离、题材股票依据与审核、AI 任务下线、迁移守卫
+echo -e "\n${BLUE}[3.2/4] GVA 后端关键包...${NC}"
+if [ ! -d backend/server ]; then
+  echo -e "${YELLOW}  跳过（无 backend/server 目录）${NC}"
+elif ! command -v go >/dev/null 2>&1; then
+  echo -e "${YELLOW}  跳过（本机未安装 Go）${NC}"
+else
+  # 包清单与 .github/workflows/ci.yml 的 gva-backend 作业保持一致
+  GVA_PKGS="./middleware/... ./service/member/... ./router/... ./api/client/... ./initialize/... ./service/quant/... ./utils"
+  if (cd backend/server && go test $GVA_PKGS -count=1 2>&1 | tail -20); then
+    echo -e "${GREEN}  ✅ GVA 关键包测试通过${NC}"
+  else
+    echo -e "${RED}  ❌ GVA 关键包测试失败${NC}"; RESULT=1
+  fi
 fi
 
 # [3.5] Go 架构约定（分层守护）

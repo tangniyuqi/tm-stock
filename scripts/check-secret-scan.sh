@@ -12,7 +12,8 @@
 # =============================================================================
 set -uo pipefail
 
-REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+# TM_REPO_ROOT 只给门禁自测用（在临时目录树里跑，不碰真实仓库），平时不设。
+REPO_ROOT="${TM_REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 BASELINE="$REPO_ROOT/scripts/secret-scan-baseline.txt"
 MODE="${1:-staged}"
 
@@ -26,7 +27,44 @@ PATTERN='(pass(word|wd)?|pwd|pw|secret|token|access_?key|api_?key|private_?key|c
 # ★ 关键一条：值是【函数调用或属性访问】（= foo( / = foo.bar）不是明文密钥——
 #   否则第三方库里满地的 `const token = parser.fetch()` 会把门禁淹没成常红（实测踩过）。
 #   另外：值以括号/方括号开头（= (expr) / = [..] / = {..}）同样是表达式而非字面量密钥。
-ALLOW='\$|your_|_here|example|placeholder|xxxx|fake-|test_|dummy|<.*>|\*\*\*|getenv|process\.env|viper\.|config\.|[=:][[:space:]]*[A-Za-z_][A-Za-z0-9_]*[.(]|[=:][[:space:]]*[({[]'
+ALLOW='\$|your_|_here|example|placeholder|xxxx|fake-|test_|dummy|<.*>|\*\*\*|getenv|process\.env|viper\.|config\.|show-password|[=:][[:space:]]*[A-Za-z_][A-Za-z0-9_]*[.(]|[=:][[:space:]]*[({[]'
+
+# 代码语言里"值是裸标识符"（JS 对象简写、Go 结构体字段赋变量、多重赋值等）是变量引用，不是字面量密钥——
+# 否则这类写法会把门禁逼成常红（实测 13 处，全部是变量引用或界面属性）。防误放的三道保护：
+#   ① 只对代码文件放行（go/ts/uts/js/vue/uvue/py）。shell、yaml、env、json、sql 里的裸词就是字面量，不能放；
+#   ② 逐片段处理：先删掉行内所有「键 = 裸标识符」片段，剩余内容若仍命中 PATTERN，整行照拦——
+#      所以"一行里既有变量引用、又有真字面量"的行不会被放过；
+#   ③ 标识符必须以字母或下划线开头，并以逗号、分号、右括号、右花括号或行尾收束；
+#      数字开头、带引号、带点号或括号的值都不在此列。
+KEY='(pass(word|wd)?|pwd|pw|secret|token|access_?key|api_?key|private_?key|credential)'
+IDENT_ASSIGN="${KEY}[[:space:]]*[=:][[:space:]]*[A-Za-z_][A-Za-z0-9_]*[[:space:]]*([,;)}]|\$)"
+
+# 从标准输入读候选行（--all 为 绝对路径:行号:内容；staged 为 相对路径:内容），输出仍应拦截的行。
+#
+# ★ 占位符放行（ALLOW）只能看【内容】，不能看"路径:行号:"前缀。
+#   原实现把整行（含前缀）交给 ALLOW，有两处静默漏报：
+#   ① 内容以"标识符加点号或左括号"开头的行（例如给结构体字段赋字面量），行号后面的冒号会撞上
+#      "等号或冒号之后接 foo. / foo(" 这条规则，整行被放走；
+#   ② 路径里恰好有 config. / example / test_ 之类字样，整个文件就免检了。
+#   这两种都是自测里新增的反例暴露出来的。
+filter_hits() {
+  local line rel path rest content remain
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    rel="${line#"$REPO_ROOT"/}"          # --all 带仓库根前缀，staged 不带
+    path="${rel%%:*}"
+    rest="${rel#*:}"                      # --all 为 行号:内容；staged 为 内容
+    if [[ "$rest" =~ ^[0-9]+:(.*)$ ]]; then content="${BASH_REMATCH[1]}"; else content="$rest"; fi
+    if printf '%s' "$content" | grep -qEi "$ALLOW"; then continue; fi
+    case "$path" in
+      *.go|*.ts|*.uts|*.js|*.vue|*.uvue|*.py)
+        remain="$(printf '%s' "$content" | tr 'A-Z' 'a-z' | sed -E "s/${IDENT_ASSIGN}//g")"
+        printf '%s' "$remain" | grep -qEi "$PATTERN" || continue
+        ;;
+    esac
+    printf '%s\n' "$line"
+  done
+}
 
 # 自测脚本必须包含探针密钥字符串，否则测不出扫描器坏没坏。
 # 与 P13（规范文档自身含禁用词）同理：定义/检验规则的文件必须被排除。
@@ -58,8 +96,8 @@ else
     ' | grep -vF "$SELF_TEST:" | grep -Ei "$PATTERN" || true)"
 fi
 
-# 去掉占位符
-HITS="$(printf '%s' "$CANDIDATES" | grep -vEi "$ALLOW" || true)"
+# 去掉占位符与代码里的变量引用（见上方 filter_hits 的说明）
+HITS="$(printf '%s\n' "$CANDIDATES" | filter_hits)"
 
 # 应用基线（存量豁免）
 #
@@ -77,8 +115,8 @@ if [ -n "$HITS" ] && [ -f "$BASELINE" ]; then
 fi
 
 if [ -n "$HITS" ]; then
-  echo "[X] 检测到疑似明文密钥（新增）："
-  printf '%s\n' "$HITS" | head -10
+  echo "[X] 检测到疑似明文密钥（新增，共 $(printf '%s\n' "$HITS" | grep -c .) 处，最多显示 30 处）："
+  printf '%s\n' "$HITS" | head -30
   echo ""
   echo "[修复] 真实密钥放 ~/.tmstock-credentials，代码里改用占位符：\$TM_XXX"
   echo "[说明] 确属误报时，把该行片段追加到 scripts/secret-scan-baseline.txt"

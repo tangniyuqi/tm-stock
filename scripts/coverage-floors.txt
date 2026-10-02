@@ -1,0 +1,8 @@
+# 覆盖率棘轮的登记表（由 scripts/check-coverage-floor.sh 读取）
+# 格式：<相对 server/ 的包路径> <下限，整数百分比>
+# 规则：只增不减。覆盖率明显高于下限时，脚本会提示可上调；调低必须在 PR 里说明理由。
+# 登记的是合规与计费链路上的关键包；2026-10-02 实测值：guard 98.5、render 96.2、provider 98.2、providertest 96.2。
+internal/ai/guard 95
+internal/ai/render 92
+internal/provider 95
+internal/provider/providertest 92
