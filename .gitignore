@@ -24,6 +24,9 @@ server/coverage.out
 server/*.exe
 server/vendor/
 
+# 后端运行日志（zap 按日期分目录写入，属运行产物，不入仓）
+backend/server/log/
+
 # IDE / 系统
 .idea/
 .vscode/
