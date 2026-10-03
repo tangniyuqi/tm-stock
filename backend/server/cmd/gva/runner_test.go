@@ -9,8 +9,8 @@ import (
 
 func TestLoginSavesToken(t *testing.T) {
 	cfg := CliConfig{}
-	cfg.Token = "jwt-token"
-	if cfg.Token != "jwt-token" {
+	cfg.Token = "fake-jwt-token"
+	if cfg.Token != "fake-jwt-token" {
 		t.Fatalf("token not assigned")
 	}
 }

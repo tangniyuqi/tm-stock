@@ -26,7 +26,7 @@ func TestUserServiceRegisterSnapshotsForcePasswordChangePolicy(t *testing.T) {
 
 			created, err := UserServiceApp.Register(context.Background(), model.SysUser{
 				Username: "new-user",
-				Password: "initial-password",
+				Password: "fake-initial-password", // 测试夹具：fake- 前缀让密钥扫描器一眼认出它不是真密码
 			})
 			if err != nil {
 				t.Fatal(err)

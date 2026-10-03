@@ -222,36 +222,6 @@ func (baseStockApi *BaseStockApi) Clear(c *gin.Context) {
 	response.OkWithMessage("清除成功", c)
 }
 
-// AiAnalyzeStocks AI自动分析股票（异步任务化）
-// @Tags BaseStock
-// @Summary AI自动分析股票基本面，提交后立即返回任务ID，执行进度可通过任务接口查询
-// @Security ApiKeyAuth
-// @Accept application/json
-// @Produce application/json
-// @Param data body quantReq.AiAnalyzeStockReq true "AI自动分析股票请求"
-// @Success 200 {object} response.Response{data=object,msg=string} "任务已创建"
-// @Router /baseStock/aiAnalyzeStocks [post]
-func (baseStockApi *BaseStockApi) AiAnalyzeStocks(c *gin.Context) {
-	// 创建业务用Context
-	ctx := c.Request.Context()
-
-	var req quantReq.AiAnalyzeStockReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.FailWithMessage(err.Error(), c)
-		return
-	}
-	userID := utils.GetUserID(c)
-	taskID, err := baseStockService.AiAnalyzeStocks(ctx, req, userID)
-	if err != nil {
-		global.GVA_LOG.Error("AI自动分析股票失败!", zap.Error(err))
-		response.FailWithMessage("AI自动分析股票失败:"+err.Error(), c)
-		return
-	}
-	response.OkWithDetailed(gin.H{
-		"task_id": taskID,
-	}, "任务已创建，可前往执行记录查看进度", c)
-}
-
 // UpdateAllChangePct 一键更新全部股票涨跌幅
 // @Tags BaseStock
 // @Summary 一键更新全部股票涨跌幅（通过 Tushare 获取最近交易日行情并批量更新）

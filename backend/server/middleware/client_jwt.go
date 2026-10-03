@@ -6,6 +6,7 @@ import (
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/common/response"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/member"
+	"github.com/flipped-aurora/gin-vue-admin/server/model/system"
 	"github.com/flipped-aurora/gin-vue-admin/server/utils"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -25,7 +26,7 @@ func clientToken(c *gin.Context) string {
 // ClientJWTAuth C 端（member）登录鉴权中间件。
 //
 // 登录令牌为 member 维度 JWT（与主系统共用签名与 claims 结构），签发时
-// 需将 claims.BaseClaims.ID 置为 CommonMember.ID（由 /client/auth 登录功能负责签发）。
+// 需将 claims.BaseClaims.ID 置为 CommonMember.ID，且 UserType 置为 client（由 /client/auth 登录功能负责签发）。
 // 校验通过后把 claims 写入上下文，业务层可用 utils.GetUserID(c) 取得当前会员 ID。
 func ClientJWTAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -39,6 +40,11 @@ func ClientJWTAuth() gin.HandlerFunc {
 		if err != nil {
 			response.NoAuth("登录已过期或令牌无效，请重新登录", c)
 			c.Abort()
+			return
+		}
+		// 令牌类型必须是 client：后台令牌的 claims.ID 是后台账号 ID，不能拿去匹配同号会员；
+		// 放在查库之前，类型不对的令牌不会触达会员表。
+		if !requireTokenType(c, claims, system.UserTypeClient) {
 			return
 		}
 		// 校验对应当前会员是否存在且状态正常

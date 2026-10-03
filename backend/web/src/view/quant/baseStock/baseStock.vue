@@ -5,8 +5,6 @@
       <div class="gva-btn-list my-3">
         <el-button icon="back" @click="backToList">返回列表</el-button>
         <el-button icon="refresh" @click="refreshDetail">刷新</el-button>
-        <el-button v-auth="btnAuth.sync" type="success" icon="magic-stick"
-          @click="aiAnalyzeRow(detailForm)">AI基本面分析</el-button>
         <el-button v-auth="btnAuth.delete" type="danger" icon="delete" @click="deleteRow(detailForm)">删除</el-button>
       </div>
 
@@ -42,40 +40,6 @@
           <el-descriptions-item label="实控人名称">{{ detailForm.act_name || '-' }}</el-descriptions-item>
           <el-descriptions-item label="实控人企业性质">{{ detailForm.act_ent_type || '-' }}</el-descriptions-item>
         </el-descriptions>
-      </el-card>
-
-      <el-card v-if="detailForm.ai_analyzed_at" shadow="never" class="detail-card-analysis">
-        <template #header><span class="font-bold">基本面分析 · {{ formatDate(detailForm.ai_analyzed_at)
-        }}</span></template>
-        <el-tabs type="border-card">
-          <el-tab-pane label="公司情况">
-            <div class="whitespace-pre-wrap ai-analysis-text">{{ formatAiText(detailForm.fundamentals) || '-' }}</div>
-          </el-tab-pane>
-          <el-tab-pane label="财务分析">
-            <div class="whitespace-pre-wrap ai-analysis-text">{{ formatAiText(detailForm.financial) || '-' }}</div>
-          </el-tab-pane>
-          <el-tab-pane label="落地&业绩兑现">
-            <div class="whitespace-pre-wrap ai-analysis-text">{{ formatAiText(detailForm.realization) || '-' }}</div>
-          </el-tab-pane>
-          <el-tab-pane label="题材热度&动量">
-            <div class="whitespace-pre-wrap ai-analysis-text">{{ formatAiText(detailForm.momentum) || '-' }}</div>
-          </el-tab-pane>
-          <el-tab-pane label="风险提示">
-            <div class="whitespace-pre-wrap ai-analysis-text">{{ formatAiText(detailForm.risk) || '-' }}</div>
-          </el-tab-pane>
-        </el-tabs>
-      </el-card>
-
-      <!-- 无基本面分析结果时提示更新 -->
-      <el-card v-else-if="detailForm.id" shadow="never" class="detail-card">
-        <div class="empty-analyze">
-          <el-icon class="empty-analyze-icon">
-            <MagicStick />
-          </el-icon>
-          <span class="empty-analyze-text">该股票尚未进行基本面分析</span>
-          <el-button v-auth="btnAuth.aiAdd" type="success" icon="magic-stick"
-            @click="openAiFundDrawer">AI基本面分析</el-button>
-        </div>
       </el-card>
     </div>
 
@@ -145,8 +109,6 @@
             <el-button v-auth="btnAuth.add" type="primary" icon="plus" @click="openDialog()">新增</el-button>
             <el-button v-auth="btnAuth.batchDelete" icon="delete" style="margin-left: 10px"
               :disabled="!multipleSelection.length" @click="onDelete">删除</el-button>
-            <el-button v-auth="btnAuth.sync" type="success" icon="magic-stick"
-              @click="openAiAnalyzeDrawer">AI基本面分析</el-button>
             <el-button v-auth="btnAuth.sync" type="success" plain icon="trend-charts" :loading="changePctLoading"
               @click="updateChangePct">一键更新涨跌幅</el-button>
             <el-button v-auth="btnAuth.sync" type="primary" icon="refresh" @click="syncData">同步股票池</el-button>
@@ -176,12 +138,6 @@
             <template #default="scope">
               <el-text tag="strong" class="link-type" @click="getDetails(scope.row)">
                 {{ scope.row.name }}
-                <el-tooltip v-if="scope.row.ai_analyzed_at" :content="`AI分析完成于 ${formatDate(scope.row.ai_analyzed_at)}`"
-                  placement="top">
-                  <el-icon class="ml-1 ai-badge-icon">
-                    <MagicStick />
-                  </el-icon>
-                </el-tooltip>
               </el-text>
             </template>
           </el-table-column>
@@ -239,11 +195,10 @@
           </el-table-column>
 
           <el-table-column align="left" label="操作" fixed="right" :min-width="120"
-            v-if="btnAuth.info || btnAuth.delete || btnAuth.sync">
+            v-if="btnAuth.info || btnAuth.delete">
             <template #default="scope">
               <el-button v-auth="btnAuth.info" type="primary" link @click="getDetails(scope.row)">查看</el-button>
               <el-button v-auth="btnAuth.delete" type="primary" link @click="deleteRow(scope.row)">删除</el-button>
-              <el-button v-auth="btnAuth.sync" type="success" link @click="aiAnalyzeRow(scope.row)">AI分析</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -324,128 +279,17 @@
         </el-form-item>
       </el-form>
     </el-drawer>
-
-    <!-- AI 自动分析 Drawer -->
-    <el-drawer destroy-on-close :size="appStore.drawerSize" v-model="aiDrawerVisible" :show-close="false"
-      :before-close="closeAiAnalyzeDrawer">
-      <template #header>
-        <div class="flex justify-between items-center">
-          <span class="text-lg">AI基本面分析</span>
-          <div>
-            <el-button :loading="aiBtnLoading" type="success" @click="enterAiAnalyze">开始分析</el-button>
-            <el-button @click="closeAiAnalyzeDrawer">取 消</el-button>
-          </div>
-        </div>
-      </template>
-
-      <el-form :model="aiFormData" label-position="top" ref="aiFormRef" :rules="aiRule" label-width="80px">
-        <el-row :gutter="20">
-          <el-col :span="24">
-            <el-form-item label="分析范围">
-              <el-radio-group v-model="aiAnalyzeType">
-                <el-radio-button value="batch">批量分析（表格已选 {{ multipleSelection.length }} 只）</el-radio-button>
-                <el-radio-button value="custom">指定个股</el-radio-button>
-              </el-radio-group>
-            </el-form-item>
-          </el-col>
-
-          <el-col v-if="aiAnalyzeType === 'custom'" :span="24">
-            <el-form-item label="选择个股">
-              <el-select v-model="aiFormData.custom_stock_ids" multiple filterable remote reserve-keyword
-                placeholder="输入股票名称/代码搜索" :remote-method="remoteSearchStocks" :loading="aiStockLoading"
-                style="width: 100%">
-                <el-option v-for="item in aiStockOptions" :key="item.value" :label="item.label" :value="item.value" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-
-          <el-col v-else :span="24">
-            <el-form-item label="批量分析范围">
-              <el-alert v-if="multipleSelection.length" :title="`将分析表格中已勾选的 ${multipleSelection.length} 只股票`"
-                type="info" :closable="false" show-icon />
-              <el-alert v-else title="当前未勾选股票，请先在表格中勾选" type="warning" :closable="false" show-icon />
-            </el-form-item>
-          </el-col>
-
-          <el-col :span="12">
-            <el-form-item label="AI提供商" prop="provider">
-              <el-select v-model="aiFormData.provider" style="width: 100%" placeholder="请选择提供商"
-                @change="onProviderChange">
-                <el-option v-for="item in providerOptions" :key="item.value" :label="item.label" :value="item.value"
-                  :disabled="item.disabled" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-
-          <el-col :span="12">
-            <el-form-item label="模型" prop="model">
-              <el-select v-model="aiFormData.model" style="width: 100%" placeholder="请选择模型"
-                :disabled="!currentProviderModels.length">
-                <el-option v-for="m in currentProviderModels" :key="m.value" :label="m.label" :value="m.value" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-
-          <el-col :span="12">
-            <el-form-item label="接口模式" prop="api_format">
-              <el-select v-model="aiFormData.api_format" style="width: 100%">
-                <el-option label="响应接口" value="responses" />
-                <el-option label="对话接口" value="chat-completions" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-
-          <el-col :span="4">
-            <el-form-item label="联网搜索">
-              <div class="flex items-center">
-                <el-switch v-model="aiFormData.web_search" :active-value="true" :inactive-value="false" />
-              </div>
-            </el-form-item>
-          </el-col>
-
-          <el-col v-if="aiFormData.api_format === 'chat-completions' && aiFormData.web_search" :span="8">
-            <el-form-item label="搜索引擎" prop="search_engine">
-              <el-select v-model="aiFormData.search_engine" style="width: 100%">
-                <el-option v-for="item in webSearchOptions" :key="item.value" :label="item.label" :value="item.value"
-                  :disabled="item.disabled" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-
-          <el-col :span="24"></el-col>
-
-          <el-col :span="4">
-            <el-form-item label="定时执行">
-              <div class="flex items-center">
-                <el-switch v-model="aiFormData.scheduled_enabled" :active-value="true" :inactive-value="false"
-                  @change="val => onScheduledEnabledChange(aiFormData, val)" />
-              </div>
-            </el-form-item>
-          </el-col>
-
-          <el-col v-if="aiFormData.scheduled_enabled" :span="8">
-            <el-form-item label="执行时间">
-              <el-date-picker v-model="aiFormData.scheduled_at" type="datetime" style="width: 100%" placeholder="选择执行时间"
-                :disabled-date="disabledScheduledDate" value-format="YYYY-MM-DDTHH:mm:ssZ" />
-            </el-form-item>
-          </el-col>
-        </el-row>
-      </el-form>
-    </el-drawer>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue';
+import { ref, reactive } from 'vue';
 import { useAppStore } from '@/pinia';
 import { useBtnAuth } from '@/utils/btnAuth';
-import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { getDictFunc, formatDate, formatBoolean, filterDict, filterDataSource, returnArrImg, onDownloadFile } from '@/utils/format';
 import { formatToDateTime, getStartOfDayTimestamp, getDateDifference, getCountdownDays } from '@/utils/dateTimeUtils';
-import { createBaseStock, deleteBaseStock, deleteBaseStockByIds, updateBaseStock, findBaseStock, getBaseStockList, sync, clear, aiAnalyzeStocks, updateAllChangePct } from '@/api/quant/baseStock';
-import { providerOptions } from '@/data/aiProviderOptions';
-import { webSearchOptions } from '@/data/webSearchOptions';
+import { createBaseStock, deleteBaseStock, deleteBaseStockByIds, updateBaseStock, findBaseStock, getBaseStockList, sync, clear, updateAllChangePct } from '@/api/quant/baseStock';
 
 defineOptions({
   name: 'BaseStock',
@@ -457,7 +301,6 @@ const btnAuth = useBtnAuth();
 // 提交按钮loading
 const btnLoading = ref(false);
 const appStore = useAppStore();
-const router = useRouter();
 
 // 控制更多查询条件显示/隐藏状态
 const showAllQuery = ref(false);
@@ -641,7 +484,7 @@ const deleteBaseStockFunc = async row => {
   }
 };
 
-// 同步（增量更新：已存在的股票更新基础信息，新增的股票插入，保留本地行情与AI分析结果）
+// 同步（增量更新：已存在的股票更新基础信息，新增的股票插入，保留本地行情数据）
 const syncData = async () => {
   ElMessageBox.confirm('确定要增量同步股票数据吗?', '提示', {
     confirmButtonText: '确定',
@@ -769,12 +612,6 @@ const enterDialog = async () => {
 
 const detailForm = ref({});
 
-// 解析 AI 分析文本中的换行：兼容数据库中字面量 \n（反斜杠+n）与真实换行符，方便阅读
-const formatAiText = text => {
-  if (!text) return '';
-  return String(text).replace(/\\n/g, '\n');
-};
-
 // 页面内嵌详情视图控制标记（参考 aiTask 布局）
 const detailVisible = ref(false);
 
@@ -794,7 +631,7 @@ const backToList = () => {
   getTableData();
 };
 
-// 刷新详情数据（重新拉取最新数据，如 AI 分析完成后的最新结果）
+// 刷新详情数据（重新拉取最新数据）
 const refreshDetail = async () => {
   if (!detailForm.value.id) return;
   const res = await findBaseStock({ id: detailForm.value.id });
@@ -802,160 +639,6 @@ const refreshDetail = async () => {
     detailForm.value = res.data;
     ElMessage({ type: 'success', message: '刷新成功' });
   }
-};
-
-// =========== AI 参数选择记忆（AI供应商/大模型/接口模式/联网搜索/搜索引擎） ===========
-// 记录用户上一次在 AI drawer 中选择的 AI 参数，下次打开时回填；
-// 持久化到 localStorage，刷新页面后依然生效
-const AI_SELECTION_STORAGE_KEY = 'baseStock_aiSelection';
-
-// 从 localStorage 读取记忆缓存，缺失或解析失败时返回 null（回归默认值）
-const readCachedAiSelection = () => {
-  try {
-    const raw = localStorage.getItem(AI_SELECTION_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!parsed) return null;
-    return {
-      provider: parsed.provider,
-      model: parsed.model,
-      api_format: parsed.api_format,
-      web_search: parsed.web_search,
-      search_engine: parsed.search_engine,
-    };
-  } catch {
-    return null;
-  }
-};
-
-const aiSelectionMemory = ref(readCachedAiSelection());
-
-// 将表单中的 AI 参数记录为"上一次的选择"，并写入 localStorage
-const rememberAiSelection = source => {
-  if (!source) return;
-  const mem = {
-    provider: source.provider,
-    model: source.model,
-    api_format: source.api_format,
-    web_search: !!source.web_search,
-    search_engine: source.search_engine,
-  };
-  aiSelectionMemory.value = mem;
-  try {
-    localStorage.setItem(AI_SELECTION_STORAGE_KEY, JSON.stringify(mem));
-  } catch {
-    // 存储不可用（如隐私模式）时仅保留内存记忆
-  }
-};
-
-// 用记忆覆盖默认值；无记忆时返回原默认值
-const applyAiSelection = defaults => {
-  const mem = aiSelectionMemory.value;
-  if (!mem) return defaults;
-  return {
-    ...defaults,
-    provider: mem.provider,
-    model: mem.model,
-    api_format: mem.api_format,
-    web_search: mem.web_search,
-    search_engine: mem.search_engine,
-  };
-};
-// =========== AI 参数选择记忆结束 ===========
-
-// =========== AI 自动分析部分 ===========
-// AI 分析 drawer 显示控制
-const aiDrawerVisible = ref(false);
-// AI 分析提交按钮 loading
-const aiBtnLoading = ref(false);
-const aiFormRef = ref();
-// 分析方式: batch 批量分析(custom 指定个股
-const aiAnalyzeType = ref('batch');
-// 指定个股候选列表
-const aiStockOptions = ref([]);
-const aiStockLoading = ref(false);
-
-// 大模型厂商及模型选项，已抽离至 src/data/aiProviderOptions.js
-const currentProviderModels = computed(() => {
-  const provider = providerOptions.find(item => item.value === aiFormData.value.provider);
-  return provider?.models || [];
-});
-
-// 切换厂商时自动带上该厂商第一个模型
-const onProviderChange = () => {
-  aiFormData.value.model = currentProviderModels.value[0]?.value || '';
-};
-
-// 获取默认定时执行时间（下一个空闲时段，避开高峰 9:00-12:00、14:00-18:00）
-const getDefaultScheduledAt = () => {
-  // 北京时间 = UTC + 8 小时（无夏令时），加上 10 分钟缓冲
-  const bjMs = Date.now() + 8 * 3600000 + 10 * 60000;
-  const d = new Date(bjMs);
-  let h = d.getUTCHours();
-  let m = d.getUTCMinutes();
-  let s = d.getUTCSeconds();
-  if ((h >= 9 && h < 12) || (h >= 14 && h < 18)) {
-    if (h < 12) { h = 12; m = 0; s = 0; }
-    else { h = 18; m = 0; s = 0; }
-  }
-  const pad = n => String(n).padStart(2, '0');
-  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}T${pad(h)}:${pad(m)}:${pad(s)}+08:00`;
-};
-
-// 定时开关切换：开启时设默认时间，关闭时清空
-const onScheduledEnabledChange = (formData, enabled) => {
-  if (enabled) formData.scheduled_at = getDefaultScheduledAt();
-  else formData.scheduled_at = null;
-};
-
-// 构建定时参数：未开启定时或未选时间时返回 null
-const buildScheduledAt = (formData) => {
-  if (!formData.scheduled_enabled || !formData.scheduled_at) return null;
-  return formData.scheduled_at;
-};
-
-// 禁用已过去的时间
-const disabledScheduledDate = time => time.getTime() < Date.now();
-
-const createDefaultAiFormData = () => applyAiSelection({
-  provider: 'deepseek',
-  model: 'deepseek-v4-flash',
-  custom_stock_ids: [],
-  web_search: true, // true=默认开启联网搜索；false=强制关闭；不传(undefined)=跟随模型配置
-  api_format: 'responses', // 接口模式：''=跟随配置；responses=Responses API；chat-completions=OpenAI 兼容接口
-  search_engine: 'baidu', // 联网搜索引擎（chat-completions 模式且开启联网搜索时生效；默认百度搜索）
-  scheduled_enabled: false, // 定时执行开关
-  scheduled_at: null, // 未开启定时时为空，避免提交时被后端当作定时任务；开启定时时由 onScheduledEnabledChange 填入默认空闲时段
-});
-
-const aiFormData = ref(createDefaultAiFormData());
-
-// AI 分析表单验证规则
-const aiRule = reactive({
-  provider: [{ required: true, message: '请选择大模型', trigger: 'change' }],
-});
-
-// 打开 AI 自动分析 drawer
-const openAiAnalyzeDrawer = () => {
-  aiAnalyzeType.value = multipleSelection.value.length ? 'batch' : 'custom';
-  aiFormData.value = createDefaultAiFormData();
-  aiStockOptions.value = [];
-  aiDrawerVisible.value = true;
-};
-
-// 单行 AI 分析：打开 drawer 并自动带入该股票
-const aiAnalyzeRow = row => {
-  aiAnalyzeType.value = 'custom';
-  aiFormData.value = createDefaultAiFormData();
-  aiFormData.value.custom_stock_ids = [row.id];
-  aiStockOptions.value = [{ value: row.id, label: `${row.name}(${row.symbol})` }];
-  aiDrawerVisible.value = true;
-};
-
-// 关闭 AI 自动分析 drawer（关闭前记录本次选择，下次打开时回填）
-const closeAiAnalyzeDrawer = () => {
-  rememberAiSelection(aiFormData.value);
-  aiDrawerVisible.value = false;
 };
 
 // 涨跌幅颜色：红涨绿跌
@@ -967,88 +650,6 @@ const rateClass = val => {
   if (num < 0) return 'rate-fall';
   return '';
 };
-
-// 跳转到 AI 执行记录页面查看任务进度（路由 name 全局唯一，兼容标准版/简洁版菜单路径差异）
-const goAiTaskPage = taskId => {
-  if (!taskId) {
-    getTableData();
-    return;
-  }
-  router.push({ name: 'aiTask', query: { task_id: taskId } });
-};
-
-// 远程搜索指定个股
-const remoteSearchStocks = async query => {
-  if (!query) {
-    aiStockOptions.value = [];
-    return;
-  }
-  aiStockLoading.value = true;
-  try {
-    const res = await getBaseStockList({ page: 1, pageSize: 20, q: query });
-    if (res.code === 0) {
-      aiStockOptions.value = res.data.list.map(item => ({
-        value: item.id,
-        label: `${item.name}(${item.symbol})`,
-      }));
-    }
-  } finally {
-    aiStockLoading.value = false;
-  }
-};
-
-// 提交 AI 自动分析
-const enterAiAnalyze = async () => {
-  if (aiAnalyzeType.value === 'batch' && !multipleSelection.value.length) {
-    ElMessage({
-      type: 'warning',
-      message: '请先在表格中勾选需要分析的股票',
-    });
-    return;
-  }
-  if (aiAnalyzeType.value === 'custom' && !aiFormData.value.custom_stock_ids.length) {
-    ElMessage({
-      type: 'warning',
-      message: '请先选择需要分析的个股',
-    });
-    return;
-  }
-  // 定时执行校验：开启定时但未选时间
-  if (aiFormData.value.scheduled_enabled && !aiFormData.value.scheduled_at) {
-    ElMessage({ type: 'warning', message: '请选择定时执行时间' });
-    return;
-  }
-  aiBtnLoading.value = true;
-  aiFormRef.value?.validate(async valid => {
-    if (!valid) return (aiBtnLoading.value = false);
-    try {
-      const stockIds = aiAnalyzeType.value === 'batch' ? multipleSelection.value.map(item => item.id) : aiFormData.value.custom_stock_ids;
-      const res = await aiAnalyzeStocks({
-        stock_ids: stockIds,
-        provider: aiFormData.value.provider,
-        model: aiFormData.value.model,
-        web_search: aiFormData.value.web_search,
-        api_format: aiFormData.value.api_format,
-        search_engine: aiFormData.value.search_engine,
-        scheduled_at: buildScheduledAt(aiFormData.value),
-      });
-      if (res.code === 0) {
-        ElMessage({
-          type: 'success',
-          message: '任务已创建，正在前往执行进度页',
-        });
-        closeAiAnalyzeDrawer();
-        goAiTaskPage(res.data?.task_id);
-      }
-    } catch (e) {
-      // 统一错误提示由全局拦截器处理
-      throw e;
-    } finally {
-      aiBtnLoading.value = false;
-    }
-  });
-};
-// =========== AI 自动分析部分结束 ===========
 </script>
 
 <style>
@@ -1063,11 +664,6 @@ const enterAiAnalyze = async () => {
   margin-bottom: 12px;
 }
 
-.base-stock-detail .detail-card-analysis {
-  min-height: 800px;
-  margin-bottom: 12px;
-}
-
 .gva-table-box-head {
   display: flex;
   justify-content: space-between;
@@ -1076,38 +672,6 @@ const enterAiAnalyze = async () => {
     margin-top: 1em;
     margin-bottom: 2em;
   }
-}
-
-.ai-badge-icon {
-  color: var(--el-color-primary);
-  font-size: 14px;
-  vertical-align: middle;
-  cursor: pointer;
-}
-
-/* 无 AI 分析结果时的提示更新区域 */
-.empty-analyze {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 16px 0;
-}
-
-.empty-analyze-icon {
-  font-size: 22px;
-  color: var(--el-color-primary);
-}
-
-.empty-analyze-text {
-  font-size: 14px;
-  color: var(--el-text-color-secondary);
-}
-
-/* AI 分析文本：保留换行、优化阅读 */
-.ai-analysis-text {
-  line-height: 1.8;
-  word-break: break-word;
 }
 
 /* 涨跌幅：红涨绿跌 */

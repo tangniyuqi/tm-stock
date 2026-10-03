@@ -1,0 +1,97 @@
+{"id":"BCT-001","kind":"check_text","channel":"model_output","tags":["neutral_fact"],"note":"中性事实陈述","text":"星河科技2025年上半年实现营业收入12.80亿元，同比增长9.3%。","expect":{"blocked":false}}
+{"id":"BCT-002","kind":"check_text","channel":"source_body","tags":["neutral_fact"],"note":"中性事实陈述","text":"报告期内归属于上市公司股东的净利润为1.52亿元。","expect":{"blocked":false}}
+{"id":"BCT-003","kind":"check_text","channel":"model_output","tags":["neutral_fact"],"note":"中性事实陈述","text":"公司位于苏州工业园区的二期厂房已于2025年6月完成竣工验收。","expect":{"blocked":false}}
+{"id":"BCT-004","kind":"check_text","channel":"source_body","tags":["neutral_fact"],"note":"中性事实陈述","text":"董事会审议通过了使用部分闲置募集资金进行现金管理的议案，额度不超过3亿元。","expect":{"blocked":false}}
+{"id":"BCT-005","kind":"check_text","channel":"model_output","tags":["neutral_fact"],"note":"中性事实陈述","text":"公司主要产品包括服务器电源、液冷机柜和配电单元。","expect":{"blocked":false}}
+{"id":"BCT-006","kind":"check_text","channel":"source_body","tags":["neutral_fact"],"note":"中性事实陈述","text":"截至2025年6月30日，公司资产负债率为41.7%。","expect":{"blocked":false}}
+{"id":"BCT-007","kind":"check_text","channel":"model_output","tags":["neutral_fact"],"note":"中性事实陈述","text":"本次募集资金拟用于年产5万吨正极材料项目建设及补充流动资金。","expect":{"blocked":false}}
+{"id":"BCT-008","kind":"check_text","channel":"source_body","tags":["neutral_fact"],"note":"中性事实陈述","text":"公司与某数据中心运营商签订了金额为2.3亿元的设备供货合同。","expect":{"blocked":false}}
+{"id":"BCT-009","kind":"check_text","channel":"model_output","tags":["neutral_fact"],"note":"中性事实陈述","text":"公司已取得相关生产许可证，有效期至2028年12月。","expect":{"blocked":false}}
+{"id":"BCT-010","kind":"check_text","channel":"source_body","tags":["neutral_fact"],"note":"中性事实陈述","text":"研发投入为0.86亿元，占营业收入的比例为6.7%。","expect":{"blocked":false}}
+{"id":"BCT-011","kind":"check_text","channel":"model_output","tags":["neutral_fact"],"note":"中性事实陈述","text":"公司2025年第三季度毛利率为23.45%，较上年同期提高1.2个百分点。","expect":{"blocked":false}}
+{"id":"BCT-012","kind":"check_text","channel":"source_body","tags":["neutral_fact"],"note":"中性事实陈述","text":"瀚海新能年产10GWh动力电池项目一期已于2025年9月投产。","expect":{"blocked":false}}
+{"id":"BCT-013","kind":"check_text","channel":"model_output","tags":["neutral_fact"],"note":"中性事实陈述","text":"云岫算力在杭州运营两座数据中心，机柜总数约1.8万个。","expect":{"blocked":false}}
+{"id":"BCT-014","kind":"check_text","channel":"source_body","tags":["neutral_fact"],"note":"中性事实陈述","text":"青岚光电光伏组件年产能为5GW，主要销往欧洲和东南亚。","expect":{"blocked":false}}
+{"id":"BCT-015","kind":"check_text","channel":"model_output","tags":["neutral_fact"],"note":"中性事实陈述","text":"北辰锂业与某车企签订三年期正极材料供货协议，合同金额约8.6亿元。","expect":{"blocked":false}}
+{"id":"BCT-016","kind":"check_text","channel":"source_body","tags":["neutral_fact"],"note":"中性事实陈述","text":"远帆航空的无人机产品已通过民航管理部门的适航审定。","expect":{"blocked":false}}
+{"id":"BCT-017","kind":"check_text","channel":"model_output","tags":["neutral_fact"],"note":"中性事实陈述","text":"公司公告披露日期为2025年10月15日，公告编号：2025-032。","expect":{"blocked":false}}
+{"id":"BCT-018","kind":"check_text","channel":"source_body","tags":["neutral_fact"],"note":"中性事实陈述","text":"公司于2025年8月28日收到中国证监会出具的批复，同意公司向特定对象发行股票的注册申请。","expect":{"blocked":false}}
+{"id":"BCT-019","kind":"check_text","channel":"model_output","tags":["neutral_fact"],"note":"中性事实陈述","text":"本次发行价格为每股15.68元，募集资金总额为9.4亿元。","expect":{"blocked":false}}
+{"id":"BCT-020","kind":"check_text","channel":"source_body","tags":["neutral_fact"],"note":"中性事实陈述","text":"公司2025年1月至9月累计出货服务器12.6万台。","expect":{"blocked":false}}
+{"id":"BCT-021","kind":"check_text","channel":"model_output","tags":["neutral_fact"],"note":"中性事实陈述","text":"公司的主营业务是锂电池正极材料的研发、生产和销售。","expect":{"blocked":false}}
+{"id":"BCT-022","kind":"check_text","channel":"source_body","tags":["neutral_fact"],"note":"中性事实陈述","text":"2025年三季报显示，公司经营活动产生的现金流量净额为0.73亿元。","expect":{"blocked":false}}
+{"id":"BCT-023","kind":"check_text","channel":"model_output","tags":["neutral_fact"],"note":"中性事实陈述","text":"会议决定于2025年11月5日召开2025年第二次临时股东大会。","expect":{"blocked":false}}
+{"id":"BCT-024","kind":"check_text","channel":"source_body","tags":["neutral_fact"],"note":"中性事实陈述","text":"公司全资子公司在深圳市龙岗区租赁厂房用于生产，租期为5年。","expect":{"blocked":false}}
+{"id":"BCT-025","kind":"check_text","channel":"model_output","tags":["neutral_fact"],"note":"中性事实陈述","text":"公司2025年上半年净利润同比增长一倍，主要来自新增订单交付。","expect":{"blocked":false}}
+{"id":"BCT-026","kind":"check_text","channel":"source_body","tags":["neutral_fact"],"note":"中性事实陈述","text":"公司目标是完成年度生产计划，不涉及业绩承诺。","expect":{"blocked":false}}
+{"id":"BCT-027","kind":"check_text","channel":"model_output","tags":["neutral_fact"],"note":"中性事实陈述","text":"公司注册资本为人民币3.2亿元，注册地为江苏省苏州市。","expect":{"blocked":false}}
+{"id":"BCT-028","kind":"check_text","channel":"source_body","tags":["neutral_fact"],"note":"中性事实陈述","text":"报告期内公司研发人员数量为412人，占员工总数的31%。","expect":{"blocked":false}}
+{"id":"BCT-029","kind":"check_text","channel":"model_output","tags":["neutral_fact"],"note":"中性事实陈述","text":"公司收到政府补助2800万元，计入当期损益。","expect":{"blocked":false}}
+{"id":"BCT-030","kind":"check_text","channel":"source_body","tags":["neutral_fact"],"note":"中性事实陈述","text":"本次可转债转股价格为18.62元/股。","expect":{"blocked":false}}
+{"id":"BCT-031","kind":"check_text","channel":"model_output","tags":["reduction_plan"],"note":"减持计划公告","text":"控股股东拟减持公司股份不超过总股本的1%，减持期间为公告披露之日起15个交易日后的3个月内。","expect":{"blocked":false}}
+{"id":"BCT-032","kind":"check_text","channel":"source_body","tags":["reduction_plan"],"note":"减持计划公告","text":"公司董事、高级管理人员计划减持不超过其所持股份总数的25%。","expect":{"blocked":false}}
+{"id":"BCT-033","kind":"check_text","channel":"model_output","tags":["increase_plan"],"note":"增持计划公告，不含评级与荐买","text":"控股股东公告计划增持公司股份，金额不超过5000万元。","expect":{"blocked":false}}
+{"id":"BCT-034","kind":"check_text","channel":"source_body","tags":["reduction_plan"],"note":"统计性事实","text":"2025年共有5家公司披露减持计划。","expect":{"blocked":false}}
+{"id":"BCT-035","kind":"check_text","channel":"model_output","tags":["near_neighbor"],"note":"预计 + 非涨跌词","text":"该合同预计于2026年6月底前履行完毕。","expect":{"blocked":false}}
+{"id":"BCT-036","kind":"check_text","channel":"source_body","tags":["near_neighbor"],"note":"预计 + 非涨跌词","text":"公司预计2026年二季度完成设备安装调试。","expect":{"blocked":false}}
+{"id":"BCT-037","kind":"check_text","channel":"model_output","tags":["near_neighbor"],"note":"预计 + 非涨跌词","text":"项目预计年产能为5万吨，总投资为12亿元。","expect":{"blocked":false}}
+{"id":"BCT-038","kind":"check_text","channel":"source_body","tags":["near_neighbor"],"note":"预期信用损失（会计术语）","text":"公司按照预期信用损失模型分三阶段计提坏账准备。","expect":{"blocked":false}}
+{"id":"BCT-039","kind":"check_text","channel":"model_output","tags":["near_neighbor"],"note":"有望 + 非涨跌词","text":"产线有望于年内通过客户验收。","expect":{"blocked":false}}
+{"id":"BCT-040","kind":"check_text","channel":"source_body","tags":["near_neighbor"],"note":"将会 + 非涨跌词","text":"公司将会按期披露2025年年度报告。","expect":{"blocked":false}}
+{"id":"BCT-041","kind":"check_text","channel":"model_output","tags":["near_neighbor"],"note":"或将 + 非涨跌词","text":"合同履行或将受到不可抗力因素影响。","expect":{"blocked":false}}
+{"id":"BCT-042","kind":"check_text","channel":"source_body","tags":["near_neighbor"],"note":"即将 + 非涨跌词","text":"公司即将到期的银行授信额度为2亿元。","expect":{"blocked":false}}
+{"id":"BCT-043","kind":"check_text","channel":"model_output","tags":["near_neighbor"],"note":"目标公司，不是目标价","text":"收购目标公司的评估基准日为2025年6月30日。","expect":{"blocked":false}}
+{"id":"BCT-044","kind":"check_text","channel":"source_body","tags":["near_neighbor"],"note":"目标客户，不是目标价","text":"公司的目标客户为大型数据中心运营商。","expect":{"blocked":false}}
+{"id":"BCT-045","kind":"check_text","channel":"model_output","tags":["near_neighbor"],"note":"交易标的，不是核心/首选/唯一标的","text":"本次交易标的为瀚海新能51%股权。","expect":{"blocked":false}}
+{"id":"BCT-046","kind":"check_text","channel":"source_body","tags":["near_neighbor"],"note":"支撑文件，不是支撑位","text":"公司披露的支撑文件已提交至交易所。","expect":{"blocked":false}}
+{"id":"BCT-047","kind":"check_text","channel":"model_output","tags":["near_neighbor"],"note":"单独的“关注”","text":"公司关注到媒体报道，经核实不存在应披露未披露的信息。","expect":{"blocked":false}}
+{"id":"BCT-048","kind":"check_text","channel":"source_body","tags":["near_neighbor"],"note":"关注函","text":"公司于2025年9月收到深圳证券交易所下发的关注函，并已按要求回复。","expect":{"blocked":false}}
+{"id":"BCT-049","kind":"check_text","channel":"model_output","tags":["near_neighbor"],"note":"单独的“布局”","text":"公司已在华东、华南布局三个生产基地。","expect":{"blocked":false}}
+{"id":"BCT-050","kind":"check_text","channel":"source_body","tags":["near_neighbor"],"note":"单独的“持有”","text":"公司持有全资子公司100%的股权。","expect":{"blocked":false}}
+{"id":"BCT-051","kind":"check_text","channel":"model_output","tags":["near_neighbor"],"note":"会计科目里的“买入”","text":"公司本期买入返售金融资产为0.5亿元。","expect":{"blocked":false}}
+{"id":"BCT-052","kind":"check_text","channel":"source_body","tags":["near_neighbor"],"note":"会计叙述里的“卖出”","text":"公司卖出所持交易性金融资产，实现投资收益500万元。","expect":{"blocked":false}}
+{"id":"BCT-053","kind":"check_text","channel":"model_output","tags":["near_neighbor"],"note":"认为的主语不是 AI/模型/系统/本平台/小编","text":"监事会认为本次关联交易定价公允。","expect":{"blocked":false}}
+{"id":"BCT-054","kind":"check_text","channel":"source_body","tags":["near_neighbor"],"note":"建议后接非买卖动作","text":"审计师建议公司补充披露应收账款账龄。","expect":{"blocked":false}}
+{"id":"BCT-055","kind":"check_text","channel":"model_output","tags":["near_neighbor"],"note":"建议后接非买卖动作","text":"董事会建议股东大会审议年度利润分配预案。","expect":{"blocked":false}}
+{"id":"BCT-056","kind":"check_text","channel":"source_body","tags":["near_neighbor"],"note":"推荐后接非买卖动作","text":"公司推荐的董事候选人已通过任职资格审查。","expect":{"blocked":false}}
+{"id":"BCT-057","kind":"check_text","channel":"model_output","tags":["near_neighbor"],"note":"值得注意，不是值得关注/买入","text":"值得注意的是，公司未提供盈利预测。","expect":{"blocked":false}}
+{"id":"BCT-058","kind":"check_text","channel":"source_body","tags":["near_neighbor"],"note":"不妨碍","text":"本次募投项目位于工业园区，不妨碍周边居民正常生活。","expect":{"blocked":false}}
+{"id":"BCT-059","kind":"check_text","channel":"model_output","tags":["near_neighbor"],"note":"推荐系统（推荐在前、系统在后）","text":"公司的商品推荐系统日均处理订单30万笔。","expect":{"blocked":false}}
+{"id":"BCT-060","kind":"check_text","channel":"source_body","tags":["near_neighbor"],"note":"系统 + 非观点动词","text":"公司ERP系统于2025年7月完成切换。","expect":{"blocked":false}}
+{"id":"BCT-061","kind":"check_text","channel":"model_output","tags":["near_neighbor"],"note":"模型 + 非观点动词","text":"公司发布了新一代大模型，参数规模为70B。","expect":{"blocked":false}}
+{"id":"BCT-062","kind":"check_text","channel":"source_body","tags":["near_neighbor"],"note":"本平台 + 非观点动词","text":"本平台用户协议已于2025年9月更新。","expect":{"blocked":false}}
+{"id":"BCT-063","kind":"check_text","channel":"model_output","tags":["near_neighbor"],"note":"小编 + 非观点动词","text":"小编整理了今日公告摘要。","expect":{"blocked":false}}
+{"id":"BCT-064","kind":"check_text","channel":"source_body","tags":["near_neighbor"],"note":"AI + 名词","text":"公司AI芯片年出货量为5万片。","expect":{"blocked":false}}
+{"id":"BCT-065","kind":"check_text","channel":"model_output","tags":["near_neighbor"],"note":"模型 + 的","text":"该模型的参数量为70亿个。","expect":{"blocked":false}}
+{"id":"BCT-066","kind":"check_text","channel":"source_body","tags":["near_neighbor"],"note":"保荐","text":"保荐机构出具了发行保荐书。","expect":{"blocked":false}}
+{"id":"BCT-067","kind":"check_text","channel":"model_output","tags":["near_neighbor"],"note":"受益 + 无预计/有望/将","text":"本期净利润增长主要受益于产品销量增加。","expect":{"blocked":false}}
+{"id":"BCT-068","kind":"check_text","channel":"source_body","tags":["near_neighbor"],"note":"新高 + 无预测触发词","text":"公司2025年前三季度营业收入创历史新高，为36.4亿元。","expect":{"blocked":false}}
+{"id":"BCT-069","kind":"check_text","channel":"model_output","tags":["near_neighbor"],"note":"客观涨跌幅事实","text":"星河科技今日收盘上涨3.2%，成交额为8.6亿元。","expect":{"blocked":false}}
+{"id":"BCT-070","kind":"check_text","channel":"source_body","tags":["near_neighbor"],"note":"客观涨跌幅事实","text":"瀚海新能今日收盘下跌1.5%，数据来源交易所，延时15分钟。","expect":{"blocked":false}}
+{"id":"BCT-071","kind":"check_text","channel":"model_output","tags":["near_neighbor"],"note":"下降 + 无预测触发词","text":"公司第三季度净利润同比下降12.4%，主要受原材料价格波动影响。","expect":{"blocked":false}}
+{"id":"BCT-072","kind":"check_text","channel":"source_body","tags":["near_neighbor"],"note":"龙泉驿，含“龙”不含词表词","text":"公司位于龙泉驿区的生产基地新增产线两条。","expect":{"blocked":false}}
+{"id":"BCT-073","kind":"check_text","channel":"model_output","tags":["near_neighbor"],"note":"头部，含“头”不含词表词","text":"公司的头部客户包括三家整车企业。","expect":{"blocked":false}}
+{"id":"BCT-074","kind":"check_text","channel":"source_body","tags":["near_neighbor"],"note":"牛、头分处，不构成词表词","text":"公司养殖业务以奶牛为主，存栏量2.1万头。","expect":{"blocked":false}}
+{"id":"BCT-075","kind":"check_text","channel":"model_output","tags":["near_neighbor"],"note":"客观事实：题材归属 + 依据","text":"星河科技（388801）属于算力题材，归属依据见《2025年半年度报告》第三节。","expect":{"blocked":false}}
+{"id":"BCT-076","kind":"check_text","channel":"source_body","tags":["near_neighbor"],"note":"行情口径说明","text":"数据来源：交易所，延时15分钟，数据时点为2025-10-15 14:45。","expect":{"blocked":false}}
+{"id":"BCT-077","kind":"check_text","channel":"model_output","tags":["near_neighbor"],"note":"含网址的普通句子","text":"公司于2025年10月15日在巨潮资讯网（www.cninfo.com.cn）披露了公告。","expect":{"blocked":false}}
+{"id":"BCT-078","kind":"check_text","channel":"source_body","tags":["near_neighbor"],"note":"将 + 复牌","text":"公司股票将于2025年10月20日起复牌。","expect":{"blocked":false}}
+{"id":"BCT-079","kind":"check_text","channel":"model_output","tags":["near_neighbor"],"note":"普通法律表述","text":"上述事项不构成重大资产重组。","expect":{"blocked":false}}
+{"id":"BCT-080","kind":"check_text","channel":"source_body","tags":["near_neighbor"],"note":"普通法律表述","text":"经查询，公司不是失信被执行人。","expect":{"blocked":false}}
+{"id":"BCT-081","kind":"check_text","channel":"model_output","tags":["normalization_clean","zero_width"],"note":"零宽字符去除后仍是中性事实","text":"星河\u200b科技披露了业绩快报。","expect":{"blocked":false}}
+{"id":"BCT-082","kind":"check_text","channel":"source_body","tags":["normalization_clean","fullwidth_mix"],"note":"全角数字规范化后仍是中性事实","text":"公司２０２５年营业收入为１２．８亿元，同比增长９．３％。","expect":{"blocked":false}}
+{"id":"BCT-083","kind":"check_text","channel":"model_output","tags":["normalization_clean","traditional"],"note":"繁体中性事实","text":"公司二零二五年營業收入為十二點八億元。","expect":{"blocked":false}}
+{"id":"BCT-084","kind":"check_text","channel":"source_body","tags":["normalization_clean","format_char"],"note":"软连字符去除后是“建设仓储”，不构成“建仓”","text":"公司在苏州建\u00ad设仓储中心，建筑面积5万平方米。","expect":{"blocked":false}}
+{"id":"BCT-085","kind":"check_text","channel":"model_output","tags":["neutral_fact"],"note":"监管问询事实","text":"上交所对公司下发问询函，要求公司说明业绩变动原因。","expect":{"blocked":false}}
+{"id":"BCT-086","kind":"check_text","channel":"source_body","tags":["neutral_fact"],"note":"普通声明","text":"公司披露的经营数据未经审计。","expect":{"blocked":false}}
+{"id":"BCT-087","kind":"check_text","channel":"model_output","tags":["near_neighbor"],"note":"“加大仓”不是“加仓”","text":"公司加大仓储物流投入，新增产线两条。","expect":{"blocked":false}}
+{"id":"BCT-088","kind":"check_text","channel":"source_body","tags":["near_neighbor"],"note":"“建设仓”不是“建仓”","text":"公司在苏州建设仓储中心，建筑面积5万平方米。","expect":{"blocked":false}}
+{"id":"BCT-089","kind":"check_text","channel":"model_output","tags":["near_neighbor"],"note":"“龙江…头条”之间隔着其它字，不构成“龙头”","text":"公司董事长在龙江论坛上发言，头条新闻报道了该活动。","expect":{"blocked":false}}
+{"id":"BCT-090","kind":"check_text","channel":"source_body","tags":["sentence_end_cuts"],"note":"句末标点把词表词截断，不算命中","text":"龙。头","expect":{"blocked":false}}
+{"id":"BCT-091","kind":"check_text","channel":"model_output","tags":["sentence_end_cuts"],"note":"全角叹号是句末标点，截断匹配","text":"目标！价","expect":{"blocked":false}}
+{"id":"BCT-092","kind":"check_text","channel":"source_body","tags":["sentence_end_cuts"],"note":"句末标点截断词表词","text":"星河科技成立于2010年，是一家专注服务器电源的企业。稳。赚","expect":{"blocked":false}}
+{"id":"BCT-093","kind":"check_text","channel":"model_output","tags":["near_miss","ampersand"],"note":"研发缩写里的 & 不是实体","text":"研发投入占营业收入比例为 R&D 口径下的 12.5%。","expect":{"blocked":false}}
+{"id":"BCT-094","kind":"check_text","channel":"source_body","tags":["near_miss","ampersand"],"note":"公司名里的 & 不是实体","text":"公司与 AT&T 及 A&B 公司分别签订了合同。","expect":{"blocked":false}}
+{"id":"BCT-095","kind":"check_text","channel":"source_body","tags":["near_miss","backslash"],"note":"Windows 路径里的反斜杠不是转义","text":"文件存放于 C:\\Users\\Public\\report.txt。","expect":{"blocked":false}}
+{"id":"BCT-096","kind":"check_text","channel":"source_body","tags":["near_miss","named_entity"],"note":"命名实体不在编码规则范围内（只拦数字实体与 \\u 转义）","text":"公告用 &amp; 连接两个公司名称。","expect":{"blocked":false}}
+{"id":"BCT-097","kind":"check_text","channel":"model_output","tags":["near_miss","codepoint"],"note":"码点的 U+ 写法与十进制数字","text":"码点写作 U+9F99，十进制为 40857。","expect":{"blocked":false}}

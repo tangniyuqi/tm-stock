@@ -61,6 +61,7 @@
 					</view>
 				</view>
 				
+				<view class="mock-tip"><x-text font-size="12" color="#E6A23C">示例数据：下列题材、涨跌幅与个股名称均为界面示例，非真实行情</x-text></view>
 				<x-table 
 					:columns="tableColumns" 
 					:list="themeList"
@@ -92,7 +93,7 @@
 						</view>
 					</template>
 
-					<!-- Custom slot for Leaders -->
+					<!-- Custom slot：涨幅居前的成分股名称（客观涨跌幅排序，不含任何评价标识） -->
 					<template #leaders="{ sucore }">
 						<view class="flex flex-row flex-wrap align-center" style="gap: 4px;">
 							<view 
@@ -133,7 +134,7 @@ const topThemes = ref([
 const tableColumns = [
 	{ title: '题材名称', field: 'name', width: '120px', align: 'flex-start' },
 	{ title: '涨跌幅', field: 'change', width: '80px', align: 'flex-end' },
-	{ title: '领涨股', field: 'leaders', width: 'auto', align: 'flex-start' }
+	{ title: '涨幅居前', field: 'leaders', width: 'auto', align: 'flex-start' }
 ];
 
 const themeList = ref([
@@ -240,5 +241,9 @@ const pageStyle = computed(() => {
 /* Ensure table header has correct tint */
 :deep(.x-table-header) {
 	background-color: var(--panel-2) !important;
+}
+
+.mock-tip {
+	padding: 4px 16px 8px 16px;
 }
 </style>

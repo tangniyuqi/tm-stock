@@ -28,15 +28,3 @@ type BaseStockSearch struct {
 	Q *string `json:"q" form:"q"`
 	request.PageInfo
 }
-
-// AiAnalyzeStockReq AI 自动分析股票请求
-type AiAnalyzeStockReq struct {
-	StockIds     []int64    `json:"stock_ids" form:"stock_ids"`         // 待分析股票ID列表
-	Provider     string     `json:"provider" form:"provider"`           // 大模型厂商: deepseek/doubao/qwen/kimi/zhipu/minimax/claude/gpt/gemini
-	Model        string     `json:"model" form:"model"`                 // 模型ID（如 deepseek-v4-flash），留空使用厂商默认模型
-	ApiKey       string     `json:"api_key" form:"api_key"`             // API密钥
-	WebSearch    *bool      `json:"web_search" form:"web_search"`       // 是否启用联网搜索（可选；不传则跟随模型配置 web-search，默认关闭；开启后自动检索最新新闻供大模型参考）
-	ApiFormat    string     `json:"api_format" form:"api_format"`       // 接口模式（可选；responses=Responses API，chat-completions=OpenAI 兼容接口；留空跟随模型/厂商/全局 ai.responses-api 配置）
-	SearchEngine string     `json:"search_engine" form:"search_engine"` // 联网搜索引擎（chat-completions 模式且开启联网搜索时生效；baidu 默认，可选 tavily/serper/bocha 等，与 config.yaml 的 web-search 配置节保持一致）
-	ScheduledAt  *time.Time `json:"scheduled_at" form:"scheduled_at"`   // 计划执行时间（可选；不传或传空则立即执行）
-}

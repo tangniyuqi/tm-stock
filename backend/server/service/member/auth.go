@@ -7,6 +7,7 @@ import (
 
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/member"
+	sysModel "github.com/flipped-aurora/gin-vue-admin/server/model/system"
 	sysReq "github.com/flipped-aurora/gin-vue-admin/server/model/system/request"
 	"github.com/flipped-aurora/gin-vue-admin/server/utils"
 	"gorm.io/gorm"
@@ -170,11 +171,14 @@ func (s *AuthService) Logout(ctx context.Context) error {
 	return nil
 }
 
-// issueToken 签发 member JWT token
+// issueToken 签发 member JWT token。
+// UserType 必须写 client：后台与 C 端共用签名密钥，中间件靠它区分令牌主体，
+// 缺了它会员令牌既进不了 C 端（ClientJWTAuth 只认 client），也无法与后台令牌区分。
 func (s *AuthService) issueToken(memberID uint) (member.LoginResp, error) {
 	j := utils.NewJWT()
 	claims := j.CreateClaims(sysReq.BaseClaims{
-		ID: memberID,
+		ID:       memberID,
+		UserType: sysModel.UserTypeClient,
 	})
 	token, err := j.CreateToken(claims)
 	if err != nil {

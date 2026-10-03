@@ -228,25 +228,43 @@ func (aiTaskService *AiTaskService) RestartAiTask(ctx context.Context, id uint, 
 	if task.Status != AiTaskStatusCanceled && task.Status != AiTaskStatusFailed {
 		return fmt.Errorf("仅已取消或失败的任务可以重启")
 	}
-	if task.Params == "" {
-		return fmt.Errorf("任务参数缺失，无法重启")
+	// 四类 AI 任务都已下线，不再有可以重启的类型；先判类型，让遗留任务得到明确的"已下线"提示。
+	if isRetiredAiTaskType(task.Type) {
+		return errAiTaskRetired(task.Type)
 	}
-	var params map[string]any
-	if err := json.Unmarshal([]byte(task.Params), &params); err != nil {
-		return fmt.Errorf("任务参数解析失败: %w", err)
+	return fmt.Errorf("不支持的任务类型: %s", task.Type)
+}
+
+// 已下线的 AI 任务类型及原因（docs/specs/ai-analysis，ADR-0008）。库里遗留的这类任务（含待调度的定时任务）
+// 会被标记为失败，不再执行，也不能重启。
+const (
+	// 题材个股三类：AI 直接产出个股梯队、相关度与长篇入选逻辑并以启用状态入库，既无依据也无审核（F1–F4）；
+	// 改造为受控的 L0 流程后由 server/ 承接。
+	retiredThemeStockReason = "AI 直接给个股打梯队、相关度并入库的做法已停用，改为带依据、经人工审核的流程"
+	// 基础股票分析：AI 以分析师口吻给个股写基本面、业绩兑现、风险等评价性文字并存入共用表（F15、D16）。
+	retiredStockAnalyzeReason = "AI 以分析师口吻给个股写评价性文字并存入共用表的做法已停用"
+)
+
+var retiredAiTaskReasons = map[string]string{
+	"ai_add":          retiredThemeStockReason,
+	"ai_update_one":   retiredThemeStockReason,
+	"ai_update_batch": retiredThemeStockReason,
+	"ai_analyze":      retiredStockAnalyzeReason,
+}
+
+// isRetiredAiTaskType 判断任务类型是否已下线。
+func isRetiredAiTaskType(taskType string) bool {
+	_, ok := retiredAiTaskReasons[taskType]
+	return ok
+}
+
+// errAiTaskRetired 是已下线任务类型的统一报错。
+func errAiTaskRetired(taskType string) error {
+	reason, ok := retiredAiTaskReasons[taskType]
+	if !ok {
+		reason = "该类 AI 任务已停用"
 	}
-	switch task.Type {
-	case "ai_add":
-		return themeStockService.RestartAiAddTask(task, params, userID)
-	case "ai_update_one":
-		return themeStockService.RestartAiUpdateOneTask(task, params, userID)
-	case "ai_update_batch":
-		return themeStockService.RestartAiUpdateBatchTask(task, params, userID)
-	case "ai_analyze":
-		return baseStockService.RestartAiAnalyzeTask(task, params, userID)
-	default:
-		return fmt.Errorf("不支持的任务类型: %s", task.Type)
-	}
+	return fmt.Errorf("任务类型 %s 已下线：%s", taskType, reason)
 }
 
 // ==================== 任务参数解析辅助（params JSON → 请求字段） ====================
@@ -432,26 +450,13 @@ func (aiTaskService *AiTaskService) dispatchScheduledTasks() {
 	}
 }
 
-// dispatchScheduledTask 调度单个定时任务：解析参数 -> 重置状态 -> 发起后台执行
+// dispatchScheduledTask 调度单个定时任务：目前所有 AI 任务类型都已下线，遗留的定时任务一律落成失败
 func (aiTaskService *AiTaskService) dispatchScheduledTask(task quant.QuantAiTask) {
-	var params map[string]any
-	if err := json.Unmarshal([]byte(task.Params), &params); err != nil {
-		global.GVA_LOG.Error("定时任务参数解析失败，标记为失败", zap.Uint("taskID", task.ID), zap.Error(err))
-		aiTaskService.FinishAiTask(task.ID, AiTaskStatusFailed, nil, "定时任务参数解析失败: "+err.Error())
-		return
-	}
-
+	// 四类 AI 任务都已下线：遗留的待调度任务不再执行，直接落成失败并写明原因，否则每个调度周期都会被捞一次。
 	var runErr error
-	switch task.Type {
-	case "ai_add":
-		runErr = themeStockService.RestartAiAddTask(task, params, task.CreatedBy)
-	case "ai_update_one":
-		runErr = themeStockService.RestartAiUpdateOneTask(task, params, task.CreatedBy)
-	case "ai_update_batch":
-		runErr = themeStockService.RestartAiUpdateBatchTask(task, params, task.CreatedBy)
-	case "ai_analyze":
-		runErr = baseStockService.RestartAiAnalyzeTask(task, params, task.CreatedBy)
-	default:
+	if isRetiredAiTaskType(task.Type) {
+		runErr = errAiTaskRetired(task.Type)
+	} else {
 		runErr = fmt.Errorf("不支持的定时任务类型: %s", task.Type)
 	}
 
