@@ -31,14 +31,15 @@ const (
 // 请求可重放时才悄悄重发）；禁止跟随重定向（POST 被 301/302 改成 GET 同样是隐式重试）；
 // 重试只允许发生在 Retry 层，那里每次尝试都有日志。
 type OpenAICompat struct {
-	name     string
-	endpoint string
-	model    string
-	bearer   string
-	timeout  time.Duration
-	maxBody  int64
-	clock    Clock
-	client   *http.Client
+	name          string
+	endpoint      string
+	model         string
+	bearer        string
+	timeout       time.Duration
+	maxBody       int64
+	clock         Clock
+	client        *http.Client
+	directProfile string
 }
 
 var _ Provider = (*OpenAICompat)(nil)

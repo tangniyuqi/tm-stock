@@ -13,6 +13,8 @@ export type ThemeDailyItem = {
 	title : string,
 	themeId : number,
 	themeName : string,
+	changePct : number | null,
+	caliber : string,
 	publishAt : number,
 	source : string,
 	sourceUrl : string
@@ -22,7 +24,9 @@ export type ThemeDailyPage = {
 	date : string,
 	isTradingDay : boolean,
 	emptyReason : ThemeDailyEmptyReason,
-	dataFrom : string,
+	quoteDelayMin : number,
+	snapshotAt : number,
+	quoteIsMock : boolean,
 	sort : string,
 	list : ThemeDailyItem[],
 	total : number,
@@ -79,6 +83,7 @@ export type Evidence = {
 	chainNodeName : string,
 	sourceType : string,
 	sourceExcerpt : string,
+	excerptTrimmed : boolean,
 	sourceUrl : string,
 	collectedAt : number
 }

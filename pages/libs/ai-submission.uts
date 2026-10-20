@@ -1,0 +1,107 @@
+import { isSafeAIInteger, isSafeAIId } from './ai.uts'
+import { isSafeExternalUrl } from './external-link.uts'
+
+export type AISubmissionScope = { analysisType : string, subjectType : string, subjectId : number }
+export type AIQuoteMaterial = { sourceType : string, sourceUrl : string, collectedAt : number }
+export type AISubmissionQuote = {
+	analysisType : string, subjectType : string, subjectId : number, subjectName : string,
+	pricePoints : number, priceVersion : string, availablePoints : number, quotedAt : number,
+	holdExpireSec : number, materialScope : AIQuoteMaterial[]
+}
+export type AICreationReceipt = { taskId : number, pricePoints : number, priceVersion : string }
+export type AIPendingCreation = { key : string, subjectId : number, priceVersion : string, pricePoints : number }
+export type AILocalIdentity = { ID : number, UserType : string }
+
+export const isAIRequestKey = (key : string) : boolean => typeof key == 'string' && key == key.trim() && /^[A-Za-z0-9_-]{16,80}$/.test(key)
+export const isAIPriceVersion = (value : string) : boolean => typeof value == 'string' && value == value.trim() && /^[A-Za-z0-9_.:-]{1,32}$/.test(value)
+export const isAISubmissionScope = (scope : AISubmissionScope | null) : boolean => {
+	return scope != null && scope.analysisType == 'light' && scope.subjectType == 'theme' && isSafeAIId(scope.subjectId)
+}
+export const isValidAIQuote = (quote : AISubmissionQuote | null, scope : AISubmissionScope) : boolean => {
+	if (!isAISubmissionScope(scope) || quote == null || quote.analysisType != scope.analysisType || quote.subjectType != scope.subjectType || quote.subjectId != scope.subjectId
+		|| typeof quote.subjectName != 'string' || quote.subjectName.trim().length == 0 || quote.subjectName.length > 64
+		|| !isSafeAIId(quote.pricePoints) || !isAIPriceVersion(quote.priceVersion) || !isSafeAIInteger(quote.availablePoints)
+		|| !isSafeAIId(quote.quotedAt) || quote.quotedAt > 8640000000000000 || !isSafeAIId(quote.holdExpireSec)
+		|| !Array.isArray(quote.materialScope) || quote.materialScope.length < 1 || quote.materialScope.length > 32) return false
+	for (let i = 0; i < quote.materialScope.length; i++) {
+		const item : AIQuoteMaterial = quote.materialScope[i]
+		if (item == null || typeof item.sourceType != 'string' || !['announcement', 'annual_report', 'prospectus', 'official_catalog', 'interactive_qa'].includes(item.sourceType)
+			|| typeof item.sourceUrl != 'string' || item.sourceUrl.length > 2048 || !isSafeExternalUrl(item.sourceUrl)
+			|| !isSafeAIId(item.collectedAt) || item.collectedAt > quote.quotedAt) return false
+	}
+	return true
+}
+export const isValidAICreationReceipt = (receipt : AICreationReceipt | null) : boolean => {
+	return receipt != null && isSafeAIId(receipt.taskId) && isSafeAIId(receipt.pricePoints) && isAIPriceVersion(receipt.priceVersion)
+}
+export const isValidAIPending = (pending : AIPendingCreation | null) : boolean => {
+	return pending != null && isAIRequestKey(pending.key) && isSafeAIId(pending.subjectId) && isAIPriceVersion(pending.priceVersion) && isSafeAIId(pending.pricePoints)
+}
+export const aiSubmissionError = (code : number) : string => {
+	if (code == 40100 || code == 40101) return '登录状态已失效，请重新登录后核查原请求'
+	if (code == 40901) return '价格版本已变化，请重新核对报价'
+	if (code == 40903) return '原请求编号存在冲突，请保留现场并核查'
+	if (code == 42201) return '可消费积分不足，未确认创建成功'
+	if (code == 42202) return '该资料任务目前不可创建'
+	if (code == 40403) return '暂未查到原请求；不代表此前请求不会提交，请稍后继续核查'
+	if (code == 40001) return '请求参数无效，未确认创建成功'
+	return '任务服务未开放或请求未确认，请按原请求核查'
+}
+
+// 只用于本地分区，不验签、不授予权限；所有HTTP身份仍由服务器验证当前Bearer。
+export const aiPendingStorageKey = (token : string) : string => {
+	// #ifdef WEB
+	try {
+		if (typeof token != 'string' || token.length > 8192 || token.split('.').length != 3) return ''
+		const raw : string = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
+		const identity : AILocalIdentity | null = JSON.parse<AILocalIdentity | null>(window.atob(raw))
+		if (identity != null && isSafeAIId(identity.ID) && identity.UserType == 'client') return 'tm_ai_pending_v1_' + identity.ID.toString()
+	} catch (_) { return '' }
+	// #endif
+	return ''
+}
+export const readAIPending = (partition : string) : AIPendingCreation | null => {
+	if (!/^tm_ai_pending_v1_[1-9][0-9]*$/.test(partition)) return null
+	const raw = uni.getStorageSync(partition)
+	if (raw == null) return null
+	if (typeof raw != 'string' || raw.length > 512) throw new Error('原请求记录不可读取')
+	if (raw.length == 0) return null
+	const pending : AIPendingCreation | null = JSON.parse<AIPendingCreation | null>(raw)
+	if (!isValidAIPending(pending)) throw new Error('原请求记录不可读取')
+	return pending
+}
+// 必须先存后发；不支持Web安全能力时不退化为时间戳或随机占位键。
+export const reserveAIPending = async (partition : string, quote : AISubmissionQuote) : Promise<AIPendingCreation | null> => {
+	// #ifdef WEB
+	if (!/^tm_ai_pending_v1_[1-9][0-9]*$/.test(partition) || typeof window.crypto?.getRandomValues != 'function' || typeof window.navigator?.locks?.request != 'function') return null
+	return await window.navigator.locks.request(partition, () : AIPendingCreation | null => {
+		if (readAIPending(partition) != null) return null
+		const random : Uint8Array = new Uint8Array(24); window.crypto.getRandomValues(random)
+		let key : string = 'ai_'
+		for (let i = 0; i < random.length; i++) key += random[i].toString(16).padStart(2, '0')
+		const pending : AIPendingCreation = { key: key, subjectId: quote.subjectId, priceVersion: quote.priceVersion, pricePoints: quote.pricePoints } as AIPendingCreation
+		if (!isValidAIPending(pending)) return null
+		const encoded : string = JSON.stringify(pending)
+		uni.setStorageSync(partition, encoded)
+		if (uni.getStorageSync(partition) != encoded) throw new Error('原请求记录未持久保存')
+		return pending
+	})
+	// #endif
+	// #ifndef WEB
+	return null
+	// #endif
+}
+export const clearConfirmedAIPending = async (partition : string, key : string) : Promise<boolean> => {
+	// #ifdef WEB
+	if (typeof window.navigator?.locks?.request != 'function') return false
+	return await window.navigator.locks.request(partition, () : boolean => {
+		const pending : AIPendingCreation | null = readAIPending(partition)
+		if (pending == null || pending.key != key) return false
+		uni.removeStorageSync(partition)
+		return readAIPending(partition) == null
+	})
+	// #endif
+	// #ifndef WEB
+	return false
+	// #endif
+}

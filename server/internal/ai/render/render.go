@@ -48,6 +48,7 @@ type EvidenceItem struct {
 	Excerpt   string `json:"excerpt"`
 	URL       string `json:"url"`
 	FetchedAt int64  `json:"fetchedAt"`
+	Trimmed   bool   `json:"trimmed,omitempty"` // 资料库节选标记，不能在报告转换时丢失。
 }
 
 // Change 是涨跌幅及其口径。没有数据时 StockRow.Change 为 nil，不用 0 代替（数据真实铁律）。

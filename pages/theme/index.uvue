@@ -62,7 +62,7 @@
 					fontSize="12"
 					cellHeight="48"
 					>
-						<!-- 股票名称，涨跌幅放在名称下方（不加任何评价性标识） -->
+						<!-- 未接入已核验归属依据时不展示个股映射；涨跌幅还须来自获授权行情源并标明数据时点。 -->
 						<template #cell="{ item, key }">
 							<view v-if="key == 'name'" class="theme-name-cell" @click="onViewReason(item, item.name)">
 								<x-text font-size="13" class="text-weight-b" color="#1d2129">{{ item.name }}</x-text>
@@ -137,8 +137,8 @@ export default {
 				'id': 10001,
 				'name': '茂莱光学',
 				'pct': 6.85,
-				'reason': '精密光学元件与系统业务',
-				'manualReason': '公司业务包括精密光学元件与精密光学系统的研发与制造，涉及光刻机光源系统所需的光学部件。'
+				'reason': '未提供可展示的归属依据',
+				'manualReason': '暂无已核验的公开来源依据，暂不展示归属说明。'
 			},
 			{
 				'key': '10002',
@@ -153,8 +153,8 @@ export default {
 				'id': 10003,
 				'name': '福晶科技',
 				'pct': 3.98,
-				'reason': '激光光学晶体业务',
-				'manualReason': '公司业务包括非线性光学晶体与激光晶体，产品可用于光源系统。'
+				'reason': '未提供可展示的归属依据',
+				'manualReason': '暂无已核验的公开来源依据，暂不展示归属说明。'
 			},
 			{
 				'key': '10004',
@@ -194,8 +194,8 @@ export default {
  			'id': 10002,
  			'name': '阿石创',
  			'pct': 3.21,
- 			'reason': 'PVD靶材业务',
- 			'manualReason': '公司业务包括 PVD 溅射靶材，产品应用于光学镀膜工艺。'
+			'reason': '未提供可展示的归属依据',
+			'manualReason': '暂无已核验的公开来源依据，暂不展示归属说明。'
  		},
  		{
  			'key': '10003',
@@ -252,8 +252,8 @@ export default {
  			'id': 10001,
  			'name': '清溢光电',
  			'pct': 6.37,
- 			'reason': '掩膜版业务，涉及半导体及平板显示领域',
- 			'manualReason': '公司业务包括掩膜版产品，应用于半导体与平板显示领域。'
+			'reason': '未提供可展示的归属依据',
+			'manualReason': '暂无已核验的公开来源依据，暂不展示归属说明。'
  		},
  		{
  			'key': '10002',

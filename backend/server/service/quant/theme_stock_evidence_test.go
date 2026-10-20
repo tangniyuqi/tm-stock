@@ -204,6 +204,7 @@ func TestEvidenceOrKeyChanged(t *testing.T) {
 		"股票变了":    func(c *quant.ThemeStock) { c.StockId = i64(*base.StockId + 1) },
 		"依据类型变了":  func(c *quant.ThemeStock) { c.SourceType = i8(quant.ThemeStockSourceProspectus) },
 		"摘录变了":    func(c *quant.ThemeStock) { c.SourceExcerpt += "。" },
+		"节选标记变了":  func(c *quant.ThemeStock) { v := true; c.ExcerptTrimmed = &v },
 		"链接变了":    func(c *quant.ThemeStock) { c.SourceUrl += "?x=1" },
 		"采集时点变了":  func(c *quant.ThemeStock) { c.CollectedAt = tp(base.CollectedAt.Add(time.Second)) },
 		"采集时点被清空": func(c *quant.ThemeStock) { c.CollectedAt = nil },

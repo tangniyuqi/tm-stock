@@ -28,6 +28,7 @@
 # 用法：
 #   bash scripts/dev/verify-migrations.sh          # 跑完自动清理
 #   bash scripts/dev/verify-migrations.sh --keep   # 保留容器供手工排查
+#   bash scripts/dev/verify-migrations.sh --self-test-probe # 仅探测函数自测，不连接数据库
 #
 # 没有 Docker 时的"原生模式"（2026-10-02 加入）：指定本机已有的 MySQL，不起容器，其余断言完全相同。
 #   TM_VERIFY_MYSQL_CLIENT=/path/to/mysql.exe  TM_VERIFY_PASSWORD=...  [TM_VERIFY_PORT=3306]  \
@@ -52,6 +53,66 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PASS=0; FAIL=0
 ok()  { echo "  [OK] $1"; PASS=$((PASS+1)); }
 bad() { echo "  [X]  $1"; FAIL=$((FAIL+1)); }
+
+# 先完整读取客户端和去回车管道，再判断确认行；不能让grep -q提前关闭真实客户端的输出。
+# 否则在pipefail下，即使已收到1，后续输出也可能使客户端/tr得到SIGPIPE，形成连接假阴性。
+probe_native_mysql() {
+  local probe_output probe_status=0
+  probe_output="$(printf 'SELECT 1;\n' | native_sql)" || probe_status=$?
+  if [ "$probe_status" -ne 0 ]; then
+    echo "[X] 原生连接探针进程失败（退出码 $probe_status，客户端输出已隐藏）。"
+    return "$probe_status"
+  fi
+  case $'\n'"$probe_output"$'\n' in
+    *$'\n1\n'*) return 0 ;;
+    *) echo "[X] 原生连接探针未返回确认行（客户端输出已隐藏）。"; return 1 ;;
+  esac
+}
+
+if [ "${1:-}" = "--self-test-probe" ]; then
+  # 仅此显式自测分支定义替身；默认原生/容器迁移路径不使用它，不写SQL或接触凭据。
+  PROBE_CASE=''; PROBE_PASS=0; PROBE_FAIL=0
+  native_sql() {
+    local probe_query
+    IFS= read -r probe_query || return 2
+    [ "$probe_query" = 'SELECT 1;' ] || return 2
+    case "$PROBE_CASE" in
+      marker) printf '1\n' ;;
+      diagnostic) printf 'test-only-probe-diagnostic\n1\ntest-only-probe-tail\n' ;;
+      large) awk 'BEGIN { print "1"; for (i=0;i<50000;i++) print "test-only-probe-diagnostic" }' ;;
+      empty) return 0 ;;
+      wrong) printf '11\n' ;;
+      padded) printf ' 1 \n' ;;
+      client_error) printf '1\ntest-only-private-probe-marker\n'; return 7 ;;
+      pipe_error) printf '1\ntest-only-private-probe-marker\n'; return 141 ;;
+      *) return 2 ;;
+    esac
+  }
+  check_probe() {
+    local expected="$2" output rc=0
+    PROBE_CASE="$1"
+    output="$(probe_native_mysql)" || rc=$?
+    if [ "$rc" -eq "$expected" ] && [[ "$output" != *test-only-private-probe-marker* ]]; then
+      echo "  [OK] 探测反例/正例：$PROBE_CASE"
+      PROBE_PASS=$((PROBE_PASS+1))
+    else
+      echo "  [X] 探测反例/正例：$PROBE_CASE（期望 $expected，实际 $rc，输出已隐藏）"
+      PROBE_FAIL=$((PROBE_FAIL+1))
+    fi
+  }
+  check_probe marker 0
+  check_probe diagnostic 0
+  check_probe large 0
+  check_probe empty 1
+  check_probe wrong 1
+  check_probe padded 1
+  check_probe client_error 7
+  check_probe pipe_error 141
+  echo "仅测试客户端探测函数，不替代真实迁移/约束断言。"
+  echo "  通过 $PROBE_PASS 项 / 失败 $PROBE_FAIL 项"
+  [ "$PROBE_FAIL" -eq 0 ] || exit 1
+  exit 0
+fi
 
 cleanup() {
   if [ "$NATIVE" = true ]; then
@@ -79,11 +140,11 @@ if [ "$NATIVE" = true ]; then
   [ -n "${TM_VERIFY_PASSWORD:-}" ] || { echo "[X] 原生模式需要环境变量 TM_VERIFY_PASSWORD（脚本里不放默认口令）"; exit 1; }
   [ -f "$TM_VERIFY_MYSQL_CLIENT" ] || { echo "[X] 找不到 mysql 客户端：$TM_VERIFY_MYSQL_CLIENT"; exit 1; }
   native_sql() {
-    MYSQL_PWD="$TM_VERIFY_PASSWORD" "$TM_VERIFY_MYSQL_CLIENT" -h"$N_HOST" -P"$N_PORT" -u"$N_USER" \
+    MYSQL_PWD="$TM_VERIFY_PASSWORD" "$TM_VERIFY_MYSQL_CLIENT" --no-defaults -h"$N_HOST" -P"$N_PORT" -u"$N_USER" \
       --protocol=TCP --default-character-set=utf8mb4 --force -N -B "$@" 2>&1 | tr -d '\r'
   }
   echo "▶ 原生模式：连 $N_HOST:$N_PORT，重建数据库 $DB（不用 Docker）"
-  if ! printf 'SELECT 1;\n' | native_sql | grep -q '^1$'; then
+  if ! probe_native_mysql; then
     echo "[X] 连不上 MySQL（$N_HOST:$N_PORT）。"
     exit 1
   fi
@@ -236,6 +297,41 @@ SELECT 'CSIDE_AFTER_AUDIT', COUNT(*) FROM addon_quant_theme_stock ts
   JOIN addon_quant_base_stock s ON s.id=ts.stock_id AND s.deleted_at IS NULL
   JOIN addon_quant_theme      t ON t.id=ts.theme_id AND t.deleted_at IS NULL
  WHERE ts.deleted_at IS NULL AND ts.audit_status=2 AND ts.status=1;
+
+-- 账本迁移经 mysql 客户端执行也必须创建完整触发器；DELIMITER 错误不能静默漏过。
+SELECT 'POINTS_CHECKS', COUNT(*) FROM information_schema.table_constraints
+ WHERE constraint_schema=DATABASE() AND table_name LIKE 'tm_points_%' AND constraint_type='CHECK' AND enforced='YES';
+SELECT 'POINTS_TRIGGERS', COUNT(*) FROM information_schema.triggers
+ WHERE trigger_schema=DATABASE() AND event_object_table LIKE 'tm_points_%';
+SELECT 'TASK_CHECKS', COUNT(*) FROM information_schema.table_constraints
+ WHERE constraint_schema=DATABASE() AND table_name IN ('tm_ai_tasks','tm_ai_task_events') AND constraint_type='CHECK' AND enforced='YES' AND constraint_name<>'chk_tm_ai_task_admission';
+SELECT 'TASK_TRIGGERS', COUNT(*) FROM information_schema.triggers
+ WHERE trigger_schema=DATABASE() AND event_object_table IN ('tm_ai_tasks','tm_ai_task_events') AND trigger_name<>'tm_ai_task_admission_identity';
+SELECT 'TASK_BUDGET_CHECKS', COUNT(*) FROM information_schema.table_constraints
+ WHERE constraint_schema=DATABASE() AND table_name IN ('tm_ai_task_budgets','tm_ai_task_reservations') AND constraint_type='CHECK' AND enforced='YES';
+SELECT 'TASK_BUDGET_TRIGGERS', COUNT(*) FROM information_schema.triggers
+ WHERE trigger_schema=DATABASE() AND event_object_table IN ('tm_ai_task_budgets','tm_ai_task_reservations');
+SELECT 'TASK_STAGE_CHECKS', COUNT(*) FROM information_schema.table_constraints
+ WHERE constraint_schema=DATABASE() AND table_name IN ('tm_ai_task_step_results','tm_ai_task_steps') AND constraint_type='CHECK' AND enforced='YES';
+SELECT 'TASK_STAGE_TRIGGERS', COUNT(*) FROM information_schema.triggers
+ WHERE trigger_schema=DATABASE() AND event_object_table IN ('tm_ai_task_step_results','tm_ai_task_steps');
+SELECT 'REPORT_CHECKS', COUNT(*) FROM information_schema.table_constraints
+ WHERE constraint_schema=DATABASE() AND table_name='tm_ai_report_commits' AND constraint_type='CHECK' AND enforced='YES';
+SELECT 'REPORT_TRIGGERS', COUNT(*) FROM information_schema.triggers
+ WHERE trigger_schema=DATABASE() AND event_object_table='tm_ai_report_commits';
+SELECT 'ADMISSION_CHECKS',COUNT(*) FROM information_schema.table_constraints WHERE constraint_schema=DATABASE() AND constraint_name IN ('chk_tm_ai_task_admission','chk_tm_ai_admission') AND constraint_type='CHECK' AND enforced='YES';
+SELECT 'ADMISSION_TRIGGERS',COUNT(*) FROM information_schema.triggers WHERE trigger_schema=DATABASE() AND (event_object_table='tm_ai_task_admissions' OR trigger_name='tm_ai_task_admission_identity');
+START TRANSACTION;
+INSERT INTO tm_points_accounts(user_id,avail) VALUES (900000001,10);
+INSERT INTO tm_points_accounts(user_id,avail) VALUES (900000002,-1);
+SELECT 'POINTS_POSITIVE', COUNT(*) FROM tm_points_accounts WHERE user_id=900000001 AND avail=10;
+SELECT 'POINTS_NEGATIVE', COUNT(*) FROM tm_points_accounts WHERE user_id=900000002;
+UPDATE tm_points_accounts SET created_at=created_at+INTERVAL 1 SECOND WHERE user_id=900000001;
+SELECT 'POINTS_IDENTITY', COUNT(*) FROM tm_points_accounts WHERE user_id=900000001 AND created_at=updated_at;
+DELETE FROM tm_points_accounts WHERE user_id=900000001;
+SELECT 'POINTS_NODELETE', COUNT(*) FROM tm_points_accounts WHERE user_id=900000001;
+ROLLBACK;
+SELECT 'POINTS_ROLLBACK', COUNT(*) FROM tm_points_accounts;
 "
 
 OUT="$( { printf '%s\n' "$UPSTREAM_DDL"; cat "${MIGS[@]}"; printf '%s\n' "$ASSERT_SQL"; } | MYSQL_RUN )"
@@ -257,6 +353,30 @@ echo "▶ 表结构"
 for t in addon_quant_theme addon_quant_base_stock addon_quant_theme_stock; do
   case ",$TABLES," in *",$t,"*) ok "表 $t 存在" ;; *) bad "表 $t 缺失（TABLES=$TABLES）" ;; esac
 done
+for t in tm_points_accounts tm_points_txns tm_points_lots tm_points_entries tm_points_holds tm_points_hold_allocs tm_points_debts tm_points_debt_allocs; do
+  case ",$TABLES," in *",$t,"*) ok "表 $t 存在" ;; *) bad "账本表 $t 缺失" ;; esac
+done
+for t in tm_ai_tasks tm_ai_task_events tm_ai_task_budgets tm_ai_task_reservations tm_ai_task_step_results tm_ai_task_steps tm_ai_report_commits tm_ai_task_admissions; do
+  case ",$TABLES," in *",$t,"*) ok "表 $t 存在" ;; *) bad "任务表 $t 缺失" ;; esac
+done
+[ "$(f TASK_CHECKS)" = "3" ] && ok "任务 3 个 CHECK 强制执行" || bad "任务 CHECK 缺失或未强制执行"
+[ "$(f TASK_TRIGGERS)" = "6" ] && ok "任务 6 个不可变/阶段触发器完整" || bad "任务触发器创建不完整"
+[ "$(f TASK_BUDGET_CHECKS)" = "2" ] && ok "预算 2 个 CHECK 强制执行" || bad "预算 CHECK 缺失或未强制执行"
+[ "$(f TASK_BUDGET_TRIGGERS)" = "7" ] && ok "预算 7 个触发器完整" || bad "预算触发器创建不完整"
+[ "$(f TASK_STAGE_CHECKS)" = "2" ] && ok "阶段 2 个 CHECK 强制执行" || bad "阶段 CHECK 缺失或未强制执行"
+[ "$(f TASK_STAGE_TRIGGERS)" = "7" ] && ok "阶段 7 个触发器完整" || bad "阶段触发器创建不完整"
+[ "$(f REPORT_CHECKS)" = "1" ] && ok "报告 CHECK 强制执行" || bad "报告 CHECK 缺失或未强制执行"
+[ "$(f REPORT_TRIGGERS)" = "3" ] && ok "报告 3 个触发器完整" || bad "报告触发器创建不完整"
+[ "$(f ADMISSION_CHECKS)" = "2" ] && ok "准入 2 个 CHECK 强制执行" || bad "准入 CHECK 缺失或未强制执行"
+[ "$(f ADMISSION_TRIGGERS)" = "4" ] && ok "准入 4 个不可变/绑定触发器完整" || bad "准入触发器不完整"
+
+[ "$(f POINTS_CHECKS)" = "8" ] && ok "账本 8 个 CHECK 强制执行" || bad "账本 CHECK 缺失或未强制执行"
+[ "$(f POINTS_TRIGGERS)" = "16" ] && ok "账本 16 个触发器完整" || bad "账本触发器创建不完整"
+[ "$(f POINTS_POSITIVE)" = "1" ] && ok "账本正例可写" || bad "账本正例未写入"
+[ "$(f POINTS_NEGATIVE)" = "0" ] && ok "账本负余额被拒" || bad "账本负余额未拒绝"
+[ "$(f POINTS_IDENTITY)" = "1" ] && ok "账本账户身份不可改" || bad "账本账户身份保护失效"
+[ "$(f POINTS_NODELETE)" = "1" ] && ok "账本账户不可删除" || bad "账本账户删除保护失效"
+[ "$(f POINTS_ROLLBACK)" = "0" ] && ok "账本探针已回滚" || bad "账本探针遗留数据"
 
 echo ""
 echo "▶ 共表收敛迁移"

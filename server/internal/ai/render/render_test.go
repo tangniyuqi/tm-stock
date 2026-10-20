@@ -273,8 +273,9 @@ func TestStockRowFieldsAreClosed(t *testing.T) {
 		return out
 	}
 	closed := map[string][]string{
-		"StockRow":     {"Change", "Code", "Evidence", "Name", "Node"},
-		"EvidenceItem": {"Excerpt", "FetchedAt", "Type", "URL"},
+		"StockRow": {"Change", "Code", "Evidence", "Name", "Node"},
+		// ADR-0024：仅增加继承资料库的节选元数据，不增加个股评价维度。
+		"EvidenceItem": {"Excerpt", "FetchedAt", "Trimmed", "Type", "URL"},
 		"Change":       {"AsOf", "Basis", "DelayMin", "Pct", "Vendor"},
 	}
 	got := map[string][]string{"StockRow": names(StockRow{}), "EvidenceItem": names(EvidenceItem{}), "Change": names(Change{})}

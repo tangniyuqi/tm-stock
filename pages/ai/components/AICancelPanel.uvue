@@ -1,0 +1,80 @@
+<script lang="ts" setup>
+import { ref, watch, onBeforeUnmount, PropType } from 'vue'
+import { AITaskProgress, isSafeAIId, aiTaskStatusLabel } from '../../libs/ai.uts'
+import { AiCancellationApi, aiCancellationError } from '../../libs/ai-cancel-api.uts'
+import { currentAIMemberToken } from '../../libs/ai-session.uts'
+
+type AICancelState = 'ready' | 'confirming' | 'submitting' | 'received' | 'unknown'
+defineOptions({ name: 'AICancelPanel' })
+// 显式运行时声明避免 5.26 生成 [Object, null]；查询中仍允许为空，不补造进度。
+const props = defineProps({
+	id: { type: Number, required: true },
+	task: { type: Object as PropType<AITaskProgress | null>, default: null },
+	sessionToken: { type: String, required: true }
+})
+const emit = defineEmits<{ pause: [value : boolean], refresh: [id : number], unauthorized: [] }>()
+const state = ref<AICancelState>('ready')
+const message = ref<string>('')
+let generation : number = 0
+let active : boolean = true
+
+const current = (round : number, id : number, token : string) : boolean => active && generation == round && props.id == id && isSafeAIId(id) && token.length > 0 && token == props.sessionToken && token == currentAIMemberToken()
+const cancellable = () : boolean => props.task != null && props.task!.id == props.id && (props.task!.status == 1 || props.task!.status == 2) && !props.task!.cancelRequested && current(generation, props.id, props.sessionToken)
+const reset = () : void => { generation++; state.value = 'ready'; message.value = ''; emit('pause', false) }
+const beginCancel = () : void => {
+	if (state.value != 'ready' || !cancellable()) return
+	state.value = 'confirming'; message.value = ''; emit('pause', true)
+}
+const dismissCancel = () : void => {
+	if (state.value != 'confirming') return
+	state.value = 'ready'; emit('pause', false)
+}
+const confirmCancel = () : void => {
+	if (state.value != 'confirming' || !cancellable()) return
+	const round : number = generation; const id : number = props.id; const token : string = props.sessionToken
+	state.value = 'submitting'; message.value = ''
+	AiCancellationApi.cancel(id).then((result) => {
+		if (!current(round, id, token)) return
+		emit('pause', false)
+		if (result.code == 40100 || result.code == 40101) { message.value = ''; state.value = 'ready'; emit('unauthorized'); return }
+		if (result.code != 0 || result.data == null) { state.value = 'unknown'; message.value = aiCancellationError(result.code); return }
+		state.value = 'received'
+		message.value = result.data!.status == 2 ? '取消请求已登记；尚不表示远端已停止或积分已释放，请核对原任务状态。' : '已收到任务当前终态；请核对原任务状态，不以取消回执承诺退款或改写已有结果。'
+	}).catch(() => {
+		if (!current(round, id, token)) return
+		state.value = 'unknown'; message.value = aiCancellationError(50001); emit('pause', false)
+	})
+}
+const refreshOriginal = () : void => {
+	if ((state.value == 'received' || state.value == 'unknown') && current(generation, props.id, props.sessionToken)) emit('refresh', props.id)
+}
+watch(() : AITaskProgress | null => props.task, (value : AITaskProgress | null) => {
+	if ((state.value != 'received' && state.value != 'unknown') || value == null || value.id != props.id || !current(generation, props.id, props.sessionToken)) return
+	if (value.status >= 3) {
+		state.value = 'received'; message.value = '原任务当前状态：' + aiTaskStatusLabel(value.status) + '。以原任务查询为准，取消申请不改写已有终态。'
+	} else if (value.cancelRequested) {
+		state.value = 'received'; message.value = '原任务已登记取消请求，等待后台确认；不表示远端已停止或积分已经释放。'
+	}
+})
+watch(() : number => props.id, () => { reset() })
+watch(() : string => props.sessionToken, () => { reset() }, { immediate: true })
+onBeforeUnmount(() => { active = false; generation++; message.value = ''; emit('pause', false) })
+</script>
+
+<template>
+	<view class="mt-12">
+		<x-button v-if="state == 'ready' && cancellable()" height="44" :block="true" skin="outline" @click="beginCancel">申请取消任务</x-button>
+		<view v-if="state == 'confirming'">
+			<text class="cancel-copy">确认申请取消任务 #{{ id }}？运行中的任务需等待后台确认；此操作不表示远端立即停止或积分已经释放。</text>
+			<x-button class="mt-8" height="44" :block="true" skin="outline" @click="dismissCancel">保留任务</x-button>
+			<x-button class="mt-8" height="44" :block="true" :disabled="!cancellable()" @click="confirmCancel">确认申请取消</x-button>
+		</view>
+		<text v-if="state == 'submitting'" class="cancel-copy">正在提交取消请求，请勿重复操作…</text>
+		<text v-if="message != ''" class="cancel-copy">{{ message }}</text>
+		<x-button v-if="state == 'received' || state == 'unknown'" class="mt-8" height="44" :block="true" skin="outline" @click="refreshOriginal">核对原任务状态</x-button>
+	</view>
+</template>
+
+<style scoped>
+.cancel-copy { color: #586174; font-size: 14px; line-height: 22px; }
+</style>

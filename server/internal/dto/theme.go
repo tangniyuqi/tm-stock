@@ -95,8 +95,9 @@ type EvidenceResp struct {
 
 	// SourceType 返回中文名而非枚举数字：这段文案会直接展示给用户，
 	// 让前端去维护一份「1=公告 2=年报」的映射表，两边迟早不同步。
-	SourceType    string `json:"sourceType"`
-	SourceExcerpt string `json:"sourceExcerpt"`
-	SourceURL     string `json:"sourceUrl"`
-	CollectedAt   int64  `json:"collectedAt"` // 毫秒时间戳
+	SourceType     string `json:"sourceType"`
+	SourceExcerpt  string `json:"sourceExcerpt"`
+	ExcerptTrimmed bool   `json:"excerptTrimmed"`
+	SourceURL      string `json:"sourceUrl"`
+	CollectedAt    int64  `json:"collectedAt"` // 毫秒时间戳
 }

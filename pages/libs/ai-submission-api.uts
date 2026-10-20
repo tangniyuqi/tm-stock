@@ -1,0 +1,25 @@
+import { MemberApi, MemberApiResult } from './member-api.uts'
+import { AISubmissionScope, AISubmissionQuote, AICreationReceipt, AIPendingCreation, isAISubmissionScope, isValidAIQuote, isValidAICreationReceipt, isValidAIPending, isAIRequestKey, aiSubmissionError } from './ai-submission.uts'
+
+const failed = <T>(code : number) : MemberApiResult<T> => ({ code: code, message: aiSubmissionError(code), data: null } as MemberApiResult<T>)
+export class AiSubmissionApi {
+	public static async quote(scope : AISubmissionScope) : Promise<MemberApiResult<AISubmissionQuote>> {
+		if (!isAISubmissionScope(scope)) return failed<AISubmissionQuote>(40001)
+		const result : MemberApiResult<AISubmissionQuote> = await MemberApi.aiSubmission<AISubmissionQuote>('quote', { analysis_type: scope.analysisType, subject_type: scope.subjectType, subject_id: scope.subjectId } as UTSJSONObject, '')
+		if (result.code != 0) return failed<AISubmissionQuote>(result.code)
+		return isValidAIQuote(result.data, scope) ? result : failed<AISubmissionQuote>(50001)
+	}
+	public static async create(pending : AIPendingCreation) : Promise<MemberApiResult<AICreationReceipt>> {
+		if (!isValidAIPending(pending)) return failed<AICreationReceipt>(40001)
+		const result : MemberApiResult<AICreationReceipt> = await MemberApi.aiSubmission<AICreationReceipt>('create', { analysis_type: 'light', subject_type: 'theme', subject_id: pending.subjectId, price_version: pending.priceVersion } as UTSJSONObject, pending.key)
+		if (result.code != 0) return failed<AICreationReceipt>(result.code)
+		if (!isValidAICreationReceipt(result.data) || result.data!.pricePoints != pending.pricePoints || result.data!.priceVersion != pending.priceVersion) return failed<AICreationReceipt>(50001)
+		return result
+	}
+	public static async receipt(key : string) : Promise<MemberApiResult<AICreationReceipt>> {
+		if (!isAIRequestKey(key)) return failed<AICreationReceipt>(40001)
+		const result : MemberApiResult<AICreationReceipt> = await MemberApi.aiSubmission<AICreationReceipt>('receipt', {} as UTSJSONObject, key)
+		if (result.code != 0) return failed<AICreationReceipt>(result.code)
+		return isValidAICreationReceipt(result.data) ? result : failed<AICreationReceipt>(50001)
+	}
+}

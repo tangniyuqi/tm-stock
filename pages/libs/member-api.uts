@@ -1,6 +1,7 @@
 import { LoginResponse, MemberProfile, RedeemResponse } from './member.uts'
+import { currentAIMemberToken } from './ai-session.uts'
 
-// C 端会员请求只走同源内部接口。会员服务尚未开放时，页面不会调用这些方法。
+// C 端会员请求只走同源内部接口；各服务是否开放仍由服务器独立门禁决定。
 const apiOrigin = ''
 
 type MemberApiEnvelope<T> = {
@@ -64,8 +65,7 @@ const parseResult = <T>(data : MemberApiPayload | null, statusCode : number) : M
 	}
 }
 
-const requestHeaders = (method : MemberRequestMethod, authenticated : boolean) : UTSJSONObject => {
-	const token = uni.getStorageSync('tm_member_token')
+const requestHeaders = (method : MemberRequestMethod, authenticated : boolean, token : string) : UTSJSONObject => {
 	const shouldAttachAuth = authenticated && token != null && typeof token == 'string' && token.length > 0
 	if (shouldAttachAuth && method == 'POST') {
 		return {
@@ -86,9 +86,13 @@ const requestHeaders = (method : MemberRequestMethod, authenticated : boolean) :
 	return {} as UTSJSONObject
 }
 
-const requestApi = <T>(path : string, method : MemberRequestMethod, data : UTSJSONObject, authenticated : boolean) : Promise<MemberApiResult<T>> => {
+function requestWithToken<T>(path : string, method : MemberRequestMethod, data : UTSJSONObject, authenticated : boolean, token : string, key : string = '') : Promise<MemberApiResult<T>> {
 	return new Promise<MemberApiResult<T>>((resolve) => {
-		const headers = requestHeaders(method, authenticated)
+		let headers : UTSJSONObject = requestHeaders(method, authenticated, token)
+		if (key.length > 0) {
+			headers = method == 'POST' ? { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', 'Idempotency-Key': key } as UTSJSONObject
+				: { Authorization: 'Bearer ' + token, 'Idempotency-Key': key } as UTSJSONObject
+		}
 		uni.request<MemberApiPayload>({
 			url: apiOrigin + path,
 			method: method,
@@ -107,7 +111,32 @@ const requestApi = <T>(path : string, method : MemberRequestMethod, data : UTSJS
 	})
 }
 
+const requestApi = <T>(path : string, method : MemberRequestMethod, data : UTSJSONObject, authenticated : boolean) : Promise<MemberApiResult<T>> => {
+	const token = uni.getStorageSync('tm_member_token')
+	return requestWithToken<T>(path, method, data, authenticated, typeof token == 'string' ? token : '')
+}
+
 export class MemberApi {
+	// 独立固定取消契约，不接受任意地址、会员编号、金额或请求正文。
+	public static aiCancel<T>(id : number) : Promise<MemberApiResult<T>> {
+		if (typeof id != 'number' || id <= 0 || id > 9007199254740991 || Math.floor(id) != id) return Promise.resolve(failure<T>(40001, '任务编号无效'))
+		return requestWithToken<T>('/api/v1/ai/tasks/' + id.toString() + '/cancel', 'POST', {} as UTSJSONObject, true, currentAIMemberToken())
+	}
+	// 只开放固定内部契约；创建键只在请求头，不进入URL或日志，不自动重试。
+	public static aiSubmission<T>(operation : string, data : UTSJSONObject, key : string) : Promise<MemberApiResult<T>> {
+		if (operation == 'quote' && key == '') return requestWithToken<T>('/api/v1/ai/tasks/quote', 'POST', data, true, currentAIMemberToken())
+		if (key != key.trim() || !/^[A-Za-z0-9_-]{16,80}$/.test(key)) return Promise.resolve(failure<T>(40001, '请求参数无效'))
+		if (operation == 'create') return requestWithToken<T>('/api/v1/ai/tasks', 'POST', data, true, currentAIMemberToken(), key)
+		if (operation == 'receipt') return requestWithToken<T>('/api/v1/ai/task-receipt', 'GET', {} as UTSJSONObject, true, currentAIMemberToken(), key)
+		return Promise.resolve(failure<T>(40001, '请求参数无效'))
+	}
+	// AI只读入口复用会员Bearer/JSON处理，不接受任意地址、写入或自由查询参数。
+	public static aiRead<T>(path : string) : Promise<MemberApiResult<T>> {
+		if (!/^\/api\/v1\/ai\/tasks(?:\?limit=20(?:&before_id=[1-9][0-9]*)?|\/[1-9][0-9]*(?:\/report)?)?$/.test(path)) {
+			return Promise.resolve(failure<T>(40001, '查询参数无效'))
+		}
+		return requestWithToken<T>(path, 'GET', {} as UTSJSONObject, true, currentAIMemberToken())
+	}
 	public static profile() : Promise<MemberApiResult<MemberProfile>> {
 		return requestApi<MemberProfile>('/api/v1/member/profile', 'GET', {} as UTSJSONObject, true)
 	}

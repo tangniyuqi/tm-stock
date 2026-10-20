@@ -57,6 +57,7 @@
           </div>
         </template>
 
+        <div v-if="detailForm.excerpt_trimmed" class="reason-meta">原文摘录（节选），请结合原文链接核对完整上下文。</div>
         <div class="reason-full">{{ detailForm.source_excerpt || '-' }}</div>
 
         <div v-if="detailForm.source_url" class="mt-2">
@@ -174,6 +175,7 @@
 
           <el-table-column align="left" label="原文摘录" min-width="260">
             <template #default="scope">
+              <el-tag v-if="scope.row.excerpt_trimmed" size="small" type="info">节选</el-tag>
               <el-tooltip v-if="scope.row.source_excerpt" placement="top" :show-after="300">
                 <template #content>
                   <div class="reason-tooltip">{{ scope.row.source_excerpt }}</div>
@@ -287,6 +289,9 @@
           </el-col>
 
           <el-col :span="24">
+            <el-form-item label="节选标记" prop="excerpt_trimmed">
+              <el-checkbox v-model="formData.excerpt_trimmed">已省略部分原文（修改后须重新审核）</el-checkbox>
+            </el-form-item>
             <el-form-item label="原文链接" prop="source_url">
               <el-input v-model="formData.source_url" :clearable="true" placeholder="https://……（公告、年报、招股书等原文地址）" />
             </el-form-item>
@@ -379,6 +384,7 @@ const createDefaultFormData = () => ({
   stock_id: undefined,
   source_type: undefined,
   source_excerpt: '',
+  excerpt_trimmed: false,
   source_url: '',
   collected_at: new Date(),
   audit_status: 0,

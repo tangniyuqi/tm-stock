@@ -298,14 +298,15 @@ func (s *ThemeService) GetEvidence(ctx context.Context, themeID int64, tsCode st
 	}
 
 	return &dto.EvidenceResp{
-		TsCode:        st.TsCode,
-		StockCode:     st.Symbol,
-		StockName:     st.Name,
-		ChainNodeName: nodeName,
-		SourceType:    sourceTypeName(m.SourceType),
-		SourceExcerpt: m.SourceExcerpt,
-		SourceURL:     m.SourceURL,
-		CollectedAt:   toMillis(m.CollectedAt),
+		TsCode:         st.TsCode,
+		StockCode:      st.Symbol,
+		StockName:      st.Name,
+		ChainNodeName:  nodeName,
+		SourceType:     sourceTypeName(m.SourceType),
+		SourceExcerpt:  m.SourceExcerpt,
+		ExcerptTrimmed: m.ExcerptTrimmed,
+		SourceURL:      m.SourceURL,
+		CollectedAt:    toMillis(m.CollectedAt),
 	}, nil
 }
 

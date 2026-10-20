@@ -1,0 +1,132 @@
+import { isSafeExternalUrl } from './external-link.uts'
+
+export type AITaskSummary = {
+	id : number, analysisType : number, subjectType : string, subjectId : number,
+	status : number, deadlineAt : number, reportAvailable : boolean
+}
+export type AITaskHistory = { items : AITaskSummary[], nextBeforeId : number, hasMore : boolean }
+export type AITaskProgress = {
+	id : number, analysisType : number, subjectType : string, subjectId : number,
+	status : number, currentStep : number, eventSeq : number, cancelRequested : boolean,
+	errorCode : string, deadlineAt : number, reportAvailable : boolean
+}
+export type AIReportDisclosure = { aiGenerated : boolean, modelName : string, filingNo : string }
+export type AIReportQuote = { text : string, sourceType : string, sourceUrl : string, collectedAt : number }
+export type AIReportCompanyEvidence = { text : string, sourceType : string, sourceUrl : string, collectedAt : number, trimmed : boolean }
+export type AIReportCompany = { name : string, code : string, node : string, evidence : AIReportCompanyEvidence[] }
+export type AIReportSection = { key : string, title : string, aiGenerated : boolean, quotes : AIReportQuote[], companies ?: AIReportCompany[] }
+export type AIReport = {
+	taskId : number, subjectType : string, subjectId : number, subjectName : string,
+	generatedAt : number, disclosure : AIReportDisclosure, sections : AIReportSection[]
+}
+
+// JSON数字超出精确整数范围时整份拒绝，不能用取整后的编号查询另一个任务。
+export const isSafeAIInteger = (value : number) : boolean => {
+	return typeof value == 'number' && value >= 0 && value <= 9007199254740991 && Math.floor(value) == value
+}
+export const isSafeAIId = (value : number) : boolean => isSafeAIInteger(value) && value > 0
+const isAITimestamp = (value : number) : boolean => isSafeAIId(value) && value <= 8640000000000000
+const isAIStatus = (value : number) : boolean => isSafeAIId(value) && value <= 6
+const isAIScope = (analysisType : number, subjectType : string, subjectId : number) : boolean => {
+	return typeof analysisType == 'number' && typeof subjectType == 'string' && (analysisType == 1 || analysisType == 2) && (subjectType == 'theme' || subjectType == 'topic') && isSafeAIId(subjectId)
+}
+export const isValidAITaskSummary = (item : AITaskSummary | null) : boolean => {
+	// 列表不执行报告终检与当前授权核验，不能把摘要当作报告可读证明。
+	return item != null && isSafeAIId(item.id) && isAIScope(item.analysisType, item.subjectType, item.subjectId)
+		&& isAIStatus(item.status) && isAITimestamp(item.deadlineAt) && typeof item.reportAvailable == 'boolean' && !item.reportAvailable
+}
+export const isValidAITaskHistory = (page : AITaskHistory | null, before : number) : boolean => {
+	if (page == null || !Array.isArray(page.items) || page.items.length > 20 || typeof page.hasMore != 'boolean' || !isSafeAIInteger(page.nextBeforeId)) return false
+	if (!isSafeAIInteger(before)) return false
+	let previous : number = before
+	for (let i = 0; i < page.items.length; i++) {
+		const item : AITaskSummary = page.items[i]
+		if (!isValidAITaskSummary(item) || (previous > 0 && item.id >= previous)) return false
+		previous = item.id
+	}
+	return page.hasMore ? page.items.length > 0 && page.nextBeforeId == previous : page.nextBeforeId == 0
+}
+export const isValidAITaskProgress = (item : AITaskProgress | null, id : number) : boolean => {
+	if (item == null || !isSafeAIId(item.id) || item.id != id || !isSafeAIId(id) || !isAIScope(item.analysisType, item.subjectType, item.subjectId)
+		|| !isAIStatus(item.status) || !isSafeAIInteger(item.currentStep) || item.currentStep > 64 || !isSafeAIId(item.eventSeq)
+		|| typeof item.cancelRequested != 'boolean' || typeof item.errorCode != 'string' || !isAITimestamp(item.deadlineAt)
+		|| typeof item.reportAvailable != 'boolean' || (item.status != 3 && item.reportAvailable)) return false
+	if (item.status == 4) return ['provider_unavailable', 'invalid_output', 'guard_rejected', 'budget_exhausted', 'attempts_exhausted', 'internal_failure'].includes(item.errorCode)
+	if (item.status == 5) return item.errorCode == 'cancelled'
+	if (item.status == 6) return item.errorCode == 'expired'
+	return item.errorCode == ''
+}
+// 只解释已经验证的任务状态，不展示服务端自由文本，也不推断账务或远端停止状态。
+export const aiTaskOutcomeMessage = (item : AITaskProgress | null) : string => {
+	if (item == null) return ''
+	const value : AITaskProgress = item!
+	if (!isValidAITaskProgress(value, value.id)) return ''
+	if (value.status == 1 || value.status == 2) return '任务尚未交付；状态查询不会重新创建任务。'
+	if (value.status == 3) return value.reportAvailable ? '任务已完成；报告仍须单独核对读取权限。' : '报告暂不可读取；查看状态不会触发重新生成。'
+	if (value.status == 5) return '任务已取消；这不代表远端调用已经停止。'
+	if (value.status == 6) return '任务已过期，未形成可读报告；状态查询不会重新创建任务。'
+	if (value.errorCode == 'provider_unavailable') return '执行服务暂不可用，本次未形成可读报告。'
+	if (value.errorCode == 'invalid_output') return '返回内容未通过结构校验，本次未形成可读报告。'
+	if (value.errorCode == 'guard_rejected') return '资料未通过校验，本次未形成可读报告。'
+	if (value.errorCode == 'budget_exhausted') return '本次处理已达到执行限制，未形成可读报告。'
+	if (value.errorCode == 'attempts_exhausted') return '任务已达到处理次数限制，本次未形成可读报告。'
+	return '任务处理未完成，本次未形成可读报告。'
+}
+const isAIText = (value : string, max : number) : boolean => typeof value == 'string' && value.trim().length > 0 && value.length <= max
+const isValidAICompany = (company : AIReportCompany | null) : boolean => {
+	if (company == null || !isAIText(company.name, 64) || typeof company.code != 'string' || !/^[0-9]{6}$/.test(company.code) || !isAIText(company.node, 64)
+		|| !Array.isArray(company.evidence) || company.evidence.length != 1) return false
+	const evidence : AIReportCompanyEvidence = company.evidence[0]
+	return evidence != null && isAIText(evidence.text, 2000) && evidence.text.indexOf(company.name) >= 0
+		&& typeof evidence.sourceType == 'string' && ['公告', '年报', '招股书', '官方产业目录', '互动易问答'].includes(evidence.sourceType)
+		&& isAIText(evidence.sourceUrl, 2048) && isSafeExternalUrl(evidence.sourceUrl) && isAITimestamp(evidence.collectedAt) && typeof evidence.trimmed == 'boolean'
+}
+export const isValidAIReport = (report : AIReport | null, id : number) : boolean => {
+	if (report == null || !isSafeAIId(id) || !isSafeAIId(report.taskId) || report.taskId != id || typeof report.subjectType != 'string' || report.subjectType != 'theme' || !isSafeAIId(report.subjectId)
+		|| !isAIText(report.subjectName, 64) || !isAITimestamp(report.generatedAt) || report.disclosure == null
+		|| typeof report.disclosure.aiGenerated != 'boolean' || report.disclosure.aiGenerated != true || !isAIText(report.disclosure.modelName, 128) || !isAIText(report.disclosure.filingNo, 128)
+		|| !Array.isArray(report.sections) || report.sections.length != 4) return false
+	const keys : string[] = ['definition', 'timeline', 'segment', 'companies']
+	const titles : string[] = ['题材定义', '事件时间线', '环节说明', '披露公司']
+	let total : number = 0
+	for (let i = 0; i < report.sections.length; i++) {
+		const section : AIReportSection = report.sections[i]
+		if (section == null || typeof section.key != 'string' || typeof section.title != 'string' || section.key != keys[i] || section.title != titles[i] || typeof section.aiGenerated != 'boolean' || !Array.isArray(section.quotes)) return false
+		if (section.companies != null) {
+			if (i != 3 || section.aiGenerated || section.quotes.length != 0 || !Array.isArray(section.companies) || section.companies!.length < 1 || section.companies!.length > 32) return false
+			let previousCode : number = -1
+			for (let k = 0; k < section.companies!.length; k++) {
+				const company : AIReportCompany = section.companies![k]
+				if (!isValidAICompany(company)) return false
+				const code : number = parseInt(company.code)
+				if (code < previousCode) return false
+				previousCode = code
+			}
+			continue
+		}
+		if (!section.aiGenerated || section.quotes.length < 1 || section.quotes.length > 16) return false
+		for (let j = 0; j < section.quotes.length; j++) {
+			const quote : AIReportQuote = section.quotes[j]
+			if (quote == null || !isAIText(quote.text, 2000) || quote.text.indexOf(report.subjectName) < 0
+				|| typeof quote.sourceType != 'string' || !['公告', '年报', '招股书', '官方产业目录', '互动易问答'].includes(quote.sourceType)
+				|| !isAIText(quote.sourceUrl, 2048) || !isSafeExternalUrl(quote.sourceUrl) || !isAITimestamp(quote.collectedAt)) return false
+			total++
+		}
+	}
+	return total <= 64
+}
+export const aiTaskStatusLabel = (status : number) : string => {
+	if (status == 1) return '排队中'
+	if (status == 2) return '资料处理中'
+	if (status == 3) return '任务已完成'
+	if (status == 4) return '任务未交付'
+	if (status == 5) return '任务已取消'
+	if (status == 6) return '任务已过期'
+	return '状态暂不可用'
+}
+export const aiReadErrorMessage = (code : number) : string => {
+	if (code == 40100 || code == 40101) return '登录状态已失效，请重新登录'
+	if (code == 40403) return '任务不存在或不属于当前账号'
+	if (code == 42202) return '报告暂不可读取，请稍后核对'
+	return '资料服务暂不可用，请稍后重试'
+}

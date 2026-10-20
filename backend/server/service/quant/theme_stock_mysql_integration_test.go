@@ -60,7 +60,7 @@ func setupMySQLThemeStock(t *testing.T) *gorm.DB {
 	if err := db.AutoMigrate(&quant.Theme{}, &quant.BaseStock{}); err != nil {
 		t.Fatalf("建题材与股票表失败: %v", err)
 	}
-	for _, f := range []string{"20260730_addon_quant_theme_stock.sql", "20261002_converge_addon_quant_theme_stock.sql"} {
+	for _, f := range []string{"20260730_addon_quant_theme_stock.sql", "20261002_converge_addon_quant_theme_stock.sql", "20261011_add_theme_stock_excerpt_trimmed.sql"} {
 		b, err := os.ReadFile("../../../../server/migrations/" + f)
 		if err != nil {
 			t.Fatalf("读迁移失败: %v", err)
@@ -77,6 +77,10 @@ func setupMySQLThemeStock(t *testing.T) *gorm.DB {
 
 func TestMySQLListPublicThemeStocksOnlyVisible(t *testing.T) {
 	runPublicVisibilityMatrix(t, setupMySQLThemeStock(t))
+}
+
+func TestMySQLTrimmedLabelUpdate(t *testing.T) {
+	runTrimmedLabelUpdate(t, setupMySQLThemeStock(t))
 }
 
 func TestMySQLCreateUpdateFlow(t *testing.T) {

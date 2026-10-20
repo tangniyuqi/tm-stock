@@ -31,6 +31,9 @@
 
         <x-cell icon="coin-line" icon-color="#E93030" icon-size="18" title="我的积分"
           title-color="#333333" title-size="16" :label="isLoggedIn() ? credit : '未登录'" link :card="false" bottomBorderInsert @click="goCredit"></x-cell>
+
+        <x-cell title="资料整理" title-color="#333333" title-size="16" label="任务与报告"
+          url="/pages/ai/index" min-height="55" :link="true" :card="false" bottomBorderInsert></x-cell>
         
         <x-cell icon="settings-3-line" icon-color="#E93030" icon-size="18" title="个人设置"
           title-color="#333333" title-size="16" :label="isLoggedIn() ? '' : '未登录'" link :card="false" bottomBorderInsert :showBottomBorder="false" @click="goSetting"></x-cell>

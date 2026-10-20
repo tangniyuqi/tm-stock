@@ -125,6 +125,13 @@ func setupDB(t *testing.T) *sql.DB {
 	if _, err := db.Exec(string(mig)); err != nil {
 		t.Fatalf("执行迁移失败: %v", err)
 	}
+	mig, err = os.ReadFile(filepath.Join("..", "..", "migrations", "20261011_add_theme_stock_excerpt_trimmed.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(string(mig)); err != nil {
+		t.Fatalf("执行节选标记迁移失败: %v", err)
+	}
 	if _, err := db.Exec(fixtureSQL); err != nil {
 		t.Fatalf("灌固定装置失败: %v", err)
 	}

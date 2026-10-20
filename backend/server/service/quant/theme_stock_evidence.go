@@ -177,6 +177,10 @@ func evidenceOrKeyChanged(old, upd *quant.ThemeStock) bool {
 	if old.SourceExcerpt != upd.SourceExcerpt || old.SourceUrl != upd.SourceUrl {
 		return true
 	}
+	// 仅改节选标记也改变了展示契约，不能沿用已通过结论。历史 nil 按默认 false 比较。
+	if (old.ExcerptTrimmed != nil && *old.ExcerptTrimmed) != (upd.ExcerptTrimmed != nil && *upd.ExcerptTrimmed) {
+		return true
+	}
 	switch {
 	case old.CollectedAt == nil && upd.CollectedAt == nil:
 		return false

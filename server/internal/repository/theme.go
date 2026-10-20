@@ -54,7 +54,7 @@ const upstreamJoin = `
 
 const mappingColumns = `
     ts.id, ts.theme_id, ts.stock_id, ts.ts_code,
-    ts.source_type, ts.source_excerpt, ts.source_url, ts.collected_at,
+    ts.source_type, ts.source_excerpt, ts.excerpt_trimmed, ts.source_url, ts.collected_at,
     ts.audit_status, ts.status, ts.sort`
 
 // listVisibleMappingsSQL / findVisibleMappingSQL 抽成函数而非内联，
@@ -194,7 +194,7 @@ func scanMapping(rows *sql.Rows) (model.ThemeStockMapping, error) {
 	var m model.ThemeStockMapping
 	err := rows.Scan(
 		&m.ID, &m.ThemeID, &m.StockID, &m.TsCode,
-		&m.SourceType, &m.SourceExcerpt, &m.SourceURL, &m.CollectedAt,
+		&m.SourceType, &m.SourceExcerpt, &m.ExcerptTrimmed, &m.SourceURL, &m.CollectedAt,
 		&m.AuditStatus, &m.Status, &m.Sort)
 	if err != nil {
 		return m, fmt.Errorf("扫描归属映射失败: %w", err)

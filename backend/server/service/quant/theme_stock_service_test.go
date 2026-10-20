@@ -80,6 +80,47 @@ func newReq() quant.ThemeStock {
 	return ts
 }
 
+func runTrimmedLabelUpdate(t *testing.T, db *gorm.DB) {
+	t.Helper()
+	seedTheme(t, db, 100010, "光源")
+	seedStock(t, db, 1, "688502.SH", "茂莱光学")
+	id := seedRow(t, db, 100010, 1, "688502.SH", quant.ThemeStockAuditPassed, 1, 0)
+	if err := db.Model(&quant.ThemeStock{}).Where("id = ?", id).Update("excerpt_trimmed", true).Error; err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	svc := &ThemeStockService{}
+	req := quant.ThemeStock{AuditStatus: quant.ThemeStockAuditPassed, Remark: strp("测试：只改备注")}
+	req.ID, req.UpdatedBy = id, 7
+	reset, err := svc.UpdateThemeStock(ctx, req)
+	if err != nil || reset {
+		t.Fatalf("省略标记不应重置审核: %v", err)
+	}
+	var got quant.ThemeStock
+	if err := db.First(&got, id).Error; err != nil {
+		t.Fatal(err)
+	}
+	if got.ExcerptTrimmed == nil || !*got.ExcerptTrimmed || got.AuditStatus != quant.ThemeStockAuditPassed {
+		t.Fatal("省略字段丢失节选标记")
+	}
+	v := false
+	req.ExcerptTrimmed = &v
+	reset, err = svc.UpdateThemeStock(ctx, req)
+	if err != nil || !reset {
+		t.Fatalf("明确改标记必须重置审核: reset=%v %v", reset, err)
+	}
+	if err := db.First(&got, id).Error; err != nil {
+		t.Fatal(err)
+	}
+	if got.ExcerptTrimmed == nil || *got.ExcerptTrimmed || got.AuditStatus != quant.ThemeStockAuditDraft || got.AuditBy != nil || themeStockCount(t, db, 100010) != 0 {
+		t.Fatal("改标记未完整打回草稿")
+	}
+}
+
+func TestTrimmedLabelUpdatePreservesOmittedAndResetsExplicitChange(t *testing.T) {
+	runTrimmedLabelUpdate(t, setupThemeStockDB(t))
+}
+
 func TestCreateThemeStockForcesDraftAndFillsTsCode(t *testing.T) {
 	db := setupThemeStockDB(t)
 	seedTheme(t, db, 100010, "光源")

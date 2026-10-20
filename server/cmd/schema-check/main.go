@@ -32,6 +32,7 @@ var requiredUpstreamColumns = map[string][]string{
 
 var mappingColumns = []string{
 	"id", "theme_id", "stock_id", "ts_code", "source_type", "source_excerpt",
+	"excerpt_trimmed",
 	"source_url", "collected_at", "audit_status", "status", "deleted_at", "alive",
 }
 
@@ -97,6 +98,9 @@ func run() error {
 		return err
 	}
 	if err := requireCheck(ctx, db, "addon_quant_theme_stock", "chk_theme_stock_evidence"); err != nil {
+		return err
+	}
+	if err := requireCheck(ctx, db, "addon_quant_theme_stock", "chk_theme_stock_excerpt_trimmed"); err != nil {
 		return err
 	}
 	fmt.Println("[OK] addon_quant_theme_stock 字段、唯一索引和证据 CHECK 约束均存在")

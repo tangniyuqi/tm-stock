@@ -156,7 +156,7 @@
           <div v-if="page.showForm" class="anim-fade-up min-h-0 flex-1 overflow-y-auto pr-2">
             <el-form ref="formRef" :model="form" label-position="top" size="large" class="init-form">
               <el-form-item label="管理员密码">
-                <el-input v-model="form.adminPassword" show-password placeholder="admin账号的默认密码" />
+                <el-input v-model="form.adminPassword" type="password" show-password placeholder="请设置管理员密码（至少 6 位）" />
               </el-form-item>
               <el-form-item label="数据库类型">
                 <el-select v-model="form.dbType" placeholder="请选择" class="w-full" @change="changeDB">
@@ -184,7 +184,7 @@
                 </el-form-item>
               </div>
               <el-form-item v-if="form.dbType !== 'sqlite'" label="password">
-                <el-input v-model="form.password" placeholder="请输入数据库密码（没有则为空）" />
+                <el-input v-model="form.password" type="password" show-password placeholder="请输入数据库密码（没有则为空）" />
               </el-form-item>
               <el-form-item v-if="form.dbType === 'sqlite'" label="dbPath">
                 <el-input v-model="form.dbPath" placeholder="请输入sqlite数据库文件存放路径" />
@@ -273,7 +273,7 @@ const goDoc = () => {
 const out = ref(false)
 
 const form = reactive({
-  adminPassword: '123456',
+  adminPassword: '',
   dbType: 'mysql',
   host: '127.0.0.1',
   port: '3306',
@@ -287,7 +287,6 @@ const changeDB = (val) => {
   switch (val) {
     case 'mysql':
       Object.assign(form, {
-        adminPassword: '123456',
         reAdminPassword: '',
         dbType: 'mysql',
         host: '127.0.0.1',
@@ -300,7 +299,6 @@ const changeDB = (val) => {
       break
     case 'pgsql':
       Object.assign(form, {
-        adminPassword: '123456',
         dbType: 'pgsql',
         host: '127.0.0.1',
         port: '5432',
@@ -313,7 +311,6 @@ const changeDB = (val) => {
       break
     case 'oracle':
       Object.assign(form, {
-        adminPassword: '123456',
         dbType: 'oracle',
         host: '127.0.0.1',
         port: '1521',
@@ -325,7 +322,6 @@ const changeDB = (val) => {
       break
     case 'mssql':
       Object.assign(form, {
-        adminPassword: '123456',
         dbType: 'mssql',
         host: '127.0.0.1',
         port: '1433',
@@ -337,7 +333,6 @@ const changeDB = (val) => {
       break
     case 'sqlite':
       Object.assign(form, {
-        adminPassword: '123456',
         dbType: 'sqlite',
         host: '',
         port: '',
@@ -349,7 +344,6 @@ const changeDB = (val) => {
       break
     default:
       Object.assign(form, {
-        adminPassword: '123456',
         dbType: 'mysql',
         host: '127.0.0.1',
         port: '3306',

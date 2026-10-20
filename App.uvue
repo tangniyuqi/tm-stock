@@ -8,3 +8,11 @@
 		onExit: function () { },
 	}
 </script>
+
+<style lang="scss">
+	/* 复用组件库的页面工具类；图标字体仅用于 Web，本地资源不访问外部字体服务。 */
+	@import "./uni_modules/tmx-ui/scss/uvuePx.scss";
+	/* #ifdef WEB */
+	@import "./uni_modules/tmx-ui/scss/remixicon.css";
+	/* #endif */
+</style>

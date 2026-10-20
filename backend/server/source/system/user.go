@@ -2,6 +2,7 @@ package system
 
 import (
 	"context"
+
 	sysModel "github.com/flipped-aurora/gin-vue-admin/server/model/system"
 	"github.com/flipped-aurora/gin-vue-admin/server/service/system"
 	"github.com/flipped-aurora/gin-vue-admin/server/utils"
@@ -17,6 +18,17 @@ type initUser struct{}
 // auto run
 func init() {
 	system.RegisterInit(initOrderUser, &initUser{})
+}
+
+func adminPasswordFromContext(ctx context.Context) (string, error) {
+	password, ok := ctx.Value("adminPassword").(string)
+	if !ok {
+		return "", system.ErrInvalidAdminPassword
+	}
+	if err := system.ValidateAdminPassword(password); err != nil {
+		return "", err
+	}
+	return password, nil
 }
 
 func (i *initUser) MigrateTable(ctx context.Context) (context.Context, error) {
@@ -45,10 +57,9 @@ func (i *initUser) InitializeData(ctx context.Context) (next context.Context, er
 		return ctx, system.ErrMissingDBContext
 	}
 
-	ap := ctx.Value("adminPassword")
-	apStr, ok := ap.(string)
-	if !ok {
-		apStr = "123456"
+	apStr, err := adminPasswordFromContext(ctx)
+	if err != nil {
+		return ctx, err
 	}
 
 	password := utils.BcryptHash(apStr)

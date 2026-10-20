@@ -1,0 +1,174 @@
+<script lang="ts" setup>
+import { ref, watch, onBeforeUnmount } from 'vue'
+import { ThemeApi } from '../../libs/theme-api.uts'
+import { ThemeBrief, formatMillis } from '../../libs/theme.uts'
+import { currentAIMemberToken } from '../../libs/ai-session.uts'
+import { MemberApiResult } from '../../libs/member-api.uts'
+import { AiSubmissionApi } from '../../libs/ai-submission-api.uts'
+import { isSafeAIId } from '../../libs/ai.uts'
+import { AISubmissionScope, AISubmissionQuote, AICreationReceipt, AIPendingCreation, aiPendingStorageKey, readAIPending, reserveAIPending, clearConfirmedAIPending, aiSubmissionError } from '../../libs/ai-submission.uts'
+
+type AICreateProps = { sessionToken : string }
+type AICreateState = 'ready' | 'searching' | 'quoting' | 'quoted' | 'confirming' | 'submitting' | 'unknown' | 'checking' | 'created' | 'error'
+defineOptions({ name: 'AICreatePanel' })
+const props = defineProps<AICreateProps>()
+const emit = defineEmits<{ created: [id : number], unauthorized: [] }>()
+const state = ref<AICreateState>('ready')
+const keyword = ref<string>('')
+const themes = ref<ThemeBrief[]>([] as ThemeBrief[])
+const quote = ref<AISubmissionQuote | null>(null)
+const pending = ref<AIPendingCreation | null>(null)
+const receipt = ref<AICreationReceipt | null>(null)
+const message = ref<string>('')
+let generation : number = 0
+let active : boolean = true
+let partition : string = ''
+
+const current = (round : number, token : string) : boolean => active && generation == round && token.length > 0 && token == props.sessionToken && token == currentAIMemberToken()
+const accept = (code : number) : boolean => {
+	if (code == 40100 || code == 40101) { generation++; quote.value = null; pending.value = null; receipt.value = null; themes.value = [] as ThemeBrief[]; emit('unauthorized'); return false }
+	return true
+}
+const restore = () : void => {
+	generation++; quote.value = null; receipt.value = null; pending.value = null; themes.value = [] as ThemeBrief[]; keyword.value = ''; message.value = ''
+	partition = aiPendingStorageKey(props.sessionToken)
+	try {
+		if (partition == '') { state.value = 'error'; message.value = '当前客户端无法安全保存原请求，暂不创建任务'; return }
+		pending.value = readAIPending(partition)
+		state.value = pending.value == null ? 'ready' : 'unknown'
+	} catch (_) { state.value = 'error'; message.value = '原请求记录不可读取，请保留本机记录并联系维护者核查' }
+}
+const editable = () : boolean => pending.value == null && (state.value == 'ready' || state.value == 'quoted') && current(generation, props.sessionToken)
+const searchThemes = () : void => {
+	if (!editable()) return
+	const kw : string = keyword.value.trim()
+	if (kw.length == 0 || kw.length > 64) { message.value = '请输入不超过64字的题材名称'; return }
+	const round : number = ++generation; const token : string = props.sessionToken
+	quote.value = null; themes.value = [] as ThemeBrief[]; message.value = ''; state.value = 'searching'
+	ThemeApi.search(kw).then((result) => {
+		if (!current(round, token)) return
+		state.value = 'ready'
+		if (result.code != 0 || result.data == null || !Array.isArray(result.data) || result.data.length > 50) { message.value = '题材目录暂不可用，请稍后查询'; return }
+		const seen : number[] = [] as number[]
+		for (let i = 0; i < result.data.length; i++) {
+			const item : ThemeBrief = result.data[i]
+			if (item == null || !isSafeAIId(item.id) || seen.includes(item.id) || typeof item.name != 'string' || item.name.trim().length == 0 || item.name.length > 64) { message.value = '题材目录格式暂不可用'; return }
+			seen.push(item.id)
+		}
+		themes.value = result.data!
+		if (themes.value.length == 0) message.value = '未找到题材，请更换名称查询'
+	}).catch(() => { if (current(round, token)) { state.value = 'ready'; message.value = '题材目录暂不可用，请稍后查询' } })
+}
+const requestQuote = (id : number) : void => {
+	if (!editable() || !themes.value.some((item : ThemeBrief) : boolean => item.id == id)) return
+	const round : number = ++generation; const token : string = props.sessionToken
+	state.value = 'quoting'; quote.value = null; message.value = ''
+	const scope : AISubmissionScope = { analysisType: 'light', subjectType: 'theme', subjectId: id } as AISubmissionScope
+	AiSubmissionApi.quote(scope).then((result) => {
+		if (!current(round, token) || !accept(result.code)) return
+		state.value = 'ready'
+		if (result.code != 0 || result.data == null) { message.value = aiSubmissionError(result.code); return }
+		quote.value = result.data!; state.value = 'quoted'
+	}).catch(() => { if (current(round, token)) { state.value = 'ready'; message.value = aiSubmissionError(50001) } })
+}
+const checkReceipt = () : void => {
+	if (pending.value == null || state.value == 'checking' || state.value == 'submitting' || !current(generation, props.sessionToken)) return
+	const round : number = ++generation; const token : string = props.sessionToken; const key : string = pending.value!.key
+	state.value = 'checking'; receipt.value = null; message.value = ''
+	AiSubmissionApi.receipt(key).then((result) => {
+		if (!current(round, token) || !accept(result.code)) return
+		if (result.code != 0 || result.data == null || pending.value == null || result.data!.pricePoints != pending.value!.pricePoints || result.data!.priceVersion != pending.value!.priceVersion) { state.value = 'unknown'; message.value = aiSubmissionError(result.code == 0 ? 50001 : result.code); return }
+		receipt.value = result.data!; state.value = 'created'
+	}).catch(() => { if (current(round, token)) { state.value = 'unknown'; message.value = aiSubmissionError(50001) } })
+}
+const submitConfirmed = async (round : number, token : string, confirmedQuote : AISubmissionQuote) : Promise<void> => {
+	if (!current(round, token) || state.value != 'confirming' || quote.value != confirmedQuote) return
+	state.value = 'submitting'
+	try {
+		const originalPartition : string = partition
+		const original : AIPendingCreation | null = await reserveAIPending(originalPartition, confirmedQuote)
+		if (!current(round, token)) {
+			// 此分支尚未调用HTTP；只能清除本次确认未发送的意图，不能清除任何已发送请求。
+			if (original != null) await clearConfirmedAIPending(originalPartition, original.key)
+			return
+		}
+		if (original == null) { restore(); if (pending.value == null) message.value = '无法持久保存或锁定原请求，未发送创建'; return }
+		pending.value = original; quote.value = null
+		const result : MemberApiResult<AICreationReceipt> = await AiSubmissionApi.create(original)
+		if (!current(round, token) || !accept(result.code)) return
+		if (result.code != 0 || result.data == null) {
+			// 已确认拒绝的请求可撤销本地意图；未知/冲突绝不能清除或换键。
+			if ([40001, 40901, 42201, 42202].includes(result.code)) {
+				const cleared : boolean = await clearConfirmedAIPending(partition, original.key)
+				if (!current(round, token)) return
+				if (cleared) { pending.value = null; state.value = 'ready' } else state.value = 'unknown'
+			} else state.value = 'unknown'
+			message.value = aiSubmissionError(result.code); return
+		}
+		receipt.value = result.data!; state.value = 'created'
+	} catch (_) { if (current(round, token)) { restore(); message.value = '请求未确认，请保留原请求并核查；未自动重发' } }
+}
+const confirmCreate = () : void => {
+	if (state.value != 'quoted' || quote.value == null || pending.value != null || quote.value!.availablePoints < quote.value!.pricePoints || !current(generation, props.sessionToken)) return
+	const confirmedQuote : AISubmissionQuote = quote.value!; const round : number = generation; const token : string = props.sessionToken
+	state.value = 'confirming'
+	uni.showModal({ title: '确认创建资料任务', content: '题材：' + confirmedQuote.subjectName + '。将冻结 ' + confirmedQuote.pricePoints.toString() + ' 积分；报告通过后结算，未交付按任务规则释放。报价及资料授权以服务端创建时复核为准。', confirmText: '确认冻结', cancelText: '暂不创建', success: (result) => {
+		if (!current(round, token) || state.value != 'confirming') return
+		if (result.confirm == true) { submitConfirmed(round, token, confirmedQuote) } else state.value = 'quoted'
+	}, fail: () => { if (current(round, token) && state.value == 'confirming') state.value = 'quoted' } })
+}
+const showCreatedTask = () : void => { if (state.value == 'created' && receipt.value != null && current(generation, props.sessionToken)) emit('created', receipt.value!.taskId) }
+const finishConfirmed = async () : Promise<void> => {
+	if (state.value != 'created' || receipt.value == null || pending.value == null || !current(generation, props.sessionToken)) return
+	const round : number = generation; const token : string = props.sessionToken
+	try { if (await clearConfirmedAIPending(partition, pending.value!.key) && current(round, token)) restore() }
+	catch (_) { if (current(round, token)) message.value = '原请求仍保留，可继续核查，未创建新任务' }
+}
+watch(() : string => props.sessionToken, () => { restore() }, { immediate: true })
+onBeforeUnmount(() => { active = false; generation++; quote.value = null; pending.value = null; receipt.value = null; themes.value = [] as ThemeBrief[] })
+</script>
+
+<template>
+	<x-sheet :margin="16" :padding="16" :round="12" dark-color="#ffffff">
+		<text class="create-heading text-weight-b">新建轻度资料整理</text>
+		<text class="create-copy mt-8">真实生成尚未开放。可核对当前服务状态；报价不冻结积分，创建须另行确认。</text>
+		<view v-if="pending == null && state != 'error'">
+			<x-input :model-value="keyword" @update:modelValue="keyword = $event" class="mt-12" :maxlength="64" height="44" placeholder="输入题材名称，仅用于查询目录" :disabled="!editable()"></x-input>
+			<x-button class="mt-8" height="44" :block="true" skin="outline" :disabled="!editable()" :loading="state == 'searching'" @click="searchThemes">查询题材</x-button>
+			<view v-for="item in themes" :key="item.id" class="mt-12">
+				<text class="create-copy">{{ item.name }}</text>
+				<x-button class="mt-4" height="44" :block="true" skin="outline" :disabled="!editable()" @click="requestQuote(item.id)">核对该题材报价</x-button>
+			</view>
+		</view>
+		<text v-if="state == 'quoting'" class="create-copy mt-12">正在核对报价与资料范围…</text>
+		<view v-if="quote != null" class="mt-12">
+			<text class="create-heading">{{ quote!.subjectName }} · {{ quote!.pricePoints }} 积分</text>
+			<text class="create-copy mt-4">当前可消费 {{ quote!.availablePoints }} 积分 · 价格版本 {{ quote!.priceVersion }}</text>
+			<text class="create-copy mt-4">报价时点 {{ formatMillis(quote!.quotedAt) }} · 冻结时限 {{ quote!.holdExpireSec }} 秒</text>
+			<text class="create-copy mt-4">本次批准资料范围（不是已生成报告）：</text>
+			<view v-for="(item, index) in quote!.materialScope" :key="index" class="mt-4">
+				<text class="create-copy">{{ item.sourceType }} · {{ formatMillis(item.collectedAt) }}</text>
+				<text class="create-copy">{{ item.sourceUrl }}</text>
+			</view>
+			<text v-if="quote!.availablePoints < quote!.pricePoints" class="create-copy mt-8">可消费积分不足，不能创建。</text>
+			<x-button class="mt-12" height="44" :block="true" :disabled="state != 'quoted' || quote!.availablePoints < quote!.pricePoints" @click="confirmCreate">确认报价并创建</x-button>
+		</view>
+		<text v-if="state == 'submitting'" class="create-copy mt-12">正在提交原请求，请勿重复创建…</text>
+		<view v-if="pending != null" class="mt-12">
+			<text v-if="state != 'created'" class="create-copy">原请求已保留。核查不会重新生成或冻结积分；暂未查到时也不会自动换键。</text>
+			<x-button v-if="state != 'submitting'" class="mt-8" height="44" :block="true" skin="outline" :disabled="state == 'checking'" :loading="state == 'checking'" @click="checkReceipt">核查原请求</x-button>
+		</view>
+		<view v-if="receipt != null && state == 'created'" class="mt-12">
+			<text class="create-heading">已确认创建任务 #{{ receipt!.taskId }}</text>
+			<text class="create-copy mt-4">原冻结 {{ receipt!.pricePoints }} 积分。这是创建收据，不代表报告已交付或积分已结算。</text>
+			<x-button class="mt-8" height="44" :block="true" @click="showCreatedTask">查看已创建任务</x-button>
+			<x-button class="mt-8" height="44" :block="true" skin="outline" @click="finishConfirmed">已记录任务，返回新建</x-button>
+		</view>
+		<text v-if="message != ''" class="create-copy mt-8">{{ message }}</text>
+	</x-sheet>
+</template>
+
+<style scoped>
+.create-heading { color: #30343c; line-height: 24px; }
+.create-copy { color: #586174; font-size: 14px; line-height: 22px; }
+</style>

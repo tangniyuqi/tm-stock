@@ -85,6 +85,10 @@ jobs:
         working-directory: .
         run: bash scripts/check-architecture.sh
 
+      - name: 原生迁移客户端探测自测（不替代真库断言）
+        working-directory: .
+        run: bash scripts/dev/verify-migrations.sh --self-test-probe
+
       - name: go vet
         run: go vet ./...
 
@@ -155,11 +159,15 @@ jobs:
   # 为什么必须有：单测里的 SQL 断言只能查"字符串含某片段"，
   # 查不出列名拼错 / 类型不匹配 / JOIN 写反 / Scan 顺序错位 —— 只有真执行才暴露。
   integration:
-    name: 集成测试（真连 MySQL）
+    name: 集成测试（MySQL ${{ matrix.mysql }}）
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        mysql: ['8.0.46', '9.7.0']
     services:
       mysql:
-        image: mysql:8.0
+        image: mysql:${{ matrix.mysql }}
         env:
           MYSQL_ROOT_PASSWORD: fake-ci-only-not-a-secret
           MYSQL_DATABASE: tm_stock_it
@@ -197,7 +205,7 @@ jobs:
           TM_TEST_DSN: "root:fake-ci-only-not-a-secret@tcp(127.0.0.1:3306)/tm_stock_it?parseTime=true&multiStatements=true&charset=utf8mb4&loc=Local"
         run: |
           set -o pipefail
-          go test -tags=integration ./internal/repository/... -count=1 -v 2>&1 | tee /tmp/it.log | tail -40
+          go test -p 1 -race -tags=integration ./internal/repository/... ./integration/points/... ./integration/agents/... ./cmd/api/... -timeout=20m -count=1 -v 2>&1 | tee /tmp/it.log | tail -40
           PASS=$(grep -c '^[[:space:]]*--- PASS' /tmp/it.log || true)
           SKIP=$(grep -c '^[[:space:]]*--- SKIP' /tmp/it.log || true)
           echo "通过 $PASS 项 / 跳过 $SKIP 项"
@@ -206,8 +214,204 @@ jobs:
           if [ "$SKIP" -gt 0 ]; then
             echo "::error::有 $SKIP 项被跳过 —— TM_TEST_DSN 未生效，等于没测到"; exit 1
           fi
-          # 下限只增不减。本地实测 38 项（含收敛迁移的两种启动顺序、重复多次、认不出的形态主动中止，以及静态断言）。
-          MIN=34
+          # 原下限 34，加跨层账本套件的 35 项（含 RC/RR、旧快照、用户锁范围、全账户对账与时区）；不可让仓储增项掩盖账本漏跑。
+          POINTS=$(grep -Ec '^--- PASS: TestIntegrationPoints(RoundTripAndReplay|TwoHundredConcurrentFreezes|IdempotencyAndTerminalRace|GuardsParentRollbackAndCorruption|MultipleLotsAndTerminalRollback|DriverLocationCannotShiftUTCLedger|RefundRewardRoundTrip|DebtRollbackAndExpiryBasis|DebtConcurrency|DebtIntegerLimit|ParentRepeatableReadSnapshot|AuditUserIndexScope|AuditSweep) ' /tmp/it.log || true)
+          if [ "$POINTS" -ne 13 ]; then
+            echo "::error::账本核心套件只通过 $POINTS / 13 组"; exit 1
+          fi
+          TASKS=$(grep -Ec '^--- PASS: TestIntegrationAITask(RoundTrip|RollbackAndGuards|Concurrency|ConcurrentCreates|SchemaProbe|SchemaCorruption|SchemaRestrictedCLI) ' /tmp/it.log || true)
+          if [ "$TASKS" -ne 7 ]; then
+            echo "::error::持久化任务套件只通过 $TASKS / 7 组"; exit 1
+          fi
+          MEMBER_READS=$(grep -Ec '^--- PASS: TestIntegrationAITaskMemberReads ' /tmp/it.log || true)
+          if [ "$MEMBER_READS" -ne 1 ]; then
+            echo "::error::会员任务只读套件未通过"; exit 1
+          fi
+          BUDGETS=$(grep -Ec '^--- PASS: TestIntegrationAITaskBudget(Lifecycle|Concurrency|IndependentTasks|RecoveryAndRollback|SchemaCorruption) ' /tmp/it.log || true)
+          if [ "$BUDGETS" -ne 5 ]; then
+            echo "::error::持久预算套件只通过 $BUDGETS / 5 组"; exit 1
+          fi
+          BUDGET_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAITaskBudget(Lifecycle|Concurrency|IndependentTasks)/' /tmp/it.log || true)
+          BUDGET_CORRUPTION=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAITaskBudgetSchemaCorruption/' /tmp/it.log || true)
+          if [ "$BUDGET_LEVELS" -ne 6 ] || [ "$BUDGET_CORRUPTION" -ne 15 ]; then
+            echo "::error::持久预算隔离级别或保护破坏子例漏跑"; exit 1
+          fi
+          AGENTS=$(grep -Ec '^--- PASS: TestIntegrationAgent(LifecycleAndProtections|ConcurrentReserveAndDurableLimit|AuditFailureRollsBackAndNeverReplays|ProbeDetectsMissingProtection|ConcurrentCancelAndAuditIntegrity|CLI) ' /tmp/it.log || true)
+          if [ "$AGENTS" -ne 6 ]; then
+            echo "::error::外部 Agent 套件只通过 $AGENTS / 6 组"; exit 1
+          fi
+          STAGES=$(grep -Ec '^--- PASS: TestIntegrationAITaskStage(Lifecycle|Concurrency|IndependentTasks|RecoveryAndRollback|ValidationBoundaries|SchemaCorruption) ' /tmp/it.log || true)
+          STAGE_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAITaskStage(Lifecycle|Concurrency|IndependentTasks)/' /tmp/it.log || true)
+          STAGE_RECOVERY=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAITaskStageRecoveryAndRollback/' /tmp/it.log || true)
+          STAGE_VALIDATION=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAITaskStageValidationBoundaries/' /tmp/it.log || true)
+          STAGE_CORRUPTION=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAITaskStageSchemaCorruption/' /tmp/it.log || true)
+          if [ "$STAGES" -ne 6 ] || [ "$STAGE_LEVELS" -ne 6 ] || [ "$STAGE_RECOVERY" -ne 3 ] || [ "$STAGE_VALIDATION" -ne 3 ] || [ "$STAGE_CORRUPTION" -ne 18 ]; then
+            echo "::error::阶段检查点核心组、隔离级别、恢复/校验边界或保护破坏子例漏跑"; exit 1
+          fi
+          EXTRACTION=$(grep -Ec '^--- PASS: TestIntegrationAITaskStageExtraction(Policy|Rejections) ' /tmp/it.log || true)
+          EXTRACTION_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAITaskStageExtraction(Policy|Rejections)/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          EXTRACTION_REJECTIONS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAITaskStageExtractionRejections/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          if [ "$EXTRACTION" -ne 2 ] || [ "$EXTRACTION_LEVELS" -ne 4 ] || [ "$EXTRACTION_REJECTIONS" -ne 20 ]; then
+            echo "::error::真实抽取守卫阶段接线或隔离级别/拒绝子例漏跑"; exit 1
+          fi
+          RECOVERY=$(grep -Ec '^--- PASS: TestIntegrationAITaskRecovery(Lifecycle|ProcessCrash|CLI) ' /tmp/it.log || true)
+          RECOVERY_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAITaskRecoveryLifecycle/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          RECOVERY_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAITaskRecoveryLifecycle/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          RECOVERY_PROCESS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAITaskRecoveryProcessCrash/' /tmp/it.log || true)
+          RECOVERY_CLI=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAITaskRecoveryCLI/' /tmp/it.log || true)
+          if [ "$RECOVERY" -ne 3 ] || [ "$RECOVERY_LEVELS" -ne 2 ] || [ "$RECOVERY_CASES" -ne 16 ] || [ "$RECOVERY_PROCESS" -ne 2 ] || [ "$RECOVERY_CLI" -ne 4 ]; then
+            echo "::error::恢复 worker 的生命周期、隔离级别、独立进程或实际命令用例漏跑"; exit 1
+          fi
+          MEMBER_CANCEL=$(grep -Ec '^--- PASS: TestIntegrationAITaskMemberCancel(Lifecycle|Concurrency|RollbackAndUnknown) ' /tmp/it.log || true)
+          MEMBER_CANCEL_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAITaskMemberCancel(Lifecycle|Concurrency|RollbackAndUnknown)/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          CANCEL_STARTUP=$(grep -Ec '^--- PASS: TestIntegrationAITaskCancelStartup ' /tmp/it.log || true)
+          CANCEL_STARTUP_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAITaskCancelStartup/' /tmp/it.log || true)
+          if [ "$MEMBER_CANCEL" -ne 3 ] || [ "$MEMBER_CANCEL_LEVELS" -ne 6 ] || [ "$CANCEL_STARTUP" -ne 1 ] || [ "$CANCEL_STARTUP_CASES" -ne 6 ]; then
+            echo "::error::会员取消的事务、隔离级别、启动失败关闭或受限权限用例漏跑"; exit 1
+          fi
+          MEMBER_EVENTS=$(grep -Ec '^--- PASS: TestIntegrationAITaskMemberEvents(Lifecycle|Snapshot|Corruption) ' /tmp/it.log || true)
+          MEMBER_EVENT_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAITaskMemberEvents(Lifecycle|Snapshot|Corruption)/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          MEMBER_EVENT_CORRUPTION=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAITaskMemberEventsCorruption/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          if [ "$MEMBER_EVENTS" -ne 3 ] || [ "$MEMBER_EVENT_LEVELS" -ne 6 ] || [ "$MEMBER_EVENT_CORRUPTION" -ne 16 ]; then
+            echo "::error::会员事件的分页、只读快照、隔离级别或损坏拒绝子例漏跑"; exit 1
+          fi
+          EXPIRY=$(grep -Ec '^--- PASS: TestIntegrationAITaskExpiry(Lifecycle|Atomicity|Concurrent|CLI) ' /tmp/it.log || true)
+          EXPIRY_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAITaskExpiry(Lifecycle|Atomicity|Concurrent)/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          EXPIRY_ATOMIC=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAITaskExpiryAtomicity/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          EXPIRY_CLI=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAITaskExpiryCLI/' /tmp/it.log || true)
+          if [ "$EXPIRY" -ne 4 ] || [ "$EXPIRY_LEVELS" -ne 6 ] || [ "$EXPIRY_ATOMIC" -ne 4 ] || [ "$EXPIRY_CLI" -ne 4 ]; then
+            echo "::error::过期清扫的生命周期、隔离级别、并发、原子性或编译命令漏跑"; exit 1
+          fi
+          AGENT_BRIDGE=$(grep -Ec '^--- PASS: TestIntegrationAITaskAgentBridge(Lifecycle|Recovery|Boundaries|Concurrent) ' /tmp/it.log || true)
+          AGENT_BRIDGE_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAITaskAgentBridge(Lifecycle|Recovery|Boundaries|Concurrent)/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          AGENT_BRIDGE_RECOVERY=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAITaskAgentBridgeRecovery/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          AGENT_BRIDGE_BOUNDARIES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAITaskAgentBridgeBoundaries/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          if [ "$AGENT_BRIDGE" -ne 4 ] || [ "$AGENT_BRIDGE_LEVELS" -ne 8 ] || [ "$AGENT_BRIDGE_RECOVERY" -ne 8 ] || [ "$AGENT_BRIDGE_BOUNDARIES" -ne 10 ]; then
+            echo "::error::任务-Agent 接线的生命周期、隔离级别、恢复、边界或并发子例漏跑"; exit 1
+          fi
+          REPORTS=$(grep -Ec '^--- PASS: TestIntegrationAIReport(Lifecycle|Boundaries|Atomicity|Concurrency|Schema|Recovery) ' /tmp/it.log || true)
+          REPORT_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReport(Lifecycle|Boundaries|Atomicity|Concurrency|Schema|Recovery)/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          REPORT_BOUNDARIES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportBoundaries/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          REPORT_ATOMICITY=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportAtomicity/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          REPORT_SCHEMA=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportSchema/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          REPORT_RECOVERY=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportRecovery/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          if [ "$REPORTS" -ne 6 ] || [ "$REPORT_LEVELS" -ne 12 ] || [ "$REPORT_BOUNDARIES" -ne 20 ] || [ "$REPORT_ATOMICITY" -ne 8 ] || [ "$REPORT_SCHEMA" -ne 14 ] || [ "$REPORT_RECOVERY" -ne 6 ]; then
+            echo "::error::报告终检/结算的生命周期、边界、原子性、并发、自检或恢复子例漏跑"; exit 1
+          fi
+          REPORT_CONVERSION=$(grep -Ec '^--- PASS: TestIntegrationAIReportConversion(Lifecycle|Boundaries|Concurrency|Recovery) ' /tmp/it.log || true)
+          REPORT_CONVERSION_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportConversion(Lifecycle|Boundaries|Concurrency|Recovery)/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          REPORT_CONVERSION_LIFECYCLE=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportConversionLifecycle/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          REPORT_CONVERSION_BOUNDARIES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportConversionBoundaries/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          if [ "$REPORT_CONVERSION" -ne 4 ] || [ "$REPORT_CONVERSION_LEVELS" -ne 8 ] || [ "$REPORT_CONVERSION_LIFECYCLE" -ne 4 ] || [ "$REPORT_CONVERSION_BOUNDARIES" -ne 16 ]; then
+            echo "::error::编号证据转换的生命周期、隔离、边界、并发或恢复子例漏跑"; exit 1
+          fi
+          REPORT_CHECKS=$(grep -Ec '^--- PASS: TestIntegrationAIReportChecks(Lifecycle|Faults|Concurrency|Recovery) ' /tmp/it.log || true)
+          REPORT_CHECK_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportChecks(Lifecycle|Faults|Concurrency|Recovery)/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          REPORT_CHECK_LIFECYCLE=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportChecksLifecycle/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          REPORT_CHECK_FAULTS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportChecksFaults/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          if [ "$REPORT_CHECKS" -ne 4 ] || [ "$REPORT_CHECK_LEVELS" -ne 8 ] || [ "$REPORT_CHECK_LIFECYCLE" -ne 8 ] || [ "$REPORT_CHECK_FAULTS" -ne 18 ]; then
+            echo "::error::受限模型判定的生命周期、隔离、审计/未知提交、并发或恢复子例漏跑"; exit 1
+          fi
+          # 原下限414，加判定4组、8个隔离、8个生命周期及18个故障/身份子例；不删除旧守卫。
+          REPORT_WORKFLOW=$(grep -Ec '^--- PASS: TestIntegrationAIReportWorkflow(Lifecycle|Guards|Recovery|Concurrency) ' /tmp/it.log || true)
+          REPORT_WORKFLOW_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportWorkflow(Lifecycle|Guards|Recovery|Concurrency)/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          REPORT_WORKFLOW_LIFECYCLE=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportWorkflowLifecycle/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          REPORT_WORKFLOW_GUARDS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportWorkflowGuards/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          REPORT_WORKFLOW_RECOVERY=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportWorkflowRecovery/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          if [ "$REPORT_WORKFLOW" -ne 4 ] || [ "$REPORT_WORKFLOW_LEVELS" -ne 8 ] || [ "$REPORT_WORKFLOW_LIFECYCLE" -ne 12 ] || [ "$REPORT_WORKFLOW_GUARDS" -ne 16 ] || [ "$REPORT_WORKFLOW_RECOVERY" -ne 6 ]; then
+            echo '❌ L1统一编排必跑用例缺失'; exit 1
+          fi
+          REPORT_READS=$(grep -Ec '^--- PASS: TestIntegrationAIReportReads(Lifecycle|Boundaries|Concurrency|Workflow) ' /tmp/it.log || true)
+          REPORT_READ_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportReads(Lifecycle|Boundaries|Concurrency|Workflow)/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          REPORT_READ_BOUNDARIES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportReadsBoundaries/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          if [ "$REPORT_READS" -ne 4 ] || [ "$REPORT_READ_LEVELS" -ne 8 ] || [ "$REPORT_READ_BOUNDARIES" -ne 32 ]; then
+            echo '❌ 会员报告读取必跑用例缺失'; exit 1
+          fi
+          REPORT_READ_STARTUP=$(grep -Ec '^--- PASS: TestIntegrationAIReportReadStartup ' /tmp/it.log || true)
+          REPORT_READ_STARTUP_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportReadStartup/' /tmp/it.log || true)
+          if [ "$REPORT_READ_STARTUP" -ne 1 ] || [ "$REPORT_READ_STARTUP_CASES" -ne 8 ]; then
+            echo '❌ 会员报告启动保护必跑用例缺失'; exit 1
+          fi
+          MEMBER_SUBMISSIONS=$(grep -Ec '^--- PASS: TestIntegrationAIReportMemberSubmission(Lifecycle|Boundaries|Concurrency) ' /tmp/it.log || true)
+          MEMBER_SUBMISSION_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportMemberSubmission(Lifecycle|Boundaries|Concurrency)/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          MEMBER_SUBMISSION_LIFECYCLE=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportMemberSubmissionLifecycle/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          MEMBER_SUBMISSION_BOUNDARIES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportMemberSubmissionBoundaries/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          if [ "$MEMBER_SUBMISSIONS" -ne 3 ] || [ "$MEMBER_SUBMISSION_LEVELS" -ne 6 ] || [ "$MEMBER_SUBMISSION_LIFECYCLE" -ne 6 ] || [ "$MEMBER_SUBMISSION_BOUNDARIES" -ne 32 ]; then
+            echo "::error::会员创建主链或身份/原键/回滚反例未完整执行"; exit 1
+          fi
+          MEMBER_QUOTE_ELIGIBILITY=$(grep -Ec '^--- PASS: TestIntegrationAIReportMemberQuoteEligibility ' /tmp/it.log || true)
+          MEMBER_QUOTE_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportMemberQuoteEligibility/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          CREATE_STARTUP=$(grep -Ec '^--- PASS: TestIntegrationAITaskCreateStartup ' /tmp/it.log || true)
+          CREATE_STARTUP_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAITaskCreateStartup/' /tmp/it.log || true)
+          if [ "$MEMBER_QUOTE_ELIGIBILITY" -ne 1 ] || [ "$MEMBER_QUOTE_LEVELS" -ne 2 ] || [ "$CREATE_STARTUP" -ne 1 ] || [ "$CREATE_STARTUP_CASES" -ne 8 ]; then
+            echo "::error::会员报价批次或创建启动门禁未完整执行"; exit 1
+          fi
+          ADMISSIONS=$(grep -Ec '^--- PASS: TestIntegrationAIReportAdmission(Binding|Atomicity|Schema|Reads|Finalize) ' /tmp/it.log || true)
+          ADMISSION_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportAdmission(Binding|Atomicity|Schema|Reads|Finalize)/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          ADMISSION_BINDINGS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportAdmissionBinding/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          ADMISSION_ATOMICITY=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportAdmissionAtomicity/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          ADMISSION_SCHEMA=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportAdmissionSchema/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          ADMISSION_READS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportAdmissionReads/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          ADMISSION_FINALIZE=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportAdmissionFinalize/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          if [ "$ADMISSIONS" -ne 5 ] || [ "$ADMISSION_LEVELS" -ne 10 ] || [ "$ADMISSION_BINDINGS" -ne 36 ] || [ "$ADMISSION_ATOMICITY" -ne 8 ] || [ "$ADMISSION_SCHEMA" -ne 26 ] || [ "$ADMISSION_READS" -ne 12 ] || [ "$ADMISSION_FINALIZE" -ne 10 ]; then
+            echo "::error::首次准入持久绑定、原子回滚或实际缺保护反例未完整执行"; exit 1
+          fi
+          REPORT_QUEUES=$(grep -Ec '^--- PASS: TestIntegrationAIReportQueue(Lifecycle|Guards|UnknownCommit|Concurrency) ' /tmp/it.log || true)
+          REPORT_QUEUE_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportQueue(Lifecycle|Guards|UnknownCommit|Concurrency)/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          REPORT_QUEUE_LIFECYCLE=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportQueueLifecycle/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          REPORT_QUEUE_GUARDS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportQueueGuards/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          REPORT_QUEUE_CONCURRENCY=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportQueueConcurrency/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          if [ "$REPORT_QUEUES" -ne 4 ] || [ "$REPORT_QUEUE_LEVELS" -ne 8 ] || [ "$REPORT_QUEUE_LIFECYCLE" -ne 8 ] || [ "$REPORT_QUEUE_GUARDS" -ne 12 ] || [ "$REPORT_QUEUE_CONCURRENCY" -ne 4 ]; then
+            echo "::error::会员队列主链、原键未知或独立领取竞争用例未完整执行"; exit 1
+          fi
+          REPORT_COMPANIES=$(grep -Ec '^--- PASS: TestIntegrationAIReportCompanies(ReadOnly|Boundaries|SharedLocks) ' /tmp/it.log || true)
+          REPORT_COMPANY_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportCompanies(ReadOnly|Boundaries|SharedLocks)/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          REPORT_COMPANY_BOUNDARIES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportCompaniesBoundaries/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          if [ "$REPORT_COMPANIES" -ne 3 ] || [ "$REPORT_COMPANY_LEVELS" -ne 6 ] || [ "$REPORT_COMPANY_BOUNDARIES" -ne 48 ]; then
+            echo "::error::报告公司资料读取、当前审核/来源边界或共享锁未完整执行"; exit 1
+          fi
+          REPORT_LIBRARY=$(grep -Ec '^--- PASS: TestIntegrationAIReportLibrary(Lifecycle|Boundaries|Atomicity) ' /tmp/it.log || true)
+          REPORT_LIBRARY_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportLibrary(Lifecycle|Boundaries|Atomicity)/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          REPORT_LIBRARY_LIFECYCLE=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportLibraryLifecycle/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          REPORT_LIBRARY_BOUNDARIES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportLibraryBoundaries/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          REPORT_LIBRARY_ATOMICITY=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportLibraryAtomicity/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          if [ "$REPORT_LIBRARY" -ne 3 ] || [ "$REPORT_LIBRARY_LEVELS" -ne 6 ] || [ "$REPORT_LIBRARY_LIFECYCLE" -ne 4 ] || [ "$REPORT_LIBRARY_BOUNDARIES" -ne 14 ] || [ "$REPORT_LIBRARY_ATOMICITY" -ne 8 ]; then
+            echo "::error::公司报告主链、首次范围、当前撤回或同事务恢复用例未完整执行"; exit 1
+          fi
+          REPORT_REJECTION=$(grep -Ec '^--- PASS: TestIntegrationAIReportRejection(Lifecycle|Atomicity) ' /tmp/it.log || true)
+          REPORT_REJECTION_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportRejection(Lifecycle|Atomicity)/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          REPORT_REJECTION_LIFECYCLE=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportRejectionLifecycle/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          REPORT_REJECTION_ATOMICITY=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportRejectionAtomicity/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          if [ "$REPORT_REJECTION" -ne 2 ] || [ "$REPORT_REJECTION_LEVELS" -ne 4 ] || [ "$REPORT_REJECTION_LIFECYCLE" -ne 10 ] || [ "$REPORT_REJECTION_ATOMICITY" -ne 6 ]; then
+            echo "::error::已知拒绝释放、完成前缀、未知预留、并发及原子恢复用例未完整执行"; exit 1
+          fi
+          REPORT_ATTEMPT=$(grep -Ec '^--- PASS: TestIntegrationAIReportAttemptLimit ' /tmp/it.log || true)
+          REPORT_ATTEMPT_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportAttemptLimit/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          REPORT_ATTEMPT_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportAttemptLimit/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          if [ "$REPORT_ATTEMPT" -ne 1 ] || [ "$REPORT_ATTEMPT_LEVELS" -ne 2 ] || [ "$REPORT_ATTEMPT_CASES" -ne 6 ]; then
+            echo "::error::通用领取的未知响应保护、已确认响应/空预算终结或隔离级别漏跑"; exit 1
+          fi
+          REPORT_UNKNOWN_FAILURE=$(grep -Ec '^--- PASS: TestIntegrationAIReportUnknownFailure(Atomicity)? ' /tmp/it.log || true)
+          REPORT_UNKNOWN_FAILURE_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportUnknownFailure(Atomicity)?/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          REPORT_UNKNOWN_FAILURE_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportUnknownFailure/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          REPORT_UNKNOWN_FAILURE_ATOMICITY=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportUnknownFailureAtomicity/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          if [ "$REPORT_UNKNOWN_FAILURE" -ne 2 ] || [ "$REPORT_UNKNOWN_FAILURE_LEVELS" -ne 4 ] || [ "$REPORT_UNKNOWN_FAILURE_CASES" -ne 12 ] || [ "$REPORT_UNKNOWN_FAILURE_ATOMICITY" -ne 6 ]; then
+            echo "::error::未知调用失败保护、并发恰好一次释放或事务恢复用例未完整执行"; exit 1
+          fi
+          REPORT_UPSTREAM_TERMINAL=$(grep -Ec '^--- PASS: TestIntegrationAIReportUpstreamTerminal ' /tmp/it.log || true)
+          REPORT_UPSTREAM_TERMINAL_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportUpstreamTerminal/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          REPORT_UPSTREAM_TERMINAL_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportUpstreamTerminal/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          if [ "$REPORT_UPSTREAM_TERMINAL" -ne 1 ] || [ "$REPORT_UPSTREAM_TERMINAL_LEVELS" -ne 2 ] || [ "$REPORT_UPSTREAM_TERMINAL_CASES" -ne 14 ]; then
+            echo "::error::上游确认失败/取消、隔离终态回执、原子释放或旧围栏保护用例漏跑"; exit 1
+          fi
+          REPORT_H5_GATEWAY=$(grep -Ec '^--- PASS: TestIntegrationAIReportH5Gateway ' /tmp/it.log || true)
+          REPORT_H5_GATEWAY_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportH5Gateway/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          REPORT_H5_GATEWAY_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportH5Gateway/(Read_Committed|Repeatable_Read)/(success|cancel|library|receipt_unknown|running_cancel) ' /tmp/it.log || true)
+          REPORT_H5_ORIGIN=$(grep -Ec '^--- PASS: TestH5TestOrigin ' /tmp/it.log || true)
+          if [ "$REPORT_H5_GATEWAY" -ne 1 ] || [ "$REPORT_H5_GATEWAY_LEVELS" -ne 2 ] || [ "$REPORT_H5_GATEWAY_CASES" -ne 10 ] || [ "$REPORT_H5_ORIGIN" -ne 1 ]; then
+            echo "::error::本地H5测试接线、真库成功/取消或回环源边界用例漏跑"; exit 1
+          fi
+          MIN=931
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项，低于下限 $MIN —— 要么没跑，要么有测试被删。"; exit 1
           fi
@@ -241,7 +445,7 @@ jobs:
           fi
 
   frontend:
-    name: 前端（uni-app x）静态检查
+    name: 前端（uni-app x）源码行为与静态检查
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -249,6 +453,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+
+      - name: 会员报告与依据展示源码测试（不替代HBuilderX）
+        run: |
+          set -euo pipefail
+          qa_dir="$(mktemp -d "${RUNNER_TEMP}/tm-stock-ai-ui.XXXXXX")"
+          npm install --prefix "$qa_dir" --ignore-scripts --package-lock=false --no-audit --no-fund \
+            vue@3.5.13 @vue/compiler-sfc@3.5.13 @vue/server-renderer@3.5.13 typescript@5.7.2
+          node scripts/dev/verify-ai-report-ui.cjs "$qa_dir"
+          node scripts/dev/verify-evidence-ui.cjs "$qa_dir"
 
       - name: 配置文件 JSON 合法性
         run: |

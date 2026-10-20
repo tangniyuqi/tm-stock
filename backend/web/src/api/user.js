@@ -1,7 +1,7 @@
 import service from '@/utils/request'
 // @Summary 用户登录
 // @Produce  application/json
-// @Param data body {username:"string",password:"string"}
+// @Param data body {username:"string",password:"<用户输入>"}
 // @Router /base/login [post]
 export const login = (data) => {
   return service({
@@ -13,7 +13,7 @@ export const login = (data) => {
 
 // @Summary 获取验证码
 // @Produce  application/json
-// @Param data body {username:"string",password:"string"}
+// @Param data body {username:"string",password:"<用户输入>"}
 // @Router /base/captcha [post]
 export const captcha = () => {
   return service({
@@ -24,7 +24,7 @@ export const captcha = () => {
 
 // @Summary 用户注册
 // @Produce  application/json
-// @Param data body {username:"string",password:"string"}
+// @Param data body {username:"string",password:"<用户输入>"}
 // @Router /base/resige [post]
 export const register = (data) => {
   return service({
@@ -36,7 +36,7 @@ export const register = (data) => {
 
 // @Summary 修改密码
 // @Produce  application/json
-// @Param data body {username:"string",password:"string",newPassword:"string"}
+// @Param data body {username:"string",password:"<用户输入>",newPassword:"<用户输入>"}
 // @Router /user/changePassword [post]
 export const changePassword = (data) => {
   return service({

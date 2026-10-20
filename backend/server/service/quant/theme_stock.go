@@ -178,6 +178,9 @@ func (themeStockService *ThemeStockService) UpdateThemeStock(ctx context.Context
 		if strings.TrimSpace(req.SourceExcerpt) != "" {
 			upd.SourceExcerpt = req.SourceExcerpt
 		}
+		if req.ExcerptTrimmed != nil {
+			upd.ExcerptTrimmed = req.ExcerptTrimmed
+		}
 		if strings.TrimSpace(req.SourceUrl) != "" {
 			upd.SourceUrl = req.SourceUrl
 		}
@@ -205,14 +208,15 @@ func (themeStockService *ThemeStockService) UpdateThemeStock(ctx context.Context
 		}
 
 		updates := map[string]any{
-			"theme_id":       upd.ThemeId,
-			"stock_id":       upd.StockId,
-			"ts_code":        upd.TsCode,
-			"source_type":    upd.SourceType,
-			"source_excerpt": upd.SourceExcerpt,
-			"source_url":     upd.SourceUrl,
-			"collected_at":   upd.CollectedAt,
-			"updated_by":     req.UpdatedBy,
+			"theme_id":        upd.ThemeId,
+			"stock_id":        upd.StockId,
+			"ts_code":         upd.TsCode,
+			"source_type":     upd.SourceType,
+			"source_excerpt":  upd.SourceExcerpt,
+			"excerpt_trimmed": upd.ExcerptTrimmed,
+			"source_url":      upd.SourceUrl,
+			"collected_at":    upd.CollectedAt,
+			"updated_by":      req.UpdatedBy,
 		}
 		if req.Remark != nil {
 			updates["remark"] = req.Remark

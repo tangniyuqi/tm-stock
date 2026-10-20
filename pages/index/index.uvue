@@ -39,6 +39,11 @@
       </view>
     </template>
 
+    <view v-if="errorMessage.length > 0" class="error-tip px-18 py-12">
+      <x-text color="#9B2C2C" fontSize="13">{{ errorMessage }}</x-text>
+      <x-text color="#C53030" fontSize="13" class="mt-6" @click="reloadData">重新加载</x-text>
+    </view>
+
     <x-sheet :margin="[12, 0, 12, 16]" :padding="[0, 12, 0, 12]">
       <!-- 首次加载骨架屏（模拟题材动态列表项布局，x-sheet 白底包裹） -->
       <view v-if="showSkeleton" class="skeleton-block">
@@ -70,13 +75,13 @@
 
             <view class="flex flex-row align-center mt-10">
               <view class="flex flex-row flex-row-center-start">
-                <x-tag skin="thin" color="primary" class="mr-10">{{ item.tag }}</x-tag>
-                <x-text :color="getChangeColor(item.change)" fontSize="13" class="font-weight-b">{{ item.change }}</x-text>
+                <x-tag skin="thin" color="primary" class="mr-10">{{ item.themeName }}</x-tag>
+                <x-text color="#999" fontSize="13">来源：{{ item.source }}</x-text>
               </view>
 
               <view class="flex-1"></view>
 
-              <x-text color="#999" fontSize="13" class="ml-10">{{ item.datetime }}</x-text>
+              <x-text color="#999" fontSize="13" class="ml-10">{{ formatMillis(item.publishAt) }}</x-text>
             </view>
           </view>
         </view>
@@ -135,17 +140,17 @@
 import { ref, computed } from 'vue';
 import { xConfig } from '@/uni_modules/tmx-ui/config/xConfig.uts';
 import { xDate } from '@/uni_modules/tmx-ui/core/util/xDate.uts';
-import { api } from '@/api/quant/themeTopic.uts';
-import { ThemeHotItem } from '@/types/interface.uts';
+import { isSafeExternalUrl } from '@/pages/libs/external-link.uts';
+import { ThemeApi } from '@/pages/libs/theme-api.uts';
+import { formatMillis, ThemeDailyItem, ThemeDailyPage } from '@/pages/libs/theme.uts';
 
 // 标签页数据
 const tabList = ref([
   { id: 2, title: '题材动态' },
-  { id: 3, title: '题材轮动' },
-  { id: 4, title: '题材库' }
+  { id: 4, title: '题材查询' }
 ]);
 
-const activeTab = ref('2');
+const activeTab = ref<number>(2);
 
 // 日期限制
 const minDateStr = '2026-07-21';
@@ -165,8 +170,9 @@ let listType = 'list-view' as string;
 listType = 'scroll-view' as string;
 // #endif
 
-// 题材动态列表（真实数据，由 z-paging-x 通过 v-model 维护，支持下拉刷新与上拉加载）
-const newsList = ref<ThemeHotItem[]>([]);
+// 题材动态仅使用本项目适配层返回的审核后公开字段。
+const newsList = ref<ThemeDailyItem[]>([]);
+const errorMessage = ref<string>('');
 
 // 首次加载骨架屏（仅首次加载期间显示，加载完成后隐藏）
 const showSkeleton = ref(true);
@@ -180,15 +186,66 @@ const pagingStyle = ref<object>({
 
 // z-paging-x 组件实例
 const pagingX = ref<ZPagingXComponentPublicInstance | null>(null);
+let dailyRequestSequence: number = 0;
+
+const isPublishableDailyItem = (item: ThemeDailyItem): boolean => {
+  return item != null
+    && typeof item.id == 'number'
+    && typeof item.themeId == 'number'
+    && typeof item.title == 'string'
+    && typeof item.themeName == 'string'
+    && typeof item.publishAt == 'number'
+    && typeof item.source == 'string'
+    && typeof item.sourceUrl == 'string'
+    && item.id > 0
+    && item.themeId > 0
+    && item.title.trim().length > 0
+    && item.themeName.trim().length > 0
+    && item.publishAt > 0
+    && item.source.trim().length > 0
+    && isSafeExternalUrl(item.sourceUrl);
+};
+
+const filterPublishableDailyItems = (items: ThemeDailyItem[]): ThemeDailyItem[] => {
+  if (!Array.isArray(items)) {
+    return [];
+  }
+  const result: ThemeDailyItem[] = [];
+  for (let index = 0; index < items.length; index++) {
+    if (isPublishableDailyItem(items[index])) {
+      result.push(items[index]);
+    }
+  }
+  return result;
+};
+
+const isPublishableDailyPage = (item: ThemeDailyPage): boolean => {
+  return item != null
+    && typeof item.date == 'string'
+    && typeof item.isTradingDay == 'boolean'
+    && typeof item.emptyReason == 'string'
+    && typeof item.quoteDelayMin == 'number'
+    && typeof item.snapshotAt == 'number'
+    && typeof item.quoteIsMock == 'boolean'
+    && typeof item.sort == 'string'
+    && Array.isArray(item.list)
+    && typeof item.total == 'number'
+    && typeof item.hasMore == 'boolean'
+    && item.total >= 0;
+};
 
 // 刷新列表（回到第一页重新拉取）
 const reloadData = () => {
+  errorMessage.value = '';
   pagingX.value?.reload();
 };
 
-const goDetail = (item: ThemeHotItem) => {
+const goDetail = (item: ThemeDailyItem): void => {
+  if (!isPublishableDailyItem(item)) {
+    return;
+  }
   uni.navigateTo({
-    url: '/pages/theme_topic/detail?id=' + item.id
+    url: '/pages/segment/detail?id=' + item.themeId.toString()
   });
 };
 
@@ -199,17 +256,14 @@ const getIndexColor = (index: number): string => {
   return '#BBB'; // Others - Grey
 };
 
-const getChangeColor = (change: string): string => {
-  if (change.startsWith('+')) return '#FF4D4F';
-  if (change.startsWith('-')) return '#52C41A';
-  return '#999';
-};
-
 const handleTabChange = (item: any, index: number) => {
   switch(item.id) {
     case '2':
       // 题材动态
       reloadData();
+      break;
+    case '4':
+      uni.navigateTo({ url: '/pages/segment/index' });
       break;
   }
 };
@@ -257,22 +311,32 @@ const onCalendarChange = (val: string) => {
 
 // @query 由 z-paging-x 自动触发（首次加载/下拉刷新/上拉加载）
 // pageNo 与 pageSize 已由组件自动计算，无需自行维护页码
-const queryList = (pageNo: number, pageSize: number, from: string) => {
-  api
-    .getThemeTopicList({ publish_date: currentDate.value, page: pageNo, pageSize: pageSize } as UTSJSONObject)
-    .then((result) => {
-      // 首次加载完成后隐藏骨架屏（下拉刷新/上拉加载不再显示）
-      if (showSkeleton.value) {
-        showSkeleton.value = false;
-      }
-      const px = pagingX.value;
-      if (result == null) {
-        px?.complete([]);
-        return;
-      }
-      // completeByTotal 根据 total 判断是否还有更多数据
-      px?.completeByTotal(result.list, result.total);
-    });
+const queryList = async (pageNo: number, pageSize: number, from: string): Promise<void> => {
+  const requestID = dailyRequestSequence + 1;
+  dailyRequestSequence = requestID;
+  const result = await ThemeApi.dailyList(currentDate.value, pageNo, pageSize);
+  if (requestID != dailyRequestSequence) {
+    return;
+  }
+  if (showSkeleton.value) {
+    showSkeleton.value = false;
+  }
+  const paging = pagingX.value;
+  if (result.code != 0 || result.data == null || !isPublishableDailyPage(result.data)) {
+    errorMessage.value = result.data == null && result.message.length > 0
+      ? result.message
+      : '服务返回的数据不完整，请稍后重试';
+    paging?.complete([]);
+    return;
+  }
+  errorMessage.value = '';
+  const items = filterPublishableDailyItems(result.data.list);
+  if (items.length != result.data.list.length) {
+    errorMessage.value = '服务返回的动态缺少来源或必要字段，暂不展示';
+    paging?.complete([]);
+    return;
+  }
+  paging?.completeByTotal(items, result.data.total);
 };
 </script>
 
@@ -299,6 +363,12 @@ const queryList = (pageNo: number, pageSize: number, from: string) => {
 
 .news-item-wrapper {
   border-bottom: 1px solid #f0f0f0;
+}
+
+.error-tip {
+  margin: 12px 16px 0;
+  border-radius: 10px;
+  background: #FFF4F4;
 }
 
 .news-item-wrapper:last-child {

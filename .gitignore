@@ -23,6 +23,8 @@ unpackage/
 server/coverage.out
 server/*.exe
 server/vendor/
+# 内部审核导出含来源正文与人工决定，不能入仓
+/server/ai-review-output/
 
 # IDE / 系统
 .idea/

@@ -40,8 +40,9 @@ const openSource = (url : string) : void => {
 					<text class="value">{{ evidence.sourceType }}</text>
 				</view>
 				<view class="field">
-					<text class="label">原文摘录</text>
+					<text class="label">{{ evidence.excerptTrimmed ? '原文摘录（节选）' : '原文摘录' }}</text>
 					<text class="excerpt">{{ evidence.sourceExcerpt }}</text>
+					<text v-if="evidence.excerptTrimmed" class="sheet-note">已省略部分原文，请结合原文链接核对完整上下文。</text>
 				</view>
 				<view class="field">
 					<text class="label">原文链接</text>

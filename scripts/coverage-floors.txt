@@ -6,3 +6,12 @@ internal/ai/guard 95
 internal/ai/render 92
 internal/provider 95
 internal/provider/providertest 92
+internal/agents 85
+internal/agents/tradingcn 85
+internal/memberauth 95
+internal/ai/task 95
+internal/ai/pipeline 80
+cmd/ai-worker 85
+cmd/ai-task-expire 85
+internal/ai/agenttask 95
+internal/ai/finalreport 95

@@ -150,6 +150,7 @@ const isPublishableEvidence = (item : Evidence) : boolean => {
 		&& typeof item.chainNodeName == 'string'
 		&& typeof item.sourceType == 'string'
 		&& typeof item.sourceExcerpt == 'string'
+		&& typeof item.excerptTrimmed == 'boolean'
 		&& typeof item.sourceUrl == 'string'
 		&& typeof item.collectedAt == 'number'
 		&& isSafeTsCode(item.tsCode)

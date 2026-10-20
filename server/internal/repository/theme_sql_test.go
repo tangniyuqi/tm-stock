@@ -133,7 +133,7 @@ func TestPlaceholdersCount(t *testing.T) {
 func TestMappingColumnsMatchScanOrder(t *testing.T) {
 	want := []string{
 		"ts.id", "ts.theme_id", "ts.stock_id", "ts.ts_code",
-		"ts.source_type", "ts.source_excerpt", "ts.source_url", "ts.collected_at",
+		"ts.source_type", "ts.source_excerpt", "ts.excerpt_trimmed", "ts.source_url", "ts.collected_at",
 		"ts.audit_status", "ts.status", "ts.sort",
 	}
 	got := []string{}

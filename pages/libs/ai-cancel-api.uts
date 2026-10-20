@@ -1,0 +1,35 @@
+import { MemberApi, MemberApiResult } from './member-api.uts'
+import { isSafeAIId } from './ai.uts'
+
+export type AITaskCancellation = {
+	id : number, status : number, eventSeq : number, cancelRequested : boolean,
+	errorCode : string, reportAvailable : boolean
+}
+
+export const isValidAITaskCancellation = (item : AITaskCancellation | null, id : number) : boolean => {
+	if (item == null || !isSafeAIId(id) || !isSafeAIId(item.id) || item.id != id || !isSafeAIId(item.eventSeq)
+		|| typeof item.status != 'number' || !isSafeAIId(item.status) || item.status < 2 || item.status > 6
+		|| typeof item.cancelRequested != 'boolean' || typeof item.errorCode != 'string'
+		|| typeof item.reportAvailable != 'boolean' || item.reportAvailable) return false
+	if (item.status == 2) return item.cancelRequested && item.errorCode == ''
+	if (item.status == 4) return ['provider_unavailable', 'invalid_output', 'guard_rejected', 'budget_exhausted', 'attempts_exhausted', 'internal_failure'].includes(item.errorCode)
+	if (item.status == 5) return item.errorCode == 'cancelled'
+	if (item.status == 6) return item.errorCode == 'expired'
+	return item.errorCode == ''
+}
+export const aiCancellationError = (code : number) : string => {
+	if (code == 40100 || code == 40101) return '登录状态已失效，请重新登录'
+	if (code == 40403) return '任务不存在或不属于当前账号，请核对原任务'
+	return '取消结果尚未确认；请核对原任务状态，不会自动重发。'
+}
+const failedCancellation = (code : number) : MemberApiResult<AITaskCancellation> => ({ code: code, message: aiCancellationError(code), data: null } as MemberApiResult<AITaskCancellation>)
+
+// 取消不是生成/收费入口；回执不能证明远端已停或积分释放，无自动重试。
+export class AiCancellationApi {
+	public static async cancel(id : number) : Promise<MemberApiResult<AITaskCancellation>> {
+		if (!isSafeAIId(id)) return failedCancellation(40001)
+		const result : MemberApiResult<AITaskCancellation> = await MemberApi.aiCancel<AITaskCancellation>(id)
+		if (result.code != 0) return failedCancellation(result.code)
+		return isValidAITaskCancellation(result.data, id) ? result : failedCancellation(50001)
+	}
+}

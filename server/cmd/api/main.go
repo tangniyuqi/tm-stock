@@ -22,6 +22,8 @@ import (
 
 	"github.com/tangniyuqi/tm-stock/server/internal/config"
 	"github.com/tangniyuqi/tm-stock/server/internal/handler"
+	"github.com/tangniyuqi/tm-stock/server/internal/memberauth"
+	"github.com/tangniyuqi/tm-stock/server/internal/middleware"
 	"github.com/tangniyuqi/tm-stock/server/internal/repository"
 	"github.com/tangniyuqi/tm-stock/server/internal/service"
 )
@@ -38,6 +40,22 @@ func run() error {
 		return err
 	}
 	log.Printf("配置: %s", cfg.Redacted()) // Redacted 刻意不含 DSN
+	readCfg, err := config.LoadAITaskRead()
+	if err != nil {
+		return err
+	}
+	cancelEnabled, err := config.LoadAITaskCancel(readCfg)
+	if err != nil {
+		return err
+	}
+	reportEnabled, err := config.LoadAIReportRead(readCfg)
+	if err != nil {
+		return err
+	}
+	createEnabled, err := config.LoadAITaskCreate(readCfg)
+	if err != nil {
+		return err
+	}
 
 	db, err := sql.Open("mysql", cfg.DSN)
 	if err != nil {
@@ -84,6 +102,28 @@ func run() error {
 	})
 	handler.NewThemeHandler(themeSvc, access).Register(mux)
 	handler.NewThemeDailyHandler(service.NewThemeDailyService(dailyRepo, cfg.QuoteDelayMin, cfg.QuoteMock)).Register(mux)
+	// 没有生产定价/来源/模型/硬预算控制器：创建误开必须启动失败，只读原键核查不开放写入。
+	creations, err := prepareAITaskCreates(context.Background(), db, readCfg, createEnabled, nil)
+	if err != nil {
+		return err
+	}
+	if err := registerAITaskCreates(mux, db, readCfg, creations, createEnabled); err != nil {
+		return err
+	}
+	// 尚无生产发布控制器/策略装配：即使误开报告开关也必须启动失败。
+	reports, err := prepareAIReportReads(context.Background(), db, readCfg, reportEnabled, nil, nil)
+	if err != nil {
+		return err
+	}
+	if err := registerAITaskReadsWithReports(mux, db, readCfg, reports); err != nil {
+		return err
+	}
+	if err := registerAIReportReads(mux, db, readCfg, reports); err != nil {
+		return err
+	}
+	if err := registerAITaskCancels(context.Background(), mux, db, readCfg, cancelEnabled); err != nil {
+		return err
+	}
 
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,
@@ -115,4 +155,36 @@ func run() error {
 		defer shutCancel()
 		return srv.Shutdown(shutCtx)
 	}
+}
+
+// 只读开关不依赖开发付费放行；关闭时没有这些路由，也不装配会员鉴权。
+func registerAITaskReads(mux *http.ServeMux, db *sql.DB, cfg config.AITaskReadConfig) error {
+	return registerAITaskReadsWithReports(mux, db, cfg, nil)
+}
+
+func registerAITaskReadsWithReports(mux *http.ServeMux, db *sql.DB, cfg config.AITaskReadConfig, reports *service.AIReportReadService) error {
+	if !cfg.Enabled {
+		return nil
+	}
+	v, err := memberauth.NewVerifier(cfg.Auth)
+	if err != nil {
+		return err
+	}
+	sessions, err := service.NewMemberSessionService(v, repository.NewMemberIdentityRepo(db))
+	if err != nil {
+		return err
+	}
+	auth, err := middleware.NewMemberAuth(sessions)
+	if err != nil {
+		return err
+	}
+	reads, err := service.NewAITaskReadService(repository.NewAITaskRepo(db))
+	if reports != nil {
+		reads, err = service.NewAITaskReadServiceWithReports(repository.NewAITaskRepo(db), reports)
+	}
+	if err != nil {
+		return err
+	}
+	handler.NewAITaskReadHandler(reads).Register(mux, auth)
+	return nil
 }

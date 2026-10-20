@@ -17,17 +17,17 @@ REPO_ROOT="${TM_REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 BASELINE="$REPO_ROOT/scripts/secret-scan-baseline.txt"
 MODE="${1:-staged}"
 
-# 敏感键 + 明文值（≥8 位）
+# 敏感键 + 明文值（≥6 位，与前端密码最小长度一致）
 # ★ 不写引号字符类：grep -E 不支持 \x27，改用「值前允许 1 个非字母数字字符」涵盖任意引号
 # ★ pw 必须单列：键名模式只写 pass/pwd 时，ROOT_PW= / DB_PW= 这类【常见缩写】
 #   完全隐形——实测三条样本里只有 MYSQL_PWD 被命中，ROOT_PW 与 DB_PW 全漏。
 #   PW 是极常见的密码变量名缩写，漏掉它等于给密钥留了一扇正门。
-PATTERN='(pass(word|wd)?|pwd|pw|secret|token|access_?key|api_?key|private_?key|credential)[[:space:]]*[=:][[:space:]]*[^[:alnum:][:space:]]?[A-Za-z0-9#!@%^&*_.+-]{8,}'
+PATTERN='(pass(word|wd)?|pwd|pw|secret|token|access_?key|api_?key|private_?key|credential)[[:space:]]*[=:][[:space:]]*[^[:alnum:][:space:]]?[A-Za-z0-9#!@%^&*_.+-]{6,}'
 # 放行：占位符、示例值、从环境/配置读取的写法
 # ★ 关键一条：值是【函数调用或属性访问】（= foo( / = foo.bar）不是明文密钥——
 #   否则第三方库里满地的 `const token = parser.fetch()` 会把门禁淹没成常红（实测踩过）。
 #   另外：值以括号/方括号开头（= (expr) / = [..] / = {..}）同样是表达式而非字面量密钥。
-ALLOW='\$|your_|_here|example|placeholder|xxxx|fake-|test_|dummy|<.*>|\*\*\*|getenv|process\.env|viper\.|config\.|show-password|[=:][[:space:]]*[A-Za-z_][A-Za-z0-9_]*[.(]|[=:][[:space:]]*[({[]'
+ALLOW='\$|your_|_here|example|placeholder|xxxx|fake-|test_|dummy|<.*>|\*\*\*|getenv|process\.env|viper\.|config\.|show-password|[=:][[:space:]]*[A-Za-z_][A-Za-z0-9_]*[.(]|[=:][[:space:]]*[({[]|[=:][[:space:]]*(string|number|boolean|any|unknown|never|void)([[:space:]]|,|;|\)|\}|$)'
 
 # 代码语言里"值是裸标识符"（JS 对象简写、Go 结构体字段赋变量、多重赋值等）是变量引用，不是字面量密钥——
 # 否则这类写法会把门禁逼成常红（实测 13 处，全部是变量引用或界面属性）。防误放的三道保护：
@@ -72,15 +72,44 @@ filter_hits() {
 SELF_TEST='scripts/dev/verify-secret-scan.sh'
 
 if [ "$MODE" = "--all" ]; then
+  # 仅跳过 Git 登记的其它工作树，不按 worktrees/.claude 等目录名放行。
+  # TM_REPO_ROOT 指向子目录或非 Git 临时树时，不继承父仓库的登记范围。
+  # 规范化双方路径，以兼容 Git for Windows 的 D:/ 与 Bash 的 /d/ 表示。
+  scan_root="$(cd "$REPO_ROOT" && pwd -P)"
+  git_root="$(git -C "$REPO_ROOT" rev-parse --show-toplevel 2>/dev/null || true)"
+  git_root="$(cd "$git_root" 2>/dev/null && pwd -P)"
+  prune_worktrees=()
+  if [ -n "$scan_root" ] && [ "$scan_root" = "$git_root" ]; then
+    while IFS= read -r -d '' record; do
+      case "$record" in
+        'worktree '*)
+          other_root="$(cd "${record#worktree }" 2>/dev/null && pwd -P)" || continue
+          case "$other_root" in
+            "$scan_root"/*)
+              # find -path 把模式字符当通配符；登记路径必须按字面量匹配。
+              literal_root="${other_root//\\/\\\\}"
+              literal_root="${literal_root//\*/\\*}"
+              literal_root="${literal_root//\?/\\?}"
+              literal_root="${literal_root//\[/\\[}"
+              prune_worktrees+=( -o -path "$literal_root" )
+              ;;
+          esac
+          ;;
+      esac
+    done < <(git -C "$REPO_ROOT" worktree list --porcelain -z 2>/dev/null)
+  fi
+  # 保留忽略文件和未登记目录的扫描；不能改用 git ls-files。
+  [ -z "$scan_root" ] || REPO_ROOT="$scan_root"
   # ★ 排除第三方与文档目录：uni_modules/hybrid/static 是三方库，.kiro/docs 是规范文档（含示例代码）
-  CANDIDATES="$(grep -rnEi "$PATTERN" "$REPO_ROOT" \
-      --include='*.go' --include='*.ts' --include='*.uts' --include='*.js' --include='*.vue' --include='*.uvue' \
-      --include='*.yaml' --include='*.yml' --include='*.json' --include='*.env*' \
-      --include='*.sh' --include='*.sql' --include='*.py' \
-      --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=vendor --exclude-dir=dist \
-      --exclude-dir=uni_modules --exclude-dir=hybrid --exclude-dir=static \
-      --exclude-dir=unpackage --exclude-dir=.kiro --exclude-dir=docs \
-      --exclude="$(basename "$SELF_TEST")" \
+  CANDIDATES="$(find "$REPO_ROOT" -type d \( \
+      -name node_modules -o -name .git -o -name vendor -o -name dist \
+      -o -name uni_modules -o -name hybrid -o -name static \
+      -o -name unpackage -o -name .kiro -o -name docs \
+      "${prune_worktrees[@]}" \) -prune -o \
+      -type f \( -name '*.go' -o -name '*.ts' -o -name '*.uts' -o -name '*.js' \
+      -o -name '*.vue' -o -name '*.uvue' -o -name '*.yaml' -o -name '*.yml' \
+      -o -name '*.json' -o -name '*.env*' -o -name '*.sh' -o -name '*.sql' -o -name '*.py' \) \
+      ! -name "$(basename "$SELF_TEST")" -exec grep -nHEi "$PATTERN" -- {} + \
       2>/dev/null || true)"
 else
   # 只看暂存区【新增行】。

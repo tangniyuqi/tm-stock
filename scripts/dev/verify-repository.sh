@@ -77,7 +77,7 @@ export TM_TEST_DSN="root:${ROOT_PW}@tcp(127.0.0.1:${PORT})/${DB}?parseTime=true&
 echo ""
 echo "▶ 执行集成测试（-tags=integration）"
 cd "$REPO_ROOT/server" || exit 1
-go test -tags=integration ./internal/repository/... -count=1 -v 2>&1 | tee /tmp/it.log | grep -E '^(=== RUN|--- (PASS|FAIL|SKIP)|ok|FAIL|panic)' || true
+go test -p 1 -race -tags=integration ./internal/repository/... ./integration/points/... ./integration/agents/... -count=1 -v 2>&1 | tee /tmp/it.log | grep -E '^(=== RUN|--- (PASS|FAIL|SKIP)|ok|FAIL|panic)'
 RC=${PIPESTATUS[0]}
 
 PASSN=$(grep -c '^[[:space:]]*--- PASS' /tmp/it.log || true)
@@ -96,6 +96,10 @@ if [ "$PASSN" -eq 0 ]; then
   echo "[X] 没有任何测试被执行 —— 检查 TM_TEST_DSN 与构建标签"
   rm -f /tmp/it.log
   exit 1
+fi
+if [ "$SKIPN" -gt 0 ]; then
+  echo "[X] 集成测试有跳过项，不能视为验收通过"
+  RC=1
 fi
 rm -f /tmp/it.log
 exit "$RC"

@@ -44,6 +44,7 @@ else
 fi
 run_selftest "合规词门禁自测（范围与三种模式口径）" bash scripts/dev/verify-compliance-gate.sh
 run_selftest "词表副本与单一源一致（GVA 与 ai/guard 各一份）" bash scripts/sync-guard-words.sh --check
+run_selftest "原生迁移客户端探测自测（不替代真库断言）" bash scripts/dev/verify-migrations.sh --self-test-probe
 
 # [2] 明文密钥
 echo -e "\n${BLUE}[2/4] 明文密钥扫描...${NC}"

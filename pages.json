@@ -43,34 +43,6 @@
       }
     },
     {
-      "path": "pages/theme/index",
-      "style": {
-        "navigationBarTitleText": "题材宝典",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/theme/detail",
-      "style": {
-        "navigationBarTitleText": "题材详情",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/theme/treasure",
-      "style": {
-        "navigationBarTitleText": "题材资料",
-        "navigationStyle": "custom"
-      }
-    },
-    {
-      "path": "pages/theme_topic/detail",
-      "style": {
-        "navigationBarTitleText": "题材动态",
-        "navigationStyle": "custom"
-      }
-    },
-    {
       "path": "pages/member/index",
       "style": {
         "navigationBarTitleText": "我的",

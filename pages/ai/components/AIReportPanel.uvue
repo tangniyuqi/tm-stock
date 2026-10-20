@@ -1,0 +1,55 @@
+<script lang="ts" setup>
+import { computed } from 'vue'
+import { AIReport, isValidAIReport } from '../../libs/ai.uts'
+import { formatMillis } from '../../libs/theme.uts'
+import { openSafeExternalUrl } from '../../libs/external-link.uts'
+
+type AIReportPanelProps = { report : AIReport }
+defineOptions({ name: 'AIReportPanel' })
+const props = defineProps<AIReportPanelProps>()
+const safeReport = computed(() : AIReport | null => {
+	if (props.report == null || !isValidAIReport(props.report, props.report.taskId)) return null
+	return props.report
+})
+const openSource = (url : string) : void => { openSafeExternalUrl(url) }
+</script>
+
+<template>
+	<view v-if="safeReport != null">
+		<x-sheet :margin="16" :padding="16" :round="12" dark-color="#ffffff">
+			<text class="report-heading text-size-lg text-weight-b">{{ safeReport!.subjectName }}</text>
+			<text class="report-meta mt-8">AI 生成 · {{ safeReport!.disclosure.modelName }}</text>
+			<text class="report-meta mt-8">备案或上线编号：{{ safeReport!.disclosure.filingNo }}</text>
+			<text class="report-meta mt-8">生成时点：{{ formatMillis(safeReport!.generatedAt) }}</text>
+		</x-sheet>
+		<x-sheet v-for="section in safeReport!.sections" :key="section.key" :margin="16" :padding="16" :round="12" dark-color="#ffffff">
+			<text class="report-heading text-size-g text-weight-b">{{ section.title }}</text>
+			<text v-if="section.aiGenerated" class="report-meta mt-4">AI 整理 · 授权资料逐字摘录</text>
+			<text v-else class="report-meta mt-4">资料库人工审核 · 代码排序 · 未接入行情数据</text>
+			<view v-for="(quote, index) in section.quotes" :key="index" class="mt-16">
+				<text class="report-quote">{{ quote.text }}</text>
+				<text class="report-meta mt-8">来源：{{ quote.sourceType }} · 采集时点：{{ formatMillis(quote.collectedAt) }}</text>
+				<x-button class="mt-8" skin="outline" height="44" @click="openSource(quote.sourceUrl)">查看原文</x-button>
+			</view>
+			<view v-if="section.companies != null">
+				<view v-for="(company, companyIndex) in section.companies!" :key="companyIndex" class="mt-16">
+					<text class="report-heading">{{ company.name }}（{{ company.code }}）</text>
+					<text class="report-meta mt-8">归属：{{ company.node }}</text>
+					<view v-for="(evidence, evidenceIndex) in company.evidence" :key="evidenceIndex" class="mt-8">
+						<text class="report-meta">{{ evidence.trimmed ? '原文节选' : '原文摘录' }}</text>
+						<text class="report-quote mt-4">{{ evidence.text }}</text>
+						<text class="report-meta mt-8">来源：{{ evidence.sourceType }} · 采集时点：{{ formatMillis(evidence.collectedAt) }}</text>
+						<x-button class="mt-8" skin="outline" height="44" @click="openSource(evidence.sourceUrl)">查看原文</x-button>
+					</view>
+				</view>
+			</view>
+		</x-sheet>
+	</view>
+	<view v-else class="pa-16"><text class="report-meta">报告格式暂不可用，请重新核对。</text></view>
+</template>
+
+<style scoped>
+.report-heading { color: #30343c; }
+.report-meta { color: #586174; font-size: 13px; line-height: 20px; }
+.report-quote { color: #30343c; font-size: 15px; line-height: 24px; white-space: pre-wrap; }
+</style>

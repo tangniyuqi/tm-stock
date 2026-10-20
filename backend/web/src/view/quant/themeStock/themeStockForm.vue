@@ -39,6 +39,9 @@
           </el-col>
 
           <el-col :span="24">
+            <el-form-item label="节选标记:" prop="excerpt_trimmed">
+              <el-checkbox v-model="formData.excerpt_trimmed">已省略部分原文（修改后须重新审核）</el-checkbox>
+            </el-form-item>
             <el-form-item label="原文链接:" prop="source_url">
               <el-input v-model="formData.source_url" :clearable="true" placeholder="https://……（公告、年报、招股书等原文地址）" />
             </el-form-item>
@@ -105,6 +108,7 @@ const formData = ref({
   stock_id: undefined,
   source_type: undefined,
   source_excerpt: '',
+  excerpt_trimmed: false,
   source_url: '',
   collected_at: new Date(),
   sort: 0,

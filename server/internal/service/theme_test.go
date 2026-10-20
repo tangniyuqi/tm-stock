@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -374,6 +376,26 @@ func TestGetEvidence_ReturnsFourFields(t *testing.T) {
 	}
 	if ev.TsCode != "688502.SH" || ev.StockCode != "688502" {
 		t.Errorf("代码字段错误: tsCode=%q stockCode=%q", ev.TsCode, ev.StockCode)
+	}
+}
+
+func TestGetEvidencePreservesExplicitTrimmedFlag(t *testing.T) {
+	for _, trimmed := range []bool{false, true} {
+		repo := baseRepo()
+		m := goodMapping(100010, 1, "688502.SH")
+		m.ExcerptTrimmed = trimmed
+		repo.mappings = []model.ThemeStockMapping{m}
+		ev, err := NewThemeService(repo, nil, QuoteConfig{}).GetEvidence(context.Background(), 100001, m.TsCode, paidAccess())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if ev.ExcerptTrimmed != trimmed || ev.SourceExcerpt != m.SourceExcerpt {
+			t.Fatal("依据文字或节选标记丢失")
+		}
+		raw, err := json.Marshal(ev)
+		if err != nil || !strings.Contains(string(raw), `"excerptTrimmed":`) {
+			t.Fatalf("false 标记也必须显式输出: %s %v", raw, err)
+		}
 	}
 }
 

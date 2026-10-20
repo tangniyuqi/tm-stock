@@ -86,10 +86,11 @@ type ThemeStockMapping struct {
 	StockID int64  // 指向 addon_quant_base_stock.id（权威）
 	TsCode  string // 冗余，仅供对账排查
 
-	SourceType    int8
-	SourceExcerpt string
-	SourceURL     string
-	CollectedAt   time.Time
+	SourceType     int8
+	SourceExcerpt  string
+	ExcerptTrimmed bool
+	SourceURL      string
+	CollectedAt    time.Time
 
 	AuditStatus int8
 	Status      int8

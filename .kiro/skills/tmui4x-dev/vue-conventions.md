@@ -73,6 +73,28 @@ type XTabsProps = {
 }
 ```
 
+### HBuilderX 5.26 可空对象属性的生成兼容
+
+实际 H5 编译曾报 `error TS2769: No overload matches this call.`，具体为 `Type '(ObjectConstructor | null)[]' is not assignable to type 'PropConstructor<unknown>[]'`。
+类型式必填 `ObjectType | null` 会生成 `type: [Object, null]`，与该版随附 Vue 声明不兼容；普通 TypeScript/Vue 源码宿主通过不能代替实际 UTS 编译。
+
+```uts
+// ❌ 此编译器版本会生成不兼容的运行时类型数组。
+type Props = { task : TaskProgress | null }
+const props = defineProps<Props>()
+```
+
+```uts
+// ✅ 此情形使用显式运行时声明，保留准确的可空类型和空值语义。
+import { PropType } from 'vue'
+const props = defineProps({
+	task: { type: Object as PropType<TaskProgress | null>, default: null }
+})
+```
+
+仅在上述生成兼容情形使用这个声明例外；其它属性继续优先类型式声明。
+不得使用非空断言谎报进度存在，也不得补造占位对象。必须验证传 null 时不提供操作，以及原未知请求在进度暂空、重查和终态回写中仍不重复提交。
+
 ### 导出 Props 类型
 
 需要外部引用时导出：

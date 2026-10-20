@@ -30,7 +30,8 @@ const (
 // "事实归集"就退化成"品种选择"，落入荐股认定要件。
 //
 // ⚠️ 本表由 tm-stock 的 SQL 迁移管理（server/migrations/20260730_addon_quant_theme_stock.sql 与
-// 20261002_converge_addon_quant_theme_stock.sql），不在 GVA 的 AutoMigrate 列表里（initialize/gorm_biz.go）。
+// 20261002_converge_addon_quant_theme_stock.sql，以及节选增量 20261011_add_theme_stock_excerpt_trimmed.sql），
+// 不在 GVA 的 AutoMigrate 列表里（initialize/gorm_biz.go）。
 // 历史上 GVA 的 AutoMigrate 会静默改写这张表、削弱上述约束（见 docs/specs/ai-analysis/requirements.md 的 F7）。
 // 这里的 gorm 标签只描述列，用于读写，不会改表；不要把本模型加回 AutoMigrate。
 //
@@ -44,10 +45,11 @@ type ThemeStock struct {
 	TsCode  string `json:"ts_code" form:"ts_code" gorm:"column:ts_code;size:20;not null;comment:TS代码冗余（仅供排查对账，权威以 stock_id 为准）"`                       // 由服务层按 stock_id 回填，不信任请求值
 
 	// ── 归属依据（四项缺一不可）──
-	SourceType    *int8      `json:"source_type" form:"source_type" gorm:"column:source_type;not null;comment:依据类型：1公告 2年报 3招股书 4官方产业目录 5互动易问答"`           // 依据类型
-	SourceExcerpt string     `json:"source_excerpt" form:"source_excerpt" gorm:"column:source_excerpt;size:1000;not null;comment:原文摘录。禁止填“见链接”“详见公告”之类占位"` // 原文摘录
-	SourceUrl     string     `json:"source_url" form:"source_url" gorm:"column:source_url;size:512;not null;comment:原文链接"`                                 // 原文链接
-	CollectedAt   *time.Time `json:"collected_at" form:"collected_at" gorm:"column:collected_at;not null;comment:采集时点"`                                    // 采集时点
+	SourceType     *int8      `json:"source_type" form:"source_type" gorm:"column:source_type;not null;comment:依据类型：1公告 2年报 3招股书 4官方产业目录 5互动易问答"`            // 依据类型
+	SourceExcerpt  string     `json:"source_excerpt" form:"source_excerpt" gorm:"column:source_excerpt;size:1000;not null;comment:原文摘录。禁止填“见链接”“详见公告”之类占位"`  // 原文摘录
+	ExcerptTrimmed *bool      `json:"excerpt_trimmed" form:"excerpt_trimmed" gorm:"column:excerpt_trimmed;type:tinyint;not null;default:0;comment:原文摘录是否节选"` // 指针区分省略与明确关闭，更新时不得丢掉标记
+	SourceUrl      string     `json:"source_url" form:"source_url" gorm:"column:source_url;size:512;not null;comment:原文链接"`                                  // 原文链接
+	CollectedAt    *time.Time `json:"collected_at" form:"collected_at" gorm:"column:collected_at;not null;comment:采集时点"`                                     // 采集时点
 
 	// ── 审核（仅已通过的对 C 端可见）──
 	AuditStatus  int8       `json:"audit_status" form:"audit_status" gorm:"column:audit_status;not null;default:0;comment:审核：0草稿 1待审 2已通过 3已驳回。仅 2 对 C 端可见"` // 审核状态

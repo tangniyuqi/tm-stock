@@ -1,0 +1,28 @@
+import { MemberApi, MemberApiResult } from './member-api.uts'
+import { AITaskHistory, AITaskProgress, AIReport, isSafeAIInteger, isSafeAIId, isValidAITaskHistory, isValidAITaskProgress, isValidAIReport, aiReadErrorMessage } from './ai.uts'
+
+const invalidAIResult = <T>() : MemberApiResult<T> => ({ code: 50001, message: aiReadErrorMessage(50001), data: null } as MemberApiResult<T>)
+const safeAIError = <T>(result : MemberApiResult<T>) : MemberApiResult<T> => ({ code: result.code, message: aiReadErrorMessage(result.code), data: null } as MemberApiResult<T>)
+
+// 没有创建/生成/扣费方法；所有显示数据仍须由服务器验证当前身份与发布批准。
+export class AiApi {
+	public static async history(before : number) : Promise<MemberApiResult<AITaskHistory>> {
+		if (!isSafeAIInteger(before)) return invalidAIResult<AITaskHistory>()
+		const path : string = '/api/v1/ai/tasks?limit=20' + (before > 0 ? '&before_id=' + before.toString() : '')
+		const result : MemberApiResult<AITaskHistory> = await MemberApi.aiRead<AITaskHistory>(path)
+		if (result.code != 0) return safeAIError<AITaskHistory>(result)
+		return isValidAITaskHistory(result.data, before) ? result : invalidAIResult<AITaskHistory>()
+	}
+	public static async progress(id : number) : Promise<MemberApiResult<AITaskProgress>> {
+		if (!isSafeAIId(id)) return invalidAIResult<AITaskProgress>()
+		const result : MemberApiResult<AITaskProgress> = await MemberApi.aiRead<AITaskProgress>('/api/v1/ai/tasks/' + id.toString())
+		if (result.code != 0) return safeAIError<AITaskProgress>(result)
+		return isValidAITaskProgress(result.data, id) ? result : invalidAIResult<AITaskProgress>()
+	}
+	public static async report(id : number) : Promise<MemberApiResult<AIReport>> {
+		if (!isSafeAIId(id)) return invalidAIResult<AIReport>()
+		const result : MemberApiResult<AIReport> = await MemberApi.aiRead<AIReport>('/api/v1/ai/tasks/' + id.toString() + '/report')
+		if (result.code != 0) return safeAIError<AIReport>(result)
+		return isValidAIReport(result.data, id) ? result : invalidAIResult<AIReport>()
+	}
+}

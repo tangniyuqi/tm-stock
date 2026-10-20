@@ -9,6 +9,7 @@ import (
 	"github.com/flipped-aurora/gin-vue-admin/server/model/system/request"
 	"gorm.io/gorm"
 	"sort"
+	"strings"
 )
 
 // dbReadyCallback 数据库就绪回调函数，由 initialize 包注入
@@ -40,7 +41,16 @@ var (
 	ErrMissingDBContext        = errors.New("missing db in context")
 	ErrMissingDependentContext = errors.New("missing dependent value in context")
 	ErrDBTypeMismatch          = errors.New("db type mismatch")
+	ErrInvalidAdminPassword    = errors.New("管理员初始化密码缺失、类型错误或全为空白")
 )
+
+// ValidateAdminPassword 确保初始化管理员密码非空白。
+func ValidateAdminPassword(password string) error {
+	if strings.TrimSpace(password) == "" {
+		return ErrInvalidAdminPassword
+	}
+	return nil
+}
 
 // SubInitializer 提供 source/*/init() 使用的接口，每个 initializer 完成一个初始化过程
 type SubInitializer interface {
@@ -96,6 +106,9 @@ type InitDBService struct{}
 
 // InitDB 创建数据库并初始化 总入口
 func (initDBService *InitDBService) InitDB(conf request.InitDB) (err error) {
+	if err = ValidateAdminPassword(conf.AdminPassword); err != nil {
+		return err
+	}
 	ctx := context.TODO()
 	ctx = context.WithValue(ctx, "adminPassword", conf.AdminPassword)
 	if len(initializers) == 0 {
