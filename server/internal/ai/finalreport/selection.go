@@ -161,6 +161,8 @@ func decodeSelection(raw string) (SelectionResponse, error) {
 	return out, nil
 }
 
+func rejectStage(stage string) error { return ErrRejected }
+
 // Build 整份成功或整份拒绝；不截取/修补/去掉坏条目，不把章节选择当作事实蕴含证明。
 func (s *SelectionStage) Build(ctx context.Context, raw string) (string, error) {
 	if err := ctx.Err(); err != nil {
@@ -171,7 +173,7 @@ func (s *SelectionStage) Build(ctx context.Context, raw string) (string, error) 
 	}
 	in, err := decodeSelection(raw)
 	if err != nil {
-		return "", err
+		return "", rejectStage("decode")
 	}
 	sections := map[render.SectionKey][]render.Node{}
 	used := map[string]bool{}
@@ -180,20 +182,20 @@ func (s *SelectionStage) Build(ctx context.Context, raw string) (string, error) 
 			return "", err
 		}
 		if !slices.Contains(sectionOrder, pick.Section) || len(pick.SentenceIDs) < 1 || len(pick.SentenceIDs) > 8 {
-			return "", ErrRejected
+			return "", rejectStage("section")
 		}
 		if s.policy.companies != nil && pick.Section == render.SecCompanies {
-			return "", ErrRejected
+			return "", rejectStage("companies")
 		}
 		idx := slices.IndexFunc(s.snapshots, func(v sources.Snapshot) bool { return v.ID == pick.SnapshotID })
 		if idx < 0 {
-			return "", ErrRejected
+			return "", rejectStage("snapshot")
 		}
 		v := s.snapshots[idx]
 		for i, id := range pick.SentenceIDs {
 			key := fmt.Sprintf("%d:%d", v.ID, id)
 			if id < 1 || id > len(v.Sentences) || i > 0 && id != pick.SentenceIDs[i-1]+1 || used[key] {
-				return "", ErrRejected
+				return "", rejectStage("sentence")
 			}
 			used[key] = true
 		}
@@ -204,7 +206,7 @@ func (s *SelectionStage) Build(ctx context.Context, raw string) (string, error) 
 				n, err := render.QuoteNode(render.Quote{SnapshotID: v.ID, Start: sent.StartByte, End: sent.EndByte, Text: sent.Text, SourceType: sourceType(v.SourceCategory), URL: v.URL,
 					FetchedAt: v.FetchedAt.UnixMilli(), ContentHash: v.Hash}, render.ProvAIExtractedQuote)
 				if err != nil {
-					return "", ErrRejected
+					return "", rejectStage("quote_deep")
 				}
 				sections[pick.Section] = append(sections[pick.Section], n)
 			}
@@ -214,7 +216,7 @@ func (s *SelectionStage) Build(ctx context.Context, raw string) (string, error) 
 		n, err := render.QuoteNode(render.Quote{SnapshotID: v.ID, Start: start, End: end, Text: v.Body[start:end], SourceType: sourceType(v.SourceCategory), URL: v.URL,
 			FetchedAt: v.FetchedAt.UnixMilli(), ContentHash: v.Hash}, render.ProvAIExtractedQuote)
 		if err != nil {
-			return "", ErrRejected
+			return "", rejectStage("quote")
 		}
 		sections[pick.Section] = append(sections[pick.Section], n)
 	}
@@ -250,7 +252,7 @@ func (s *SelectionStage) Build(ctx context.Context, raw string) (string, error) 
 	out := string(b)
 	decoded, err := s.policy.Decode(out)
 	if err != nil {
-		return "", ErrRejected
+		return "", rejectStage("policy_decode")
 	}
 	refs := make([]sources.Snapshot, 0)
 	for _, v := range s.snapshots {
@@ -259,7 +261,7 @@ func (s *SelectionStage) Build(ctx context.Context, raw string) (string, error) 
 		}
 	}
 	if s.policy.Bind(decoded, refs, s.themeName) != nil {
-		return "", ErrRejected
+		return "", rejectStage("bind")
 	}
 	if err := ctx.Err(); err != nil {
 		return "", err

@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"slices"
 	"strings"
 	"sync"
@@ -137,6 +138,10 @@ func newWorkflowEnv(t *testing.T, level sql.IsolationLevel, mode string) *workfl
 	budget := taskBudget()
 	budget.MaxCalls = 6
 	budget.MaxTokens = 5000
+	if os.Getenv("TM_REAL_MODEL_KEY") != "" || os.Getenv("TM_TA_PRECOMPLETED") == "1" {
+		budget.MaxCalls = 10
+		budget.MaxTokens = 200000
+	}
 	x := newReportEnvWithBudget(t, level, time.Minute, false, budget)
 	snapshots := []sources.Snapshot{x.snap}
 	if mode == "multi_source" {

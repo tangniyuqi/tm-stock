@@ -104,7 +104,7 @@ func TestIntegrationDeepAdmissionExecutionCoherence(t *testing.T) {
 			maxTokens := int64(12000)
 			if realKey := os.Getenv("TM_REAL_MODEL_KEY"); realKey != "" {
 				selectionTokens, checkTokens = 8192, 1024
-				maxTokens = 24000
+				maxTokens = 200000
 				modelName = os.Getenv("TM_REAL_MODEL_NAME")
 				if modelName == "" {
 					modelName = "deepseek-flash"
@@ -130,7 +130,7 @@ func TestIntegrationDeepAdmissionExecutionCoherence(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			checkCfg := finalreport.CheckConfig{Model: modelName, FilingNo: "test-only-filing", Version: "test-only-v1", ApprovalRef: "test-only-approval", QualityRef: "test-only-quality", HardBudgetRef: "test-only-budget", ProfileDigest: model.DirectProfileDigest(), MaxInputTokens: 2000, SelectionMaxTokens: selectionTokens, CheckMaxTokens: checkTokens, AnalysisType: task.DeepAnalysisType}
+			checkCfg := finalreport.CheckConfig{Model: modelName, FilingNo: "test-only-filing", Version: "test-only-v1", ApprovalRef: "test-only-approval", QualityRef: "test-only-quality", HardBudgetRef: "test-only-budget", ProfileDigest: model.DirectProfileDigest(), MaxInputTokens: 24000, SelectionMaxTokens: selectionTokens, CheckMaxTokens: checkTokens, AnalysisType: task.DeepAnalysisType}
 			ent, err := finalreport.CheckPolicyVersion(finalreport.CheckEntailment, checkCfg)
 			if err != nil {
 				t.Fatal(err)
