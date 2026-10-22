@@ -69,6 +69,31 @@ probe_native_mysql() {
   esac
 }
 
+# 版本探测也须完整读取客户端；不能用head截断管道或把错误/空输出当成版本。
+query_mysql_version() {
+  local version_output version_status=0 version_line version_value='' version_count=0
+  version_output="$(printf 'SELECT VERSION();\n' | MYSQL_RUN)" || version_status=$?
+  if [ "$version_status" -ne 0 ]; then
+    echo "[X] 版本探针进程失败（退出码 $version_status，客户端输出已隐藏）。" >&2
+    return 1
+  fi
+  while IFS= read -r version_line || [ -n "$version_line" ]; do
+    version_line="${version_line%$'\r'}"
+    case "$version_line" in ''|'mysql: [Warning]'*|'Warning:'*|'WARNING:'*) continue ;; esac
+    if [[ "$version_line" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][A-Za-z0-9_.+-]+)?$ ]]; then
+      version_value="$version_line"; version_count=$((version_count+1))
+    else
+      echo '[X] 版本探针返回非版本行（客户端输出已隐藏）。' >&2
+      return 1
+    fi
+  done <<< "$version_output"
+  if [ "$version_count" -ne 1 ]; then
+    echo '[X] 版本探针必须恰好返回一个版本（客户端输出已隐藏）。' >&2
+    return 1
+  fi
+  printf '%s\n' "$version_value"
+}
+
 if [ "${1:-}" = "--self-test-probe" ]; then
   # 仅此显式自测分支定义替身；默认原生/容器迁移路径不使用它，不写SQL或接触凭据。
   PROBE_CASE=''; PROBE_PASS=0; PROBE_FAIL=0
@@ -108,6 +133,49 @@ if [ "${1:-}" = "--self-test-probe" ]; then
   check_probe padded 1
   check_probe client_error 7
   check_probe pipe_error 141
+  VERSION_CASE=''
+  MYSQL_RUN() {
+    local version_query
+    IFS= read -r version_query || return 2
+    [ "$version_query" = 'SELECT VERSION();' ] || return 2
+    case "$VERSION_CASE" in
+      mysql8) printf '8.0.46\n' ;;
+      mysql9) printf '9.7.0\n' ;;
+      suffix) printf '8.0.46-log\r\n' ;;
+      warning) printf 'mysql: [Warning] test-only-diagnostic\n9.7.0\n' ;;
+      empty) return 0 ;;
+      wrong) printf 'not-a-version\n' ;;
+      padded) printf ' 9.7.0 \n' ;;
+      duplicate) printf '9.7.0\n9.7.0\n' ;;
+      error_line) printf 'ERROR test-only-private-version-marker\n9.7.0\n' ;;
+      client_error) printf '9.7.0\ntest-only-private-version-marker\n'; return 7 ;;
+      pipe_error) printf '9.7.0\ntest-only-private-version-marker\n'; return 141 ;;
+      large) printf '9.7.0\n'; awk 'BEGIN { for (i=0;i<50000;i++) print "mysql: [Warning] test-only-diagnostic" }' ;;
+      *) return 2 ;;
+    esac
+  }
+  check_version() {
+    local expected="$2" output rc=0
+    VERSION_CASE="$1"
+    output="$(query_mysql_version 2>&1)" || rc=$?
+    if [ "$rc" -eq "$expected" ] && [[ "$output" != *test-only-private-version-marker* ]]; then
+      echo "  [OK] 版本探测反例/正例：$VERSION_CASE"; PROBE_PASS=$((PROBE_PASS+1))
+    else
+      echo "  [X] 版本探测反例/正例：$VERSION_CASE（期望 $expected，实际 $rc，输出已隐藏）"; PROBE_FAIL=$((PROBE_FAIL+1))
+    fi
+  }
+  check_version mysql8 0
+  check_version mysql9 0
+  check_version suffix 0
+  check_version warning 0
+  check_version empty 1
+  check_version wrong 1
+  check_version padded 1
+  check_version duplicate 1
+  check_version error_line 1
+  check_version client_error 1
+  check_version pipe_error 1
+  check_version large 0
   echo "仅测试客户端探测函数，不替代真实迁移/约束断言。"
   echo "  通过 $PROBE_PASS 项 / 失败 $PROBE_FAIL 项"
   [ "$PROBE_FAIL" -eq 0 ] || exit 1
@@ -197,7 +265,7 @@ MYSQL_RUN() { docker exec -i "$CONTAINER" mysql -h 127.0.0.1 --protocol=TCP \
                 --force -N -B "$DB" 2>&1 | tr -d '\r'; }
 fi
 
-VER="$(printf 'SELECT VERSION();\n' | MYSQL_RUN | grep -v Warning | head -1)"
+VER="$(query_mysql_version)" || exit 1
 # ★ 空结果守卫：初版没有这条，于是拿着空结果一路跑出一堆假失败，
 #   把「连不上」误报成「表全缺失 + 约束全失效」。空结果必须当错误处理。
 if [ -z "$VER" ]; then
@@ -319,6 +387,18 @@ SELECT 'REPORT_CHECKS', COUNT(*) FROM information_schema.table_constraints
  WHERE constraint_schema=DATABASE() AND table_name='tm_ai_report_commits' AND constraint_type='CHECK' AND enforced='YES';
 SELECT 'REPORT_TRIGGERS', COUNT(*) FROM information_schema.triggers
  WHERE trigger_schema=DATABASE() AND event_object_table='tm_ai_report_commits';
+SELECT 'FEEDBACK_CHECKS', COUNT(*) FROM information_schema.table_constraints
+ WHERE constraint_schema=DATABASE() AND table_name IN ('tm_ai_report_feedbacks','tm_ai_report_feedback_events') AND constraint_type='CHECK' AND enforced='YES';
+SELECT 'FEEDBACK_TRIGGERS', COUNT(*) FROM information_schema.triggers
+ WHERE trigger_schema=DATABASE() AND event_object_table IN ('tm_ai_report_feedbacks','tm_ai_report_feedback_events');
+SELECT 'CONVERSATION_CHECKS', COUNT(*) FROM information_schema.table_constraints
+ WHERE constraint_schema=DATABASE() AND table_name IN ('tm_ai_conversations','tm_ai_conversation_messages') AND constraint_type='CHECK' AND enforced='YES';
+SELECT 'CONVERSATION_TRIGGERS', COUNT(*) FROM information_schema.triggers
+ WHERE trigger_schema=DATABASE() AND event_object_table IN ('tm_ai_conversations','tm_ai_conversation_messages') AND trigger_name<>'tm_ai_conversation_intent_archive_guard';
+SELECT 'INTENT_CHECKS', COUNT(*) FROM information_schema.table_constraints WHERE constraint_schema=DATABASE() AND table_name='tm_ai_conversation_tasks' AND constraint_type='CHECK' AND enforced='YES';
+SELECT 'INTENT_TRIGGERS', COUNT(*) FROM information_schema.triggers WHERE trigger_schema=DATABASE() AND (event_object_table='tm_ai_conversation_tasks' OR trigger_name='tm_ai_conversation_intent_archive_guard');
+SELECT 'QA_CHECKS',COUNT(*) FROM information_schema.table_constraints WHERE constraint_schema=DATABASE() AND table_name IN ('tm_ai_qa_scopes','tm_ai_qa_limits','tm_ai_qa_quotas','tm_ai_qa_requests','tm_ai_qa_calls') AND constraint_type='CHECK' AND enforced='YES';
+SELECT 'QA_TRIGGERS',COUNT(*) FROM information_schema.triggers WHERE trigger_schema=DATABASE() AND event_object_table IN ('tm_ai_qa_scopes','tm_ai_qa_limits','tm_ai_qa_quotas','tm_ai_qa_requests','tm_ai_qa_calls');
 SELECT 'ADMISSION_CHECKS',COUNT(*) FROM information_schema.table_constraints WHERE constraint_schema=DATABASE() AND constraint_name IN ('chk_tm_ai_task_admission','chk_tm_ai_admission') AND constraint_type='CHECK' AND enforced='YES';
 SELECT 'ADMISSION_TRIGGERS',COUNT(*) FROM information_schema.triggers WHERE trigger_schema=DATABASE() AND (event_object_table='tm_ai_task_admissions' OR trigger_name='tm_ai_task_admission_identity');
 START TRANSACTION;
@@ -356,7 +436,7 @@ done
 for t in tm_points_accounts tm_points_txns tm_points_lots tm_points_entries tm_points_holds tm_points_hold_allocs tm_points_debts tm_points_debt_allocs; do
   case ",$TABLES," in *",$t,"*) ok "表 $t 存在" ;; *) bad "账本表 $t 缺失" ;; esac
 done
-for t in tm_ai_tasks tm_ai_task_events tm_ai_task_budgets tm_ai_task_reservations tm_ai_task_step_results tm_ai_task_steps tm_ai_report_commits tm_ai_task_admissions; do
+for t in tm_ai_tasks tm_ai_task_events tm_ai_task_budgets tm_ai_task_reservations tm_ai_task_step_results tm_ai_task_steps tm_ai_report_commits tm_ai_task_admissions tm_ai_report_feedbacks tm_ai_report_feedback_events tm_ai_conversation_tasks tm_ai_conversations tm_ai_conversation_messages; do
   case ",$TABLES," in *",$t,"*) ok "表 $t 存在" ;; *) bad "任务表 $t 缺失" ;; esac
 done
 [ "$(f TASK_CHECKS)" = "3" ] && ok "任务 3 个 CHECK 强制执行" || bad "任务 CHECK 缺失或未强制执行"
@@ -367,6 +447,17 @@ done
 [ "$(f TASK_STAGE_TRIGGERS)" = "7" ] && ok "阶段 7 个触发器完整" || bad "阶段触发器创建不完整"
 [ "$(f REPORT_CHECKS)" = "1" ] && ok "报告 CHECK 强制执行" || bad "报告 CHECK 缺失或未强制执行"
 [ "$(f REPORT_TRIGGERS)" = "3" ] && ok "报告 3 个触发器完整" || bad "报告触发器创建不完整"
+[ "$(f FEEDBACK_CHECKS)" = "2" ] && ok "反馈 2 个 CHECK 强制执行" || bad "反馈 CHECK 缺失或未强制执行"
+[ "$(f FEEDBACK_TRIGGERS)" = "6" ] && ok "反馈 6 个触发器完整" || bad "反馈触发器创建不完整"
+[ "$(f CONVERSATION_CHECKS)" = "2" ] && ok "会话 2 个 CHECK 强制执行" || bad "会话 CHECK 缺失或未强制执行"
+[ "$(f CONVERSATION_TRIGGERS)" = "6" ] && ok "会话 6 个触发器完整" || bad "会话触发器创建不完整"
+[ "$(f INTENT_CHECKS)" = "1" ] && ok "会话意图 CHECK 强制执行" || bad "会话意图 CHECK 缺失或未强制执行"
+[ "$(f INTENT_TRIGGERS)" = "4" ] && ok "会话意图 4 个触发器完整" || bad "会话意图触发器创建不完整"
+[ "$(f QA_CHECKS)" = "5" ] && ok "问答 5 个 CHECK 强制执行" || bad "问答 CHECK 缺失或未强制执行"
+[ "$(f QA_TRIGGERS)" = "15" ] && ok "问答 15 个触发器完整" || bad "问答触发器创建不完整"
+for t in tm_ai_qa_scopes tm_ai_qa_limits tm_ai_qa_quotas tm_ai_qa_requests tm_ai_qa_calls; do
+  case ",$TABLES," in *",$t,"*) ok "表 $t 存在" ;; *) bad "问答表 $t 缺失" ;; esac
+done
 [ "$(f ADMISSION_CHECKS)" = "2" ] && ok "准入 2 个 CHECK 强制执行" || bad "准入 CHECK 缺失或未强制执行"
 [ "$(f ADMISSION_TRIGGERS)" = "4" ] && ok "准入 4 个不可变/绑定触发器完整" || bad "准入触发器不完整"
 

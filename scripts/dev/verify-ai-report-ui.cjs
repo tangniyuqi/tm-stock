@@ -18,7 +18,7 @@ const native = tag => ['view', 'text', 'scroll-view', 'x-sheet', 'x-button', 'x-
 const clone = value => JSON.parse(JSON.stringify(value));
 const now = 1792281600000;
 const memberToken = id => 'test.' + Buffer.from(JSON.stringify({ ID: id, UserType: 'client' })).toString('base64url') + '.test';
-const quote = () => ({ analysisType: 'light', subjectType: 'theme', subjectId: 7, subjectName: '测试示例题材', pricePoints: 7, priceVersion: 'test-v1', availablePoints: 20, quotedAt: now, holdExpireSec: 90,
+const quote = (over = {}) => ({ analysisType: 'light', subjectType: 'theme', subjectId: 7, subjectName: '测试示例题材', pricePoints: 7, priceVersion: 'test-v1', availablePoints: 20, quotedAt: now, holdExpireSec: 90, ...over,
   materialScope: [{ sourceType: 'announcement', sourceUrl: 'https://example.test/source', collectedAt: now }] });
 const receipt = () => ({ taskId: 9, pricePoints: 7, priceVersion: 'test-v1' });
 const summary = (id = 9, status = 3) => ({ id, analysisType: 1, subjectType: 'theme', subjectId: 7, status, deadlineAt: now, reportAvailable: false });
@@ -42,16 +42,21 @@ const companyReport = (id = 9) => {
   return value;
 };
 
-function environment(sharedStorage = new Map()) {
+function environment(sharedStorage = new Map(), conversations = false, conversationTasks = false) {
   const cache = new Map();
   const requests = [], timers = new Map(), intervals = new Map(), hooks = { show: [], hide: [], unload: [] };
-  const storage = sharedStorage, modals = [], opened = [], navigation = [], lockQueues = new Map();
+  const storage = sharedStorage, modals = [], opened = [], navigation = [], clipboard = [], lockQueues = new Map();
   let timerID = 0;
   const uni = {
-    getStorageSync: key => storage.get(key), request: options => requests.push(options),
+    getStorageSync: key => storage.get(key), request: options => {
+      // 旧任务专项明确保持新会话服务关闭；会话专项另行启用并捕获全部请求。
+      if (!conversations && /\/api\/v1\/ai\/conversation/.test(options.url)) { options.success({statusCode:404,data:JSON.stringify({code:40403,msg:'测试会话服务关闭',data:null})}); return; }
+      if (!conversationTasks && /\/task-intent/.test(options.url)) { options.success({statusCode:404,data:JSON.stringify({code:40403,msg:'测试会话意图服务关闭',data:null})}); return; }
+      requests.push(options);
+    },
     setStorageSync: (key, value) => storage.set(key, value), removeStorageSync: key => storage.delete(key),
     showModal: options => modals.push(options), showToast: () => {},
-    setClipboardData: () => {}, navigateTo: options => navigation.push(options.url),
+    setClipboardData: options => clipboard.push(options), navigateTo: options => navigation.push(options.url),
   };
   const globals = {
     uni, window: { atob, crypto: webcrypto, navigator: { locks: { request: (name, callback) => {
@@ -89,7 +94,7 @@ function environment(sharedStorage = new Map()) {
     return exports;
   }
   const reply = (request, data, status = 200, code = 0) => request.success({ statusCode: status, data: JSON.stringify({ code, msg: '测试内部文字不得展示', data }) });
-  return { load, requests, timers, intervals, hooks, storage, modals, opened, navigation, reply, globals, uni };
+  return { load, requests, timers, intervals, hooks, storage, modals, opened, navigation, clipboard, reply, globals, uni };
 }
 
 function mount(component, props = {}) {
@@ -111,7 +116,7 @@ function mount(component, props = {}) {
   const text = n => (n.tag === '#comment' ? '' : n.text) + n.children.map(text).join('');
   const all = n => [n, ...n.children.flatMap(all)];
   return { app, tree, state: app._instance.setupState, text: () => text(tree), input(value) {
-    const field = all(tree).find(n => n.tag === 'x-input'); assert.ok(field, '找不到实际输入绑定');
+    const field = all(tree).find(n => n.tag === 'x-input' && !n.props.disabled); assert.ok(field, '找不到可编辑的实际输入绑定');
     assert.ok(!field.props.disabled); field.props['on:update:modelValue'](value);
   }, click(label, occurrence = 0) {
     const button = all(tree).filter(n => n.tag === 'x-button' && text(n) === label)[occurrence];
@@ -332,6 +337,148 @@ async function panel() {
   assert.ok(!fs.readFileSync(path.join(root, 'pages/ai/components/AIReportPanel.uvue'), 'utf8').includes('v-html'));
   console.log('通过：实际报告组件 SSR 转义与缺少标识整份拒绝，不渲染自由 HTML。');
   console.log('通过：公司事实DTO正反例、三节AI与资料库人工标识、代码顺序、节选及安全原文确认；缺依据整份拒绝，不提供个股详情或行情假值。');
+}
+
+async function reportPresentation() {
+  const env = environment(), rules = env.load('pages/libs/ai-report-presentation.uts');
+  for (const value of [report(), companyReport()]) {
+    const original = JSON.stringify(value), sources = rules.aiReportSources(value);
+    assert.equal(sources.length, value.sections[3].companies ? 2 : 1);
+    assert.equal(sources.reduce((total, source) => total + source.references, 0), value.sections[3].companies ? 5 : 4);
+    sources[0].references = 100; assert.equal(JSON.stringify(value), original, '归集结果不得修改原DTO');
+    for (const category of ['fact', 'source', 'display', 'other']) {
+      const text = rules.aiReportLocator(value, category);
+      assert.ok(text.includes('任务编号：9')); assert.ok(text.includes('未提交反馈'));
+      for (const privateValue of [value.subjectName, value.disclosure.modelName, value.sections[0].quotes[0].text, 'https://', 'Bearer', '600001']) assert.ok(!text.includes(privateValue));
+    }
+    assert.equal(rules.aiReportLocator(value, 'fact\n随意字段'), '');
+  }
+  for (const change of [
+    value => { value.sections[1].quotes[0].sourceType = '年报'; },
+    value => { value.sections[1].quotes[0].collectedAt -= 1; },
+    value => { value.sections[1].quotes[0].sourceUrl += '?version=2'; },
+  ]) { const value = report(); change(value); assert.equal(rules.aiReportSources(value).length, 2); }
+  for (const change of [value => { value.disclosure.filingNo = ''; }, value => { value.sections[0].quotes[0].sourceUrl = 'javascript:alert(1)'; }]) {
+    const value = report(); change(value); assert.equal(rules.aiReportSources(value).length, 0); assert.equal(rules.aiReportLocator(value, 'fact'), '');
+  }
+  const value = companyReport();
+  value.sections.slice(0, 3).forEach((section, index) => { section.quotes[0].text += `章节测试${index}`; });
+  const props = vue.reactive({ report: value, sessionToken: '' });
+  const component = env.load('pages/ai/components/AIReportPanel.uvue').default;
+  const ui = mount({ render: () => vue.h(component, props) });
+  ui.click('事件时间线'); await flush();
+  assert.ok(ui.text().includes(value.sections[1].quotes[0].text)); assert.ok(!ui.text().includes(value.sections[0].quotes[0].text));
+  assert.ok(!ui.text().includes('测试示例公司1（600001）'));
+  ui.click('披露公司'); await flush(); assert.ok(ui.text().includes('测试示例公司1（600001）'));
+  ui.click('来源清单'); await flush(); assert.ok(ui.text().includes('出处条目 2 项')); assert.ok(ui.text().includes('本报告引用 3 处')); assert.ok(ui.text().includes('本报告引用 2 处'));
+  assert.ok(!ui.text().includes(value.sections[0].quotes[0].text)); assert.equal(env.requests.length, 0);
+  ui.click('查看该出处原文'); env.modals.shift().success({ confirm: true }); assert.equal(env.opened[0].url, 'https://example.test/source');
+  ui.click('全部章节'); await flush(); assert.ok(ui.text().includes(value.sections[0].quotes[0].text));
+  ui.click('来源清单'); props.report = report(10); await flush();
+  assert.ok(!ui.text().includes('出处条目')); assert.ok(ui.text().includes(props.report.sections[0].quotes[0].text));
+  props.report.disclosure.filingNo = ''; await flush(); assert.ok(ui.text().includes('报告格式暂不可用')); assert.ok(!ui.text().includes('报告操作与反馈'));
+  ui.app.unmount();
+  console.log('通过：报告章节切换与出处清单，精确去重/出现顺序/引用计数，非法DTO整份拒绝；不把出处条目冒充独立来源或触发生成。');
+}
+
+async function reportTools() {
+  for (const mode of ['success', 'cancel', 'copy_fail', 'modal_fail', 'unmount', 'token_changed', 'prop_token_changed', 'report_changed', 'invalid', 'late_success']) {
+    const env = environment(), token = memberToken(1); env.storage.set('token', token);
+    const value = companyReport(), props = vue.reactive({ report: value, sessionToken: token });
+    const component = env.load('pages/ai/components/AIReportTools.uvue').default;
+    const ui = mount({ render: () => vue.h(component, props) });
+    assert.throws(() => ui.click('复制报告正文（未开放）'), /按钮被禁用/);
+    assert.throws(() => ui.click('下载报告（未开放）'), /按钮被禁用/);
+    ui.click('准备报告定位信息'); await flush();
+    assert.ok(ui.text().includes('以受理记录为准'));
+    ui.click('来源或授权'); await flush(); assert.ok(ui.text().includes('当前分类：来源或授权'));
+    ui.click('复制定位信息（不含正文）'); await flush();
+    assert.equal(env.modals.length, 1); assert.equal(env.clipboard.length, 0);
+    assert.throws(() => ui.click('复制定位信息（不含正文）'), /按钮被禁用/);
+    const modal = env.modals.shift(); assert.ok(modal.content.includes('系统剪贴板'));
+    if (mode === 'unmount') ui.app.unmount();
+    if (mode === 'token_changed') env.storage.set('token', memberToken(2));
+    if (mode === 'prop_token_changed') props.sessionToken = memberToken(2);
+    if (mode === 'report_changed') props.report = report(10);
+    if (mode === 'invalid') props.report.disclosure.filingNo = '';
+    await flush();
+    if (mode === 'modal_fail') modal.fail({ errMsg: '测试内部错误不得外泄' });
+    else modal.success({ confirm: mode !== 'cancel' });
+    await flush();
+    if (['success', 'copy_fail', 'late_success'].includes(mode)) {
+      assert.equal(env.clipboard.length, 1);
+      const copy = env.clipboard[0]; assert.ok(copy.data.includes('反馈分类：来源或授权'));
+      for (const secret of [value.subjectName, value.disclosure.modelName, value.sections[0].quotes[0].text, 'https://', token, '600001']) assert.ok(!copy.data.includes(secret));
+      if (mode === 'late_success') { props.report = report(10); await flush(); }
+      if (mode === 'copy_fail') copy.fail({ errMsg: '测试内部错误不得外泄' }); else copy.success();
+      await flush();
+      if (mode === 'success') assert.ok(ui.text().includes('定位信息已复制；反馈尚未提交。'));
+      if (mode === 'copy_fail') assert.ok(ui.text().includes('复制失败'));
+      if (mode === 'late_success') assert.ok(!ui.text().includes('定位信息已复制'));
+    } else assert.equal(env.clipboard.length, 0, mode);
+    assert.equal(env.requests.length, 0); assert.equal(env.storage.size, 1); assert.ok(!ui.text().includes('测试内部错误不得外泄'));
+    if (mode !== 'unmount') ui.app.unmount();
+  }
+  const env = environment(), component = env.load('pages/ai/components/AIReportTools.uvue').default;
+  const ui = mount(component, { report: report() }); ui.click('准备报告定位信息'); await flush();
+  assert.throws(() => ui.click('复制定位信息（不含正文）'), /按钮被禁用/); ui.app.unmount();
+  console.log('通过：反馈准备与元数据复制，明确无受理/无正文授权；二次确认、重复点击、失败、换报告/账号、离页与迟到回调隔离，不上传或持久保存草稿。');
+}
+
+const feedbackReceipt = (category = 'fact') => ({ id: 1, taskId: 9, category, status: 'received', resolution: '', version: 1, createdAt: now, updatedAt: now });
+async function feedbackContracts() {
+  const env = environment(), r = env.load('pages/libs/ai-feedback.uts'), { AiFeedbackApi } = env.load('pages/libs/ai-feedback-api.uts');
+  assert.equal(r.isValidAIFeedback(feedbackReceipt(), 9), true);
+  for (const mutate of [v => v.id = '1', v => v.taskId = '9', v => v.taskId = 8, v => v.version = '1', v => v.category = 'FACT', v => v.status = ['received'], v => v.resolution = 'reviewed', v => v.updatedAt--, v => v.updatedAt = 9007199254740992, v => v.status = 'deleted']) {
+    const v = feedbackReceipt(); mutate(v); assert.equal(r.isValidAIFeedback(v, 9), false);
+  }
+  for (const [status, resolution, version] of [['processing', '', 2], ['resolved', 'reviewed', 3], ['resolved', 'referred', 3], ['dismissed', 'unconfirmed', 3], ['dismissed', 'not_applicable', 3]]) {
+    const v = { ...feedbackReceipt(), status, resolution, version }; assert.equal(r.isValidAIFeedback(v, 9), true); assert.ok(r.aiFeedbackStatus(v)); assert.ok(r.aiFeedbackResolution(v));
+  }
+  for (const value of [null, { taskId: '9', items: [] }, { taskId: 9, items: [feedbackReceipt(), feedbackReceipt()] }, { taskId: 9, items: Array(5).fill(feedbackReceipt()) }]) assert.equal(r.isValidAIFeedbackList(value, 9), false);
+  assert.equal(r.isValidAIFeedbackList({ taskId: 9, items: [] }, 9), true);
+  for (const id of [0, -1, 1.1, 9007199254740992]) assert.notEqual((await AiFeedbackApi.list(id)).code, 0);
+  assert.notEqual((await AiFeedbackApi.submit(9, 'arbitrary')).code, 0); assert.equal(env.requests.length, 0);
+  env.storage.set('token', memberToken(1));
+  const promise = AiFeedbackApi.submit(9, 'fact'), req = env.requests.shift();
+  assert.equal(req.url, '/api/v1/ai/tasks/9/feedback'); assert.equal(req.method, 'POST'); assert.equal(JSON.stringify(req.data), '{"category":"fact"}');
+  env.reply(req, feedbackReceipt('source')); assert.notEqual((await promise).code, 0, '回包分类必须匹配原提交');
+  const list = AiFeedbackApi.list(9), get = env.requests.shift(); assert.equal(get.method, 'GET'); env.reply(get, { taskId: 9, items: [feedbackReceipt()] }); assert.equal((await list).code, 0);
+  console.log('通过：反馈DTO闭集、归属/版本/时点/分类唯一性校验与固定GET/POST契约，不开放内部处理或自由文本。');
+}
+
+async function feedbackPanel() {
+  for (const mode of ['success', 'unknown', 'malformed', 'cancel', '401', 'switch', 'unmount', 'late_get', 'get_error']) {
+    const env = environment(), token = memberToken(1); env.storage.set('token', token);
+    const props = vue.reactive({ taskId: 9, sessionToken: token }); const component = env.load('pages/ai/components/AIReportFeedbackPanel.uvue').default;
+    const ui = mount({ render: () => vue.h(component, props) }); assert.equal(env.requests.length, 0);
+    ui.click('举报与反馈'); await flush(); const get = env.requests.shift(); assert.equal(get.method, 'GET');
+    if (mode === 'late_get') { props.taskId = 10; await flush(); }
+    if (mode === 'get_error') env.reply(get, null, 503, 50306); else env.reply(get, { taskId: 9, items: [] }); await flush();
+    if (['late_get', 'get_error'].includes(mode)) { assert.ok(!ui.text().includes('本报告暂无反馈记录')); ui.app.unmount(); continue; }
+    ui.click('来源或授权'); await flush(); ui.click('确认反馈分类'); await flush(); assert.equal(env.requests.length, 0); assert.equal(env.modals.length, 1);
+    assert.throws(() => ui.click('确认反馈分类'), /按钮被禁用/);
+    env.modals.shift().success({ confirm: mode !== 'cancel' }); await flush();
+    if (mode === 'cancel') { assert.equal(env.requests.length, 0); ui.app.unmount(); continue; }
+    const post = env.requests.shift(); assert.equal(post.method, 'POST'); assert.equal(JSON.stringify(post.data), '{"category":"source"}');
+    if (mode === 'switch') { env.storage.set('token', memberToken(2)); props.sessionToken = memberToken(2); await flush(); }
+    if (mode === 'unmount') ui.app.unmount();
+    if (mode === 'unknown') post.fail(); else if (mode === 'malformed') env.reply(post, feedbackReceipt('other')); else if (mode === '401') env.reply(post, null, 401, 40100); else env.reply(post, feedbackReceipt('source'));
+    await flush(); assert.equal(env.requests.length, 0, '不得自动重发或查询'); assert.equal(env.storage.size, 1, '反馈草稿不得持久化');
+    if (['unknown', 'malformed'].includes(mode)) {
+      assert.ok(ui.text().includes('提交结果未确认')); assert.throws(() => ui.click('确认反馈分类'), /按钮被禁用/);
+      ui.click('查询反馈状态'); const query = env.requests.shift(); assert.equal(query.method, 'GET'); env.reply(query, { taskId: 9, items: [feedbackReceipt('source')] }); await flush(); assert.ok(ui.text().includes('未重复提交'));
+    }
+    if (mode === 'success' || mode === 'unknown' || mode === 'malformed') {
+      assert.ok(ui.text().includes('受理单 #1')); ui.click('确认反馈分类'); await flush(); assert.equal(env.requests.length, 0); assert.ok(ui.text().includes('无需重复提交'));
+      ui.click('查询反馈状态'); env.reply(env.requests.shift(), { taskId: 9, items: [{ ...feedbackReceipt('source'), version: 3, status: 'resolved', resolution: 'reviewed' }] }); await flush();
+      assert.ok(ui.text().includes('已处理')); assert.ok(ui.text().includes('不代表报告已更正'));
+    }
+    if (mode === 'switch' || mode === '401') assert.ok(!ui.text().includes('受理单 #1'));
+    assert.ok(!ui.text().includes('测试内部文字不得展示'));
+    if (mode !== 'unmount') ui.app.unmount();
+  }
+  console.log('通过：反馈确认提交→受理单→查询处理结果、自然幂等、未知先查、取消/401/换账号/离页/迟到回包隔离；无自动POST或存储。');
 }
 
 function entry() {
@@ -622,7 +769,7 @@ async function cancellationMemberFlow() {
     const ui = mount(env.load('pages/ai/index.uvue').default);
     env.hooks.show.forEach(fn => fn()); env.reply(env.requests.shift(), { items: [summary(9, 2)], nextBeforeId: 0, hasMore: false }); await flush();
     ui.state.loadProgress(9); env.reply(env.requests.shift(), progress(9, 2)); await flush(); assert.equal(env.timers.size, 1);
-    ui.click('申请取消任务'); await flush(); assert.equal(env.timers.size, 0); assert.equal(ui.state.cancelInteracting, true);
+    ui.click('申请取消任务'); await flush(); assert.equal(env.timers.size, 0); assert.equal(ui.state.cancelInteracting, true); assert.equal(ui.state.feedMode,'paused');
     ui.state.retryDetail(); assert.equal(env.requests.length, 0, '确认期间不能重入同一详情请求');
     ui.click('保留任务'); await flush(); assert.equal(env.timers.size, 1);
     ui.click('申请取消任务'); await flush(); ui.click('确认申请取消'); await flush();
@@ -650,5 +797,191 @@ async function cancellationMemberFlow() {
   console.log('通过：实际会员页嵌套取消组件暂停/恢复串行轮询、只核查原任务、确认终态及401/切任务/离页清理。');
 }
 
-(async () => { await validators(); await api(); await historyReportPermission(); await taskOutcomeFeedback(); await page(); await panel(); entry(); await submissionContracts(); await submissionPage(); await memberFlow(); await creationHistoryFlow(); await cancellationContracts(); await cancellationPanel(); await cancellationMemberFlow(); console.log('本脚本不覆盖：真实 UTS/uni-app x 整体构建、TMUI实现与浏览器布局；须另做实际H5验收，不能因依赖已经存在而升级源码测试证据。'); })()
+async function shellTabs() {
+  const env = environment(); env.storage.set('token', memberToken(42));
+  const ui = mount(env.load('pages/ai/index.uvue').default);
+  env.hooks.show.forEach(fn => fn());
+  env.reply(env.requests.shift(), { items: [summary(9)], nextBeforeId: 0, hasMore: false }); await flush();
+  assert.equal(ui.state.activeTab, 'conversation', '默认以会话为主入口');
+  assert.ok(ui.text().includes('会话'));
+  assert.ok(ui.text().includes('全部任务'));
+  assert.ok(ui.text().includes('我的会话'), '会话面板默认挂载');
+  ui.click('全部任务'); await flush();
+  assert.equal(ui.state.activeTab, 'tasks');
+  assert.ok(ui.text().includes('全部资料任务（历史）'), '历史任务仅在第二页签呈现');
+  // v-show 只切换显示：会话面板不应卸载，切换回来无需重新请求。
+  const before = env.requests.length;
+  ui.click('会话'); await flush();
+  assert.equal(ui.state.activeTab, 'conversation');
+  assert.equal(env.requests.length, before, '切换页签不得触发新请求');
+  ui.app.unmount();
+  console.log('通过：实际首页默认会话主入口、会话/全部任务双页签、历史任务区归属与切换不重发请求。');
+}
+
+async function conversationFrontend() {
+  console.log('DEBUG conversationFrontend start');
+  const summary = (id=1,archived=false) => ({id,title:'测试会话',archived,version:1,updatedAt:now});
+  const detail = (id=1) => ({...summary(id),lastSeq:0,createdAt:now});
+  const msg = (seq=1) => ({seq,kind:'task',subjectType:'theme',subjectId:7,skill:'light',question:'',taskId:9,createdAt:now});
+  const page = (items=[]) => ({items,hasMore:false,nextBeforeId:0});
+  const history = (items=[]) => ({conversationId:1,items,upperSeq:items.length,nextAfterSeq:items.length,hasMore:false});
+  {
+    const e=environment(new Map(),true),r=e.load('pages/libs/ai-conversation.uts');
+    assert.equal(r.isAIConversationTitle('测试会话😀'),true);assert.equal(r.isAIConversationTitle('😀'.repeat(40)),true);
+    for(const title of ['', ' 题材', '题材\n记录','\ud800','字'.repeat(41)])assert.equal(r.isAIConversationTitle(title),false);
+    assert.equal(r.isAIConversation(detail(),1),true);assert.equal(r.isAIConversation({...detail(),id:'1'},1),false);
+    for(const items of [[summary(1),summary(2)],[summary(),summary()],[{...summary(),archived:1}]])assert.equal(r.isAIConversations(page(items),0,false),false);
+    assert.equal(r.isAIConversationMessages(history([msg()]),1,0),true);
+    for(const items of [[msg(2)],[{...msg(),question:'不应存在'}],[{...msg(),subjectId:0}],[{...msg(),taskId:'9'}],[{...msg(),kind:['task']}],[{...msg(),kind:'assistant',question:'测试自由输出'}],[{...msg(),kind:'question',skill:'material_qa',taskId:0,question:'字'.repeat(1001)}]])assert.equal(r.isAIConversationMessages(history(items),1,0),false);
+    assert.equal(r.isAIConversationMessages({...history(),conversationId:'1'},1,0),false);
+    const token=memberToken(1);e.storage.set('token',token);const partition=r.conversationPartition(token);
+    e.storage.set(partition,0);assert.throws(()=>r.readPendingConversation(partition));e.storage.delete(partition);
+    const reserved=await Promise.all([r.reserveConversation(partition,'测试会话'),r.reserveConversation(partition,'另一会话')]);assert.equal(reserved.filter(Boolean).length,1);
+    assert.equal(await r.clearPendingConversation(partition,'different_original_key'),false);assert.equal(await r.clearPendingConversation(partition,reserved.find(Boolean).key),true);
+    const api=e.load('pages/libs/ai-conversation-api.uts').AIConversationApi;
+    const get=api.list(0,false);let req=e.requests.shift();assert.equal(req.url,'/api/v1/ai/conversations?limit=20&archived=0');assert.equal(req.header.Authorization,'Bearer '+token);e.reply(req,page());assert.equal((await get).code,0);
+    assert.equal((await api.rename(0,1,'测试会话')).code,40001);assert.equal(e.requests.length,0);
+    const patch=api.rename(1,1,'测试改名');req=e.requests.shift();assert.equal(req.method,'PATCH');assert.equal(req.header['Content-Type'],'application/json');assert.deepEqual(clone(req.data),{title:'测试改名',expectedVersion:1});e.reply(req,{...detail(),title:'测试改名',version:2});assert.equal((await patch).code,0);
+    const bad=api.messages(1,0);e.reply(e.requests.shift(),history([msg(2)]));assert.equal((await bad).code,50001);
+    assert.equal((await e.load('pages/libs/member-api.uts').MemberApi.aiConversation('delta',1,0,false,{},'')).code,40001);assert.equal(e.requests.length,0);
+    e.uni.getStorageSync=()=>{throw new Error('测试存储不可读')};assert.equal(e.load('pages/libs/ai-session.uts').currentAIMemberToken(),'');
+  }
+  {
+    const e=environment(new Map(),true),token=memberToken(1);e.storage.set('token',token);
+    const tasks=[],ui=mount(e.load('pages/ai/components/AIConversationPanel.uvue').default,{sessionToken:token,onTask:id=>tasks.push(id)});await flush();e.reply(e.requests.shift(),page());await flush();ui.input('测试会话');await flush();ui.click('新建会话');ui.state.create();await flush();assert.equal(e.requests.length,1);
+    let req=e.requests.shift();assert.equal(req.method,'POST');assert.equal(req.data.title,'测试会话');const key=req.header['Idempotency-Key'];assert.ok(key.startsWith('conversation_'));assert.ok([...e.storage.values()].some(v=>typeof v==='string'&&v.includes(key)),'先持久保存再POST');req.fail();await flush();assert.ok(ui.text().includes('待核查'));ui.click('核查原会话');req=e.requests.shift();assert.equal(req.method,'GET');assert.equal(req.header['Idempotency-Key'],key);e.reply(req,null,404,40403);await flush();assert.equal(e.requests.length,0);assert.ok(ui.state.pending);
+    ui.click('核查原会话');e.reply(e.requests.shift(),{id:1,createdAt:now});await flush();e.reply(e.requests.shift(),detail());await flush();e.reply(e.requests.shift(),history([msg()]));await flush();assert.ok(ui.text().includes('当前会话：测试会话'));assert.equal(ui.state.pending,null);ui.click('查看关联任务 #9');assert.deepEqual(tasks,[9]);
+    ui.state.renameTitle='测试改名';ui.click('保存会话标题');req=e.requests.shift();assert.equal(req.method,'PATCH');assert.equal(req.data.expectedVersion,1);e.reply(req,{...detail(),title:'测试改名',version:2,updatedAt:now+1});await flush();assert.ok(ui.text().includes('当前会话：测试改名'));
+    ui.click('归档当前会话');assert.equal(e.requests.length,0);e.modals.shift().success({confirm:true});req=e.requests.shift();assert.equal(req.method,'POST');assert.equal(req.data.expectedVersion,2);e.reply(req,{...detail(),archived:true,version:3,updatedAt:now+2});await flush();assert.equal(ui.state.selected,null);assert.equal(e.requests.length,0,'归档不能取消任务或生成报告');
+    ui.click('查看已归档');req=e.requests.shift();assert.ok(req.url.endsWith('archived=1'));e.reply(req,page([{...summary(),archived:true,version:3}]));await flush();ui.click('打开会话 #1');const late=e.requests.shift();e.storage.set('token',memberToken(2));ui.app._instance.props.sessionToken=memberToken(2);await flush();e.reply(late,detail());e.reply(e.requests.shift(),page());await flush();assert.equal(ui.state.selected,null);assert.equal(ui.state.rows.length,0);assert.ok(!ui.text().includes('测试改名'));ui.app.unmount();
+  }
+  console.log('DEBUG conversationFrontend end');
+  console.log('通过：会话DTO/七个固定接口、标题/连续历史/分页拒绝、安全原键跨页签互斥、未知只查原键、新建/改名/归档/关联任务及换账号迟到隔离。');
+}
+
+async function conversationTaskFrontend() {
+  const dto=(state='prepared')=>({id:3,conversationId:1,analysisType:'light',subjectType:'theme',subjectId:7,priceVersion:'test-v1',pricePoints:7,state,rejectionCode:state==='not_created'?'creation_disabled':'',taskId:state==='linked'?9:0,messageSeq:state==='linked'?1:0,createdAt:now,updatedAt:state==='prepared'?now:now+1});
+  const item=(id=3)=>({id,state:'prepared',analysisType:'light',subjectType:'theme',subjectId:7,updatedAt:now});
+  const page=(items=[])=>({items,nextBeforeId:0,hasMore:false});
+  const partition='tm_ai_intent_v1_42',token=memberToken(42);
+  const pending=()=>({key:'test_intent_original_key',conversationId:1,analysisType:'light',subjectId:7,priceVersion:'test-v1',pricePoints:7,intentId:3,confirmSent:false});
+  {
+    const e=environment(new Map(),true,true),r=e.load('pages/libs/ai-conversation-task.uts');e.storage.set('token',token);
+    for(const state of ['prepared','unconfirmed','linked','not_created'])assert.equal(r.isAIConversationTask(dto(state),1),true);
+    for(const change of [v=>v.id='3',v=>v.conversationId='1',v=>v.conversationId=2,v=>v.subjectId=0,v=>v.analysisType=['light'],v=>v.state=['prepared'],v=>v.pricePoints=9007199254740992,v=>v.taskId=9,v=>v.messageSeq=1,v=>v.rejectionCode='raw_secret',v=>v.updatedAt=now-1]){const v=dto();change(v);assert.equal(r.isAIConversationTask(v,1),false)}
+    assert.equal(r.isAIConversationTask({...dto('linked'),messageSeq:0},1),false);assert.equal(r.isAIConversationTask({...dto('not_created'),rejectionCode:''},1),false);
+    assert.equal(r.isAIConversationTasks(page([item(3),item(2)]),0),true);assert.equal(r.isAIConversationTasks(page([item(2),item(3)]),0),false);assert.equal(r.isAIConversationTasks({...page([item()]),hasMore:true,nextBeforeId:2},0),false);
+    assert.equal(r.intentPartition(token),partition);assert.equal(r.intentMatchesPending(dto(),pending()),true);assert.equal(r.intentMatchesPending({...dto(),subjectId:8},pending()),false);
+    e.storage.set(partition,0);assert.throws(()=>r.readPendingIntent(partition));e.storage.delete(partition);
+    const reservations=await Promise.all([r.reserveIntent(partition,1,quote()),r.reserveIntent(partition,1,quote())]);assert.equal(reservations.filter(Boolean).length,1);const p=reservations.find(Boolean);
+    assert.equal(await r.markPendingIntent(partition,'wrong_original_key',3,false),null);
+    const marked=await r.markPendingIntent(partition,p.key,3,false);assert.equal(marked.confirmSent,false);
+    const sent=await Promise.all([r.markPendingIntent(partition,p.key,3,true),r.markPendingIntent(partition,p.key,3,true)]);assert.equal(sent.filter(Boolean).length,1);assert.equal(r.readPendingIntent(partition).confirmSent,true);
+    assert.equal(await r.clearPendingIntent(partition,'wrong_original_key'),false);assert.equal(await r.clearPendingIntent(partition,p.key),true);
+    const legacy=e.load('pages/libs/ai-submission.uts'),legacyPartition='tm_ai_pending_v1_42';
+    for(let turn=0;turn<6;turn++){
+      const contenders=turn%2?[r.reserveIntent(partition,1,quote()),legacy.reserveAIPending(legacyPartition,quote())]:[legacy.reserveAIPending(legacyPartition,quote()),r.reserveIntent(partition,1,quote())];
+      const won=await Promise.all(contenders);assert.equal(won.filter(Boolean).length,1,'两种入口不能同时保留新生成权限');
+      assert.equal(Number(e.storage.has(partition))+Number(e.storage.has(legacyPartition)),1);e.storage.delete(partition);e.storage.delete(legacyPartition);
+    }
+    e.storage.set(partition,0);assert.equal(await legacy.reserveAIPending(legacyPartition,quote()),null);e.storage.delete(partition);
+    e.storage.set(legacyPartition,0);await assert.rejects(()=>r.reserveIntent(partition,1,quote()));e.storage.delete(legacyPartition);
+    delete e.globals.window.navigator.locks;assert.equal(await r.reserveIntent(partition,1,quote()),null);
+  }
+  {
+    const e=environment(new Map(),true,true),a=e.load('pages/libs/ai-conversation-task-api.uts').AIConversationTaskApi;e.storage.set('token',token);
+    for(const [call,method,suffix,body,key] of [
+      [()=>a.list(1,0),'GET','/task-intents?limit=20',{},false],
+      [()=>a.prepare({...pending(),intentId:0}),'POST','/task-intents',{analysis_type:'light',subject_type:'theme',subject_id:7,price_version:'test-v1'},true],
+      [()=>a.receipt(1,pending().key),'GET','/task-intent-receipt',{},true],
+      [()=>a.detail(1,3),'GET','/task-intents/3',{},false],
+      [()=>a.confirm(1,3),'POST','/task-intents/3/confirm',{confirmed:true},false],
+      [()=>a.reconcile(1,3),'POST','/task-intents/3/reconcile',{},false],
+    ]){const result=call(),req=e.requests.shift();assert.equal(req.url,'/api/v1/ai/conversations/1'+suffix);assert.equal(req.method,method);assert.deepEqual(JSON.parse(JSON.stringify(req.data)),body);assert.equal(req.header.Authorization,'Bearer '+token);assert.equal(Boolean(req.header['Idempotency-Key']),key);e.reply(req,suffix.includes('?')?page():dto());assert.equal((await result).code,0)}
+    assert.notEqual((await a.detail(0,3)).code,0);assert.notEqual((await a.prepare(pending())).code,0);assert.equal(e.requests.length,0);
+    const bad=a.detail(1,3);e.reply(e.requests.shift(),{...dto(),id:4});assert.notEqual((await bad).code,0);
+  }
+  const start=async(options={})=>{const e=environment(options.storage||new Map(),true,true);e.storage.set('token',token);if(options.pending)e.storage.set(partition,JSON.stringify(options.pending));const props=vue.reactive({sessionToken:token,conversationId:1,analysisType:options.analysisType||'light',archived:options.archived||false});const tasks=[],component=e.load('pages/ai/components/AIConversationTaskPanel.uvue').default;const ui=mount({render:()=>vue.h(component,{...props,onTask:id=>tasks.push(id)})});e.reply(e.requests.shift(),page());await flush();return {e,props,tasks,ui,component}};
+  // 完整实际组件点击：共用原搜索/报价，但仅准备会话意图，不走独立Create。
+  {
+    const {e,ui,tasks}=await start();ui.input('测试示例题材');ui.click('查询题材');e.reply(e.requests.shift(),[{id:7,name:'测试示例题材',level:1}]);await flush();ui.click('核对该题材报价');e.reply(e.requests.shift(),quote());await flush();assert.ok(!ui.text().includes('确认报价并创建'));
+    ui.click('保存会话报价意图（不冻结积分）');await flush();const req=e.requests.shift();assert.ok(req.url.endsWith('/task-intents'));assert.equal(JSON.parse(e.storage.get(partition)).intentId,0);e.reply(req,dto());await flush();assert.equal(JSON.parse(e.storage.get(partition)).intentId,3);
+    ui.click('重新核对报价与资料范围');e.reply(e.requests.shift(),quote());await flush();ui.click('确认会话报价并创建');assert.equal(e.requests.length,0);e.modals.shift().success({confirm:true});await flush();assert.equal(JSON.parse(e.storage.get(partition)).confirmSent,true);const confirm=e.requests.shift();assert.ok(confirm.url.endsWith('/3/confirm'));e.reply(confirm,dto('linked'));await flush();ui.click('查看会话关联任务 #9');assert.deepEqual(tasks,[9]);
+    ui.click('核对终态并记录完成');assert.ok(e.storage.has(partition));e.reply(e.requests.shift(),dto('linked'));await flush();assert.equal(e.storage.has(partition),false);ui.app.unmount();
+  }
+  // Prepare/Confirm未知、重载、关闭、变价、跨用户、离页、归档和迟到回包均不补交。
+  for(const mode of ['prepare_unknown','confirm_unknown','404','price_changed','wrong_scope','401','switch','unmount','archive','storage_fail','duplicate_tab']){
+    const initial=mode==='prepare_unknown'?{...pending(),intentId:0}:pending();const {e,ui,props}=await start({pending:initial});
+    ui.click('查询本机原意图');const original=e.requests.shift();assert.equal(original.method,'GET');assert.equal(original.header['Idempotency-Key'],initial.key);
+    if(mode==='404'){e.reply(original,null,404,40403);await flush();assert.ok(e.storage.has(partition));assert.equal(e.requests.length,0);ui.app.unmount();continue}
+    if(mode==='wrong_scope'){e.reply(original,{...dto(),subjectId:8});await flush();assert.ok(!ui.text().includes('重新核对报价与资料范围'));assert.equal(e.requests.length,0);ui.app.unmount();continue}
+    e.reply(original,dto());await flush();
+    if(mode==='prepare_unknown'){assert.equal(JSON.parse(e.storage.get(partition)).intentId,3);assert.equal(e.requests.length,0);ui.app.unmount();continue}
+    ui.click('重新核对报价与资料范围');e.reply(e.requests.shift(),mode==='price_changed'?{...quote(),pricePoints:8}:quote());await flush();
+    if(mode==='price_changed'){assert.ok(!ui.text().includes('确认会话报价并创建'));assert.equal(e.requests.length,0);ui.app.unmount();continue}
+    ui.click('确认会话报价并创建');const modal=e.modals.shift();
+    if(mode==='archive')props.archived=true;if(mode==='switch'){e.storage.set('token',memberToken(2));props.sessionToken=memberToken(2)}if(mode==='unmount')ui.app.unmount();await flush();
+    if(mode==='storage_fail')e.uni.setStorageSync=()=>{throw new Error('测试存储故障')};
+    if(mode==='duplicate_tab'){const r=e.load('pages/libs/ai-conversation-task.uts');assert.ok(await r.markPendingIntent(partition,initial.key,3,true))}
+    modal.success({confirm:true});await flush();
+    if(['archive','unmount','storage_fail','duplicate_tab','switch'].includes(mode)){assert.ok(!e.requests.some(x=>x.url.endsWith('/confirm')));if(mode!=='unmount')ui.app.unmount();continue}
+    const sent=e.requests.shift();assert.ok(sent.url.endsWith('/confirm'));
+    if(mode==='401'){e.reply(sent,null,401,40100);await flush();assert.ok(!ui.text().includes('查看会话关联任务'));assert.equal(JSON.parse(e.storage.get(partition)).confirmSent,true);ui.app.unmount();continue}
+    sent.fail();await flush();assert.equal(e.requests.length,0);ui.app.unmount();
+    const recovered=await start({storage:e.storage});recovered.ui.click('查询本机原意图');recovered.e.reply(recovered.e.requests.shift(),dto('unconfirmed'));await flush();assert.ok(!recovered.ui.text().includes('确认会话报价并创建'));
+    recovered.ui.click('核查并恢复原任务关联（不创建）');const recon=recovered.e.requests.shift();assert.ok(recon.url.endsWith('/reconcile'));assert.deepEqual(JSON.parse(JSON.stringify(recon.data)),{});recovered.e.reply(recon,dto('linked'));await flush();recovered.ui.click('查看会话关联任务 #9');assert.deepEqual(recovered.tasks,[9]);recovered.ui.app.unmount();
+  }
+  {const {e,ui}=await start({archived:true});assert.ok(!ui.text().includes('查询题材'));assert.equal(e.requests.length,0);ui.app.unmount()}
+  {const e=environment(new Map(),true,true);e.storage.set('token',token);e.storage.set(partition,JSON.stringify(pending()));const ui=mount(e.load('pages/ai/components/AICreatePanel.uvue').default,{sessionToken:token});assert.ok(ui.text().includes('独立入口暂不新建'));assert.ok(!ui.text().includes('查询题材'));assert.equal(e.requests.length,0);ui.app.unmount()}
+  {
+    const e=environment(new Map(),true,true);e.storage.set('token',token);const ui=mount(e.load('pages/ai/index.uvue').default);
+    const take=path=>{const i=e.requests.findIndex(r=>r.url===path);assert.ok(i>=0,'缺少实际请求：'+path);return e.requests.splice(i,1)[0]};
+    e.hooks.show.forEach(fn=>fn());e.reply(take('/api/v1/ai/tasks?limit=20'),page());await flush();
+    const c={id:1,title:'测试会话纵向',archived:false,version:1,updatedAt:now,createdAt:now,lastSeq:0};
+    e.reply(take('/api/v1/ai/conversations?limit=20&archived=0'),page([{id:1,title:c.title,archived:false,version:1,updatedAt:now}]));await flush();ui.click('打开会话 #1');e.reply(take('/api/v1/ai/conversations/1'),c);await flush();
+    e.reply(take('/api/v1/ai/conversations/1/messages?limit=20&after_seq=0'),{conversationId:1,items:[],upperSeq:0,nextAfterSeq:0,hasMore:false});ui.click('使用该技能');await flush();e.reply(take('/api/v1/ai/conversations/1/task-intents?limit=20'),page());await flush();assert.equal(ui.state.conversationId,1);assert.ok(!ui.text().includes('新建轻度资料整理'));
+    // 定位共用报价组件，避免会话标题输入框与题材输入框混用。
+    const fields=[];function walk(n){if(n.tag==='x-input'&&n.props.placeholder==='输入题材名称，仅用于查询目录')fields.push(n);n.children.forEach(walk)}walk(ui.tree);assert.equal(fields.length,1);fields[0].props['on:update:modelValue']('测试题材');await flush();
+    ui.click('查询题材');e.reply(e.requests.shift(),[{id:7,name:'测试示例题材'}]);await flush();ui.click('核对该题材报价');e.reply(e.requests.shift(),quote());await flush();ui.click('保存会话报价意图（不冻结积分）');await flush();e.reply(e.requests.shift(),dto());await flush();ui.click('重新核对报价与资料范围');e.reply(e.requests.shift(),quote());await flush();ui.click('确认会话报价并创建');e.modals.shift().success({confirm:true});await flush();e.reply(e.requests.shift(),dto('linked'));await flush();
+    e.reply(take('/api/v1/ai/conversations/1'),{...c,version:2,lastSeq:1});await flush();e.reply(take('/api/v1/ai/conversations/1/messages?limit=20&after_seq=0'),{conversationId:1,items:[{seq:1,kind:'task',subjectType:'theme',subjectId:7,skill:'light',question:'',taskId:9,createdAt:now}],upperSeq:1,nextAfterSeq:1,hasMore:false});await flush();
+    ui.click('查看会话关联任务 #9');e.reply(take('/api/v1/ai/tasks/9'),progress());await flush();ui.click('核对并查看报告');e.reply(take('/api/v1/ai/tasks/9/report'),report());await flush();assert.equal(ui.state.report.taskId,9);assert.equal(ui.state.conversationId,1);assert.equal(e.requests.length,0);
+    e.hooks.hide.forEach(fn=>fn());await flush();assert.equal(ui.state.report,null);assert.equal(ui.state.conversationId,0);ui.app.unmount();
+  }
+  {
+    const deepQuote=quote({analysisType:'deep',pricePoints:30,availablePoints:50});
+    const deepDto=(state='prepared')=>({...dto(state),analysisType:'deep',pricePoints:30});
+    const {e,ui,tasks}=await start({analysisType:'deep'});
+    assert.ok(ui.text().includes('深度资料任务'));
+    ui.input('测试示例题材');ui.click('查询题材');e.reply(e.requests.shift(),[{id:7,name:'测试示例题材',level:1}]);await flush();
+    ui.click('核对该题材报价');e.reply(e.requests.shift(),deepQuote);await flush();
+    assert.ok(ui.text().includes('30 积分'));
+    ui.click('保存会话报价意图（不冻结积分）');await flush();
+    const prepare=e.requests.shift();assert.ok(prepare.url.endsWith('/task-intents'));assert.equal(prepare.data.analysis_type,'deep');assert.equal(prepare.data.price_version,'test-v1');
+    e.reply(prepare,deepDto());await flush();
+    assert.equal(JSON.parse(e.storage.get(partition)).analysisType,'deep');
+    ui.click('重新核对报价与资料范围');e.reply(e.requests.shift(),deepQuote);await flush();
+    ui.click('确认会话报价并创建');e.modals.shift().success({confirm:true});await flush();
+    const confirm=e.requests.shift();assert.ok(confirm.url.endsWith('/confirm'));e.reply(confirm,deepDto('linked'));await flush();
+    ui.click('查看会话关联任务 #9');assert.deepEqual(tasks,[9]);ui.app.unmount();
+  }
+  {
+    // 深度确认被准入/限流拒绝：只显示不可创建原因，不得出现关联任务或再次冻结。
+    const deepQuote=quote({analysisType:'deep',pricePoints:30,availablePoints:50});
+    const {e,ui}=await start({analysisType:'deep'});
+    ui.input('测试示例题材');ui.click('查询题材');e.reply(e.requests.shift(),[{id:7,name:'测试示例题材',level:1}]);await flush();
+    ui.click('核对该题材报价');e.reply(e.requests.shift(),deepQuote);await flush();
+    ui.click('保存会话报价意图（不冻结积分）');await flush();e.reply(e.requests.shift(),{...dto(),analysisType:'deep',pricePoints:30});await flush();
+    ui.click('重新核对报价与资料范围');e.reply(e.requests.shift(),deepQuote);await flush();
+    ui.click('确认会话报价并创建');e.modals.shift().success({confirm:true});await flush();
+    e.reply(e.requests.shift(),{...dto('not_created'),analysisType:'deep',pricePoints:30,rejectionCode:'admission_unavailable'});await flush();
+    const text=ui.text();
+    assert.ok(text.includes('当前资料或执行准入不满足'));
+    assert.ok(!text.includes('查看会话关联任务'));
+    assert.equal(JSON.parse(e.storage.get(partition)).confirmSent,true);
+    ui.app.unmount();
+  }
+  console.log('通过：会话意图六接口/闭集DTO、先存原键与跨页签单次确认、实际搜索报价→准备→二次确认→关联任务→终态核查；深度按30积分准备并携带analysisType=deep。');
+}
+
+(async () => { await validators(); await conversationTaskFrontend(); await api(); await historyReportPermission(); await taskOutcomeFeedback(); await page(); await panel(); await reportPresentation(); await reportTools(); await feedbackContracts(); await feedbackPanel(); entry(); await submissionContracts(); await submissionPage(); await memberFlow(); await creationHistoryFlow(); await cancellationContracts(); await cancellationPanel(); await cancellationMemberFlow(); await shellTabs(); await conversationFrontend(); await conversationTaskFrontend(); console.log('本脚本不覆盖：真实 UTS/uni-app x 整体构建、TMUI实现与浏览器布局；须另做实际H5验收，不能因依赖已经存在而升级源码测试证据。'); })()
   .catch(error => { console.error(error); process.exitCode = 1; });

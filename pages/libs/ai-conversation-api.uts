@@ -1,0 +1,43 @@
+import { MemberApi, MemberApiResult } from './member-api.uts'
+import { isSafeAIId, isSafeAIInteger } from './ai.uts'
+import { isAIRequestKey } from './ai-submission.uts'
+import { AIConversationReceipt, AIConversation, AIConversations, AIConversationMessages, isAIConversationReceipt, isAIConversation, isAIConversations, isAIConversationMessages, isAIConversationTitle, aiConversationError } from './ai-conversation.uts'
+
+const failure = <T>(code : number) : MemberApiResult<T> => ({code: code, message: aiConversationError(code), data: null} as MemberApiResult<T>)
+export class AIConversationApi {
+	public static async list(before : number, archived : boolean) : Promise<MemberApiResult<AIConversations>> {
+		if (!isSafeAIInteger(before) || typeof archived != 'boolean') return failure<AIConversations>(40001)
+		const r = await MemberApi.aiConversation<AIConversations>('list', 0, before, archived, {} as UTSJSONObject, '')
+		return r.code != 0 ? failure<AIConversations>(r.code) : isAIConversations(r.data, before, archived) ? r : failure<AIConversations>(50001)
+	}
+	public static async create(key : string, title : string) : Promise<MemberApiResult<AIConversationReceipt>> {
+		if (!isAIRequestKey(key) || !isAIConversationTitle(title)) return failure<AIConversationReceipt>(40001)
+		const r = await MemberApi.aiConversation<AIConversationReceipt>('create', 0, 0, false, {title: title} as UTSJSONObject, key)
+		return r.code != 0 ? failure<AIConversationReceipt>(r.code) : isAIConversationReceipt(r.data) ? r : failure<AIConversationReceipt>(50001)
+	}
+	public static async receipt(key : string) : Promise<MemberApiResult<AIConversationReceipt>> {
+		if (!isAIRequestKey(key)) return failure<AIConversationReceipt>(40001)
+		const r = await MemberApi.aiConversation<AIConversationReceipt>('receipt', 0, 0, false, {} as UTSJSONObject, key)
+		return r.code != 0 ? failure<AIConversationReceipt>(r.code) : isAIConversationReceipt(r.data) ? r : failure<AIConversationReceipt>(50001)
+	}
+	public static async detail(id : number) : Promise<MemberApiResult<AIConversation>> {
+		if (!isSafeAIId(id)) return failure<AIConversation>(40001)
+		const r = await MemberApi.aiConversation<AIConversation>('detail', id, 0, false, {} as UTSJSONObject, '')
+		return r.code != 0 ? failure<AIConversation>(r.code) : isAIConversation(r.data, id) ? r : failure<AIConversation>(50001)
+	}
+	public static async messages(id : number, after : number) : Promise<MemberApiResult<AIConversationMessages>> {
+		if (!isSafeAIId(id) || !isSafeAIInteger(after)) return failure<AIConversationMessages>(40001)
+		const r = await MemberApi.aiConversation<AIConversationMessages>('messages', id, after, false, {} as UTSJSONObject, '')
+		return r.code != 0 ? failure<AIConversationMessages>(r.code) : isAIConversationMessages(r.data, id, after) ? r : failure<AIConversationMessages>(50001)
+	}
+	public static async rename(id : number, version : number, title : string) : Promise<MemberApiResult<AIConversation>> {
+		if (!isSafeAIId(id) || !isSafeAIId(version) || !isAIConversationTitle(title)) return failure<AIConversation>(40001)
+		const r = await MemberApi.aiConversation<AIConversation>('rename', id, 0, false, {title: title, expectedVersion: version} as UTSJSONObject, '')
+		return r.code != 0 ? failure<AIConversation>(r.code) : isAIConversation(r.data, id) ? r : failure<AIConversation>(50001)
+	}
+	public static async archive(id : number, version : number) : Promise<MemberApiResult<AIConversation>> {
+		if (!isSafeAIId(id) || !isSafeAIId(version)) return failure<AIConversation>(40001)
+		const r = await MemberApi.aiConversation<AIConversation>('archive', id, 0, false, {expectedVersion: version} as UTSJSONObject, '')
+		return r.code != 0 ? failure<AIConversation>(r.code) : isAIConversation(r.data, id) && r.data!.archived ? r : failure<AIConversation>(50001)
+	}
+}

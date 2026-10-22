@@ -1,0 +1,73 @@
+<script lang="ts" setup>
+import { computed, ref, watch, onBeforeUnmount } from 'vue'
+import { AIReport, isValidAIReport } from '../../libs/ai.uts'
+import { aiFeedbackCategoryLabel, aiReportLocator } from '../../libs/ai-report-presentation.uts'
+import { currentAIMemberToken } from '../../libs/ai-session.uts'
+
+type AIReportToolsProps = { report : AIReport, sessionToken ?: string }
+const props = withDefaults(defineProps<AIReportToolsProps>(), { sessionToken: '' })
+const categories : string[] = ['fact', 'source', 'display', 'other']
+const expanded = ref<boolean>(false)
+const category = ref<string>('fact')
+const copying = ref<boolean>(false)
+const message = ref<string>('')
+let alive : boolean = true
+let generation : number = 0
+
+const validReport = computed(() : boolean => props.report != null && isValidAIReport(props.report, props.report.taskId))
+const sessionMatches = () : boolean => props.sessionToken != '' && currentAIMemberToken() == props.sessionToken
+const clearDraft = () : void => { generation++; expanded.value = false; category.value = 'fact'; copying.value = false; message.value = '' }
+const selectCategory = (value : string) : void => {
+	if (copying.value || aiFeedbackCategoryLabel(value) == '') return
+	category.value = value; message.value = ''
+}
+const toggleFeedback = () : void => {
+	if (!validReport.value || copying.value) return
+	expanded.value = !expanded.value; message.value = ''
+}
+const copyLocator = () : void => {
+	if (copying.value || !validReport.value || !sessionMatches()) { message.value = '请重新核对登录状态与报告。'; return }
+	const source : AIReport = props.report
+	const token : string = props.sessionToken
+	const round : number = generation
+	const text : string = aiReportLocator(source, category.value)
+	if (text == '') return
+	const current = () : boolean => alive && round == generation && props.report == source && props.sessionToken == token && currentAIMemberToken() == token && validReport.value
+	copying.value = true; message.value = ''
+	uni.showModal({ title: '复制报告定位信息', content: '仅复制任务编号、生成时点和反馈分类，不含报告正文，也不会提交反馈。系统剪贴板可能被其他应用读取。', confirmText: '确认复制', cancelText: '取消', success: (result) => {
+		if (!current()) { if (alive && round == generation) { copying.value = false; message.value = '登录状态或报告已变化，请重新核对。' }; return }
+		if (!result.confirm) { copying.value = false; return }
+		uni.setClipboardData({ data: text, success: () => {
+			if (current()) { copying.value = false; message.value = '定位信息已复制；反馈尚未提交。' }
+		}, fail: () => {
+			if (current()) { copying.value = false; message.value = '复制失败，可重新操作；反馈未提交。' }
+		} })
+	}, fail: () => { if (current()) { copying.value = false; message.value = '确认窗口暂不可用，未复制或提交。' } } })
+}
+watch(() : AIReport => props.report, () => { clearDraft() }, { flush: 'sync' })
+watch(() : string => props.sessionToken, () => { clearDraft() }, { flush: 'sync' })
+onBeforeUnmount(() => { alive = false; clearDraft() })
+</script>
+
+<template>
+	<x-sheet v-if="validReport" :margin="16" :padding="16" :round="12" dark-color="#ffffff">
+		<text class="tools-heading text-weight-b">报告操作与定位</text>
+		<text class="tools-copy mt-8">查看权限不代表复制或下载授权。正文复制、导出及下载暂未开放。</text>
+		<x-button class="mt-12" height="44" :block="true" skin="outline" :disabled="true">复制报告正文（未开放）</x-button>
+		<x-button class="mt-8" height="44" :block="true" skin="outline" :disabled="true">下载报告（未开放）</x-button>
+		<x-button class="mt-8" height="44" :block="true" skin="outline" :disabled="copying" @click="toggleFeedback">{{ expanded ? '收起定位准备' : '准备报告定位信息' }}</x-button>
+		<view v-if="expanded" class="mt-12">
+			<text class="tools-copy">以下仅准备定位信息，不发送网络请求。提交或查询反馈请使用任务下方的“举报与反馈”入口，以受理记录为准。</text>
+			<text class="tools-copy mt-8">分类仅在本页临时使用，不写入本地存储；请勿向未知渠道提供正文、账号或密钥。</text>
+			<text class="tools-copy mt-8">当前分类：{{ aiFeedbackCategoryLabel(category) }}</text>
+			<x-button v-for="item in categories" :key="item" class="mt-8" height="44" :block="true" :skin="category == item ? 'thin' : 'outline'" :disabled="copying" @click="selectCategory(item)">{{ aiFeedbackCategoryLabel(item) }}</x-button>
+			<x-button class="mt-12" height="44" :block="true" :loading="copying" :disabled="copying || sessionToken == ''" @click="copyLocator">复制定位信息（不含正文）</x-button>
+		</view>
+		<text v-if="message != ''" class="tools-copy mt-8">{{ message }}</text>
+	</x-sheet>
+</template>
+
+<style scoped>
+.tools-heading { color: #30343c; }
+.tools-copy { color: #586174; font-size: 13px; line-height: 22px; }
+</style>

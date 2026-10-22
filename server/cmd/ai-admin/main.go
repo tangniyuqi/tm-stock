@@ -75,6 +75,23 @@ func startAdmin(ctx context.Context, cfg *config.AIAdminConfig, l0Config *config
 		return err
 	}
 	handler.NewAIInspectionHandler(inspection).Register(mux)
+	feedbackEnabled, err := config.LoadAIFeedbackAdmin()
+	if err != nil {
+		return err
+	}
+	if feedbackEnabled {
+		checkCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
+		checkErr := repository.NewAIFeedbackSchemaVerifier(db).Verify(checkCtx)
+		cancel()
+		if checkErr != nil {
+			return fmt.Errorf("内部反馈结构自检失败（驱动详情已隐藏）")
+		}
+		feedbackService, err := service.NewAIFeedbackService(repository.NewAIFeedbackRepo(db))
+		if err != nil {
+			return err
+		}
+		handler.NewAIFeedbackHandler(feedbackService).RegisterInternal(mux)
+	}
 	sourceRepo := repository.NewAISourceRepo(db)
 	startupCtx, startupCancel := context.WithTimeout(ctx, 10*time.Second)
 	defer startupCancel()

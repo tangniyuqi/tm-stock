@@ -11,12 +11,14 @@ import (
 // 密钥只读取 TM_AI_API_KEY，错误和摘要都不会包含其内容。
 func LoadConfig() (*Config, error) {
 	c := &Config{
-		Enabled:   envBool("TM_AI_ENABLED", false),
-		Name:      envString("TM_AI_PROVIDER", "openai-compatible"),
-		BaseURL:   strings.TrimRight(os.Getenv("TM_AI_BASE_URL"), "/"),
-		Model:     os.Getenv("TM_AI_MODEL"),
-		APIKey:    os.Getenv("TM_AI_API_KEY"),
-		TimeoutMS: envInt("TM_AI_TIMEOUT_MS", 30000),
+		Enabled:            envBool("TM_AI_ENABLED", false),
+		Name:               envString("TM_AI_PROVIDER", "openai-compatible"),
+		BaseURL:            strings.TrimRight(os.Getenv("TM_AI_BASE_URL"), "/"),
+		Model:              os.Getenv("TM_AI_MODEL"),
+		APIKey:             os.Getenv("TM_AI_API_KEY"),
+		TimeoutMS:          envInt("TM_AI_TIMEOUT_MS", 30000),
+		JSONSchemaFallback: envBool("TM_AI_JSON_SCHEMA_FALLBACK", false),
+		ReasoningEffort:    os.Getenv("TM_AI_REASONING_EFFORT"),
 	}
 	if !c.Enabled {
 		return c, nil

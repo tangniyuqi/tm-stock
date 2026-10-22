@@ -49,6 +49,9 @@ type Config struct {
 	Ref, ModelName, FilingNo, EntailmentVersion, SemanticVersion string
 	AllowedDomains                                               []string
 	CompanyDigest                                                string `json:",omitempty"`
+	// AnalysisType 0 表示既有 L1 编码（摘要不变）；2 表示深度报告，必须显式声明最少引文数。
+	AnalysisType int `json:",omitempty"`
+	MinQuotes    int `json:",omitempty"`
 }
 
 // EntailmentInput 的字符串是独立不可变副本；不含账户、许可归档或其他任务正文。
@@ -67,6 +70,9 @@ type Policy struct {
 
 func NewPolicy(c Config, entailment EntailmentCheck, semantic SemanticCheck) (*Policy, error) {
 	if c.CompanyDigest != "" {
+		return nil, points.ErrInvalid
+	}
+	if c.AnalysisType != 0 && c.AnalysisType != 2 || c.MinQuotes < 0 || c.MinQuotes > 64 || (c.AnalysisType == 2 && c.MinQuotes < 6) || (c.AnalysisType != 2 && c.MinQuotes != 0) {
 		return nil, points.ErrInvalid
 	}
 	for _, s := range []string{c.Ref, c.ModelName, c.FilingNo, c.EntailmentVersion, c.SemanticVersion} {
@@ -98,6 +104,14 @@ func NewPolicy(c Config, entailment EntailmentCheck, semantic SemanticCheck) (*P
 		return nil, points.ErrInvalid
 	}
 	return &Policy{cfg: c, digest: task.StageDigest(b), entailment: entailment, semantic: semantic}, nil
+}
+
+// AnalysisType 返回 0（既有 L1 编码）或 2（深度）；只用于绑定当前任务类型。
+func (p *Policy) AnalysisType() int {
+	if p == nil {
+		return 0
+	}
+	return p.cfg.AnalysisType
 }
 
 func (p *Policy) Valid() bool {

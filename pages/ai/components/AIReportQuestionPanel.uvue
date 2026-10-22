@@ -1,0 +1,181 @@
+<script lang="ts" setup>
+import { ref, watch, onBeforeUnmount } from 'vue'
+import { currentAIMemberToken } from '../../libs/ai-session.uts'
+import { AIConversationApi } from '../../libs/ai-conversation-api.uts'
+import { AIQAApi } from '../../libs/ai-qa-api.uts'
+import { AIQAStatus, AIQAAnswer, AIQAQuote, AIPendingQA, isAIQAQuestion, qaPartition, readPendingQA, reserveQA, clearPendingQA, qaMatchesPending, aiQAStateLabel, aiSourceTypeLabel, aiQAError } from '../../libs/ai-qa.uts'
+import { isSafeAIId } from '../../libs/ai.uts'
+import { formatMillis } from '../../libs/theme.uts'
+import { copySafeExternalUrl } from '../../libs/external-link.uts'
+
+type ReportQAProps = { sessionToken : string, conversationId : number, taskId : number, subjectId : number, archived : boolean }
+defineOptions({name: 'AIReportQuestionPanel'})
+const props = defineProps<ReportQAProps>()
+const emit = defineEmits<{ saved: [], unauthorized: [] }>()
+const pending = ref<AIPendingQA | null>(null)
+const status = ref<AIQAStatus | null>(null)
+const answer = ref<AIQAAnswer | null>(null)
+const question = ref<string>('')
+const busy = ref<boolean>(false)
+const safeStorage = ref<boolean>(false)
+const message = ref<string>('')
+let active : boolean = true
+let generation : number = 0
+let boundCID : number = 0
+let boundTask : number = 0
+let partition : string = ''
+
+const current = (round : number, token : string) : boolean => active && generation == round && boundCID == props.conversationId && boundTask == props.taskId && isSafeAIId(boundTask) && token.length > 0 && token == props.sessionToken && token == currentAIMemberToken()
+const accept = (code : number) : boolean => {
+	if (code == 40100 || code == 40101 || code == 40301) { generation++; status.value = null; answer.value = null; question.value = ''; pending.value = null; busy.value = false; safeStorage.value = false; emit('unauthorized'); return false }
+	return true
+}
+const applyStatus = (v : AIQAStatus, original : boolean) : boolean => {
+	answer.value = null
+	if (v.skill != 'report_qa') { status.value = null; message.value = '原问题技能与当前报告追问不一致，已停止展示'; return false }
+	if (original && (pending.value == null || pending.value!.conversationId != boundCID || pending.value!.taskId != boundTask || !qaMatchesPending(v,pending.value!))) { status.value = null; message.value = '原问题与本机对象或输入不一致，已停止展示；请保留记录核查'; return false }
+	status.value = v; return true
+}
+const readStatus = async (seq : number) : Promise<void> => {
+	if (busy.value || !isSafeAIId(seq) || !current(generation,props.sessionToken)) return
+	const round : number = generation; const token : string = props.sessionToken
+	busy.value = true; answer.value = null; status.value = null; message.value = ''
+	try {
+		const r = await AIQAApi.status(boundCID,seq)
+		if (!current(round,token) || !accept(r.code)) return
+		if (r.code != 0 || r.data == null) { message.value = aiQAError(r.code); return }
+		applyStatus(r.data!,false)
+	} catch (_) { if (current(round,token)) message.value = aiQAError(50001) }
+	finally { if (current(round,token)) busy.value = false }
+}
+const check = async () : Promise<void> => {
+	if (busy.value || pending.value == null || pending.value!.conversationId != boundCID || pending.value!.taskId != boundTask || !current(generation,props.sessionToken)) return
+	const round : number = generation; const token : string = props.sessionToken; const p : AIPendingQA = pending.value!
+	busy.value = true; answer.value = null; status.value = null; message.value = ''
+	try {
+		const r = await AIQAApi.receipt(boundCID,p.key)
+		if (!current(round,token) || !accept(r.code)) return
+		if (r.code != 0 || r.data == null) { message.value = aiQAError(r.code); return }
+		applyStatus(r.data!,true)
+	} catch (_) { if (current(round,token)) message.value = aiQAError(50001) }
+	finally { if (current(round,token)) busy.value = false }
+}
+const submit = async () : Promise<void> => {
+	if (busy.value || props.archived || !safeStorage.value || pending.value != null || !isAIQAQuestion(question.value) || !isSafeAIId(props.taskId) || !isSafeAIId(props.subjectId) || !current(generation,props.sessionToken)) return
+	const round : number = generation; const token : string = props.sessionToken; const cid : number = boundCID; const originalPartition : string = partition; const text : string = question.value; const taskID : number = boundTask; const subjectID : number = props.subjectId
+	busy.value = true; status.value = null; answer.value = null; message.value = ''
+	try {
+		const conv = await AIConversationApi.detail(cid)
+		if (!current(round,token) || !accept(conv.code)) return
+		if (conv.code != 0 || conv.data == null || conv.data!.archived || props.archived) { message.value = '当前会话不可追问，请重新核对会话；未提交问题'; return }
+		const p : AIPendingQA | null = await reserveQA(originalPartition,cid,conv.data!.version,subjectID,taskID,'report_qa',text)
+		if (!current(round,token) || props.archived) { if (p != null) await clearPendingQA(originalPartition,p.key); return }
+		if (p == null) { pending.value = readPendingQA(partition); message.value = '无法可靠保存原问题或已有待核查记录，未发送提交'; return }
+		pending.value = p
+		const r = await AIQAApi.submit(p)
+		if (!current(round,token) || !accept(r.code)) return
+		if (r.code != 0 || r.data == null) { message.value = aiQAError(r.code); return }
+		applyStatus(r.data!,true)
+	} catch (_) { if (current(round,token)) { try { pending.value = readPendingQA(partition) } catch (_) { safeStorage.value = false }; message.value = '提交结果未确认，请保留本机记录并核查原问题；未自动重发' } }
+	finally { if (current(round,token)) busy.value = false }
+}
+const readAnswer = async () : Promise<void> => {
+	if (busy.value || status.value == null || !['answered','refused'].includes(status.value!.state) || !current(generation,props.sessionToken)) return
+	const round : number = generation; const token : string = props.sessionToken; const v : AIQAStatus = status.value!
+	busy.value = true; answer.value = null; message.value = ''
+	try {
+		const r = await AIQAApi.answer(boundCID,v.seq)
+		if (!current(round,token) || !accept(r.code)) return
+		if (r.code != 0 || r.data == null || r.data!.state != v.state) { message.value = aiQAError(r.code == 0 ? 50001 : r.code); return }
+		answer.value = r.data!
+	} catch (_) { if (current(round,token)) message.value = aiQAError(50001) }
+	finally { if (current(round,token)) busy.value = false }
+}
+const openQuote = async (index : number) : Promise<void> => {
+	if (busy.value || answer.value == null || status.value == null || status.value!.state != 'answered' || index < 0 || index >= answer.value!.quotes.length || !current(generation,props.sessionToken)) return
+	const round : number = generation; const token : string = props.sessionToken; const seq : number = status.value!.seq; const original : AIQAQuote = answer.value!.quotes[index]
+	busy.value = true; answer.value = null; message.value = ''
+	try {
+		const r = await AIQAApi.answer(boundCID,seq)
+		if (!current(round,token) || !accept(r.code)) return
+		if (r.code != 0 || r.data == null || r.data!.state != 'answered' || r.data!.quotes.length <= index || JSON.stringify(r.data!.quotes[index]) != JSON.stringify(original)) { busy.value = false; message.value = '当前出处未通过重新核对，未打开链接'; return }
+		answer.value = r.data!
+		const url : string = r.data!.quotes[index].sourceUrl
+		uni.showModal({title:'打开已核对出处',content:'即将前往原文链接，请确认来源：'+url,confirmText:'打开原文',cancelText:'暂不打开',success:(decision) => {
+			if (!current(round,token)) return
+			busy.value = false
+			if (!decision.confirm) return
+			// #ifdef WEB
+			const target = window.open(url,'_blank'); if (target != null) { target.opener = null; return }
+			// #endif
+			copySafeExternalUrl(url)
+		},fail:() => { if (current(round,token)) busy.value = false }})
+	} catch (_) { if (current(round,token)) { busy.value = false; message.value = aiQAError(50001) } }
+}
+const finish = async () : Promise<void> => {
+	if (busy.value || pending.value == null || pending.value!.conversationId != boundCID || pending.value!.taskId != boundTask || !current(generation,props.sessionToken)) return
+	const round : number = generation; const token : string = props.sessionToken; const p : AIPendingQA = pending.value!
+	busy.value = true; answer.value = null; message.value = ''
+	try {
+		const r = await AIQAApi.receipt(boundCID,p.key)
+		if (!current(round,token) || !accept(r.code)) return
+		if (r.code != 0 || r.data == null || r.data!.skill != 'report_qa' || !qaMatchesPending(r.data!,p) || !['answered','refused','failed'].includes(r.data!.state)) { status.value = null; message.value = '原问题尚未核实终态，保留原键，未开始新问题'; return }
+		const cleared : boolean = await clearPendingQA(partition,p.key)
+		if (!current(round,token)) return
+		if (!cleared) { message.value = '本机原键已变化，保留记录继续核查'; return }
+		pending.value = null; status.value = null; question.value = ''; message.value = '本地原键已清理，服务端问题历史仍保留'; emit('saved')
+	} catch (_) { if (current(round,token)) message.value = '原问题核查或本机存储失败，未开始新问题' }
+	finally { if (current(round,token)) busy.value = false }
+}
+watch(() : string => props.sessionToken+'|'+props.conversationId.toString()+'|'+props.taskId.toString(), () => {
+	generation++; boundCID = props.conversationId; boundTask = props.taskId; status.value = null; answer.value = null; question.value = ''; pending.value = null; busy.value = false; safeStorage.value = false; message.value = ''; partition = qaPartition(props.sessionToken)
+	if (!current(generation,props.sessionToken)) return
+	try { pending.value = readPendingQA(partition); safeStorage.value = true; if (pending.value != null && (pending.value!.skill != 'report_qa' || pending.value!.taskId != boundTask)) message.value = '本机另有一条待核查问题，请先在对应位置核查；此处不会另建第二个' }
+	catch (_) { message.value = '本机原问题记录不可读取，暂不提交；请保留记录联系维护者核查' }
+}, {immediate:true})
+onBeforeUnmount(() => { active = false; generation++; status.value = null; answer.value = null; pending.value = null })
+</script>
+
+<template>
+	<x-sheet :margin="16" :padding="16" :round="12" dark-color="#ffffff">
+		<text class="report-qa-heading text-weight-b">报告追问 · 任务 #{{ taskId }}</text>
+		<text class="report-qa-copy mt-8">仅在本人当前可读报告中查找已终检引文，无证据固定拒答；不扣积分、不生成新报告、不联网。</text>
+		<text v-if="archived" class="report-qa-copy mt-8">当前会话已归档，只能核查已有问题。</text>
+		<view v-if="!archived && safeStorage && pending == null" class="mt-12">
+			<x-input type="textarea" :model-value="question" @update:modelValue="question = $event" :trim="false" :maxlength="2000" height="112" placeholder="输入针对本报告的事实问题，最多1000字" :disabled="busy"></x-input>
+			<x-button class="mt-8" height="44" :block="true" :disabled="busy || !isAIQAQuestion(question)" @click="submit">提交报告追问（不扣积分）</x-button>
+		</view>
+		<view v-if="pending != null" class="mt-12">
+			<text class="report-qa-copy">本机保留有原报告问题，暂不提交第二个。超时或暂未查到不代表未保存。</text>
+			<x-button v-if="pending!.conversationId == conversationId && pending!.taskId == taskId" class="mt-8" height="44" :block="true" skin="outline" :disabled="busy" @click="check">核查本机原问题</x-button>
+			<text v-else class="report-qa-copy mt-4">待核查问题属于会话 #{{ pending!.conversationId }} / 任务 #{{ pending!.taskId }}，请回到对应报告核查。</text>
+		</view>
+		<text v-if="busy" class="report-qa-copy mt-12">正在核对本次操作，请勿重复提交；不会展示未经核验的模型原文。</text>
+		<view v-if="status != null" class="mt-12">
+			<text class="report-qa-heading">问题 #{{ status!.seq }}：{{ status!.question }}</text>
+			<text class="report-qa-copy mt-4">{{ aiQAStateLabel(status!.state) }} · {{ formatMillis(status!.updatedAt) }}</text>
+			<x-button class="mt-8" height="44" :block="true" skin="outline" :disabled="busy" @click="readStatus(status!.seq)">刷新问题状态</x-button>
+			<x-button v-if="status!.state == 'answered' || status!.state == 'refused'" class="mt-8" height="44" :block="true" :disabled="busy" @click="readAnswer">核对当前答案</x-button>
+		</view>
+		<view v-if="answer != null" class="mt-12">
+			<text class="report-qa-heading">{{ answer!.subjectName }}</text>
+			<text class="report-qa-copy mt-4">{{ answer!.template }}</text>
+			<text v-if="answer!.aiGenerated" class="report-qa-copy mt-4">AI 生成 · 模型 {{ answer!.modelName }} · 备案号 {{ answer!.filingNo }}</text>
+			<text v-else class="report-qa-copy mt-4">固定提示，本次未调用模型。</text>
+			<view v-for="(q,index) in answer!.quotes" :key="index" class="mt-12">
+				<text class="report-qa-excerpt">{{ q.excerpt }}</text>
+				<text class="report-qa-copy mt-4">{{ aiSourceTypeLabel(q.sourceType) }} · {{ formatMillis(q.collectedAt) }}</text>
+				<text class="report-qa-copy mt-4">{{ q.sourceUrl }}</text>
+				<x-button class="mt-8" height="44" :block="true" skin="outline" :disabled="busy" @click="openQuote(index)">重新核对并打开出处 #{{ index + 1 }}</x-button>
+			</view>
+		</view>
+		<x-button v-if="pending != null && pending!.conversationId == conversationId && pending!.taskId == taskId && status != null && qaMatchesPending(status!,pending!) && (status!.state == 'answered' || status!.state == 'refused' || status!.state == 'failed')" class="mt-12" height="44" :block="true" skin="outline" :disabled="busy" @click="finish">核实终态并清理本地原键</x-button>
+		<text v-if="message != ''" class="report-qa-copy mt-12">{{ message }}</text>
+	</x-sheet>
+</template>
+
+<style scoped>
+.report-qa-heading { color: #30343c; line-height: 24px; }
+.report-qa-copy { color: #586174; font-size: 14px; line-height: 22px; }
+.report-qa-excerpt { color: #30343c; line-height: 25px; white-space: pre-wrap; }
+</style>

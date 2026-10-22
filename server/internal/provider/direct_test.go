@@ -24,7 +24,7 @@ func TestDirectProfileAndTransport(t *testing.T) {
 		t.Fatal("直连模型/身份匹配错误")
 	}
 	tr, ok := a.client.Transport.(*http.Transport)
-	if !ok || tr.Proxy != nil || tr.TLSClientConfig == nil || a.maxBody != 16<<10 || a.client.CheckRedirect(nil, nil) != http.ErrUseLastResponse {
+	if !ok || tr.Proxy != nil || tr.TLSClientConfig == nil || a.maxBody != 1<<20 || a.client.CheckRedirect(nil, nil) != http.ErrUseLastResponse {
 		t.Fatal("直连边界不完整")
 	}
 	for _, change := range []func(*Config){func(c *Config) { c.BaseURL = "https://other.example.test/v1" }, func(c *Config) { c.Model = "other-model" }, func(c *Config) { c.TimeoutMS = 2000 }} {

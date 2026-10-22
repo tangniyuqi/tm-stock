@@ -85,6 +85,11 @@ func verifyReportMetadata(ctx context.Context, tx *sql.Tx) error {
 }
 
 func probeReportConstraints(ctx context.Context, tx *sql.Tx) error {
+	return probeReportConstraintsWith(ctx, tx, nil)
+}
+
+// 反馈启动探针复用同事务中的新报告正例，不读取或修改任何历史用户报告。
+func probeReportConstraintsWith(ctx context.Context, tx *sql.Tx, onSuccess func(context.Context, *sql.Tx, finalreport.Commit) error) error {
 	v, err := budgetProbeTask(ctx, tx)
 	if err != nil {
 		return err
@@ -173,6 +178,11 @@ func probeReportConstraints(ctx context.Context, tx *sql.Tx) error {
 		}
 		if err := a.InsertReportCommit(ctx, c); err != nil {
 			return fmt.Errorf("报告正例失败: %w", err)
+		}
+		if status == task.Succeeded && onSuccess != nil {
+			if err := onSuccess(ctx, tx, c); err != nil {
+				return err
+			}
 		}
 		for _, q := range []string{`UPDATE tm_ai_report_commits SET updated_at=updated_at WHERE task_id=?`, `DELETE FROM tm_ai_report_commits WHERE task_id=?`} {
 			if _, err := tx.ExecContext(ctx, q, c.TaskID); !pointsProbeError(err, 1644) {

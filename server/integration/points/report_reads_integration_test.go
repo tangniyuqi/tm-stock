@@ -28,22 +28,49 @@ import (
 
 // 仅测试当前发布批准；不能作为真实模型/质量/可见授权控制器装入生产。
 type readSQLPublication struct {
-	x       *reportEnv
-	allowed atomic.Bool
-	calls   atomic.Int32
-	denyAt  int32
-	hook    func(context.Context) error
+	x             *reportEnv
+	allowed       atomic.Bool
+	calls         atomic.Int32
+	denyAt        int32
+	hook          func(context.Context) error
+	model, filing string // 固定测试批准的实际披露；不得从待发布报告反推放行配置。
 }
 
 func (c *readSQLPublication) Recheck(ctx context.Context, p service.AIReportPublication) error {
 	n := c.calls.Add(1)
-	if !c.allowed.Load() || n == c.denyAt || p.UserID != c.x.v.UserID || p.TaskID != c.x.v.ID || p.SubjectID != c.x.v.SubjectID || !finalreport.ValidDigest(p.ReportDigest) || p.PolicyDigest != c.x.policy.Digest() || p.ModelName != "测试模型" || p.FilingNo != "test-only-filing" {
+	policyOK := p.PolicyDigest == c.x.policy.Digest() || c.x.deepPolicy != nil && p.PolicyDigest == c.x.deepPolicy.Digest()
+	if !c.allowed.Load() || n == c.denyAt || p.UserID != c.x.v.UserID || p.TaskID != c.x.v.ID || p.SubjectID != c.x.v.SubjectID || !finalreport.ValidDigest(p.ReportDigest) || !policyOK || p.ModelName != c.model || p.FilingNo != c.filing {
 		return finalreport.ErrUnavailable
 	}
 	if c.hook != nil {
 		return c.hook(ctx)
 	}
 	return ctx.Err()
+}
+
+func TestReadSQLPublicationModelBinding(t *testing.T) {
+	policy, err := finalreport.NewPolicy(finalreport.Config{Ref: "test-only", ModelName: "deepseek-flash", FilingNo: "test-only-filing", EntailmentVersion: "test-ent", SemanticVersion: "test-sem", AllowedDomains: []string{"evidence.example.test"}},
+		func(context.Context, finalreport.EntailmentInput) (finalreport.Verdict, error) {
+			return finalreport.Uncertain, nil
+		}, func(context.Context, string) (finalreport.Verdict, error) { return finalreport.Uncertain, nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+	x := &reportEnv{policy: policy}
+	x.v.ID, x.v.UserID, x.v.SubjectID = 1, 1, 1
+	c := &readSQLPublication{x: x, model: "deepseek-flash", filing: "test-only-filing"}
+	c.allowed.Store(true)
+	p := service.AIReportPublication{UserID: 1, TaskID: 1, SubjectID: 1, ReportDigest: strings.Repeat("a", 64), PolicyDigest: policy.Digest(), ModelName: c.model, FilingNo: c.filing}
+	if err := c.Recheck(context.Background(), p); err != nil {
+		t.Fatal("实际批准模型被测试夹具误拒绝", err)
+	}
+	for _, change := range []func(*service.AIReportPublication){func(p *service.AIReportPublication) { p.ModelName = "测试模型" }, func(p *service.AIReportPublication) { p.FilingNo = "other" }, func(p *service.AIReportPublication) { p.PolicyDigest = strings.Repeat("b", 64) }} {
+		bad := p
+		change(&bad)
+		if c.Recheck(context.Background(), bad) == nil {
+			t.Fatal("模型、披露或政策错绑未拒绝")
+		}
+	}
 }
 
 type readSQLUnknownStore struct {
@@ -71,11 +98,14 @@ func reportHTTPFixture(t *testing.T, x *reportEnv, mode string) *reportHTTPEnv {
 	return reportHTTPFixtureWithMembers(t, x, mode, true)
 }
 func reportHTTPFixtureWithMembers(t *testing.T, x *reportEnv, mode string, createMembers bool) *reportHTTPEnv {
+	return reportHTTPFixtureWithModel(t, x, mode, createMembers, "测试模型", "test-only-filing")
+}
+func reportHTTPFixtureWithModel(t *testing.T, x *reportEnv, mode string, createMembers bool, model, filing string) *reportHTTPEnv {
 	t.Helper()
 	if createMembers {
 		x.mustExec(`CREATE TABLE addon_member(id bigint unsigned PRIMARY KEY,status tinyint NOT NULL,deleted_at datetime(3));INSERT INTO addon_member VALUES(1,1,NULL),(2,1,NULL),(3,0,NULL)`)
 	}
-	ctl := &readSQLPublication{x: x}
+	ctl := &readSQLPublication{x: x, model: model, filing: filing}
 	ctl.allowed.Store(true)
 	var store finalreport.Store = x.repo
 	if mode == "unknown_read" {
@@ -85,7 +115,14 @@ func reportHTTPFixtureWithMembers(t *testing.T, x *reportEnv, mode string, creat
 	if err != nil {
 		t.Fatal(err)
 	}
-	reader, err := service.NewAIReportReadService(base, ctl, mode != "off")
+	var deep *service.AIReportService
+	if x.deepPolicy != nil {
+		deep, err = service.NewAIReportService(store, x.ledger, x.deepPolicy, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	reader, err := service.NewAIReportReadServiceWithDeep(base, deep, ctl, mode != "off")
 	if err != nil {
 		t.Fatal(err)
 	}

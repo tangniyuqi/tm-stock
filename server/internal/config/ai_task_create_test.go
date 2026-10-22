@@ -24,3 +24,18 @@ func TestLoadAITaskCreateIsIndependentAndClosed(t *testing.T) {
 		}
 	}
 }
+func TestAIDeepCreateConfigClosed(t *testing.T) {
+	for _, tc := range []struct {
+		create, deep string
+		on, bad      bool
+	}{{"true", "", false, false}, {"true", "false", false, false}, {"true", "true", true, false}, {"false", "true", false, true}, {"true", "yes", false, true}} {
+		t.Setenv("TM_AI_TASK_CREATE_ENABLED", tc.create)
+		t.Setenv("TM_AI_DEEP_SUBMIT_ENABLED", tc.deep)
+		t.Setenv("TM_DEV_GRANT_PAID", "true")
+		on, err := LoadAIDeepCreate(tc.create == "true")
+		if on != tc.on || (err != nil) != tc.bad {
+			t.Fatal(tc, on, err)
+		}
+	}
+	_ = strings.Repeat
+}

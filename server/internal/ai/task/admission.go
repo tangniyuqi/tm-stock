@@ -16,6 +16,15 @@ var (
 	ErrAdmissionUnavailable = fmt.Errorf("任务创建准入不可用")
 )
 
+const (
+	LightAnalysisType = 1
+	DeepAnalysisType  = 2
+	DeepPricePoints   = 30
+	DeepMinQuotes     = 6
+	DeepMaxPerUser    = 1
+	DeepMaxGlobal     = 5
+)
+
 type AdmissionScope struct {
 	UserID       int64
 	AnalysisType int
@@ -57,7 +66,7 @@ func (p AdmissionPlan) Validate(scope AdmissionScope) error {
 	if p.CompanyDigest != "" && !digestPattern.MatchString(p.CompanyDigest) {
 		return points.ErrInvalid
 	}
-	if scope.Validate() != nil || p.Scope != scope || scope.AnalysisType != 1 || scope.SubjectType != Theme || p.Price.Validate() != nil || p.Budget.Validate() != nil || p.Budget.MaxCalls < 5 || !digestPattern.MatchString(p.ProfileDigest) || !digestPattern.MatchString(p.ExecutionDigest) {
+	if scope.Validate() != nil || p.Scope != scope || scope.SubjectType != Theme || p.Price.Validate() != nil || p.Budget.Validate() != nil || p.Budget.MaxCalls < 5 || !digestPattern.MatchString(p.ProfileDigest) || !digestPattern.MatchString(p.ExecutionDigest) {
 		return points.ErrInvalid
 	}
 	for _, ref := range []string{p.ApprovalRef, p.QualityRef, p.HardBudgetRef, p.PriceRef, p.SourceRef} {

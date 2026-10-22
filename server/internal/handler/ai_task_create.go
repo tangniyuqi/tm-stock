@@ -43,6 +43,14 @@ func (h *AITaskCreateHandler) Register(mux *http.ServeMux, auth func(http.Handle
 }
 
 func taskSubmissionBody(w http.ResponseWriter, r *http.Request, target any, allowed ...string) error {
+	return boundedSubmissionBody(w, r, target, 2048, allowed...)
+}
+func boundedSubmissionBody(w http.ResponseWriter, r *http.Request, target any, limit int64, allowed ...string) error {
+	return boundedSubmissionBodyOptional(w, r, target, limit, allowed, nil)
+}
+
+// boundedSubmissionBodyOptional 允许少量可选字段；所有出现的字段仍必须在闭集内。
+func boundedSubmissionBodyOptional(w http.ResponseWriter, r *http.Request, target any, limit int64, required, optional []string) error {
 	if r.URL.RawQuery != "" || r.URL.ForceQuery || len(r.Header.Values("Content-Encoding")) != 0 || r.Body == nil {
 		return points.ErrInvalid
 	}
@@ -59,17 +67,34 @@ func taskSubmissionBody(w http.ResponseWriter, r *http.Request, target any, allo
 			return points.ErrInvalid
 		}
 	}
-	raw, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 2048))
+	raw, err := io.ReadAll(http.MaxBytesReader(w, r.Body, limit))
 	if err != nil || task.CheckStageJSON(raw) != nil {
 		return points.ErrInvalid
 	}
 	var fields map[string]json.RawMessage
-	if json.Unmarshal(raw, &fields) != nil || len(fields) != len(allowed) {
+	if json.Unmarshal(raw, &fields) != nil || len(fields) < len(required) || len(fields) > len(required)+len(optional) {
 		return points.ErrInvalid
 	}
-	for _, name := range allowed {
-		value, ok := fields[name]
-		if !ok || bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+	isAllowed := func(name string) bool {
+		for _, v := range required {
+			if v == name {
+				return true
+			}
+		}
+		for _, v := range optional {
+			if v == name {
+				return true
+			}
+		}
+		return false
+	}
+	for name, value := range fields {
+		if !isAllowed(name) || bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+			return points.ErrInvalid
+		}
+	}
+	for _, name := range required {
+		if _, ok := fields[name]; !ok {
 			return points.ErrInvalid
 		}
 	}

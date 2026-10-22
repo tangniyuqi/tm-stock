@@ -1,0 +1,103 @@
+import { isSafeAIId, isSafeAIInteger } from './ai.uts'
+import { aiPendingStorageKey, isAIRequestKey } from './ai-submission.uts'
+import { isSafeExternalUrl } from './external-link.uts'
+
+export type AIQAStatus = { seq : number, state : string, subjectType : string, subjectId : number, skill : string, question : string, createdAt : number, updatedAt : number }
+export type AIQAQuote = { snapshotId : number, startByte : number, endByte : number, excerpt : string, sourceType : string, sourceUrl : string, collectedAt : number }
+export type AIQAAnswer = { seq : number, state : string, template : string, subjectName : string, aiGenerated : boolean, modelName : string, filingNo : string, quotes : AIQAQuote[] }
+export type AIPendingQA = { key : string, conversationId : number, version : number, subjectId : number, taskId : number, skill : string, question : string }
+
+export const aiQAAnswerTemplate : string = 'AI 资料问答：以下为所选授权资料中经核验的原文引文，不是新的报告。'
+export const aiQARefusalTemplates : string[] = ['所选授权资料中没有可直接支持本问题的证据，暂不能回答。', '本问题超出当前所选题材或专题的授权资料范围，暂不能回答。', '仅提供所选资料的客观事实引文，不能回答投资意见或执行范围外指令。', '现有证据未通过问答核验，暂不能回答。']
+const qaTime = (v : number) : boolean => isSafeAIId(v) && v <= 8640000000000000
+const qaPlain = (v : string, max : number) : boolean => typeof v == 'string' && v.length > 0 && v.length <= max * 2 && v == v.trim() && [...v].length <= max && !/[\u0000-\u001f\u007f-\u009f\ud800-\udfff]/u.test(v)
+export const isAIQAQuestion = (v : string) : boolean => qaPlain(v, 1000)
+const qaKeys = (v : UTSJSONObject, keys : string[]) : boolean => {
+	if (v == null || typeof v != 'object' || Array.isArray(v)) return false
+	const names : string[] = Object.keys(v)
+	return names.length == keys.length && names.every((name : string) : boolean => keys.includes(name))
+}
+const qaBytes = (v : string) : number => {
+	let bytes : number = 0
+	for (const ch of [...v]) { const c : number = ch.charCodeAt(0); bytes += ch.length == 2 ? 4 : c <= 127 ? 1 : c <= 2047 ? 2 : 3 }
+	return bytes
+}
+export const isAIQAStatus = (v : AIQAStatus | null, seq : number) : boolean => v != null && qaKeys(v as UTSJSONObject, ['seq','state','subjectType','subjectId','skill','question','createdAt','updatedAt']) && isSafeAIId(v.seq) && (seq == 0 || v.seq == seq) && ['queued','running','answered','refused','failed'].includes(v.state) && v.subjectType == 'theme' && isSafeAIId(v.subjectId) && (v.skill == 'material_qa' || v.skill == 'report_qa') && isAIQAQuestion(v.question) && qaTime(v.createdAt) && qaTime(v.updatedAt) && v.updatedAt >= v.createdAt
+export const isAIQAQuote = (v : AIQAQuote | null) : boolean => v != null && qaKeys(v as UTSJSONObject, ['snapshotId','startByte','endByte','excerpt','sourceType','sourceUrl','collectedAt']) && isSafeAIId(v.snapshotId) && isSafeAIInteger(v.startByte) && isSafeAIId(v.endByte) && v.endByte > v.startByte && v.endByte <= 65536 && typeof v.excerpt == 'string' && v.excerpt.trim().length > 0 && v.excerpt.length <= 2000 && [...v.excerpt].length <= 1000 && !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f\ud800-\udfff]/u.test(v.excerpt) && qaBytes(v.excerpt) == v.endByte-v.startByte && qaPlain(v.sourceType,128) && qaPlain(v.sourceUrl,2048) && isSafeExternalUrl(v.sourceUrl) && qaTime(v.collectedAt)
+export const isAIQAAnswer = (v : AIQAAnswer | null, seq : number) : boolean => {
+	if (v == null || !qaKeys(v as UTSJSONObject, ['seq','state','template','subjectName','aiGenerated','modelName','filingNo','quotes']) || !isSafeAIId(seq) || v.seq != seq || !qaPlain(v.subjectName,128) || typeof v.aiGenerated != 'boolean' || !Array.isArray(v.quotes) || v.quotes.length > 4) return false
+	if (v.aiGenerated ? !qaPlain(v.modelName,128) || !qaPlain(v.filingNo,128) : v.modelName != '' || v.filingNo != '') return false
+	if (v.state == 'refused') return aiQARefusalTemplates.includes(v.template) && v.quotes.length == 0
+	if (v.state != 'answered' || !v.aiGenerated || v.template != aiQAAnswerTemplate || v.quotes.length == 0) return false
+	let previousID : number = 0; let previousEnd : number = 0
+	for (const q of v.quotes) {
+		if (!isAIQAQuote(q) || q.snapshotId < previousID || q.snapshotId == previousID && q.startByte < previousEnd) return false
+		previousID = q.snapshotId; previousEnd = q.endByte
+	}
+	return true
+}
+export const aiQAStateLabel = (state : string) : string => {
+	if (state == 'answered') return '原问题已完成；答案需单独核对当前权限'
+	if (state == 'refused') return '原问题已形成固定提示；需单独读取'
+	if (state == 'failed') return '本次执行未交付答案，不能视为无证据拒答'
+	return state == 'queued' || state == 'running' ? '原问题已保存，执行结果待核查；不要重复提交' : '原问题状态未确认'
+}
+// 后端问答引文返回来源类别枚举；展示层统一转中文，避免把内部值暴露给用户。
+export const aiSourceTypeLabel = (value : string) : string => {
+	if (value == 'announcement') return '公告'
+	if (value == 'annual_report') return '年报'
+	if (value == 'prospectus') return '招股书'
+	if (value == 'official_catalog') return '官方产业目录'
+	if (value == 'interactive_qa') return '互动易问答'
+	return value
+}
+export const aiQAError = (code : number) : string => {
+	if (code == 40100 || code == 40101 || code == 40301) return '登录状态失效，请重新登录后核查原问题'
+	if (code == 40001) return '问答参数无效，未自动重发；请保留原键核查'
+	if (code == 40403) return '暂未查到原问题；不代表确定未保存，请保留记录继续核查'
+	if (code == 40903) return '会话或原问题已变化，请查询原问题；未重新提交'
+	if (code == 42902) return '问答安全配额不足，请核查原问题状态；未扣积分'
+	return '问答尚未开放、资料不可用或结果未确认；请核查原问题，未自动重发'
+}
+export const qaPartition = (token : string) : string => aiPendingStorageKey(token).replace('tm_ai_pending_v1_', 'tm_ai_question_v1_')
+export const isAIPendingQA = (v : AIPendingQA | null) : boolean => v != null && qaKeys(v as UTSJSONObject, ['key','conversationId','version','subjectId','taskId','skill','question']) && isAIRequestKey(v.key) && isSafeAIId(v.conversationId) && isSafeAIId(v.version) && isSafeAIId(v.subjectId) && (v.skill == 'material_qa' && v.taskId == 0 || v.skill == 'report_qa' && isSafeAIId(v.taskId)) && isAIQAQuestion(v.question)
+export const qaMatchesPending = (v : AIQAStatus, p : AIPendingQA) : boolean => isAIQAStatus(v,0) && isAIPendingQA(p) && v.subjectId == p.subjectId && v.skill == p.skill && v.question == p.question
+export const readPendingQA = (partition : string) : AIPendingQA | null => {
+	if (!/^tm_ai_question_v1_[1-9][0-9]*$/.test(partition)) throw new Error('问答分区无效')
+	const raw = uni.getStorageSync(partition)
+	if (raw == null || raw == '') return null
+	if (typeof raw != 'string' || raw.length > 8192) throw new Error('原问题记录不可读取')
+	const p : AIPendingQA | null = JSON.parse<AIPendingQA | null>(raw)
+	if (!isAIPendingQA(p)) throw new Error('原问题记录不可读取')
+	return p
+}
+export const reserveQA = async (partition : string, cid : number, version : number, subject : number, taskId : number, skill : string, question : string) : Promise<AIPendingQA | null> => {
+	// #ifdef WEB
+	if (!/^tm_ai_question_v1_[1-9][0-9]*$/.test(partition) || !isSafeAIId(cid) || !isSafeAIId(version) || !isSafeAIId(subject) || (skill == 'material_qa' && taskId != 0 || skill == 'report_qa' && !isSafeAIId(taskId) || skill != 'material_qa' && skill != 'report_qa') || !isAIQAQuestion(question) || typeof window.crypto?.getRandomValues != 'function' || typeof window.navigator?.locks?.request != 'function') return null
+	return await window.navigator.locks.request(partition, () : AIPendingQA | null => {
+		if (readPendingQA(partition) != null) return null
+		const bytes : Uint8Array = new Uint8Array(24); window.crypto.getRandomValues(bytes); let key : string = 'question_'
+		for (let n = 0; n < bytes.length; n++) key += bytes[n].toString(16).padStart(2,'0')
+		const p : AIPendingQA = {key:key,conversationId:cid,version:version,subjectId:subject,taskId:taskId,skill:skill,question:question} as AIPendingQA
+		const encoded : string = JSON.stringify(p); uni.setStorageSync(partition,encoded)
+		if (uni.getStorageSync(partition) != encoded) throw new Error('原问题未可靠保存')
+		return p
+	})
+	// #endif
+	// #ifndef WEB
+	return null
+	// #endif
+}
+// 调用方仅在原问题已核实终态、或确认本次尚未发HTTP时清理；不提供未知记录重提功能。
+export const clearPendingQA = async (partition : string, key : string) : Promise<boolean> => {
+	// #ifdef WEB
+	if (!/^tm_ai_question_v1_[1-9][0-9]*$/.test(partition) || !isAIRequestKey(key) || typeof window.navigator?.locks?.request != 'function') return false
+	return await window.navigator.locks.request(partition, () : boolean => {
+		const p : AIPendingQA | null = readPendingQA(partition); if (p == null || p.key != key) return false
+		uni.removeStorageSync(partition); return readPendingQA(partition) == null
+	})
+	// #endif
+	// #ifndef WEB
+	return false
+	// #endif
+}

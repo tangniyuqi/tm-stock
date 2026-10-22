@@ -9,8 +9,20 @@ import (
 
 type RecoveryOptions struct{ Lease, Heartbeat, Timeout time.Duration }
 
+// 2026-10-22 用户批准：真实多 Agent 约9分钟，单任务恢复上限由5分钟提高到30分钟。
+var maxRecoveryTimeout = 30 * time.Minute
+
+// SetMaxRecoveryTimeout 仅供启动装配/本地验收收紧或调整上限；不得超过30分钟。
+func SetMaxRecoveryTimeout(d time.Duration) error {
+	if d < time.Second || d > 30*time.Minute {
+		return points.ErrInvalid
+	}
+	maxRecoveryTimeout = d
+	return nil
+}
+
 func (o RecoveryOptions) Validate() error {
-	if o.Lease < time.Second || o.Lease > 10*time.Minute || o.Lease%time.Millisecond != 0 || o.Heartbeat < 50*time.Millisecond || o.Heartbeat > o.Lease/3 || o.Timeout < time.Second || o.Timeout > 5*time.Minute {
+	if o.Lease < time.Second || o.Lease > 10*time.Minute || o.Lease%time.Millisecond != 0 || o.Heartbeat < 50*time.Millisecond || o.Heartbeat > o.Lease/3 || o.Timeout < time.Second || o.Timeout > maxRecoveryTimeout {
 		return points.ErrInvalid
 	}
 	return nil

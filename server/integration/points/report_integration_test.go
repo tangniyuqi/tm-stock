@@ -43,6 +43,7 @@ type reportEnv struct {
 	calls                atomic.Int32
 	hook                 func(context.Context) error
 	entailment, semantic finalreport.Verdict
+	deepPolicy           *finalreport.Policy
 }
 
 func reportDDL(t *testing.T, e *pointsTestEnv, name string) {

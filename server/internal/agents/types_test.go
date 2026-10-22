@@ -78,7 +78,7 @@ func TestRecordAndTransitionContract(t *testing.T) {
 	if Terminal(Running) || !Terminal(Quarantined) || ValidRemoteState(Submitting) {
 		t.Fatal("状态分类错误")
 	}
-	for _, payload := range []string{`null`, `[]`, `{}`, `{"analysis_id":"other","reports":{"news":"x"}}`, `{"analysis_id":"remote-1","reports":{}}`, string([]byte{0xff})} {
+	for _, payload := range []string{`null`, `[]`, `{}`, `{"analysis_id":"","reports":{"news":"x"}}`, `{"analysis_id":"remote-1","reports":{}}`, string([]byte{0xff})} {
 		r := result
 		r.Payload = []byte(payload)
 		if r.Valid() {

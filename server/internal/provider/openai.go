@@ -40,6 +40,8 @@ type OpenAICompat struct {
 	clock         Clock
 	client        *http.Client
 	directProfile string
+	jsonFallback  bool
+	reasoning     string
 }
 
 var _ Provider = (*OpenAICompat)(nil)
@@ -113,13 +115,15 @@ func New(cfg Config, opts ...Option) (*OpenAICompat, error) {
 		rt = newTransport()
 	}
 	return &OpenAICompat{
-		name:     cfg.Name,
-		endpoint: base + "/chat/completions",
-		model:    cfg.Model,
-		bearer:   cfg.APIKey,
-		timeout:  timeout,
-		maxBody:  o.maxBody,
-		clock:    clockOrReal(o.clock),
+		name:         cfg.Name,
+		endpoint:     base + "/chat/completions",
+		model:        cfg.Model,
+		bearer:       cfg.APIKey,
+		timeout:      timeout,
+		maxBody:      o.maxBody,
+		clock:        clockOrReal(o.clock),
+		jsonFallback: cfg.JSONSchemaFallback,
+		reasoning:    cfg.ReasoningEffort,
 		client: &http.Client{
 			Transport: rt,
 			Timeout:   0, // 时限只由 context 控制，见 Generate
@@ -152,12 +156,13 @@ func (c *OpenAICompat) Name() string { return c.name }
 
 // chatRequest 是发给 /chat/completions 的请求体，字段名遵循 OpenAI 兼容协议。
 type chatRequest struct {
-	Model          string          `json:"model,omitempty"`
-	Messages       []chatMessage   `json:"messages"`
-	MaxTokens      int             `json:"max_tokens,omitempty"`
-	Temperature    *float64        `json:"temperature,omitempty"`
-	Seed           *int64          `json:"seed,omitempty"`
-	ResponseFormat *responseFormat `json:"response_format,omitempty"`
+	Model           string          `json:"model,omitempty"`
+	Messages        []chatMessage   `json:"messages"`
+	MaxTokens       int             `json:"max_tokens,omitempty"`
+	Temperature     *float64        `json:"temperature,omitempty"`
+	Seed            *int64          `json:"seed,omitempty"`
+	ResponseFormat  *responseFormat `json:"response_format,omitempty"`
+	ReasoningEffort string          `json:"reasoning_effort,omitempty"`
 }
 
 type chatMessage struct {
@@ -190,12 +195,13 @@ type chatResponse struct {
 }
 
 // buildBody 构造请求体。本地校验失败返回 BadRequest，此时不会向上游发任何请求。
-func buildBody(req Request, model string) ([]byte, *Error) {
+func buildBody(req Request, model string, jsonFallback bool, reasoning string) ([]byte, *Error) {
 	body := chatRequest{
-		Model:       model,
-		MaxTokens:   max(req.MaxTokens, 0),
-		Temperature: req.Temperature,
-		Seed:        req.Seed,
+		Model:           model,
+		MaxTokens:       max(req.MaxTokens, 0),
+		Temperature:     req.Temperature,
+		Seed:            req.Seed,
+		ReasoningEffort: reasoning,
 	}
 	if req.System != "" {
 		body.Messages = append(body.Messages, chatMessage{Role: "system", Content: req.System})
@@ -209,6 +215,12 @@ func buildBody(req Request, model string) ([]byte, *Error) {
 	case FormatJSONSchema:
 		if len(bytes.TrimSpace(req.Schema)) == 0 || !json.Valid(req.Schema) {
 			return nil, &Error{Kind: BadRequest, Code: "invalid_schema"}
+		}
+		if jsonFallback {
+			body.ResponseFormat = &responseFormat{Type: "json_object"}
+			instruction := "\n\n只返回一个符合以下 JSON Schema 的 JSON 对象，不要 Markdown、解释或额外文字：\n" + string(req.Schema)
+			body.Messages[len(body.Messages)-1].Content += instruction
+			break
 		}
 		body.ResponseFormat = &responseFormat{
 			Type:       "json_schema",
@@ -235,7 +247,7 @@ func (c *OpenAICompat) Generate(ctx context.Context, req Request) (Response, err
 	if model == "" {
 		model = c.model
 	}
-	body, berr := buildBody(req, model)
+	body, berr := buildBody(req, model, c.jsonFallback, c.reasoning)
 	if berr != nil {
 		return Response{}, berr
 	}

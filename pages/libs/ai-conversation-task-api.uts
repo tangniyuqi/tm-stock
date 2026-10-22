@@ -1,0 +1,31 @@
+import { MemberApi, MemberApiResult } from './member-api.uts'
+import { isSafeAIId, isSafeAIInteger } from './ai.uts'
+import { aiSubmissionError, isAIRequestKey } from './ai-submission.uts'
+import { AIConversationTask, AIConversationTasks, AIPendingIntent, isAIPendingIntent, isAIConversationTask, isAIConversationTasks } from './ai-conversation-task.uts'
+
+const intentFailure = <T>(code : number) : MemberApiResult<T> => ({code: code, message: aiSubmissionError(code), data: null} as MemberApiResult<T>)
+export class AIConversationTaskApi {
+	public static async list(cid : number, before : number) : Promise<MemberApiResult<AIConversationTasks>> {
+		if (!isSafeAIId(cid) || !isSafeAIInteger(before)) return intentFailure<AIConversationTasks>(40001)
+		const r : MemberApiResult<AIConversationTasks> = await MemberApi.aiConversationTask<AIConversationTasks>('list', cid, 0, before, {} as UTSJSONObject, '')
+		return r.code != 0 ? intentFailure<AIConversationTasks>(r.code) : isAIConversationTasks(r.data, before) ? r : intentFailure<AIConversationTasks>(50001)
+	}
+	public static async prepare(p : AIPendingIntent) : Promise<MemberApiResult<AIConversationTask>> {
+		if (!isAIPendingIntent(p) || p.intentId != 0 || p.confirmSent) return intentFailure<AIConversationTask>(40001)
+		const r : MemberApiResult<AIConversationTask> = await MemberApi.aiConversationTask<AIConversationTask>('prepare', p.conversationId, 0, 0, {analysis_type: p.analysisType, subject_type: 'theme', subject_id: p.subjectId, price_version: p.priceVersion} as UTSJSONObject, p.key)
+		return r.code != 0 ? intentFailure<AIConversationTask>(r.code) : isAIConversationTask(r.data, p.conversationId) ? r : intentFailure<AIConversationTask>(50001)
+	}
+	public static async receipt(cid : number, key : string) : Promise<MemberApiResult<AIConversationTask>> {
+		if (!isSafeAIId(cid) || !isAIRequestKey(key)) return intentFailure<AIConversationTask>(40001)
+		const r : MemberApiResult<AIConversationTask> = await MemberApi.aiConversationTask<AIConversationTask>('receipt', cid, 0, 0, {} as UTSJSONObject, key)
+		return r.code != 0 ? intentFailure<AIConversationTask>(r.code) : isAIConversationTask(r.data, cid) ? r : intentFailure<AIConversationTask>(50001)
+	}
+	private static async request(operation : string, cid : number, id : number) : Promise<MemberApiResult<AIConversationTask>> {
+		if (!['detail', 'confirm', 'reconcile'].includes(operation) || !isSafeAIId(cid) || !isSafeAIId(id)) return intentFailure<AIConversationTask>(40001)
+		const r : MemberApiResult<AIConversationTask> = await MemberApi.aiConversationTask<AIConversationTask>(operation, cid, id, 0, {} as UTSJSONObject, '')
+		return r.code != 0 ? intentFailure<AIConversationTask>(r.code) : isAIConversationTask(r.data, cid) && r.data!.id == id ? r : intentFailure<AIConversationTask>(50001)
+	}
+	public static detail(cid : number, id : number) : Promise<MemberApiResult<AIConversationTask>> { return AIConversationTaskApi.request('detail', cid, id) }
+	public static confirm(cid : number, id : number) : Promise<MemberApiResult<AIConversationTask>> { return AIConversationTaskApi.request('confirm', cid, id) }
+	public static reconcile(cid : number, id : number) : Promise<MemberApiResult<AIConversationTask>> { return AIConversationTaskApi.request('reconcile', cid, id) }
+}

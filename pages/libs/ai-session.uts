@@ -1,5 +1,7 @@
 // 复用现有 api/auth.uts 登录页保存的会员令牌；不读取管理端或历史占位令牌。
 export const currentAIMemberToken = () : string => {
-	const value = uni.getStorageSync('token')
-	return typeof value == 'string' && value.length > 0 && value == value.trim() ? value : ''
+	try {
+		const value = uni.getStorageSync('token')
+		return typeof value == 'string' && value.length > 0 && value == value.trim() ? value : ''
+	} catch (_) { return '' } // 存储不可访问时按退出处理，不能保留旧账号流和正文。
 }

@@ -1,0 +1,82 @@
+import { isSafeAIId, isSafeAIInteger } from './ai.uts'
+import { aiPendingStorageKey, isAIRequestKey } from './ai-submission.uts'
+
+export type AIConversationReceipt = { id : number, createdAt : number }
+export type AIConversationSummary = { id : number, title : string, archived : boolean, version : number, updatedAt : number }
+export type AIConversation = { id : number, title : string, archived : boolean, version : number, lastSeq : number, createdAt : number, updatedAt : number }
+export type AIConversations = { items : AIConversationSummary[], nextBeforeId : number, hasMore : boolean }
+export type AIConversationMessage = { seq : number, kind : string, subjectType : string, subjectId : number, skill : string, question : string, taskId : number, createdAt : number }
+export type AIConversationMessages = { conversationId : number, items : AIConversationMessage[], upperSeq : number, nextAfterSeq : number, hasMore : boolean }
+export type AIPendingConversation = { key : string, title : string }
+
+const timestamp = (n : number) : boolean => isSafeAIId(n) && n <= 8640000000000000
+export const isAIConversationTitle = (title : string) : boolean => typeof title == 'string' && title == title.trim() && [...title].length > 0 && [...title].length <= 40 && !/[\u0000-\u001f\u007f-\u009f\ud800-\udfff]/u.test(title)
+export const isAIConversationReceipt = (v : AIConversationReceipt | null) : boolean => v != null && isSafeAIId(v.id) && timestamp(v.createdAt)
+export const isAIConversationSummary = (v : AIConversationSummary | null) : boolean => v != null && isSafeAIId(v.id) && isAIConversationTitle(v.title) && typeof v.archived == 'boolean' && isSafeAIId(v.version) && timestamp(v.updatedAt)
+export const isAIConversation = (v : AIConversation | null, id : number) : boolean => v != null && isAIConversationSummary(v) && v.id == id && isSafeAIInteger(v.lastSeq) && v.version > v.lastSeq && timestamp(v.createdAt) && v.updatedAt >= v.createdAt
+export const isAIConversations = (v : AIConversations | null, before : number, archived : boolean) : boolean => {
+	if (v == null || !Array.isArray(v.items) || v.items.length > 20 || typeof v.hasMore != 'boolean' || !isSafeAIInteger(v.nextBeforeId)) return false
+	let previous : number = before
+	for (let n = 0; n < v.items.length; n++) { const row : AIConversationSummary = v.items[n]; if (!isAIConversationSummary(row) || row.archived != archived || (previous > 0 && row.id >= previous)) return false; previous = row.id }
+	return v.hasMore ? v.items.length > 0 && v.nextBeforeId == previous : v.nextBeforeId == 0
+}
+export const isAIConversationMessages = (v : AIConversationMessages | null, id : number, after : number) : boolean => {
+	if (v == null || !isSafeAIId(v.conversationId) || v.conversationId != id || !isSafeAIId(id) || !isSafeAIInteger(after) || !Array.isArray(v.items) || v.items.length > 20 || !isSafeAIInteger(v.upperSeq) || v.upperSeq < after || !isSafeAIInteger(v.nextAfterSeq) || typeof v.hasMore != 'boolean') return false
+	let seq : number = after
+	for (let n = 0; n < v.items.length; n++) {
+		const m : AIConversationMessage = v.items[n]
+		if (m == null || !isSafeAIId(m.seq) || m.seq != seq + 1 || m.seq > v.upperSeq || typeof m.kind != 'string' || !timestamp(m.createdAt) || !isSafeAIId(m.subjectId) || !['theme', 'topic'].includes(m.subjectType) || typeof m.question != 'string' || !isSafeAIInteger(m.taskId)) return false
+		if (m.kind == 'task') { if (!['light', 'deep'].includes(m.skill) || !isSafeAIId(m.taskId) || m.question != '') return false }
+		else if (m.kind == 'question') { if (m.question.trim().length == 0 || m.question != m.question.trim() || [...m.question].length > 1000 || /[\u0000-\u001f\u007f-\u009f\ud800-\udfff]/u.test(m.question) || !((m.skill == 'material_qa' && m.taskId == 0) || (m.skill == 'report_qa' && isSafeAIId(m.taskId)))) return false }
+		else return false
+		seq = m.seq
+	}
+	return v.nextAfterSeq == seq && v.hasMore == (seq < v.upperSeq) && (seq == v.upperSeq || v.items.length == 20)
+}
+export const aiConversationError = (code : number) : string => {
+	if (code == 40100 || code == 40101) return '登录状态失效，请重新登录后核查原会话'
+	if (code == 40403) return '暂未查到本人会话；原键未确认时不要重新创建'
+	if (code == 40903) return '会话版本或原键冲突，请重新查询当前状态'
+	if (code == 40001) return '会话参数无效'
+	return '会话服务尚未开放或操作未确认，请重新查询；未自动重发'
+}
+export const conversationPartition = (token : string) : string => aiPendingStorageKey(token).replace('tm_ai_pending_v1_', 'tm_ai_conversation_v1_')
+export const readPendingConversation = (partition : string) : AIPendingConversation | null => {
+	if (!/^tm_ai_conversation_v1_[1-9][0-9]*$/.test(partition)) throw new Error('会话分区无效')
+	const raw = uni.getStorageSync(partition)
+	if (raw == null) return null
+	if (typeof raw != 'string' || raw.length > 1024) throw new Error('会话原键记录不可读取')
+	if (raw.length == 0) return null
+	const v : AIPendingConversation | null = JSON.parse<AIPendingConversation | null>(raw)
+	if (v == null || !isAIRequestKey(v.key) || !isAIConversationTitle(v.title)) throw new Error('会话原键记录不可读取')
+	return v
+}
+export const reserveConversation = async (partition : string, title : string) : Promise<AIPendingConversation | null> => {
+	// #ifdef WEB
+	if (!/^tm_ai_conversation_v1_[1-9][0-9]*$/.test(partition) || !isAIConversationTitle(title) || typeof window.crypto?.getRandomValues != 'function' || typeof window.navigator?.locks?.request != 'function') return null
+	return await window.navigator.locks.request(partition, () : AIPendingConversation | null => {
+		if (readPendingConversation(partition) != null) return null
+		const bytes : Uint8Array = new Uint8Array(24); window.crypto.getRandomValues(bytes); let key : string = 'conversation_'
+		for (let n = 0; n < bytes.length; n++) key += bytes[n].toString(16).padStart(2, '0')
+		const value : AIPendingConversation = { key: key, title: title } as AIPendingConversation
+		const encoded : string = JSON.stringify(value); uni.setStorageSync(partition, encoded)
+		if (uni.getStorageSync(partition) != encoded) throw new Error('会话原键没有持久保存')
+		return value
+	})
+	// #endif
+	// #ifndef WEB
+	return null
+	// #endif
+}
+export const clearPendingConversation = async (partition : string, key : string) : Promise<boolean> => {
+	// #ifdef WEB
+	if (!/^tm_ai_conversation_v1_[1-9][0-9]*$/.test(partition) || !isAIRequestKey(key) || typeof window.navigator?.locks?.request != 'function') return false
+	return await window.navigator.locks.request(partition, () : boolean => {
+		const v : AIPendingConversation | null = readPendingConversation(partition); if (v == null || v.key != key) return false
+		uni.removeStorageSync(partition); return readPendingConversation(partition) == null
+	})
+	// #endif
+	// #ifndef WEB
+	return false
+	// #endif
+}

@@ -28,11 +28,11 @@ func NewDirect(cfg Config, allowLoopbackHTTP bool) (*OpenAICompat, error) {
 	tr := &http.Transport{Proxy: nil, DialContext: (&net.Dialer{Timeout: 10 * time.Second, KeepAlive: 30 * time.Second}).DialContext,
 		TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12}, TLSHandshakeTimeout: 10 * time.Second, ResponseHeaderTimeout: maxAttemptTimeout,
 		ForceAttemptHTTP2: true, MaxIdleConns: 8, MaxIdleConnsPerHost: 2, IdleConnTimeout: 30 * time.Second}
-	c, err := New(cfg, WithTransport(tr), WithMaxResponseBytes(16<<10))
+	c, err := New(cfg, WithTransport(tr), WithMaxResponseBytes(1<<20))
 	if err != nil {
 		return nil, err
 	}
-	b, err := json.Marshal([]any{"direct-single-call-v1", c.name, c.endpoint, c.model, c.timeout, c.maxBody, allowLoopbackHTTP})
+	b, err := json.Marshal([]any{"direct-single-call-v1", c.name, c.endpoint, c.model, c.timeout, c.maxBody, allowLoopbackHTTP, c.jsonFallback, c.reasoning})
 	if err != nil {
 		return nil, fmt.Errorf("判定端点配置无效")
 	}

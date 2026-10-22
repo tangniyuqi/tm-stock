@@ -56,6 +56,26 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	feedbackEnabled, err := config.LoadAIFeedback(readCfg)
+	if err != nil {
+		return err
+	}
+	streamEnabled, err := config.LoadAITaskStream(readCfg)
+	if err != nil {
+		return err
+	}
+	conversationsEnabled, err := config.LoadAIConversations(readCfg)
+	if err != nil {
+		return err
+	}
+	conversationTasksEnabled, err := config.LoadAIConversationTasks(readCfg, conversationsEnabled)
+	if err != nil {
+		return err
+	}
+	qaConfig, err := config.LoadAIQA(readCfg, conversationsEnabled)
+	if err != nil {
+		return err
+	}
 
 	db, err := sql.Open("mysql", cfg.DSN)
 	if err != nil {
@@ -103,7 +123,11 @@ func run() error {
 	handler.NewThemeHandler(themeSvc, access).Register(mux)
 	handler.NewThemeDailyHandler(service.NewThemeDailyService(dailyRepo, cfg.QuoteDelayMin, cfg.QuoteMock)).Register(mux)
 	// 没有生产定价/来源/模型/硬预算控制器：创建误开必须启动失败，只读原键核查不开放写入。
-	creations, err := prepareAITaskCreates(context.Background(), db, readCfg, createEnabled, nil)
+	deepEnabled, err := config.LoadAIDeepCreate(createEnabled)
+	if err != nil {
+		return err
+	}
+	creations, err := prepareAITaskCreatesWithDeep(context.Background(), db, readCfg, createEnabled, deepEnabled, nil)
 	if err != nil {
 		return err
 	}
@@ -122,6 +146,21 @@ func run() error {
 		return err
 	}
 	if err := registerAITaskCancels(context.Background(), mux, db, readCfg, cancelEnabled); err != nil {
+		return err
+	}
+	if err := registerAIFeedback(context.Background(), mux, db, readCfg, feedbackEnabled); err != nil {
+		return err
+	}
+	if err := registerAITaskStreams(context.Background(), mux, db, readCfg, streamEnabled); err != nil {
+		return err
+	}
+	if err := registerAIConversations(context.Background(), mux, db, readCfg, conversationsEnabled); err != nil {
+		return err
+	}
+	if err := registerAIConversationTasks(context.Background(), mux, db, readCfg, creations, conversationTasksEnabled, createEnabled); err != nil {
+		return err
+	}
+	if err := registerAIQA(context.Background(), mux, db, readCfg, conversationsEnabled, qaConfig); err != nil {
 		return err
 	}
 

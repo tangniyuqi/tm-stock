@@ -40,7 +40,11 @@ func (s *AIReportService) readReportView(ctx context.Context, tx finalreport.Tx,
 	if err != nil {
 		return reportView{}, err
 	}
-	if v.No != r.TaskNo || v.AnalysisType != 1 || v.SubjectType != task.Theme {
+	wantType := 1
+	if s.policy != nil && s.policy.AnalysisType() == task.DeepAnalysisType {
+		wantType = task.DeepAnalysisType
+	}
+	if v.No != r.TaskNo || v.AnalysisType != wantType || v.SubjectType != task.Theme {
 		return reportView{}, points.ErrInvalid
 	}
 	// 与报告/账务处于同一当前读事务，不能只依赖规划器较早的事务外校验。

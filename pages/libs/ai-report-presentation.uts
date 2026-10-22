@@ -1,0 +1,48 @@
+import { AIReport, isValidAIReport } from './ai.uts'
+import { formatMillis } from './theme.uts'
+
+export type AIReportSourceEntry = {
+	sourceType : string, sourceUrl : string, collectedAt : number, references : number
+}
+
+// 仅归集已通过白名单校验的展示字段，不推断独立发布者数量或来源可信度。
+export const aiReportSources = (report : AIReport) : AIReportSourceEntry[] => {
+	const entries : AIReportSourceEntry[] = [] as AIReportSourceEntry[]
+	if (report == null || !isValidAIReport(report, report.taskId)) return entries
+	for (const section of report.sections) {
+		const references : AIReportSourceEntry[] = [] as AIReportSourceEntry[]
+		for (const quote of section.quotes) references.push({ sourceType: quote.sourceType, sourceUrl: quote.sourceUrl, collectedAt: quote.collectedAt, references: 1 } as AIReportSourceEntry)
+		if (section.companies != null) {
+			for (const company of section.companies!) {
+				for (const evidence of company.evidence) references.push({ sourceType: evidence.sourceType, sourceUrl: evidence.sourceUrl, collectedAt: evidence.collectedAt, references: 1 } as AIReportSourceEntry)
+			}
+		}
+		for (const reference of references) {
+			let found : number = -1
+			for (let index = 0; index < entries.length; index++) {
+				const entry : AIReportSourceEntry = entries[index]
+				if (entry.sourceType == reference.sourceType && entry.sourceUrl == reference.sourceUrl && entry.collectedAt == reference.collectedAt) { found = index; break }
+			}
+			if (found < 0) entries.push(reference)
+			else entries[found].references++
+		}
+	}
+	return entries
+}
+
+export const aiFeedbackCategoryLabel = (category : string) : string => {
+	if (category == 'fact') return '事实或归属依据'
+	if (category == 'source') return '来源或授权'
+	if (category == 'display') return '页面显示'
+	if (category == 'other') return '其他问题'
+	return ''
+}
+
+// 不是正文复制/导出，也不是反馈提交；不包含主题、公司、引文、链接、会员或内部键。
+export const aiReportLocator = (report : AIReport, category : string) : string => {
+	const label : string = aiFeedbackCategoryLabel(category)
+	if (label == '' || report == null || !isValidAIReport(report, report.taskId)) return ''
+	return '报告定位信息（不含正文）\n任务编号：' + report.taskId.toString()
+		+ '\n生成时点：' + formatMillis(report.generatedAt) + '\n反馈分类：' + label
+		+ '\n此信息仅用于人工定位，未提交反馈，不代表当前读取权限或受理结果。'
+}

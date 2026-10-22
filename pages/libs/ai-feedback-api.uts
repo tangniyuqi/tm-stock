@@ -1,0 +1,19 @@
+import { MemberApi, MemberApiResult } from './member-api.uts'
+import { AIFeedback, AIFeedbackList, isValidAIFeedback, isValidAIFeedbackList, isAIFeedbackCategory, aiFeedbackError } from './ai-feedback.uts'
+import { isSafeAIId } from './ai.uts'
+
+const feedbackFailure = <T>(code : number) : MemberApiResult<T> => ({ code: code, message: aiFeedbackError(code), data: null } as MemberApiResult<T>)
+export class AiFeedbackApi {
+	public static async list(id : number) : Promise<MemberApiResult<AIFeedbackList>> {
+		if (!isSafeAIId(id)) return feedbackFailure<AIFeedbackList>(40001)
+		const result : MemberApiResult<AIFeedbackList> = await MemberApi.aiFeedback<AIFeedbackList>(id, '')
+		if (result.code != 0) return feedbackFailure<AIFeedbackList>(result.code)
+		return isValidAIFeedbackList(result.data, id) ? result : feedbackFailure<AIFeedbackList>(50001)
+	}
+	public static async submit(id : number, category : string) : Promise<MemberApiResult<AIFeedback>> {
+		if (!isSafeAIId(id) || !isAIFeedbackCategory(category)) return feedbackFailure<AIFeedback>(40001)
+		const result : MemberApiResult<AIFeedback> = await MemberApi.aiFeedback<AIFeedback>(id, category)
+		if (result.code != 0) return feedbackFailure<AIFeedback>(result.code)
+		return isValidAIFeedback(result.data, id) && result.data!.category == category ? result : feedbackFailure<AIFeedback>(50001)
+	}
+}

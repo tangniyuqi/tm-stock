@@ -2,6 +2,12 @@ import { createRouter, createWebHashHistory } from 'vue-router';
 
 const routes = [
   {
+    path: '/ai-feedback',
+    name: 'AiFeedbackDirect',
+    component: () => import('@/view/quant/aiFeedback/index.vue'),
+    meta: { title: '报告反馈处理' }
+  },
+  {
     path: '/',
     redirect: '/login'
   },

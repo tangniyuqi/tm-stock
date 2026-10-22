@@ -306,7 +306,7 @@ go run ./cmd/ai-task-check
 
 在 `server/` 可先运行 `go run ./cmd/ai-agent version`，无需数据库、操作人、标准输入或任何凭据；即使环境中执行开关为 true 或配置损坏，也不创建客户端/访问数据库或网络。输出 `scope=adapter_baseline`、`edition=community`、固定提交、`contract=v2_async_analysis`、`software_activation_required=false`、`service_authentication_required=true`、`remote_version_verified=false`。它不是健康检查，不证明模型可用、服务已部署或远端版本吻合，也不改变执行开关。
 
-三种配置不能混淆：服务 Bearer 是独立服务登录认证；模型 API Key/数据源 Token 由对应供应商授予；许可引用只记录适用 LICENSE、版本、用途或另行批准文件的引用，既不是激活序列号，也不能用虚构文号冒充批准。现阶段仍不启动完整上游服务、不执行真实模型、不公开原文或收费。
+三种配置不能混淆：服务 Bearer 是独立服务登录认证；模型 API Key/数据源 Token 由对应供应商授予；许可引用只记录适用 LICENSE、版本、用途或另行批准文件的引用，既不是激活序列号，也不能用虚构文号冒充批准。原阶段不执行真实模型；2026-10-21用户另行批准下述本地V2核心真模型评估，不等于批准完整服务部署、公开原文或收费。
 
 ### 环境与配置
 
@@ -337,6 +337,38 @@ uv tool run --isolated --from 'uv==0.13.1' uv pip check --python $agentsEvalPyth
 导入 Agent 包会运行配置初始化入口并产生本环境的默认空密钥配置与日志，不能当成无副作用操作。验证明确使用 `USE_MONGODB_STORAGE=false`、指向不存在文件的 `DOTENV_FILE`，JWT/CSRF 仅进程内随机生成且不输出/保存；不创建模型客户端或执行图。Windows 子进程使用 `python.exe -X utf8`，避免上游 Emoji 日志在 GBK 输出中触发编码错误；该修正不改系统区域/编码设置。上游 Pydantic 旧写法、旧配置管理器和 Google 旧 SDK 的弃用警告仍存在，不屏蔽成“全绿”。未创建真实 `.env` 或默认管理员，未安装上游前端 npm 依赖，未启动 API/Worker/同步任务；完成后 18000、27017、6379 端口均未监听。
 
 完整服务暂不部署：本地启动不是线上接入与全部功能完成的替代品。后续若需经批准的真实联调，先确认服务部署位置、适用许可、模型/来源配置和成本限制，再准备相应数据库与服务；不因依赖已备而自动启动。
+
+#### V2核心真模型隔离验收（不是Web/队列部署）
+
+`scripts/dev/tradingcn-live-gateway.mjs`与`verify-tradingcn-live.py`用于固定社区版V2完整核心工作流，不运行已停用的legacy图。调用前重新确认费用授权；维护者通过本地凭据环境提供新Key，不复制聊天中已暴露的Key。`execute:false`默认只做零外部模型请求的构建/计数器预检，`execute:true`才产生真实模型费用。
+
+网关只监听字面回环地址/临时端口，真实Key仅在父进程内存，子进程只持有本次网关会话凭据；固定转发DeepSeek官方HTTPS地址和`deepseek-flash`，禁代理/重定向/自动重试、浏览器Origin、任意路径/模型与远程图片。每次输出上限2048、关闭思考，至多128次请求和15分钟看门狗；这些是测试技术边界，不是人民币硬预算。传输/响应未知后拒绝继续提交，不能以超时认定未收费。上游旧定价目录可能将此模型记录为0元，不能当账单，使用`provider-receipt.json`记录官方实际用量、确认响应和未知状态，金额以供应商账单为准。
+
+仅复制固定提交的Git跟踪源码，要求原跟踪文件无修改，排除.env/日志/缓存/运行数据和符号链接；所有导入副作用、默认配置与报告均留在临时副本。子进程使用最小环境，网络仅允许模型网关，不连接已有MongoDB/Redis或产品数据库；采用原库代码配置模式，资料工具替换为明确标注的`TMEVAL`测试资料，记忆关闭。14个原Agent类、原V2工作流与实际DeepSeek适配器均保留，额外_generate钩子只观测原调用成功，不替换模型响应。固定上游的invoke绕过LangChain标准回调，因此必须先通过直接invoke/工具绑定的本地传输替身计数自测，再核对每个原Agent的真实成功调用，不能根据流程结束或日志文字推导全部实调。
+
+Windows复验示例（Key须已从受控本地凭据环境载入，不写命令行）：
+
+```powershell
+node --input-type=module -e "import {startEvaluation} from './scripts/dev/tradingcn-live-gateway.mjs'; const s=await startEvaluation({credential:process.env.DEEPSEEK_API_KEY,source:'D:/workspace/services/tradingagents-cn-eval-51060a7/source',python:'D:/workspace/services/tradingagents-cn-eval-51060a7/.venv/Scripts/python.exe',execute:true}); await s.finished; console.log({state:s.child,requests:s.requests,output:s.output}); if(s.child!=='passed'||s.receipt_error)process.exitCode=1"
+```
+
+结束后检查子进程退出0、`evaluation-summary.json`的14个原类及每节点真实成功调用、`missing_agents=[]`，以及独立`provider-receipt.json`的确认数/HTTP成功数/用量/未知状态。`quarantined-result.json`仅为测试资料的内部生成物，不发布、不导入正式资料库，不冒充本项目报告终检/积分结算或真实市场质量验收。网关纯守卫自测`node --test scripts/dev/tradingcn-live-gateway.test.mjs`不需要Key、不访问网络，已接harness/CI；真实调用不能接入常规CI。V2异步HTTP认证、MongoDB/Redis/Worker、真实授权资料、网站整链和跨进程恢复仍须分别验收。
+
+#### 本地网站—真实V2—报告终检与测试结算
+
+`tradingcn-local-chain.mjs`提供项目自有的一次性异步评估桥，并非启动社区版完整Web/MongoDB/Redis队列。先启动官方HBuilderX编译器的实际本地H5源（字面回环地址，例如`http://127.0.0.1:5174`），核对AI页可加载。不要用线上页面、现有数据库或正式会员登录；模型调用有真实费用，积分及资料均为明确测试夹具。
+
+通过受控本地环境将新模型Key载入父Node进程，调用`startLocalChain({credential,source,python})`；不要打印credential、bridge对象或reportEndpoint对象。网关要求固定社区提交与原跟踪文件干净，模型Key仅在父内存，Python及Go/PowerShell子进程均不继承产品配置，只接收临时桥会话凭据。`startChainVerification(bridge,{powershell,mysql,bash,goBin,gccBin,origin})`接受本机程序绝对路径，由既有原生脚本新建独占MySQL实例；读取`<output>/local-chain-go.log`里的`/__test__/`地址。最小Windows子环境保留PATHEXT，否则PowerShell会把.exe误作“文档”而无法在管道中执行；日志明确UTF-8。
+
+验收入口必须同时带`integration,liveagents`构建标签、`TM_TEST_AI_LIVE=local-fixture-only`、回环临时桥地址/凭据和实际H5源。原生脚本的`-LiveAgents`只接受`-ReportsOnly -ReportPattern '^TestIntegrationAIReportLiveAgents$' -RunCount 1`；默认套件和CI不编译该付费测试，也不读取模型Key。不要手工改产品开关来替代该入口。内部测试批准/备案/质量/虚构价格仍不是生产证明。
+
+浏览器选测试会员一，实际页面搜索“示例”、核对7测试积分报价、二次确认创建，进入创建收据对应任务，等待后点击“核对并查看报告”。原Go适配器提交600001仅为格式占位，桥原引擎始终分析非证券TMEVAL；桥固定执行完整原V2图，不声称模拟上游Web的分析师/风险参数裁剪。报告正文必须是测试快照中的四节原句，披露真实`deepseek-flash`及显式test-only编号；原Agent报告只作隔离选句线索。
+
+DeepSeek Chat文档仅保证[JSON对象模式](https://api-docs.deepseek.com/zh-cn/guides/json_mode/)。本地桥显式把json_schema请求译成json_object，并原样附加schema作为系统约束；不改写任何回包，Go严格JSON、枚举/用量/完成原因、原文回取、双独立判定及终检保持不变。三次报告模型调用限额独立，未验证核心前不能使用报告凭据；请求和用量分core/report记录，报告回包不能填补缺失的核心观测。它不是远端strict schema或生产质量证明。
+
+看到报告后回到同一源控制页点击“结束并核对测试”。只有原任务成功、冻结归零、恰好一次原子报告/settle、三个真实报告步骤审计、Agent/模型替身零调用、其他会员404、终态重放无重复结算及积分审计均满足，Go才通过；随后原生脚本仍需启动门禁和48项迁移检查通过。执行`await finishChainVerification(bridge,verification)`，检查`local-chain-receipt.json`的`verified=true`、`go_exit=0`、唯一提交/取结果、真实provider用量齐全且无unknown；函数最后清除父模型Key并关闭模型/异步监听。失败也要执行收尾，不能仅等Node内核销毁；未通过的回执不能升级为成功。
+
+2026-10-21最终通过目录`C:/Users/liufm/AppData/Local/Temp/tm-stock-tradingcn-live-Dpk4sa`：21个HTTP200（18核心＋3报告），输入32994/输出9398 token，异步提交1/轮询104/结果1；原14主Agent、17编译实例及1委派Agent实调，8次显著测试资料工具调用。浏览器实际四节报告截图`local-report.png`，Go测试/启动/迁移日志`local-chain-go.log`。此前`fUftga`轮21次HTTP200但发布测试控制器写死旧模型，报告GET被422拒绝，整链回执false；保留失败证据和用量，不降发布门禁，也不把已有响应回放冒充第二次真实调用。修复测试控制器为创建前固定批准模型/披露字段，并补错模型、披露及政策拒绝反例；第二次完整真调用才计通过。生产资料、完整社区版Web队列和跨进程崩溃恢复仍未验；没有线上部署或真实用户积分变动。
 
 先在隔离库执行 `20261015_create_tm_ai_agent_runs.sql`。普通模式需要：
 
@@ -389,9 +421,151 @@ go run ./cmd/ai-agent cancel < agent-lookup.json
 
 2026-10-15 本地验证：最终代码双版本各完整通过一遍上述脚本，迁移断言两版各 30/30；成功临时实例已停止并清理。会员验签包 96.2%、任务查询 service/handler 新增函数 100%，配置及 DTO 闭集契约也已单测。CI 登记会员必跑组并把总下限增为 112，尚未远端执行。总门禁仍被既有旧工作树疑似密钥扫描和扫描器自测阻挡，不能声称全部完成或可上线；未改基线。失败的奖励幂等键测试夹具实例已停止、日志和数据保留；修正后通过不抹去失败记录。
 
+### 私有会话元数据与历史（2026-10-21，开发增量）
+
+`TM_AI_CONVERSATIONS_ENABLED`默认false；打开须有原任务读取/会员鉴权配置，且`20261021_create_tm_ai_conversations.sql`迁移及启动回滚探针通过。它只注册design 12.2.1的创建/列表/详情/原键核查/改名/归档与历史GET；不注册POST messages，不执行问答或收费任务，不改变模型、报告、创建、取消及账务开关。不要在生产尝试启用或自动执行DDL。
+
+元数据写权限仅新会话表INSERT/UPDATE，历史为SELECT；消息INSERT仅为受控内部服务预留，无公开写历史入口。启动探针会回滚测试新会话/消息，需要相应DML但没有DELETE/TRIGGER/DDL或账本写入需求；不可变删除/更新反例在回滚事务中应被触发器拒绝，缺保护即整体启动失败。独立只读服务可仅授会话两表SELECT用于GET验证，不因读历史申请账本/任务写权限。
+
+创建以单个Idempotency-Key及精确JSON标题返回稳定`id/createdAt`收据；结果未知查询`GET /api/v1/ai/conversation-receipt`并带原键，不能自动换键重建。标题改变或会话归档后仍可核对原收据；同键异体40903。改名/归档用expectedVersion，冲突只查当前元数据，不自动重发。归档不删除历史，不取消任务、不退款。历史按连续序号与固定RR上界读取；只含用户输入/任务引用，不保存模型答案或报告正文，不据任务ID推导报告可读。
+
+复验：`go test -race ./internal/ai/conversation ./internal/service ./internal/handler ./internal/repository ./internal/config ./cmd/api -run '^Test(AIConversation|Conversation)' -count=10`。两版MySQL分别运行`verify-ai-source-native.ps1 -ConversationsOnly -RunCount 1`；专项互斥，使用本次新建回环实例，不读取已有业务DSN；原会话四根组、RC/RR六子组、13类保护破坏及conversation_off/on保留，另增意图四根组、RC/RR六子组/18叶场景、6类保护及conversation_tasks_off/on，最后执行mysql客户端全部迁移。它不是全仓SQL回归，也不验证浏览器/真实问答/付费多Agent。常规CI不调用真实模型；会话关键包覆盖率棘轮90%，不降低原门槛。
+
+会话任务另须`20261021_create_tm_ai_conversations_tasks.sql`及`TM_AI_CONVERSATION_TASKS_ENABLED`（默认false）；原创建开关关闭时仅提供查旧意图/收据与显式POST核查，不注册准备/确认。当前生产准入工厂仍为空，不得为试用改成放行。Prepare正文是原对象/档位/价格版本四字段，金额仅取服务端原报价；Confirm须精确`{"confirmed":true}`，Reconcile须精确`{}`。H5轻度题材现已先保存原意图键、确认已发标志及已知编号；未知时只用该意图核查，不换键、不直接调用原创建API补交。`unconfirmed`且原收据404也不是退款/可重建证明；进程若在权限落库后、原创建前中断，当前实现会保留待核查态，不自动补交。会话有未确认意图时不能归档。关联引用不授予报告正文权限，报告仍逐次走原终检/发布读取。
+
+新本地SQL用例通过真实会员JWT、原准入/冻结、测试worker/终检及测试账本验证成功恰好一次结算与拒绝后释放；模型/Agent端是既有回环测试服务，不是真实付费调用。执行数/账务计数、绑定回滚、两类提交未知、关闭新建后的恢复、同版本金额变动和跨会员拒绝分别断言，不能把HTTP200里的`unconfirmed`算作创建成功。完整会话→真实Agent及实际H5仍按C-8验收，不因本专项通过勾选总目标。
+
+#### 会话面板及H5进度的本地复验
+
+现有AI页已接元数据/连续历史及轻度题材任务面板，不是完整会话优先主界面。新建先保存独立原键，未知仅GET原收据；损坏存储/缺WebCrypto或WebLocks时拒绝POST，不手工清键绕过。标题改名及归档后须显式刷新列表；归档不能删除历史、取消原任务或退款。问题/报告追问、深度及专题仍未开放，原独立任务创建不自动绑定当前会话。
+
+在仓库外隔离依赖目录按CI固定版本安装Vue/compiler-sfc/server-renderer3.5.13、TypeScript5.7.2、Axios1.8.2、vue-router4.4.3；分别执行`node scripts/dev/verify-ai-report-ui.cjs <依赖目录>`及`node scripts/dev/verify-ai-task-stream.cjs <依赖目录>`。前者执行实际组件/封装与状态隔离，后者执行实际UTS解析器/订阅器及可控流/时钟反例；不把VM宿主当作真实H5。实际编译使用已安装HBuilderX内的官方uni-app x编译器，不另装不匹配的uni/Vite依赖、不修改vendor。
+
+新开一次性PowerShell会话，在仓库根按实际安装路径运行（下列仅本机路径示例，不含凭据）：
+
+```powershell
+$compileRoot = Join-Path $env:TEMP ('tm-stock-h5-' + [Guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $compileRoot | Out-Null
+$env:HX_APP_ROOT = 'D:/workspace/services/tm-stock-hx-5.26/HBuilderX'
+$env:UNI_PLATFORM = 'h5'
+$env:UNI_INPUT_DIR = (Get-Location).Path
+$env:UNI_APP_X = 'true'
+$env:UNI_OUTPUT_DIR = Join-Path $compileRoot 'h5'
+$env:UNI_APP_X_CACHE_DIR = Join-Path $compileRoot 'cache'
+$env:UNI_APP_X_TSC_DIR = Join-Path $compileRoot 'tsc'
+$env:UNI_APP_X_TSC_CACHE_DIR = Join-Path $compileRoot 'tsc-cache'
+node "$env:HX_APP_ROOT/plugins/uniapp-cli-vite/node_modules/@dcloudio/vite-plugin-uni/bin/uni.js" --host 127.0.0.1 --port 5174 --strictPort --clearScreen false
+```
+
+`HX_APP_ROOT`与`UNI_PLATFORM`必须在Node模块加载前设置，官方Sass来自HBuilderX插件目录；缺设置可能错误扫描backend HTML或找不到现有Sass。同样环境以`build --platform h5`替换开发参数可离线构建，产物留在临时目录，不上传。2026-10-21最终5.26独立H5构建退出0（`tm-stock-assistant-h5-final-20261021.log`）；原其它页面onLoad/onShow、空值及authApi等警告、组件Sass旧语法与cmark模块externalized警告保留，不代表全站无警告/所有浏览器功能验收；本增量AI路径无新诊断。浏览器严格UTF-8必须用WEB内`window.TextDecoder`，UTS同名全局并非该API，详见原技能库兼容性条目。
+
+另开一次性PowerShell会话，PATH中提供Go/GCC/Git Bash，仅针对新建隔离MySQL实例：
+
+```powershell
+$env:TM_TEST_AI_H5_ORIGIN = 'http://127.0.0.1:5174'
+$env:TM_TEST_AI_H5_ASSISTANT = 'local-fixture-only'
+try {
+    ./scripts/dev/verify-ai-source-native.ps1 -ReportsOnly -RunCount 1 `
+      -ReportPattern '^TestIntegrationAIReportH5Gateway$/^Read_Committed$/^running_cancel$' `
+      -MySqlBaseDir 'D:/mysql/mysql-8.0.46-winx64' -BashPath 'D:/Git/bin/bash.exe'
+} finally {
+    Remove-Item Env:\TM_TEST_AI_H5_ORIGIN -ErrorAction SilentlyContinue
+    Remove-Item Env:\TM_TEST_AI_H5_ASSISTANT -ErrorAction SilentlyContinue
+}
+```
+
+进入日志给出的回环`/__test__/`，用隔离会员在当前AI页新建一个会话、改名并确认归档，显式查询归档列表；切会员查询不能看到他人会话。原任务创建之前完成这些操作，并观察正常15秒流到期后按原游标续读。随后在原30秒worker窗口内连续完成原报价确认→运行态→取消确认→原任务核查；不要在执行窗口内耗时截图或多轮等待。可按既有375px iframe入口检查换行，但不称为真机验收。完成控制页“结束并核对测试”后，还必须等待父脚本退出0：新建/改名/归档各一次、至少两次stream、原创建一次、worker正常退出、CN测试提交1/模型0、远端测试Agent仍Running、本地冻结0、无报告/结算及账本审计全部成立才算通过。正常续读也可在排队取消场景观察；选择叶子时必须两端锚定，`cancel$`同时匹配`running_cancel`，不能用它声称只跑一个用例。首次误匹配超时失败与精确重跑通过的日志均见tasks.md，未提高原worker期限。
+
+无人工介入的原回归须清除以上两个环境变量及下节的`TM_TEST_AI_H5_INTENTS`，再运行`-ReportsOnly -ReportPattern '^TestIntegrationAIReportH5' -RunCount 1`，8/9版实例顺序执行以避免本机内存不足；RC/RR六种原模式、报告/创建启动及客户端55项迁移仍须全绿。该测试网关新增真实会话handler与SSE，只为隔离开发；stream直接使用真实ResponseWriter，不穿会丢失Flusher的Recorder，也不持有测试串行锁等待流结束。它不是生产代理、容量、生产登录或真实付费多Agent验证，所有产品默认关闭开关保持不变。
+
+#### 会话内报价确认、原任务关联与未知恢复
+
+先沿用上述官方HBuilderX 5174开发服务，源码复验同`verify-ai-report-ui.cjs`，无需再装新依赖。新会话选定后会显示共用报价组件的“为当前会话选择轻度题材资料”；原独立创建入口隐藏。保存报价意图不冻结，确认前须重新核对资料范围、版本与金额，再二次确认。已归档会话只读。元数据/意图列表都是查询时快照；创建或关联后当前详情会重新核对，列表需显式刷新，不把列表旧状态当作任务终态。
+
+新开一次性PowerShell会话，PATH提供Go/GCC/Git Bash；复验成功报告及反馈，精确选一项：
+
+```powershell
+$env:TM_TEST_AI_H5_ORIGIN = 'http://127.0.0.1:5174'
+$env:TM_TEST_AI_H5_INTENTS = 'local-fixture-only'
+Remove-Item Env:\TM_TEST_AI_H5_ASSISTANT -ErrorAction SilentlyContinue
+try {
+    ./scripts/dev/verify-ai-source-native.ps1 -ReportsOnly -RunCount 1 `
+      -ReportPattern '^TestIntegrationAIReportH5Gateway$/^Repeatable_Read$/^feedback$' `
+      -MySqlBaseDir 'D:/mysql9/mysql-9.7.0-winx64' -BashPath 'D:/Git/bin/bash.exe'
+} finally {
+    Remove-Item Env:\TM_TEST_AI_H5_ORIGIN -ErrorAction SilentlyContinue
+    Remove-Item Env:\TM_TEST_AI_H5_INTENTS -ErrorAction SilentlyContinue
+}
+```
+
+进入日志中的回环控制页，选隔离会员→新建会话→搜索示例题材→核对报价→保存会话意图。可先重载：应保留原键，旧独立入口提示“有会话任务意图待核查，暂不新建”；重新打开原会话，只GET原意图，不能第二次Prepare。重新核对当前报价/资料范围→确认冻结→由会话引用查看原任务/四节报告→提交一条反馈→控制页“处理测试反馈”→会员页查询已处理。处理控制仍执行原内部鉴权/handler，非GVA登录验收。记录完成按钮先独立GET终态再清同键本地保护，不删除服务器历史；切隔离会员二应无前一会员会话/报告，旧页在令牌监测后移除私有内容。
+
+最后控制页“结束并核对测试”后必须等父脚本退出0：新会话1、Prepare/Confirm/原创建核各1、独立任务创建POST=0、意图linked及task引用各1；原worker终检报告/结算各1、冻结0、反馈受理1/三事件/处理版本3、CN/模型1/3与账本审计通过。这里CN/模型仍是显著测试回环服务，绝不冒充真实付费推理。仅以页面Toast或控制页回执不能通过。本地守卫/产品开关无关，不得在生产设置此测试环境变量。
+
+未知恢复复验使用MySQL8目录、选择器`^TestIntegrationAIReportH5Gateway$/^Read_Committed$/^cancel$`，将`TM_TEST_AI_H5_INTENTS`设为`local-bind-unknown`，其余保持相同。夹具只在关联引用写事务中真实回滚一次，原创建核已提交，不能手工改任务状态。确认后立即刷新→打开原会话→查询本机原意图应为unconfirmed，禁止再次确认。用户显式“核查并恢复原任务关联”只用原收据绑定；若首次仍未确认，可再次显式查询/恢复，绝不重发Prepare/Confirm。恢复原任务后按原取消组件确认并独立查询取消终态，父脚本须核对冻结0、无报告/成功结算、CN/模型0且创建核仍1次。早于HTTP返回的刷新可能中断首次绑定，使下一次恢复才触发那次真实回滚；不把第一次恢复503称为永久失败或退款。
+
+两个入口用共同会员级WebLock执行预约、确认标记及清键；原键分区独立，其他入口的未知/损坏记录一律拦新建。缺安全能力或存储读回失败时零提交，不使用时间戳随机键兜底。确认已发标志或服务器权限提交后中断可能保留未确认态，当前不提供抹掉记录后再试的捷径；须核对原状态，不能以404、未收报告或刷新推定可重新扣分。终态引用/清键都不是积分退款证明。
+
+自动化真库复验先清除`TM_TEST_AI_H5_ORIGIN/TM_TEST_AI_H5_ASSISTANT/TM_TEST_AI_H5_INTENTS`，依次在8/9版运行`-ReportsOnly -ReportPattern '^TestIntegrationAIReportH5' -RunCount 1`。新增`TestIntegrationAIReportH5Conversation`有1根/2隔离级别/4成功与绑定回滚子例，检验受控门面、先准备零冻结、他人404、一次原创建/唯一引用、只读重放零改账及成功结算/取消释放；没有浏览器源时只返回显著代理占位，不算真实H5。CI为新增1/2/4单独守卫，总下限仅升至1023，不删旧守卫；最终本地日志/浏览器截图和一次计数夹具修正见tasks.md，远端CI另验。
+
+### 受限资料问答执行核（公共开关默认关闭，不替代C-4完整验收）
+
+`server/internal/ai/qa`只处理可信计划中的`material_qa`：全部有界快照候选→结构化编号选择→快照原句回取→独立蕴含判定→独立语义判定→固定模板。无证据/越界/禁止内容固定拒答；技术故障不冒充无证据。原问题及资料仅进入JSON data，模型没有自由正文、URL、工具或费用输出权限；显示时再次复核当前授权。身份/序号、范围、快照哈希及模型配置绑定到执行摘要，不能把旧结果用于新问题或对象。
+
+在`server/`执行以下专项（Go/GCC已加入PATH）：
+
+```powershell
+go test -race ./internal/ai/qa -count=10
+go test ./internal/ai/qa -count=1 -cover
+go test ./internal/ai/qa -run '^$' -fuzz '^FuzzClosedDecoders$' -fuzztime=10s -parallel=2
+```
+
+使用现有单次直连Provider对回环HTTP供应商实际发请求，核对最多3次、无代理/重定向/修复重试、模型/端点/整数用量、错误已耗用、超时/取消、预约/结果/最终存证失败、20类以上协议拒绝、逐字偏移、跨问题结果复用及每次读取撤权。并发同问题只有一次执行；控制器是显著测试内存记录器，不是持久用户/实例配额或真实授权仓储。普通测试无需真实密钥、不接账务或报告创建。
+
+已有下节SQL持久控制器及默认关闭的会员服务/启动保护，不能将测试控制器或批准夹具装配到产品。执行异常后不自动重发，不将未确认审计记为零消耗/自动释放预算。`report_qa`、真实语义质量、前端完整问答和浏览器纵向验收仍未完成；此专项不能勾选C-4/C-5/C-8或总体目标。原创建/结算链路未改。
+
+#### 私有问题与执行存证（SQL底座，不能单独开放问答）
+
+新增`20261021_create_tm_ai_qa.sql`的五表/五CHECK/十五触发器：问答范围批准、日政策默认关闭；按当前题材/会员、批准的完整策略及快照范围、当前来源授权复核，不凭快照存在放行。专题对象尚未适配，明确不可用。`qa.DurableControl.Enqueue`将问题、会话序号/版本及queued记录同事务写入，原键重放不复制消息。`Run`先持久唯一执行权及UTC日实例/会员两层最坏token预留，再经原执行核逐次预约/存证；错误保留预留，不调用积分或收费任务。`ReadStored`只回放原闭集阶段和最终引用，并每次重验当前授权，不能用一个完成标志或三条用量冒充有据回答。
+
+复验当前增量：先将Go/GCC/Git Bash加入一次性PowerShell会话PATH；两版MySQL顺序执行，不同时启动以免内存不足。
+
+```powershell
+./scripts/dev/verify-ai-source-native.ps1 -ConversationsOnly `
+  -ConversationPattern '^TestIntegrationAIConversationsQA' -RunCount 1 `
+  -MySqlBaseDir 'D:/mysql/mysql-8.0.46-winx64' -BashPath 'D:/Git/bin/bash.exe'
+./scripts/dev/verify-ai-source-native.ps1 -ConversationsOnly `
+  -ConversationPattern '^TestIntegrationAIConversationsQA' -RunCount 1 `
+  -MySqlBaseDir 'D:/mysql9/mysql-9.7.0-winx64' -BashPath 'D:/Git/bin/bash.exe'
+```
+
+原`-ConversationsOnly`不传选择器仍跑全部会话/意图/新问答；自定义选择器必须显式该模式并保留会话根前缀，不能用定向通过代替全套。原QA持久四根/八隔离子组/38叶用例保留，新增HTTP/结构三根、四隔离子组、18接口反例及20结构破坏场景；另保留原报告读取启动和新增10问答装配子例、mysql客户端全迁移。测试实际提交后再制造queued/running/调用审计/answered回执未知；未知执行权限不自动补跑，终态未知可只读恢复，后到失败不覆盖已完成。另验20路同键入队、16路执行只发三次回环HTTP、双层预留/单边失败回滚、来源在模型请求中真实撤回、原问题/最终阶段不可变与损坏拒绝、归档读写及零原任务/冻结。迟到用量及时间边界有执行核单测；没有跨午夜真实运行或生产容量验证。
+
+原键重放只恢复本人原问题/状态收据，不授予引文或执行权限；来源撤回/归档不能妨碍确认问题是否已经保存。会员服务沿用原严格Bearer与当前账号服务；内部重放仍严核所有权、原消息/计划一致，执行及答案另核当前会员/范围/来源。
+
+此增量不提供创建批准/提高配额的公共接口，不写生产配置。范围/日政策的启用仅测试随机库夹具，不能复制到线上。受控的真实模型装配与质量批准、用户问答页面及报告追问仍缺；没有新浏览器问答验收，也不沿用此前报告页面截图冒充。任何未确认操作保留原记录/配额和故障现场，不删除后换键绕过。
+
+#### 会员问题接口及无模型历史读取（开发接线，默认关闭）
+
+接口与DTO单一契约见design12.3.3。`TM_AI_QA_READ_ENABLED`、`TM_AI_QA_SUBMIT_ENABLED`沿用原Go布尔解析，默认false；运维统一使用空/false/true，非法布尔值拒启动。读取依赖原任务读取、有效会员JWT和会话开关；提交还依赖读取及可信策略/模型工厂。`cmd/api`的两工厂生产默认均为空，启用提交必须失败启动，不能把测试策略/批准、示例备案或回环模型复制为生产配置。读取状态允许无策略目录；读取答案仍需要按原policy摘要提供无密钥原Config，但不构造Provider、不加载模型凭据或发送模型请求。
+
+启用任一问答能力先执行五表列/默认值/索引/外键/CHECK及15触发器定义检查，再做全部回滚的正反写探针；该启动检查需要新表DML权限，不是只SELECT账号模式，不执行DDL、不产生已提交消息或改账。检查失败前不注册任何问答路由。迁移SQL仍是唯一DDL源，嵌入仅用于比对，不由启动执行。
+
+POST仅题材material_qa，最多25秒请求内执行、3次直接调用；每次模型边界及响应前重验原Bearer/当前账号。登录过期只允许已有调用的有界审计，不再交付答案或继续下一调用。原键重复只查原状态，不构造模型、不再次执行；首次Enqueue回执未知也不补跑。配额不足时仅封存本次尚queued的问题，不终止另一个已经取得执行权的调用、不释放未知预留。HTTP状态200/answered不是当前答案授权；答案GET始终重新校验，来源撤回后拒读而问题收据仍可查。没有问答SSE或新收费任务。
+
+定位接口/结构问题可在上述原生命令中用`-ConversationPattern '^TestIntegrationAIConversationsQA(HTTP|HTTPBoundaries|Schema)$'`，但最终回归应去掉选择器运行完整`-ConversationsOnly`；单测用`go -C server test -race ./internal/ai/qa ./internal/service ./internal/handler ./internal/config ./cmd/api -count=1`。HTTP专项是真实JWT、实际HTTP与MySQL、三次回环供应商请求，不是真实DeepSeek、TradingAgents-CN、H5浏览器或模型语义质量验收。启动测试的示例工厂只提供拒绝型接口，不读取真实模型或授予任何资料批准。
+
 ### 会员事件序列（只读轮询，沿用关闭开关）
 
 `GET /api/v1/ai/tasks/{id}/events?after_seq=0&limit=20` 沿用 `TM_AI_TASK_READ_ENABLED` 和同一严格会员 JWT。默认不注册路由，开发放行/Agent 配置均不会开启读取；不启用取消或其他写入，不创建任务、预留、响应或账本流水。读取账号在既有 `addon_member` / `tm_ai_tasks` SELECT 外新增 `tm_ai_task_events` SELECT 即可，实际只读角色已用于验证；不授 DML/DDL/TRIGGER，也不运行迁移。
+
+**2026-10-21 SSE增量（只供隔离开发验收）**：另有`GET /api/v1/ai/tasks/{id}/stream?after_seq=0`，原`/events`仍返回分页JSON。`TM_AI_TASK_STREAM_ENABLED`默认关闭，开启依赖读取开关、有效JWT配置和只SELECT的任务元数据检查；不运行写探针或迁移、不启用模型/报告/扣费。仅标准Bearer，不接Cookie、x-token或查询令牌；可选Last-Event-ID须与显式after_seq相同。身份、归属和首个事件页核验后才开始流，每轮重新验证当前会员与令牌。
+
+`progress`帧的id为原事件seq，data只有`seq/type/status/step/errorCode/at`；保活是注释，不计序号。终态流结束不代表报告当前可读，仍须原任务/报告GET。已完成任务在末断点续读仅建立后立即结束，不重复发历史事件。流中错误为固定`event:error`及公开code，不能展示成模型回答；401须停止并清理身份状态，其他错误/关闭/不支持流时回退原轮询，禁止重发任何写请求。
+
+当前实现每连接最多15秒（服从更短父期限），每次写入最多3秒且不越过连接期限，空页每秒重新核验并查询；单用户最多2条、本实例总计32条，超限42901。此内存限额不覆盖其他实例，不是生产容量承诺。连接结束/取消/写失败释放名额，不开启无界后台goroutine、不长期占用DB事务。H5现已接严格UTF-8、CRLF/分块帧、有界1/2/4秒重连、18秒看门狗及原串行GET降级；完整帧才推进游标，401/403及换账号/离页清理，事件不授报告许可。复验步骤见上节；生产代理缓冲/超时及容量未验，C-3仍不勾完成。
+
+复验：`go test -race ./internal/service ./internal/handler ./internal/config ./internal/repository ./cmd/api -run '^Test(AITaskStream|LoadAITaskStream)' -count=10`；在两版MySQL目录分别运行原生脚本`-TaskEventsOnly -RunCount 1`，新`TestIntegrationAITaskMemberEventsStream`自动进入原选择器。启动装配复用报告启动真库夹具，可用`-ReportsOnly -ReportPattern '^TestIntegrationAIReportSchema' -RunCount 1`，同时执行原报告/创建启动组以及新增stream_off/on；这不是全仓SQL回归。CI另核对SSE根组、RC/RR及启动子例，原守卫不移除。
 
 完整参数/DTO 见 design.md 2.4.3。请求只带单个 Bearer 头及规范编号、游标、页长；显式 `after_seq=0` 有效，缺省游标 0/页长 20，最大页长 100。不传会员编号、URL、模型参数或请求问题。未知/重复/空参数、畸形转义、非规范整数及超当前上界游标为 400；非本人/不存在同为 404。401/503 仍用原读取出口，不泄漏原始驱动信息或令牌。
 
@@ -624,6 +798,18 @@ try {
 
 扫描范围修正后的1298文件冻结`C820154E53F61E8AB59E59FFFE3C0A72A8A961F4BDBDACD3E214369BBCC9970B`，完整`bash scripts/harness-checks.sh --with-coverage`已退出0，含38项合规自测、8项客户端探测自测、42项扫描器自测、全仓扫描、Go/race/vet/build、13包覆盖率下限及GVA关键包、架构/pages.json；race未降级，Go总语句覆盖70.5%。YAML的25段Shell语法通过，暂存对象及基线再次核对不变。日志`tm-stock-ai-secret-scope-harness-2e517b48640b47cdbdbb00842f213fcc.log`仅保留本地，不公开扫描正文。该绿灯不是全仓SQL、远端CI、模型质量或上线许可，真实调用/收费/部署仍关闭。
 
+### 报告反馈的受理、查询与内部处理（真实调用关闭）
+
+会员与处理方分别使用`TM_AI_FEEDBACK_ENABLED`、`TM_AI_FEEDBACK_ADMIN_ENABLED`，默认关闭。会员还须有效的任务读取/鉴权配置；内部仍走`cmd/ai-admin`专用回环监听和凭据绑定操作人，不能用会员JWT、浏览器Origin或请求体指定actor。需先在获准的同结构副本执行`20261020_create_tm_ai_report_feedbacks.sql`并验证，新表不会自动迁移。启动账号需原报告联合自检的权限，以及两张反馈表SELECT/INSERT/UPDATE/DELETE用于回滚拒写探针；不授DDL/TRIGGER。业务处理不会执行DELETE，启动权限也不能绕过触发器。未演练生产升级或生产受限账号，不直接在线上执行本节。
+
+1. 会员在已完成任务的“举报与反馈”展开后，先GET`/api/v1/ai/tasks/{id}/feedback`；仅确认属于本人且有成功报告才返回。正文当前不可读不阻断历史反馈查询。
+2. 选`fact/source/display/other`之一，二次确认后POST同一路径，JSON只有`category`。同人/任务/分类唯一，回执包含受理单编号；不填写正文、账号、联系方式或内部判定。不把定位信息复制当作受理。
+3. 内部以专用凭据GET`/internal/v1/ai-feedback?limit=20`，后页使用`nextAfterId`作为`after_id`；GET`/{id}`核对当前版本与不可变事件。无浏览器处理页面，也没有自动指派/通知服务。
+4. POST`/internal/v1/ai-feedback/{id}/decisions`，精确JSON`{"expectedVersion":1,"status":"processing","resolution":""}`开始处理；再用版本2提交`resolved`及`reviewed/referred`，或`dismissed`及`unconfirmed/not_applicable`。终态不能重开；同actor同原操作重放返回当前记录，不会重复写事件。冲突409先查询，未知503只查询原记录，不换分类补发。
+5. 会员显式“查询反馈状态”看到处理结果。受理/查询/处理均不更改报告、资料授权、模型调用、冻结、结算或退款；“已处理”仅代表有核查记录。报告纠错/授权治理或财务处理另行按原流程批准，不由反馈接口自动实施。
+
+定位验证：`verify-ai-source-native.ps1 -ReportsOnly -ReportPattern '^TestIntegrationAIReport(Feedback|H5Gateway|Schema)'`，分别使用MySQL8/9的已有程序目录，隔离实例只绑定回环。该专项不是全仓SQL验收。`TestIntegrationAIReportH5Gateway/Read_Committed/feedback`可配合`TM_TEST_AI_H5_ORIGIN=http://127.0.0.1:5174`代理已有HBuilderX开发服务，仍只用显著测试会员/CN/模型，不读取生产登录凭据。浏览器从`/__test__/`创建一次测试任务，提交一条反馈后，测试控制页“处理测试反馈”经原内部鉴权及handler推进两次，再回会员页查询；撤回测试来源仍须可查询反馈。375px页只是iframe布局验收，不是物理手机。结束时核验反馈POST恰好1次、至少2次GET、反馈1条/事件3条、报告和结算各1、冻结0、CN/模型1/3及积分审计通过；否则整轮失败保留实例。控制页确认不代替Go脚本退出0。
+
 ### 会员报价、创建与原键核查（开发接线，真实调用关闭）
 
 依ADR-0021与design 2.4.5，`TM_AI_TASK_CREATE_ENABLED` 独立默认false。开启还须任务读取/有效会员鉴权、真实准入控制器Ready及任务/账本联合自检；目前API没有生产控制器，误开会拒绝启动，不降级采用测试价格、固定证明或默认通过策略。开发付费放行、Agent、取消、报告开关均不隐含创建许可。当前只实现L1题材新建，不提前冻结L2/专题。
@@ -661,6 +847,43 @@ H5创建组件复用目录搜索→选择题材→只读报价→二次确认。
 返回的Complete只表示固定窗口遍历完成，TerminalObserved只是白名单终态观察，不是报告发布、结算证明或新增交付数量。LastID是本批已确认前缀，错误行不跨过；读完后新一轮从零开始，禁止把游标当永久消费偏移。响应不明只记Pending，恢复仍走原任务，不换键重发。后台服务/生产控制器没有装配，不代表线上会自动消费。
 
 定位使用已有原生脚本的显式`-ReportsOnly -ReportPattern '^TestIntegrationAIReportQueue'`，默认ReportsOnly仍跑全部报告，完整回归不带专项。选择器仅用于测试定位，不能拿54条专项PASS冒充完整账本/恢复/Agent/GVA回归。四根组覆盖HTTP新建后队列交付/释放、有限游标、身份隔离、来源撤回/缺记录、真实提交后未知、同实例与独立worker竞争；回环模型与示例批准不进入生产路径。双版本专项和20轮竞态已有证据，完整新冻结回归及页面/外部配置关口按tasks.md继续跟踪。
+
+### 后台反馈处理页面与专用桥接（开发完成，默认关闭）
+
+后台登录后可访问`/#/ai-feedback`，复用GVA的Vue/Element Plus与原`x-token`会话。显式开启后台反馈时自动在已有GVA目录登记顶层“报告反馈处理”（组件`view/quant/aiFeedback/index.vue`、名称`AiFeedbackConsole`、路径`aiFeedback`、`keepAlive=false`），不修改角色/菜单关联或Casbin权限；关闭无数据库目录访问。正常目录重复不新增，冲突/软删除/缺表/缺角色锚点均拒启动且不覆盖，不执行DDL。启动账号须具备现有角色行锁及菜单/API目录的读取/插入权限；不具备时关闭此功能并保留现场，不能改成自动建表或忽略错误。菜单目录与三个API同一事务登记，五秒有界，不因目录完成而启用真实调用。固定登录保护入口名称`AiFeedbackDirect`与动态侧栏名不同。仅给指定后台角色显式登记下列三项Casbin API权限（路径相对GVA路由前缀），不批量授予所有管理员：
+
+| 方法 | 路径 |
+|---|---|
+| GET | `/quant/ai-feedback` |
+| GET | `/quant/ai-feedback/:id` |
+| POST | `/quant/ai-feedback/:id/decisions` |
+
+管理员进入现有“角色管理→设置权限”：在“角色菜单”勾选“报告反馈处理”，保留该角色已有菜单；在“角色api”仅追加“报告反馈处理组”上述三项，保留原会话基础权限，然后分别确认保存。现有接口为`POST /menu/addMenuAuthority`与`POST /casbin/updateCasbin`（以router中的小写u为准，不照抄历史Swagger注释的`UpdateCasbin`）。两接口都是全量覆盖而非增量追加，不能只传新项冲掉原菜单/会话权限。需要已有的菜单/角色/API管理权限与严格角色树授权；处理角色不获得权限管理接口。处理人重新登录/刷新后从`/#/layout/aiFeedback`进入；API/菜单仅一项获准、会员令牌、当前账号停用或服务端未登记均不能获得处理权。撤权优先撤三API，再撤菜单并刷新；只隐藏菜单不能当作安全撤权。不得将本地测试角色编号或测试凭据复制到正式配置。
+
+还须由服务端运维受控注入以下独立配置；不写VITE变量、可查询的GVA系统配置或聊天，不提交实际凭据：
+
+- `TM_AI_FEEDBACK_CONSOLE_ENABLED`：空或`false`时不注册桥接；仅显式`true`启用，其他值拒启动。
+- `TM_AI_FEEDBACK_CONSOLE_UPSTREAM`：原`cmd/ai-admin`的HTTP字面回环IP及明确数字端口，无路径、凭据、参数；不接受域名、重定向或外部代理。原内部`TM_AI_FEEDBACK_ADMIN_ENABLED`及回滚结构自检仍须单独满足，不能转向会员API。
+- `TM_AI_FEEDBACK_CONSOLE_WEB_ORIGIN`：管理前端精确HTTPS Origin，无尾斜杠/路径；仅本机开发允许字面回环HTTP。浏览器传Origin时必须匹配；不把此项当身份认证。
+- `TM_AI_FEEDBACK_CONSOLE_REVIEWERS`：JSON数组，元素仅`userId`、`actorId`、`token`。分别填写真实后台用户编号、原内部登记的处理人编号与其专用凭据；三者分别唯一，最多100项。凭据必须与原内部actor绑定一致，禁止会员令牌代替。此配置不经浏览器传递。
+
+开启配置后仍逐请求检查后台JWT类型、改密守卫、Casbin与当前`sys_users`启用/未删除状态及上述逐人登记；`x-user-id`、浏览器请求体和JWT中角色不能代替当前账号核验。错误配置启动失败，失效账号/未登记人员失败关闭。桥接仅转接三个固定反馈端点，关闭HTTP代理/重定向/自动重试；每次上游请求最多6秒，写后的只读核对另有一次请求。写后按原详情历史验证配置actor和原版本事件，不能将其误解为写前绑定证明或跨服务事务。
+
+页面按编号递增分页/按单号查询，查看详情与不可变处理历史；先“开始处理”二次确认，再从固定结果中选择终态、二次确认。每次只发一个POST，成功/冲突/超时都先“核对原受理单”，不自动补写。换账号、离页或停用清空私有页面状态；终态不可重开/删除。它只记录核查，不自动更正报告、恢复授权、通知或退款，也不启用AI执行/创建/发布/收费。没有更改生产菜单、角色、环境或监听。
+
+源码复验：`node scripts/dev/verify-ai-feedback-admin-ui.cjs <隔离依赖目录>`，现有CI隔离依赖为Vue/compiler-sfc/server-renderer3.5.13、TypeScript5.7.2、Axios1.8.2、vue-router4.4.3。脚本执行实际统一Axios请求/响应拦截器（仅底层adapter替换）、原permission守卫与Vue Router内存路由、Vue KeepAlive生命周期；会话store/DOM/Element宿主仍模拟，不代替实际浏览器或生产登录。覆盖Casbin的HTTP200/code7局部归一化、401清登录、409无重试、续签丢弃旧回包、固定/菜单入口和缓存停用。Go专项在`backend/server`执行`go test -race ./config ./service/feedbackconsole ./api/v1/quant ./initialize -run '^TestFeedbackConsole' -count=20`和对应`go vet`，包含三项实时角色接口撤权/零转接。核心桥接覆盖率用`bash scripts/check-feedback-console-coverage.sh`，最低85%，未降低旧门槛。配置专项只选新增组；不要为运行历史配置测试补造未随仓库提供的部署模板。
+
+本地浏览器真库复验需隔离依赖Vue3.5.31、Element Plus2.14.5、Vite8.0.10与插件6.0.6。先运行`node scripts/dev/serve-ai-feedback-admin.mjs <依赖目录>`，只监听127.0.0.1:5176；`--build-only`仅构建实际组件/API/Element Plus验收宿主，不是整套GVA生产构建。宿主替换全局会话与传输层，不包含伪造反馈数据；全量Element Plus的测试包大于500KB警告不能当作生产性能验收。
+
+在`backend/server`用`go test -race -tags=integration ./api/v1/quant -c -o <临时绝对路径.exe>`编译专用测试程序。另一次性PowerShell会话设置`TM_TEST_FEEDBACK_ADMIN_RUNNER=<该exe>`与`TM_TEST_FEEDBACK_UI_ORIGIN=http://127.0.0.1:5176`，再用原生脚本选择`-ReportsOnly -ReportPattern '^TestIntegrationAIReportFeedbackHTTP$'`及8版MySQL程序目录，结束后清除这两个临时变量。父测试启动原会员/内部API及真实MySQL反馈库，并只向子进程传专用测试凭据；子进程用真实GVA JWT/Casbin及当前账号核验，后台账号表是隔离SQLite夹具，不冒充GVA生产MySQL部署。
+
+当前人工会话使用整套GVA构建的本地预览源（例如`vite preview --host 127.0.0.1 --port 5178 --strictPort`，前缀`/api`）；不能再用仅页面宿主替代真实登录。进入日志中的回环`/__test__/`查看隔离管理员/处理人/普通后台账号与本次随机测试口令（仅控制页展示，不写日志/聊天）；控制页不注入JWT。通过原登录页登录管理员，在原角色面板勾选菜单和API并保存，正常登出后登录处理人，由真实侧栏进入，处理受理单至终态并核对三条历史；再登录普通后台确认无菜单、直接入口也被拒。最后控制页“结束并核对”必须确认至少两次登录、菜单及API授权保存、两个反馈处理POST、至少三次GET、原MySQL版本3/三个事件/处理人一致、账务不变、测试CN/模型1/3和积分审计，且父脚本退出0、迁移48/48；控制页回执不等于整轮成功。人工子程序仍8分钟，未放宽原任务/模型期限。账号SQLite使用单连接以支持角色面板并行查询；门禁另有并发反例及真实登录/菜单分配/API授权/撤回原JWT拒绝验证。仅测试夹具使用高验证码触发阈值以隔离验证码服务，不更改产品默认值或生产安全设置。此处CN/模型仍是回环服务，不运行TradingAgents-CN或真实推理。2026-10-20实际浏览器及10-21整包构建/本地登录记录见tasks.md；生产网关、实际线上权限和真实服务仍未验。
+
+整套GVA前端构建须另建仓库外临时目录，仅复制`backend/web`的`src/public/vitePlugin`及`package.json/vite.config.js/uno.config.js/index.html/babel.config.cjs/jsconfig.json`等公开构建源码；不复制.env、用户dist或后台运行配置。在该目录运行`npm install --ignore-scripts --package-lock=false --no-audit --no-fund`，不修改业务依赖或提交锁文件。`@vue-office/{docx,excel,pdf,pptx}`通过`lib/script/postinstall.js`选择Vue3入口，`vue-demi`通过`scripts/postinstall.js`选择版本；必须先读完整脚本及其utils，确认仅复制本包文件，再逐项用Node执行这些已核对的本地初始化脚本，不打开所有安装钩子。设置公开测试前缀`VITE_BASE_API=/api`及字面回环开发代理参数，执行`npm run build`；该步骤不启动服务/触发API，也不是正式部署配置验收。
+
+后台账号库/目录的真MySQL专项：在仓库根执行`./scripts/dev/verify-ai-source-native.ps1 -MySqlBaseDir <MySQL程序绝对目录> -BashPath <Git Bash绝对路径> -FeedbackConsoleOnly -RunCount 3`，分别提供8/9版程序目录。脚本新建隔离实例，不读取本机已有DSN，串行运行`TestFeedbackConsoleMySQLCatalog/Login`并执行全部客户端迁移检查；专项不代表全仓SQL回归，默认完整模式也会追加此组。每轮必有2根组、2隔离级别、12叶场景，0跳过，CI守卫至少16条PASS；原有下限不降。只允许字面回环TCP及`tm_ai_source_test/tm_stock_it`测试入口，另建固定专库`tm_feedback_console_it`，存在就停止，绝不清空接管；只有本次CREATE成功才注册DROP清理。登录子程序每轮独立，使用原密码校验/菜单/Casbin接口并检查授权真实落库；失败只向日志报告已知断言文件行号，不转发登录回包或DSN。此专项不运行浏览器，不替代上一节浏览器会话，也不启用真实模型。当前实例内撤权由反馈路由无缓存复核兜底；跨实例同步、已在途请求和生产最小权限账号另验。
+
+构建后核对`src/pathInfo.json`将`/src/view/quant/aiFeedback/index.vue`映射为`AiFeedbackConsole`且产物包含真实反馈页；ESLint至少覆盖反馈API/页面、路由和旧角色组件。遗留`Datas`已改为明确只读停用提示，保留名称及切页暴露契约，不恢复已删除的角色关系API；现行`setDataScope`/部门集逻辑不变。2026-10-21按当时package.json的范围解析到Vue3.5.44/Vite8.3.4/Element Plus2.14.7/vue-router4.6.4/Axios1.8.2，3906模块完整构建退出0；无锁安装不代表未来版本可重现。第三方BigInt与大包/插件耗时警告保留，不修改全局target掩盖兼容问题，不能升级为旧浏览器、全站功能或生产性能验收。
 
 ### 清扫与恢复型 worker 既有验证记录
 

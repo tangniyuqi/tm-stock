@@ -107,10 +107,21 @@ jobs:
           echo "通过 $PASS 项 / 失败 $FAIL 项"
           echo "### Go 单测：通过 $PASS 项，失败 $FAIL 项" >> "$GITHUB_STEP_SUMMARY"
           # 下限只增不减。新增测试后请同步上调；调低必须在 PR 说明理由。
-          # 当前本地实测 827 项（go1.24.0 + -race；含 ai/guard、ai/render、provider 与 repository；另有 1 项 TestEvalReport 按设计跳过），下限 800，余量 27 项。
-          MIN=800
+          # 原下限1195；问答会话边界/HTTP/配置/装配与结构单测新增40项，TestEvalReport仍按设计跳过。
+          MIN=1235
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项测试，低于下限 $MIN —— 要么测试没被执行，要么有测试被删。"
+            exit 1
+          fi
+
+      - name: 受限问答执行核必跑（不调用真实模型）
+        run: |
+          set -o pipefail
+          go test -race ./internal/ai/qa -count=1 -v 2>&1 | tee /tmp/qa.log | tail -20
+          ROOTS=$(grep -cE '^--- PASS: (Test|Fuzz)' /tmp/qa.log || true)
+          PASS=$(grep -cE '^[[:space:]]*--- PASS:' /tmp/qa.log || true)
+          if [ "$ROOTS" -lt 30 ] || [ "$PASS" -lt 282 ]; then
+            echo "::error::问答核实际根组 $ROOTS / 通过 $PASS，低于30/282；不能由其它包测试充数。"
             exit 1
           fi
 
@@ -139,7 +150,9 @@ jobs:
       - name: 关键包单测（-race）+ 执行数下限守卫
         run: |
           set -o pipefail
-          go test -race ./middleware/... ./service/member/... ./router/... ./api/client/... ./initialize/... ./service/quant/... ./utils -count=1 -v 2>&1 | tee /tmp/gva.log | tail -40
+          go test -race ./middleware/... ./service/member/... ./router/... ./api/client/... ./initialize/... ./service/quant/... ./utils ./service/feedbackconsole ./api/v1/quant -count=1 -v 2>&1 | tee /tmp/gva.log | tail -40
+          go test -race ./config -run '^TestFeedbackConsoleConfig$' -count=1 -v 2>&1 | tee -a /tmp/gva.log
+          (cd ../.. && bash scripts/check-feedback-console-coverage.sh)
           PASS=$(grep -c '^[[:space:]]*--- PASS' /tmp/gva.log || true)
           FAIL=$(grep -c '^[[:space:]]*--- FAIL' /tmp/gva.log || true)
           SKIP=$(grep -c '^[[:space:]]*--- SKIP' /tmp/gva.log || true)
@@ -148,8 +161,15 @@ jobs:
           if [ "$SKIP" -gt 0 ]; then
             echo "::error::有 $SKIP 项被跳过，等于没测到"; exit 1
           fi
-          # 下限只增不减。本地实测 158 项，下限留 13 项余量；调低必须在 PR 说明理由。
-          MIN=145
+            FEEDBACK_CONSOLE=$(grep -Ec '^--- PASS: TestFeedbackConsole(Config|Client|MalformedAndTransport|CurrentAdmin|DecisionProof|HTTP|Registration|Catalog|Login) ' /tmp/gva.log || true)
+          FEEDBACK_CONSOLE_PROOFS=$(grep -Ec '^[[:space:]]+--- PASS: TestFeedbackConsoleDecisionProof/' /tmp/gva.log || true)
+            FEEDBACK_CONSOLE_REVOKED=$(grep -Ec '^[[:space:]]+--- PASS: TestFeedbackConsoleHTTP/permission_revoked_' /tmp/gva.log || true)
+            FEEDBACK_CONSOLE_CATALOG=$(grep -Ec '^[[:space:]]+--- PASS: TestFeedbackConsoleCatalog/' /tmp/gva.log || true)
+            if [ "$FEEDBACK_CONSOLE" -ne 9 ] || [ "$FEEDBACK_CONSOLE_PROOFS" -ne 4 ] || [ "$FEEDBACK_CONSOLE_REVOKED" -ne 3 ] || [ "$FEEDBACK_CONSOLE_CATALOG" -ne 5 ]; then
+            echo "::error::反馈后台权限、转接或写后身份核验用例漏跑"; exit 1
+          fi
+            # 下限只增不减；原159，再增加目录/真实登录2根组与目录5个子例。
+            MIN=166
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项测试，低于下限 $MIN —— 要么测试没被执行，要么有测试被删。"
             exit 1
@@ -275,6 +295,11 @@ jobs:
           if [ "$MEMBER_EVENTS" -ne 3 ] || [ "$MEMBER_EVENT_LEVELS" -ne 6 ] || [ "$MEMBER_EVENT_CORRUPTION" -ne 16 ]; then
             echo "::error::会员事件的分页、只读快照、隔离级别或损坏拒绝子例漏跑"; exit 1
           fi
+          MEMBER_EVENT_STREAM=$(grep -Ec '^--- PASS: TestIntegrationAITaskMemberEventsStream ' /tmp/it.log || true)
+          MEMBER_EVENT_STREAM_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAITaskMemberEventsStream/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          if [ "$MEMBER_EVENT_STREAM" -ne 1 ] || [ "$MEMBER_EVENT_STREAM_LEVELS" -ne 2 ]; then
+            echo "::error::会员SSE的真库只读、断点续读、连接中撤权或两种隔离级别用例漏跑"; exit 1
+          fi
           EXPIRY=$(grep -Ec '^--- PASS: TestIntegrationAITaskExpiry(Lifecycle|Atomicity|Concurrent|CLI) ' /tmp/it.log || true)
           EXPIRY_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAITaskExpiry(Lifecycle|Atomicity|Concurrent)/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
           EXPIRY_ATOMIC=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAITaskExpiryAtomicity/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
@@ -329,7 +354,12 @@ jobs:
           fi
           REPORT_READ_STARTUP=$(grep -Ec '^--- PASS: TestIntegrationAIReportReadStartup ' /tmp/it.log || true)
           REPORT_READ_STARTUP_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportReadStartup/' /tmp/it.log || true)
-          if [ "$REPORT_READ_STARTUP" -ne 1 ] || [ "$REPORT_READ_STARTUP_CASES" -ne 8 ]; then
+          STREAM_STARTUP_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportReadStartup/stream_(off|on) ' /tmp/it.log || true)
+          FEEDBACK_STARTUP_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportReadStartup/feedback_(off|on) ' /tmp/it.log || true)
+          CONVERSATION_STARTUP_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportReadStartup/conversation_(off|on) ' /tmp/it.log || true)
+          INTENT_STARTUP_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportReadStartup/conversation_tasks_(off|on) ' /tmp/it.log || true)
+          QA_STARTUP_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportReadStartup/qa_(off|read|submit_without_factory|policy_error|missing_trigger|cancelled|submit_factories|submit_model_error|submit_nil_policy|submit_nil_model) ' /tmp/it.log || true)
+          if [ "$REPORT_READ_STARTUP" -ne 1 ] || [ "$REPORT_READ_STARTUP_CASES" -ne 26 ] || [ "$STREAM_STARTUP_CASES" -ne 2 ] || [ "$FEEDBACK_STARTUP_CASES" -ne 2 ] || [ "$CONVERSATION_STARTUP_CASES" -ne 2 ] || [ "$INTENT_STARTUP_CASES" -ne 2 ] || [ "$QA_STARTUP_CASES" -ne 10 ]; then
             echo '❌ 会员报告启动保护必跑用例缺失'; exit 1
           fi
           MEMBER_SUBMISSIONS=$(grep -Ec '^--- PASS: TestIntegrationAIReportMemberSubmission(Lifecycle|Boundaries|Concurrency) ' /tmp/it.log || true)
@@ -406,12 +436,51 @@ jobs:
           fi
           REPORT_H5_GATEWAY=$(grep -Ec '^--- PASS: TestIntegrationAIReportH5Gateway ' /tmp/it.log || true)
           REPORT_H5_GATEWAY_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportH5Gateway/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
-          REPORT_H5_GATEWAY_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportH5Gateway/(Read_Committed|Repeatable_Read)/(success|cancel|library|receipt_unknown|running_cancel) ' /tmp/it.log || true)
+          REPORT_H5_GATEWAY_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportH5Gateway/(Read_Committed|Repeatable_Read)/(success|cancel|library|receipt_unknown|running_cancel|feedback) ' /tmp/it.log || true)
           REPORT_H5_ORIGIN=$(grep -Ec '^--- PASS: TestH5TestOrigin ' /tmp/it.log || true)
-          if [ "$REPORT_H5_GATEWAY" -ne 1 ] || [ "$REPORT_H5_GATEWAY_LEVELS" -ne 2 ] || [ "$REPORT_H5_GATEWAY_CASES" -ne 10 ] || [ "$REPORT_H5_ORIGIN" -ne 1 ]; then
+          REPORT_H5_CONVERSATION=$(grep -Ec '^--- PASS: TestIntegrationAIReportH5Conversation ' /tmp/it.log || true)
+          REPORT_H5_CONVERSATION_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportH5Conversation/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          REPORT_H5_CONVERSATION_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportH5Conversation/(Read_Committed|Repeatable_Read)/(success|bind_unknown) ' /tmp/it.log || true)
+          if [ "$REPORT_H5_CONVERSATION" -ne 1 ] || [ "$REPORT_H5_CONVERSATION_LEVELS" -ne 2 ] || [ "$REPORT_H5_CONVERSATION_CASES" -ne 4 ]; then
+            echo "::error::会话H5门面、绑定回滚恢复或原报告账务用例漏跑"; exit 1
+          fi
+          if [ "$REPORT_H5_GATEWAY" -ne 1 ] || [ "$REPORT_H5_GATEWAY_LEVELS" -ne 2 ] || [ "$REPORT_H5_GATEWAY_CASES" -ne 12 ] || [ "$REPORT_H5_ORIGIN" -ne 1 ]; then
             echo "::error::本地H5测试接线、真库成功/取消或回环源边界用例漏跑"; exit 1
           fi
-          MIN=931
+          FEEDBACK_ROOTS=$(grep -Ec '^--- PASS: TestIntegrationAIReportFeedback(Lifecycle|Rollback|HTTP|SchemaGuards) ' /tmp/it.log || true)
+          FEEDBACK_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportFeedback(Lifecycle|Rollback)/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          FEEDBACK_SCHEMA=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportFeedbackSchemaGuards/' /tmp/it.log || true)
+          if [ "$FEEDBACK_ROOTS" -ne 4 ] || [ "$FEEDBACK_LEVELS" -ne 4 ] || [ "$FEEDBACK_SCHEMA" -ne 9 ]; then
+            echo "::error::反馈真库受理/处理/回滚、会员权限或结构保护用例漏跑"; exit 1
+          fi
+          CONVERSATION_ROOTS=$(grep -Ec '^--- PASS: TestIntegrationAIConversations(Lifecycle|ConcurrencyAndUnknown|SchemaGuards|ReadOnlyAndCorruption) ' /tmp/it.log || true)
+          CONVERSATION_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIConversations(Lifecycle|ConcurrencyAndUnknown|ReadOnlyAndCorruption)/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          CONVERSATION_GUARDS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIConversationsSchemaGuards/' /tmp/it.log || true)
+          if [ "$CONVERSATION_ROOTS" -ne 4 ] || [ "$CONVERSATION_LEVELS" -ne 6 ] || [ "$CONVERSATION_GUARDS" -ne 13 ]; then
+            echo '::error::会话归属/幂等/CAS/未知提交、只读历史或13类保护拒绝漏跑'; exit 1
+          fi
+          INTENT_ROOTS=$(grep -Ec '^--- PASS: TestIntegrationAIConversationsTasks(Lifecycle|Recovery|PriceAndArchive|Guards) ' /tmp/it.log || true)
+          INTENT_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIConversationsTasks(Lifecycle|Recovery|PriceAndArchive)/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          INTENT_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIConversationsTasks(Lifecycle|Recovery|PriceAndArchive)/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          INTENT_GUARDS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIConversationsTasksGuards/' /tmp/it.log || true)
+          if [ "$INTENT_ROOTS" -ne 4 ] || [ "$INTENT_LEVELS" -ne 6 ] || [ "$INTENT_CASES" -ne 18 ] || [ "$INTENT_GUARDS" -ne 6 ]; then
+            echo '::error::会话意图原键创建/未知核查/终检结算/关闭恢复或结构保护漏跑'; exit 1
+          fi
+          QA_ROOTS=$(grep -Ec '^--- PASS: TestIntegrationAIConversationsQA(Lifecycle|Failures|Boundaries|Recovery) ' /tmp/it.log || true)
+          QA_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIConversationsQA(Lifecycle|Failures|Boundaries|Recovery)/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          QA_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIConversationsQA(Failures|Boundaries|Recovery)/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          if [ "$QA_ROOTS" -ne 4 ] || [ "$QA_LEVELS" -ne 8 ] || [ "$QA_CASES" -ne 38 ]; then
+            echo '::error::问答持久入队/唯一执行/双层配额/当前授权/闭集存证/回执未知及两种隔离子例漏跑'; exit 1
+          fi
+          QA_HTTP_ROOTS=$(grep -Ec '^--- PASS: TestIntegrationAIConversationsQA(HTTP|HTTPBoundaries|Schema) ' /tmp/it.log || true)
+          QA_HTTP_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIConversationsQA(HTTP|HTTPBoundaries)/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          QA_HTTP_BOUNDARIES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIConversationsQAHTTPBoundaries/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          QA_SCHEMA_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIConversationsQASchema/' /tmp/it.log || true)
+          if [ "$QA_HTTP_ROOTS" -ne 3 ] || [ "$QA_HTTP_LEVELS" -ne 4 ] || [ "$QA_HTTP_BOUNDARIES" -ne 18 ] || [ "$QA_SCHEMA_CASES" -ne 20 ]; then
+            echo '::error::问答实际JWT/HTTP/配额/当前撤权/原键未知/无模型读取或结构破坏用例漏跑'; exit 1
+          fi
+          # 保留原1073项，追加问答HTTP/结构45项及启动10项。
+          MIN=1128
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项，低于下限 $MIN —— 要么没跑，要么有测试被删。"; exit 1
           fi
@@ -444,6 +513,22 @@ jobs:
             echo "::error::实际执行 $PASS 项，低于下限 $MIN —— 要么没跑，要么有测试被删。"; exit 1
           fi
 
+      - name: 反馈后台 MySQL 目录与登录专项 + 必跑守卫
+        working-directory: backend/server
+        env:
+          TM_TEST_DSN: "root:fake-ci-only-not-a-secret@tcp(127.0.0.1:3306)/tm_stock_it?parseTime=true&multiStatements=true&charset=utf8mb4&loc=Local"
+        run: |
+          set -o pipefail
+          go test -p 1 -race -tags=integration ./service/feedbackconsole ./api/v1/quant -run '^TestFeedbackConsoleMySQL(Catalog|Login)$' -count=1 -timeout=10m -v 2>&1 | tee /tmp/gva_feedback_it.log | tail -30
+          PASS=$(grep -Ec '^[[:space:]]*--- PASS:' /tmp/gva_feedback_it.log || true)
+          SKIP=$(grep -Ec '^[[:space:]]*--- SKIP:' /tmp/gva_feedback_it.log || true)
+          ROOTS=$(grep -Ec '^--- PASS: TestFeedbackConsoleMySQL(Catalog|Login) ' /tmp/gva_feedback_it.log || true)
+          LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestFeedbackConsoleMySQLCatalog/(READ_COMMITTED|REPEATABLE_READ) ' /tmp/gva_feedback_it.log || true)
+          CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestFeedbackConsoleMySQLCatalog/(READ_COMMITTED|REPEATABLE_READ)/(concurrent|collision_rollback|soft_deleted|lock_cancel|missing_table|missing_anchor) ' /tmp/gva_feedback_it.log || true)
+          if [ "$SKIP" -ne 0 ] || [ "$ROOTS" -ne 2 ] || [ "$LEVELS" -ne 2 ] || [ "$CASES" -ne 12 ] || [ "$PASS" -lt 16 ]; then
+            echo '::error::反馈后台MySQL目录并发/回滚/关闭保护或真实登录授权未完整执行'; exit 1
+          fi
+
   frontend:
     name: 前端（uni-app x）源码行为与静态检查
     runs-on: ubuntu-latest
@@ -454,14 +539,20 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Agent本地评估网关守卫（无Key、无网络、无付费调用）
+        run: node --test scripts/dev/tradingcn-live-gateway.test.mjs scripts/dev/tradingcn-local-chain.test.mjs
+
       - name: 会员报告与依据展示源码测试（不替代HBuilderX）
         run: |
           set -euo pipefail
           qa_dir="$(mktemp -d "${RUNNER_TEMP}/tm-stock-ai-ui.XXXXXX")"
           npm install --prefix "$qa_dir" --ignore-scripts --package-lock=false --no-audit --no-fund \
-            vue@3.5.13 @vue/compiler-sfc@3.5.13 @vue/server-renderer@3.5.13 typescript@5.7.2
+            vue@3.5.13 @vue/compiler-sfc@3.5.13 @vue/server-renderer@3.5.13 typescript@5.7.2 axios@1.8.2 vue-router@4.4.3
           node scripts/dev/verify-ai-report-ui.cjs "$qa_dir"
+          node scripts/dev/verify-ai-task-stream.cjs "$qa_dir"
+          node scripts/dev/verify-ai-qa-ui.cjs "$qa_dir"
           node scripts/dev/verify-evidence-ui.cjs "$qa_dir"
+          node scripts/dev/verify-ai-feedback-admin-ui.cjs "$qa_dir"
 
       - name: 配置文件 JSON 合法性
         run: |

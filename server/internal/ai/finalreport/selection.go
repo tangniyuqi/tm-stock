@@ -94,7 +94,14 @@ func (s *SelectionStage) InputDigest() string {
 	return s.inputDigest
 }
 func (s *SelectionStage) Matches(v task.Task, p *Policy) bool {
-	return s.Valid() && p.Valid() && p.Digest() == s.policy.Digest() && v.No == s.taskNo && v.SubjectType == task.Theme && v.SubjectID == s.themeID && v.AnalysisType == 1
+	if s == nil || !s.Valid() {
+		return false
+	}
+	wantType := 1
+	if s.policy != nil && s.policy.cfg.AnalysisType == 2 {
+		wantType = 2
+	}
+	return p.Valid() && p.Digest() == s.policy.Digest() && v.No == s.taskNo && v.SubjectType == task.Theme && v.SubjectID == s.themeID && v.AnalysisType == wantType
 }
 func (s *SelectionStage) SnapshotIDs() []int64 {
 	if !s.Valid() {
@@ -189,6 +196,19 @@ func (s *SelectionStage) Build(ctx context.Context, raw string) (string, error) 
 				return "", ErrRejected
 			}
 			used[key] = true
+		}
+		if s.policy.AnalysisType() == task.DeepAnalysisType {
+			// 深度最低交付按逐句引文计数；同一节可含多条不重叠引文。
+			for _, id := range pick.SentenceIDs {
+				sent := v.Sentences[id-1]
+				n, err := render.QuoteNode(render.Quote{SnapshotID: v.ID, Start: sent.StartByte, End: sent.EndByte, Text: sent.Text, SourceType: sourceType(v.SourceCategory), URL: v.URL,
+					FetchedAt: v.FetchedAt.UnixMilli(), ContentHash: v.Hash}, render.ProvAIExtractedQuote)
+				if err != nil {
+					return "", ErrRejected
+				}
+				sections[pick.Section] = append(sections[pick.Section], n)
+			}
+			continue
 		}
 		start, end := v.Sentences[pick.SentenceIDs[0]-1].StartByte, v.Sentences[pick.SentenceIDs[len(pick.SentenceIDs)-1]-1].EndByte
 		n, err := render.QuoteNode(render.Quote{SnapshotID: v.ID, Start: start, End: end, Text: v.Body[start:end], SourceType: sourceType(v.SourceCategory), URL: v.URL,

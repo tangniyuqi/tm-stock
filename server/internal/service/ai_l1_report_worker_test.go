@@ -61,6 +61,27 @@ func l1PlanFixture(t *testing.T) (AIL1ReportPlan, task.Task, *provider.OpenAICom
 	}
 	return p, v, check.model
 }
+func TestAIL2ReportPlanContract(t *testing.T) {
+	p, v, model := l1PlanFixture(t)
+	p.AnalysisType, v.AnalysisType = task.DeepAnalysisType, task.DeepAnalysisType
+	p.Policy.AnalysisType, p.Policy.MinQuotes = task.DeepAnalysisType, task.DeepMinQuotes
+	if policy, err := p.validate(v, model); err != nil || !policy.Valid() {
+		t.Fatal("深度计划未通过", err)
+	}
+	for _, mutate := range []func(*AIL1ReportPlan, *task.Task){
+		func(p *AIL1ReportPlan, v *task.Task) { p.AnalysisType = 0 },
+		func(p *AIL1ReportPlan, v *task.Task) { p.Policy.AnalysisType = 0 },
+		func(p *AIL1ReportPlan, v *task.Task) { p.Policy.MinQuotes = task.DeepMinQuotes - 1 },
+		func(p *AIL1ReportPlan, v *task.Task) { v.AnalysisType = task.LightAnalysisType },
+	} {
+		q, w := p, v
+		mutate(&q, &w)
+		if _, err := q.validate(w, model); err == nil {
+			t.Fatal("深度计划错绑未拒绝")
+		}
+	}
+}
+
 func TestAIL1ReportPlanFailClosed(t *testing.T) {
 	for _, name := range []string{"agent", "type", "model", "disclosure", "filing", "meta", "versions", "budget", "policy", "source"} {
 		t.Run(name, func(t *testing.T) {

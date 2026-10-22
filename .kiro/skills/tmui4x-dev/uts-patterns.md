@@ -557,6 +557,25 @@ import LinearLayout from 'android.widget.LinearLayout'
 // #endif
 ```
 
+### H5严格流解码不能混用UTS全局TextDecoder
+
+HBuilderX5.26实测警告：`Expected 0-1 arguments, but got 2.`、`Expected 1 arguments, but got 0.`、`Expected 1 arguments, but got 2.`。UTS全局`TextDecoder`声明与浏览器标准构造/流选项不同；普通TypeScript转换通过不能证明实际H5调用了原生流解码器。
+
+```uts
+// ❌ 全局名可能解析到UTS兼容类，不能据此保证fatal/stream生效。
+const decoder : TextDecoder = new TextDecoder('utf-8', { fatal: true })
+decoder.decode(bytes, { stream: true })
+
+// ✅ 仅在WEB条件编译内，经有类型的浏览器适配取得window.TextDecoder。
+// 类型平铺定义在import之后：实际用法见pages/libs/ai-task-feed.uts。
+const Decoder : AIWebDecoderConstructor = window.TextDecoder as AIWebDecoderConstructor
+const decoder : AIWebUTF8Decoder = new Decoder('utf-8', { fatal: true } as AIWebDecoderInit)
+// 必须检查decoder.fatal，缺能力回退受控GET；EOF用空Uint8Array及stream:false冲刷。
+decoder.decode(bytes, { stream: true } as AIWebDecodeOptions)
+```
+
+适用边界：这是H5浏览器API桥，不得移到APP公共分支或用any掩盖错误；需逐字节中文、畸形UTF-8、半帧EOF与实际HBuilderX/浏览器验收，不能默认解码器会拒绝替换字符。
+
 ### 页面生命周期不从 `@dcloudio/uni-app` 导入
 
 **错误信息**：`warning: Module '"@dcloudio/uni-app"' has no exported member 'onLoad'.`

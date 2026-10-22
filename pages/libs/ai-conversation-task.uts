@@ -1,0 +1,100 @@
+import { isSafeAIId, isSafeAIInteger } from './ai.uts'
+import { aiPendingStorageKey, aiCreationLock, readAIPending, isAIRequestKey, isAIPriceVersion, AISubmissionQuote, isValidAIQuote } from './ai-submission.uts'
+
+export type AIConversationTaskSummary = { id : number, state : string, analysisType : string, subjectType : string, subjectId : number, updatedAt : number }
+export type AIConversationTask = {
+	id : number, conversationId : number, analysisType : string, subjectType : string, subjectId : number,
+	priceVersion : string, pricePoints : number, state : string, rejectionCode : string,
+	taskId : number, messageSeq : number, createdAt : number, updatedAt : number
+}
+export type AIConversationTasks = { items : AIConversationTaskSummary[], nextBeforeId : number, hasMore : boolean }
+export type AIPendingIntent = { key : string, conversationId : number, analysisType : string, subjectId : number, priceVersion : string, pricePoints : number, intentId : number, confirmSent : boolean }
+
+const intentTime = (v : number) : boolean => isSafeAIId(v) && v <= 8640000000000000
+export const isAIIntentSummary = (v : AIConversationTaskSummary | null) : boolean => v != null && isSafeAIId(v.id) && ['prepared', 'unconfirmed', 'linked', 'not_created'].includes(v.state) && ['light', 'deep'].includes(v.analysisType) && ['theme', 'topic'].includes(v.subjectType) && isSafeAIId(v.subjectId) && intentTime(v.updatedAt)
+export const isAIConversationTask = (v : AIConversationTask | null, cid : number) : boolean => {
+	if (v == null || !isAIIntentSummary(v) || !isSafeAIId(v.conversationId) || v.conversationId != cid || !isAIPriceVersion(v.priceVersion) || !isSafeAIId(v.pricePoints) || !isSafeAIInteger(v.taskId) || !isSafeAIInteger(v.messageSeq) || !intentTime(v.createdAt) || v.updatedAt < v.createdAt || typeof v.rejectionCode != 'string') return false
+	if (v.state == 'linked') return isSafeAIId(v.taskId) && isSafeAIId(v.messageSeq) && v.rejectionCode == ''
+	if (v.taskId != 0 || v.messageSeq != 0) return false
+	if (v.state == 'not_created') return ['price_changed', 'insufficient_points', 'creation_disabled', 'admission_unavailable', 'invalid_request'].includes(v.rejectionCode)
+	return v.rejectionCode == '' && (v.state != 'prepared' || v.createdAt == v.updatedAt)
+}
+export const isAIConversationTasks = (v : AIConversationTasks | null, before : number) : boolean => {
+	if (v == null || !Array.isArray(v.items) || v.items.length > 20 || typeof v.hasMore != 'boolean' || !isSafeAIInteger(v.nextBeforeId)) return false
+	let previous : number = before
+	for (let n = 0; n < v.items.length; n++) { const row : AIConversationTaskSummary = v.items[n]; if (!isAIIntentSummary(row) || (previous > 0 && row.id >= previous)) return false; previous = row.id }
+	return v.hasMore ? v.items.length > 0 && v.nextBeforeId == previous : v.nextBeforeId == 0
+}
+export const isAIPendingIntent = (v : AIPendingIntent | null) : boolean => v != null && isAIRequestKey(v.key) && isSafeAIId(v.conversationId) && ['light', 'deep'].includes(v.analysisType) && isSafeAIId(v.subjectId) && isAIPriceVersion(v.priceVersion) && isSafeAIId(v.pricePoints) && isSafeAIInteger(v.intentId) && typeof v.confirmSent == 'boolean' && (!v.confirmSent || isSafeAIId(v.intentId))
+export const intentMatchesPending = (v : AIConversationTask, p : AIPendingIntent) : boolean => isAIConversationTask(v, p.conversationId) && isAIPendingIntent(p) && v.analysisType == p.analysisType && v.subjectType == 'theme' && v.subjectId == p.subjectId && v.priceVersion == p.priceVersion && v.pricePoints == p.pricePoints && (p.intentId == 0 || p.intentId == v.id)
+export const intentMatchesQuote = (v : AIConversationTask, q : AISubmissionQuote) : boolean => isValidAIQuote(q, { analysisType: v.analysisType, subjectType: 'theme', subjectId: v.subjectId }) && v.analysisType == q.analysisType && v.subjectType == q.subjectType && v.priceVersion == q.priceVersion && v.pricePoints == q.pricePoints
+export const intentStateLabel = (state : string) : string => {
+	if (state == 'prepared') return '报价意图已保存，尚未确认创建'
+	if (state == 'unconfirmed') return '原任务结果未确认，不能重复创建'
+	if (state == 'linked') return '原任务已关联；报告仍须单独核对'
+	return state == 'not_created' ? '已确认本意图未创建任务' : '意图状态不可用'
+}
+export const intentRejectionLabel = (code : string) : string => {
+	if (code == 'price_changed') return '价格已变化，需要另行核对报价'
+	if (code == 'insufficient_points') return '可消费积分不足'
+	if (code == 'creation_disabled') return '创建服务未开启'
+	if (code == 'admission_unavailable') return '当前资料或执行准入不满足'
+	return code == 'invalid_request' ? '创建参数无效' : ''
+}
+export const intentPartition = (token : string) : string => aiPendingStorageKey(token).replace('tm_ai_pending_v1_', 'tm_ai_intent_v1_')
+export const readPendingIntent = (partition : string) : AIPendingIntent | null => {
+	if (!/^tm_ai_intent_v1_[1-9][0-9]*$/.test(partition)) throw new Error('意图分区无效')
+	const raw = uni.getStorageSync(partition)
+	if (raw == null) return null
+	if (typeof raw != 'string' || raw.length > 1024) throw new Error('意图原键不可读取')
+	if (raw.length == 0) return null
+	const p : AIPendingIntent | null = JSON.parse<AIPendingIntent | null>(raw)
+	if (!isAIPendingIntent(p)) throw new Error('意图原键不可读取')
+	return p
+}
+const writePendingIntent = (partition : string, p : AIPendingIntent) : AIPendingIntent => {
+	if (!isAIPendingIntent(p)) throw new Error('意图原键格式无效')
+	const encoded : string = JSON.stringify(p); uni.setStorageSync(partition, encoded)
+	if (uni.getStorageSync(partition) != encoded) throw new Error('意图原键没有持久保存')
+	return p
+}
+export const reserveIntent = async (partition : string, cid : number, q : AISubmissionQuote) : Promise<AIPendingIntent | null> => {
+	// #ifdef WEB
+	if (!/^tm_ai_intent_v1_[1-9][0-9]*$/.test(partition) || !isSafeAIId(cid) || !isValidAIQuote(q, {analysisType: q.analysisType, subjectType: q.subjectType, subjectId: q.subjectId}) || typeof window.crypto?.getRandomValues != 'function' || typeof window.navigator?.locks?.request != 'function') return null
+	return await window.navigator.locks.request(aiCreationLock(partition), () : AIPendingIntent | null => {
+		if (readPendingIntent(partition) != null || readAIPending(partition.replace('tm_ai_intent_v1_', 'tm_ai_pending_v1_')) != null) return null
+		const bytes : Uint8Array = new Uint8Array(24); window.crypto.getRandomValues(bytes); let key : string = 'intent_'
+		for (let n = 0; n < bytes.length; n++) key += bytes[n].toString(16).padStart(2, '0')
+		return writePendingIntent(partition, {key: key, conversationId: cid, analysisType: q.analysisType, subjectId: q.subjectId, priceVersion: q.priceVersion, pricePoints: q.pricePoints, intentId: 0, confirmSent: false} as AIPendingIntent)
+	})
+	// #endif
+	// #ifndef WEB
+	return null
+	// #endif
+}
+// 确认已发标志与原编号同时持久化；跨页签只授予一次发送权限。
+export const markPendingIntent = async (partition : string, key : string, id : number, confirm : boolean) : Promise<AIPendingIntent | null> => {
+	// #ifdef WEB
+	if (!/^tm_ai_intent_v1_[1-9][0-9]*$/.test(partition) || !isAIRequestKey(key) || !isSafeAIId(id) || typeof window.navigator?.locks?.request != 'function') return null
+	return await window.navigator.locks.request(aiCreationLock(partition), () : AIPendingIntent | null => {
+		const p : AIPendingIntent | null = readPendingIntent(partition)
+		if (p == null || p.key != key || (p.intentId != 0 && p.intentId != id) || (confirm && p.confirmSent)) return null
+		return writePendingIntent(partition, {key: p.key, conversationId: p.conversationId, analysisType: p.analysisType, subjectId: p.subjectId, priceVersion: p.priceVersion, pricePoints: p.pricePoints, intentId: id, confirmSent: confirm || p.confirmSent} as AIPendingIntent)
+	})
+	// #endif
+	// #ifndef WEB
+	return null
+	// #endif
+}
+export const clearPendingIntent = async (partition : string, key : string) : Promise<boolean> => {
+	// #ifdef WEB
+	if (!/^tm_ai_intent_v1_[1-9][0-9]*$/.test(partition) || !isAIRequestKey(key) || typeof window.navigator?.locks?.request != 'function') return false
+	return await window.navigator.locks.request(aiCreationLock(partition), () : boolean => {
+		const p : AIPendingIntent | null = readPendingIntent(partition); if (p == null || p.key != key) return false
+		uni.removeStorageSync(partition); return readPendingIntent(partition) == null
+	})
+	// #endif
+	// #ifndef WEB
+	return false
+	// #endif
+}

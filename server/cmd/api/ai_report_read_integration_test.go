@@ -74,7 +74,7 @@ func TestIntegrationAIReportReadStartup(t *testing.T) {
 	}
 	defer db.Close()
 	var admissionDDL string
-	for _, migration := range []string{"20261011_create_points_ledger.sql", "20261011_create_tm_ai_tasks.sql", "20261015_create_tm_ai_task_budgets.sql", "20261015_create_tm_ai_task_steps.sql", "20261016_create_tm_ai_report_commits.sql", "20261018_create_tm_ai_task_admissions.sql"} {
+	for _, migration := range []string{"20261011_create_points_ledger.sql", "20261011_create_tm_ai_tasks.sql", "20261015_create_tm_ai_task_budgets.sql", "20261015_create_tm_ai_task_steps.sql", "20261016_create_tm_ai_report_commits.sql", "20261018_create_tm_ai_task_admissions.sql", "20261020_create_tm_ai_report_feedbacks.sql"} {
 		b, err := os.ReadFile(filepath.Join("..", "..", "migrations", migration))
 		if err != nil {
 			t.Fatal(err)
@@ -115,6 +115,11 @@ func TestIntegrationAIReportReadStartup(t *testing.T) {
 	}
 	key := strings.Repeat("k", 40)
 	read := config.AITaskReadConfig{Enabled: true, Auth: memberauth.Config{SigningKey: key, Issuer: "GVA", Audience: "GVA"}}
+	checkFeedbackStartup(t, ctx, db, read)
+	checkTaskStreamStartup(t, ctx, db, read)
+	checkConversationStartup(t, ctx, db, read)
+	checkConversationTaskStartup(t, ctx, db, read)
+	checkQAStartup(t, ctx, db, read)
 	for _, mode := range []string{"default_off", "missing_proof", "read_off", "configured", "cancelled_context", "missing_admission", "missing_marker_guard", "broken_schema"} {
 		t.Run(mode, func(t *testing.T) {
 			current := read

@@ -15,7 +15,7 @@ export type AILocalIdentity = { ID : number, UserType : string }
 export const isAIRequestKey = (key : string) : boolean => typeof key == 'string' && key == key.trim() && /^[A-Za-z0-9_-]{16,80}$/.test(key)
 export const isAIPriceVersion = (value : string) : boolean => typeof value == 'string' && value == value.trim() && /^[A-Za-z0-9_.:-]{1,32}$/.test(value)
 export const isAISubmissionScope = (scope : AISubmissionScope | null) : boolean => {
-	return scope != null && scope.analysisType == 'light' && scope.subjectType == 'theme' && isSafeAIId(scope.subjectId)
+	return scope != null && ['light', 'deep'].includes(scope.analysisType) && scope.subjectType == 'theme' && isSafeAIId(scope.subjectId)
 }
 export const isValidAIQuote = (quote : AISubmissionQuote | null, scope : AISubmissionScope) : boolean => {
 	if (!isAISubmissionScope(scope) || quote == null || quote.analysisType != scope.analysisType || quote.subjectType != scope.subjectType || quote.subjectId != scope.subjectId
@@ -70,12 +70,23 @@ export const readAIPending = (partition : string) : AIPendingCreation | null => 
 	if (!isValidAIPending(pending)) throw new Error('原请求记录不可读取')
 	return pending
 }
+// 两个生成入口共用会员级互斥锁，不能在未确认时从另一入口绕开保护。
+export const aiCreationLock = (partition : string) : string => {
+	if (!/^tm_ai_(pending|intent)_v1_[1-9][0-9]*$/.test(partition)) throw new Error('创建锁分区无效')
+	return partition.replace(/^tm_ai_(pending|intent)_v1_/, 'tm_ai_creation_gate_v1_')
+}
+export const hasConversationIntent = (partition : string) : boolean => {
+	if (!/^tm_ai_pending_v1_[1-9][0-9]*$/.test(partition)) throw new Error('创建分区无效')
+	const raw = uni.getStorageSync(partition.replace('tm_ai_pending_v1_', 'tm_ai_intent_v1_'))
+	// 未知/损坏记录也阻止另行生成，不能因无法解析而覆盖。
+	return raw != null && !(typeof raw == 'string' && raw.length == 0)
+}
 // 必须先存后发；不支持Web安全能力时不退化为时间戳或随机占位键。
 export const reserveAIPending = async (partition : string, quote : AISubmissionQuote) : Promise<AIPendingCreation | null> => {
 	// #ifdef WEB
 	if (!/^tm_ai_pending_v1_[1-9][0-9]*$/.test(partition) || typeof window.crypto?.getRandomValues != 'function' || typeof window.navigator?.locks?.request != 'function') return null
-	return await window.navigator.locks.request(partition, () : AIPendingCreation | null => {
-		if (readAIPending(partition) != null) return null
+	return await window.navigator.locks.request(aiCreationLock(partition), () : AIPendingCreation | null => {
+		if (readAIPending(partition) != null || hasConversationIntent(partition)) return null
 		const random : Uint8Array = new Uint8Array(24); window.crypto.getRandomValues(random)
 		let key : string = 'ai_'
 		for (let i = 0; i < random.length; i++) key += random[i].toString(16).padStart(2, '0')
@@ -93,8 +104,8 @@ export const reserveAIPending = async (partition : string, quote : AISubmissionQ
 }
 export const clearConfirmedAIPending = async (partition : string, key : string) : Promise<boolean> => {
 	// #ifdef WEB
-	if (typeof window.navigator?.locks?.request != 'function') return false
-	return await window.navigator.locks.request(partition, () : boolean => {
+	if (!/^tm_ai_pending_v1_[1-9][0-9]*$/.test(partition) || typeof window.navigator?.locks?.request != 'function') return false
+	return await window.navigator.locks.request(aiCreationLock(partition), () : boolean => {
 		const pending : AIPendingCreation | null = readAIPending(partition)
 		if (pending == null || pending.key != key) return false
 		uni.removeStorageSync(partition)

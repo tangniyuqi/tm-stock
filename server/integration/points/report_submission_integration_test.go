@@ -33,6 +33,7 @@ type submissionSQLControl struct {
 	x             *reportEnv
 	p             task.AdmissionPlan
 	allowed       atomic.Bool
+	allowDeep     atomic.Bool
 	probeAccount  atomic.Bool
 	plans, checks atomic.Int32
 }
@@ -40,7 +41,7 @@ type submissionSQLControl struct {
 func (c *submissionSQLControl) Ready(ctx context.Context) error { return ctx.Err() }
 func (c *submissionSQLControl) Plan(ctx context.Context, scope task.AdmissionScope) (task.AdmissionPlan, error) {
 	c.plans.Add(1)
-	if scope.SubjectID != c.p.Scope.SubjectID || scope.SubjectType != task.Theme || scope.AnalysisType != 1 || scope.UserID < 1 || scope.UserID > 2 {
+	if scope.SubjectID != c.p.Scope.SubjectID || scope.SubjectType != task.Theme || (scope.AnalysisType != 1 && !(scope.AnalysisType == task.DeepAnalysisType && c.allowDeep.Load())) || scope.UserID < 1 || scope.UserID > 2 {
 		return task.AdmissionPlan{}, task.ErrAdmissionUnavailable
 	}
 	p := c.p.Clone()
@@ -201,7 +202,7 @@ func newSubmissionHTTPEnvWithPlan(t *testing.T, level sql.IsolationLevel, mode s
 	if prepare != nil {
 		prepare(env)
 	}
-	web := reportHTTPFixture(t, e.reportEnv, "")
+	web := reportHTTPFixtureWithModel(t, e.reportEnv, "", true, e.planner.p.Model.Model, e.planner.p.Model.FilingNo)
 	env.web = web
 	ctl.allowed.Store(true)
 	ctl.probeAccount.Store(true)

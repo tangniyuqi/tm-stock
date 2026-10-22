@@ -18,6 +18,10 @@ import (
 )
 
 func prepareAITaskCreates(ctx context.Context, db *sql.DB, read config.AITaskReadConfig, enabled bool, control service.AITaskAdmissionControl) (*service.AITaskCreateService, error) {
+	return prepareAITaskCreatesWithDeep(ctx, db, read, enabled, false, control)
+}
+
+func prepareAITaskCreatesWithDeep(ctx context.Context, db *sql.DB, read config.AITaskReadConfig, enabled, deep bool, control service.AITaskAdmissionControl) (*service.AITaskCreateService, error) {
 	if !enabled && !read.Enabled {
 		return nil, nil
 	}
@@ -51,7 +55,30 @@ func prepareAITaskCreates(ctx context.Context, db *sql.DB, read config.AITaskRea
 	if err != nil {
 		return nil, err
 	}
-	return service.NewAITaskCreateService(tasks, control, enabled)
+	svc, err := service.NewAITaskCreateService(tasks, control, enabled)
+	if err != nil {
+		return nil, err
+	}
+	if deep {
+		if !enabled || control == nil {
+			return nil, memberauth.ErrInvalidConfig
+		}
+		d, ok := control.(service.AITaskDeepAdmission)
+		if !ok {
+			return nil, memberauth.ErrInvalidConfig
+		}
+		checkCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+		if err := d.ReadyDeep(checkCtx); err != nil {
+			return nil, fmt.Errorf("AI深度准入启动检查失败（详情已隐藏）: %w", task.ErrAdmissionUnavailable)
+		}
+		limiter, err := service.NewSQLDeepLimiter(db)
+		if err != nil {
+			return nil, err
+		}
+		svc.SetDeepLimiter(limiter)
+	}
+	return svc, nil
 }
 
 func registerAITaskCreates(mux *http.ServeMux, db *sql.DB, read config.AITaskReadConfig, svc *service.AITaskCreateService, enabled bool) error {

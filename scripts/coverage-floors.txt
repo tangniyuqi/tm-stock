@@ -15,3 +15,6 @@ cmd/ai-worker 85
 cmd/ai-task-expire 85
 internal/ai/agenttask 95
 internal/ai/finalreport 95
+internal/ai/feedback 95
+internal/ai/conversation 90
+internal/ai/qa 92

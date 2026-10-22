@@ -11,7 +11,7 @@ type MemberApiEnvelope<T> = {
 }
 
 type MemberApiPayload = UTSJSONObject | string
-type MemberRequestMethod = 'GET' | 'POST'
+type MemberRequestMethod = 'GET' | 'POST' | 'PATCH'
 
 export type MemberApiResult<T> = {
 	code : number,
@@ -67,7 +67,7 @@ const parseResult = <T>(data : MemberApiPayload | null, statusCode : number) : M
 
 const requestHeaders = (method : MemberRequestMethod, authenticated : boolean, token : string) : UTSJSONObject => {
 	const shouldAttachAuth = authenticated && token != null && typeof token == 'string' && token.length > 0
-	if (shouldAttachAuth && method == 'POST') {
+	if (shouldAttachAuth && method != 'GET') {
 		return {
 			Authorization: 'Bearer ' + token,
 			'Content-Type': 'application/json'
@@ -78,7 +78,7 @@ const requestHeaders = (method : MemberRequestMethod, authenticated : boolean, t
 			Authorization: 'Bearer ' + token
 		} as UTSJSONObject
 	}
-	if (method == 'POST') {
+	if (method != 'GET') {
 		return {
 			'Content-Type': 'application/json'
 		} as UTSJSONObject
@@ -86,7 +86,7 @@ const requestHeaders = (method : MemberRequestMethod, authenticated : boolean, t
 	return {} as UTSJSONObject
 }
 
-function requestWithToken<T>(path : string, method : MemberRequestMethod, data : UTSJSONObject, authenticated : boolean, token : string, key : string = '') : Promise<MemberApiResult<T>> {
+function requestWithToken<T>(path : string, method : MemberRequestMethod, data : UTSJSONObject, authenticated : boolean, token : string, key : string = '', timeoutMS : number = 10000) : Promise<MemberApiResult<T>> {
 	return new Promise<MemberApiResult<T>>((resolve) => {
 		let headers : UTSJSONObject = requestHeaders(method, authenticated, token)
 		if (key.length > 0) {
@@ -100,7 +100,7 @@ function requestWithToken<T>(path : string, method : MemberRequestMethod, data :
 			header: headers,
 			dataType: 'text',
 			responseType: 'text',
-			timeout: 10000,
+			timeout: timeoutMS,
 			success: (res : RequestSuccess<MemberApiPayload>) => {
 				resolve(parseResult<T>(res.data, res.statusCode))
 			},
@@ -117,6 +117,56 @@ const requestApi = <T>(path : string, method : MemberRequestMethod, data : UTSJS
 }
 
 export class MemberApi {
+	// 问答只开放四个固定端点；仅提交使用28秒，其余与既有接口保持10秒。
+	public static aiQuestion<T>(operation : string, cid : number, seq : number, body : UTSJSONObject, key : string) : Promise<MemberApiResult<T>> {
+		if (typeof cid != 'number' || cid <= 0 || cid > 9007199254740991 || Math.floor(cid) != cid || typeof seq != 'number' || seq < 0 || seq > 9007199254740991 || Math.floor(seq) != seq) return Promise.resolve(failure<T>(40001,'问题编号无效'))
+		const base : string = '/api/v1/ai/conversations/'+cid.toString()
+		if (operation == 'submit' || operation == 'receipt') {
+			if (seq != 0 || !/^[A-Za-z0-9_-]{16,80}$/.test(key)) return Promise.resolve(failure<T>(40001,'原问题键无效'))
+			return requestWithToken<T>(base+(operation == 'submit' ? '/questions' : '/question-receipt'),operation == 'submit' ? 'POST' : 'GET',operation == 'submit' ? body : {} as UTSJSONObject,true,currentAIMemberToken(),key,operation == 'submit' ? 28000 : 10000)
+		}
+		if (seq <= 0 || key != '' || operation != 'status' && operation != 'answer') return Promise.resolve(failure<T>(40001,'问答操作无效'))
+		return requestWithToken<T>(base+'/questions/'+seq.toString()+(operation == 'answer' ? '/answer' : ''),'GET',{} as UTSJSONObject,true,currentAIMemberToken())
+	}
+	// 会话任务固定门面，不开放原任务键、金额、模型参数或任意URL。
+	public static aiConversationTask<T>(operation : string, cid : number, id : number, before : number, body : UTSJSONObject, key : string) : Promise<MemberApiResult<T>> {
+		if (typeof cid != 'number' || cid <= 0 || cid > 9007199254740991 || Math.floor(cid) != cid || typeof id != 'number' || id < 0 || id > 9007199254740991 || Math.floor(id) != id || typeof before != 'number' || before < 0 || before > 9007199254740991 || Math.floor(before) != before) return Promise.resolve(failure<T>(40001, '意图参数无效'))
+		const base : string = '/api/v1/ai/conversations/' + cid.toString()
+		if (operation == 'list' && id == 0 && key == '') return requestWithToken<T>(base + '/task-intents?limit=20' + (before > 0 ? '&before_id=' + before.toString() : ''), 'GET', {} as UTSJSONObject, true, currentAIMemberToken())
+		if (operation == 'prepare' || operation == 'receipt') {
+			if (id != 0 || !/^[A-Za-z0-9_-]{16,80}$/.test(key)) return Promise.resolve(failure<T>(40001, '意图原键无效'))
+			return requestWithToken<T>(base + (operation == 'prepare' ? '/task-intents' : '/task-intent-receipt'), operation == 'prepare' ? 'POST' : 'GET', operation == 'prepare' ? body : {} as UTSJSONObject, true, currentAIMemberToken(), key)
+		}
+		if (id <= 0 || key != '') return Promise.resolve(failure<T>(40001, '意图参数无效'))
+		const path : string = base + '/task-intents/' + id.toString()
+		if (operation == 'detail') return requestWithToken<T>(path, 'GET', {} as UTSJSONObject, true, currentAIMemberToken())
+		if (operation == 'confirm') return requestWithToken<T>(path + '/confirm', 'POST', {confirmed: true} as UTSJSONObject, true, currentAIMemberToken())
+		if (operation == 'reconcile') return requestWithToken<T>(path + '/reconcile', 'POST', {} as UTSJSONObject, true, currentAIMemberToken())
+		return Promise.resolve(failure<T>(40001, '意图操作无效'))
+	}
+	// 会话元数据闭集；不接受外部URL、消息写入、模型或收费任务操作。
+	public static aiConversation<T>(operation : string, id : number, cursor : number, archived : boolean, body : UTSJSONObject, key : string) : Promise<MemberApiResult<T>> {
+		if (typeof id != 'number' || id < 0 || id > 9007199254740991 || Math.floor(id) != id || typeof cursor != 'number' || cursor < 0 || cursor > 9007199254740991 || Math.floor(cursor) != cursor) return Promise.resolve(failure<T>(40001, '会话参数无效'))
+		const base : string = '/api/v1/ai/conversations'
+		if (operation == 'list' && id == 0 && key == '') return requestWithToken<T>(base + '?limit=20&archived=' + (archived ? '1' : '0') + (cursor > 0 ? '&before_id=' + cursor.toString() : ''), 'GET', {} as UTSJSONObject, true, currentAIMemberToken())
+		if (operation == 'create' || operation == 'receipt') {
+			if (!/^[A-Za-z0-9_-]{16,80}$/.test(key)) return Promise.resolve(failure<T>(40001, '会话原键无效'))
+			return requestWithToken<T>(operation == 'create' ? base : '/api/v1/ai/conversation-receipt', operation == 'create' ? 'POST' : 'GET', operation == 'create' ? body : {} as UTSJSONObject, true, currentAIMemberToken(), key)
+		}
+		if (id <= 0 || key != '') return Promise.resolve(failure<T>(40001, '会话参数无效'))
+		const path : string = base + '/' + id.toString()
+		if (operation == 'detail') return requestWithToken<T>(path, 'GET', {} as UTSJSONObject, true, currentAIMemberToken())
+		if (operation == 'messages') return requestWithToken<T>(path + '/messages?limit=20&after_seq=' + cursor.toString(), 'GET', {} as UTSJSONObject, true, currentAIMemberToken())
+		if (operation == 'rename') return requestWithToken<T>(path, 'PATCH', body, true, currentAIMemberToken())
+		if (operation == 'archive') return requestWithToken<T>(path + '/archive', 'POST', body, true, currentAIMemberToken())
+		return Promise.resolve(failure<T>(40001, '会话操作无效'))
+	}
+	// 固定反馈契约；空分类为查询，非空仅提交闭集分类，不接受正文或内部处理参数。
+	public static aiFeedback<T>(id : number, category : string) : Promise<MemberApiResult<T>> {
+		if (typeof id != 'number' || id <= 0 || id > 9007199254740991 || Math.floor(id) != id || typeof category != 'string'
+			|| (category != '' && !['fact', 'source', 'display', 'other'].includes(category))) return Promise.resolve(failure<T>(40001, '反馈参数无效'))
+		return requestWithToken<T>('/api/v1/ai/tasks/' + id.toString() + '/feedback', category == '' ? 'GET' : 'POST', category == '' ? {} as UTSJSONObject : { category: category } as UTSJSONObject, true, currentAIMemberToken())
+	}
 	// 独立固定取消契约，不接受任意地址、会员编号、金额或请求正文。
 	public static aiCancel<T>(id : number) : Promise<MemberApiResult<T>> {
 		if (typeof id != 'number' || id <= 0 || id > 9007199254740991 || Math.floor(id) != id) return Promise.resolve(failure<T>(40001, '任务编号无效'))

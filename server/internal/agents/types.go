@@ -169,7 +169,8 @@ func (r Result) Valid() bool {
 		ID      string                     `json:"analysis_id"`
 		Reports map[string]json.RawMessage `json:"reports"`
 	}
-	return json.Unmarshal(r.Payload, &v) == nil && v.ID == r.RemoteID && len(v.Reports) > 0
+	// analysis_id 是上游“代码_日期_时间”，不是任务 UUID；身份由请求 URL/记录绑定。
+	return json.Unmarshal(r.Payload, &v) == nil && v.ID != "" && len(v.Reports) > 0
 }
 func (r Result) Digest() string {
 	sum := sha256.Sum256(r.Payload)

@@ -30,6 +30,25 @@ type CheckConfig struct {
 	Model, FilingNo, Version, ApprovalRef, QualityRef, HardBudgetRef string
 	ProfileDigest                                                    string
 	MaxInputTokens                                                   int64
+	// AnalysisType 0 保留既有 L1 编码；2 表示深度报告判定，必须与任务一致。
+	AnalysisType int `json:",omitempty"`
+	// SelectionMaxTokens/CheckMaxTokens 为0时沿用默认常量；仅用于已批准模型的结构化输出预算。
+	SelectionMaxTokens int `json:",omitempty"`
+	CheckMaxTokens     int `json:",omitempty"`
+}
+
+func (c CheckConfig) SelectionTokens() int {
+	if c.SelectionMaxTokens > 0 {
+		return c.SelectionMaxTokens
+	}
+	return selectionOutputTokens
+}
+
+func (c CheckConfig) CheckTokens() int {
+	if c.CheckMaxTokens > 0 {
+		return c.CheckMaxTokens
+	}
+	return checkOutputTokens
 }
 
 type CheckPlan struct {
@@ -105,7 +124,7 @@ func newCheckPlan(kind CheckKind, c CheckConfig, taskNo string, themeID int64, i
 		return nil, points.ErrInvalid
 	}
 	zero := 0.0
-	req := provider.Request{System: checkSystem + "\n" + rule, Prompt: string(data), Model: c.Model, MaxTokens: checkOutputTokens, Format: provider.FormatJSONSchema, Schema: json.RawMessage(checkSchema), Strict: true, Temperature: &zero, Attempt: 1}
+	req := provider.Request{System: checkSystem + "\n" + rule, Prompt: string(data), Model: c.Model, MaxTokens: c.CheckTokens(), Format: provider.FormatJSONSchema, Schema: json.RawMessage(checkSchema), Strict: true, Temperature: &zero, Attempt: 1}
 	b, err := json.Marshal([]any{CheckVersion, kind, c, taskNo, themeID, req})
 	if err != nil {
 		return nil, points.ErrInvalid
@@ -115,7 +134,7 @@ func newCheckPlan(kind CheckKind, c CheckConfig, taskNo string, themeID int64, i
 
 // CheckPolicyVersion 不含任务数据，绑定模型/审批/质量/硬预算、实际提示及协议规则。
 func CheckPolicyVersion(kind CheckKind, c CheckConfig) (string, error) {
-	if kind != CheckEntailment && kind != CheckSemantic || !ValidDigest(c.ProfileDigest) {
+	if kind != CheckEntailment && kind != CheckSemantic || !ValidDigest(c.ProfileDigest) || c.AnalysisType != 0 && c.AnalysisType != 2 {
 		return "", points.ErrInvalid
 	}
 	for _, s := range []string{c.Model, c.FilingNo, c.Version, c.ApprovalRef, c.QualityRef, c.HardBudgetRef} {
@@ -130,7 +149,7 @@ func CheckPolicyVersion(kind CheckKind, c CheckConfig) (string, error) {
 	if kind == CheckSemantic {
 		rule = semanticRule
 	}
-	b, err := json.Marshal([]any{CheckVersion, kind, c, checkSystem, rule, checkSchema, checkOutputTokens, provider.FormatJSONSchema, true, 0.0})
+	b, err := json.Marshal([]any{CheckVersion, kind, c, checkSystem, rule, checkSchema, c.CheckTokens(), provider.FormatJSONSchema, true, 0.0})
 	if err != nil {
 		return "", points.ErrInvalid
 	}
@@ -163,7 +182,11 @@ func (p *CheckPlan) Kind() CheckKind {
 	return p.kind
 }
 func (p *CheckPlan) MatchesTask(v task.Task) bool {
-	return p.Valid() && v.ID > 0 && v.UserID > 0 && v.No == p.taskNo && v.AnalysisType == 1 && v.SubjectType == task.Theme && v.SubjectID > 0 && (p.kind != CheckEntailment || p.themeID == v.SubjectID)
+	wantType := 1
+	if p.cfg.AnalysisType == 2 {
+		wantType = 2
+	}
+	return p.Valid() && v.ID > 0 && v.UserID > 0 && v.No == p.taskNo && v.AnalysisType == wantType && v.SubjectType == task.Theme && v.SubjectID > 0 && (p.kind != CheckEntailment || p.themeID == v.SubjectID)
 }
 func (p *CheckPlan) Config() CheckConfig {
 	if !p.Valid() {
@@ -175,7 +198,7 @@ func (p *CheckPlan) Units() task.Units {
 	if !p.Valid() {
 		return task.Units{}
 	}
-	return task.Units{Calls: 1, Tokens: p.cfg.MaxInputTokens + checkOutputTokens}
+	return task.Units{Calls: 1, Tokens: p.cfg.MaxInputTokens + int64(p.cfg.CheckTokens())}
 }
 func (p *CheckPlan) Request() provider.Request {
 	if !p.Valid() {
@@ -276,7 +299,7 @@ func modelResponseReason(r provider.Response, cfg CheckConfig, outputTokens int)
 
 func (p *CheckPlan) decision(r provider.Response) CheckDecision {
 	uncertain := func(reason string) CheckDecision { return CheckDecision{Uncertain, reason} }
-	if reason := modelResponseReason(r, p.cfg, checkOutputTokens); reason != "" {
+	if reason := modelResponseReason(r, p.cfg, p.cfg.CheckTokens()); reason != "" {
 		return uncertain(reason)
 	}
 	if task.CheckStageJSON([]byte(r.Text)) != nil {

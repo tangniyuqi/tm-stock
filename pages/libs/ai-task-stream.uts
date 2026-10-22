@@ -1,0 +1,89 @@
+import { isSafeAIId, isSafeAIInteger } from './ai.uts'
+
+export type AIPublicTaskEvent = { seq : number, type : string, status : number, step : number, errorCode : string, at : number }
+export type AIStreamError = { code : number }
+export type AIStreamFrame = { event : AIPublicTaskEvent | null, code : number }
+
+export const isValidAIPublicEvent = (event : AIPublicTaskEvent | null) : boolean => {
+	if (event == null || Object.keys(event).length != 6 || !isSafeAIId(event.seq) || typeof event.type != 'string' || !isSafeAIId(event.status) || !isSafeAIInteger(event.step) || event.step > 64 || !isSafeAIId(event.at) || event.at > 8640000000000000 || typeof event.errorCode != 'string') return false
+	if (event.type == 'created') return event.seq == 1 && event.status == 1 && event.step == 0 && event.errorCode == ''
+	if (event.seq == 1) return false
+	if (event.type == 'retried') return event.status == 1 && event.errorCode == ''
+	if (event.type == 'claimed' || event.type == 'cancel_requested') return event.status == 2 && event.errorCode == ''
+	if (event.type == 'step_completed') return event.status == 2 && event.step > 0 && event.errorCode == ''
+	if (event.type == 'succeeded') return event.status == 3 && event.errorCode == ''
+	if (event.type == 'failed') return event.status == 4 && ['provider_unavailable', 'invalid_output', 'guard_rejected', 'budget_exhausted', 'attempts_exhausted', 'internal_failure'].includes(event.errorCode)
+	if (event.type == 'cancelled') return event.status == 5 && event.errorCode == 'cancelled'
+	return event.type == 'expired' && event.status == 6 && event.errorCode == 'expired'
+}
+
+// 只接本项目公开契约，不是可显示任意模型delta的通用SSE解释器。
+export class AITaskStreamParser {
+	private cursor : number
+	private line : string = ''
+	private kind : string = ''
+	private id : string = ''
+	private data : string = ''
+	private hasData : boolean = false
+	private hasID : boolean = false
+	private hasEvent : boolean = false
+	private cr : boolean = false
+	private size : number = 0
+	private failed : boolean = false
+	constructor(after : number) {
+		if (!isSafeAIInteger(after)) throw new Error('进度游标无效')
+		this.cursor = after
+	}
+	private invalid() : never { this.failed = true; throw new Error('公开进度流格式无效') }
+	private finishLine() : AIStreamFrame | null {
+		const line : string = this.line; this.line = ''
+		if (line.length > 0) {
+			if (line.charAt(0) == ':') return null
+			const colon : number = line.indexOf(':')
+			if (colon < 1) return this.invalid()
+			const name : string = line.substring(0, colon)
+			let value : string = line.substring(colon + 1); if (value.charAt(0) == ' ') value = value.substring(1)
+			if (name == 'event' && !this.hasEvent) { this.hasEvent = true; this.kind = value; return null }
+			if (name == 'id' && !this.hasID) { this.hasID = true; this.id = value; return null }
+			if (name == 'data') { this.data += (this.hasData ? '\n' : '') + value; this.hasData = true; return null }
+			return this.invalid()
+		}
+		let out : AIStreamFrame | null = null
+		if (this.hasData) {
+			try {
+				if (this.kind == 'progress' && this.hasID && /^[1-9][0-9]*$/.test(this.id)) {
+					const event : AIPublicTaskEvent | null = JSON.parse<AIPublicTaskEvent | null>(this.data)
+					if (!isValidAIPublicEvent(event) || event!.seq.toString() != this.id) return this.invalid()
+					if (event!.seq > this.cursor) {
+						if (event!.seq != this.cursor + 1) return this.invalid()
+						this.cursor = event!.seq; out = { event: event, code: 0 } as AIStreamFrame
+					}
+				} else if (this.kind == 'error' && !this.hasID) {
+					const error : AIStreamError | null = JSON.parse<AIStreamError | null>(this.data)
+					if (error == null || Object.keys(error).length != 1 || ![40001, 40100, 40403, 42901, 50302].includes(error.code)) return this.invalid()
+					out = { event: null, code: error.code } as AIStreamFrame
+				} else return this.invalid()
+			} catch (_) { return this.invalid() }
+		} else if (this.hasEvent || this.hasID) return this.invalid()
+		this.kind = ''; this.id = ''; this.data = ''; this.hasData = false; this.hasID = false; this.hasEvent = false; this.size = 0
+		return out
+	}
+	public push(chunk : string) : AIStreamFrame[] {
+		if (this.failed || typeof chunk != 'string' || chunk.length > 65536) return this.invalid()
+		const frames : AIStreamFrame[] = [] as AIStreamFrame[]
+		for (let n = 0; n < chunk.length; n++) {
+			const c : string = chunk.charAt(n)
+			if (this.cr) { this.cr = false; if (c == '\n') continue }
+			this.size++; if (this.size > 16384 || c == '\u0000') return this.invalid()
+			if (c == '\r' || c == '\n') {
+				const frame : AIStreamFrame | null = this.finishLine(); if (frame != null) frames.push(frame!)
+				this.cr = c == '\r'
+			} else { this.line += c; if (this.line.length > 8192) return this.invalid() }
+		}
+		return frames
+	}
+	public finish() : void {
+		// EOF不能充当空行，否则未完成帧会错误确认序号。
+		if (this.failed || this.line.length > 0 || this.hasData || this.hasID || this.hasEvent) this.invalid()
+	}
+}

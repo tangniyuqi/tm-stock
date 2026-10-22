@@ -1,0 +1,47 @@
+import { isSafeAIId } from './ai.uts'
+
+export type AIFeedback = { id : number, taskId : number, category : string, status : string, resolution : string, version : number, createdAt : number, updatedAt : number }
+export type AIFeedbackList = { taskId : number, items : AIFeedback[] }
+export const isAIFeedbackCategory = (value : string) : boolean => typeof value == 'string' && ['fact', 'source', 'display', 'other'].includes(value)
+export const isValidAIFeedback = (value : AIFeedback | null, id : number) : boolean => {
+	if (value == null || !isSafeAIId(id) || !isSafeAIId(value.id) || !isSafeAIId(value.taskId) || value.taskId != id || !isAIFeedbackCategory(value.category)
+		|| typeof value.status != 'string' || typeof value.resolution != 'string' || !isSafeAIId(value.version)
+		|| !isSafeAIId(value.createdAt) || !isSafeAIId(value.updatedAt) || value.updatedAt > 8640000000000000 || value.updatedAt < value.createdAt) return false
+	if (value.status == 'received') return value.version == 1 && value.resolution == '' && value.createdAt == value.updatedAt
+	if (value.status == 'processing') return value.version == 2 && value.resolution == ''
+	if (value.status == 'resolved') return value.version == 3 && ['reviewed', 'referred'].includes(value.resolution)
+	return value.status == 'dismissed' && value.version == 3 && ['unconfirmed', 'not_applicable'].includes(value.resolution)
+}
+export const isValidAIFeedbackList = (value : AIFeedbackList | null, id : number) : boolean => {
+	if (value == null || !isSafeAIId(value.taskId) || value.taskId != id || !isSafeAIId(id) || !Array.isArray(value.items) || value.items.length > 4) return false
+	let previous : number = 0
+	const categories : string[] = []
+	for (let i = 0; i < value.items.length; i++) {
+		const item : AIFeedback = value.items[i]
+		if (!isValidAIFeedback(item, id) || item.id <= previous || categories.includes(item.category)) return false
+		previous = item.id; categories.push(item.category)
+	}
+	return true
+}
+export const aiFeedbackStatus = (value : AIFeedback) : string => {
+	if (!isValidAIFeedback(value, value.taskId)) return '状态暂不可用'
+	if (value.status == 'received') return '已受理'
+	if (value.status == 'processing') return '处理中'
+	return value.status == 'resolved' ? '已处理' : '未确认'
+}
+export const aiFeedbackResolution = (value : AIFeedback) : string => {
+	if (!isValidAIFeedback(value, value.taskId)) return ''
+	if (value.resolution == 'reviewed') return '已完成核查记录；不代表报告已更正。'
+	if (value.resolution == 'referred') return '已记录转交处理；不代表更正或退款已完成。'
+	if (value.resolution == 'unconfirmed') return '本次核查未确认所选问题。'
+	if (value.resolution == 'not_applicable') return '所选分类不适用于本报告。'
+	return value.status == 'received' ? '等待工作人员核查。' : '工作人员正在核查。'
+}
+export const aiFeedbackError = (code : number) : string => {
+	if (code == 40100) return '登录状态已失效，请重新登录。'
+	if (code == 40403) return '反馈或任务不存在，或不属于当前账号。'
+	if (code == 42204) return '该任务暂无可反馈的报告。'
+	if (code == 40001) return '反馈参数无效，请重新核对。'
+	if (code == 40904) return '反馈已变化，请查询当前状态。'
+	return '反馈服务暂不可用，请稍后查询。'
+}

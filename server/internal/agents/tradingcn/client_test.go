@@ -164,7 +164,7 @@ func TestReadIdentityAndStateGuards(t *testing.T) {
 			t.Fatal("错误身份或状态未拒绝")
 		}
 	}
-	for _, body := range []string{`{"success":true,"data":{"analysis_id":"other","reports":{"news":"x"}}}`, `{"success":true,"data":{"analysis_id":"x","reports":{}}}`} {
+	for _, body := range []string{`{"success":true,"data":{"analysis_id":"","reports":{"news":"x"}}}`, `{"success":true,"data":{"analysis_id":"x","reports":{}}}`} {
 		c := testClient(t, func(*http.Request) (*http.Response, error) { return response(200, body), nil })
 		if _, err := c.Result(context.Background(), "x"); err == nil {
 			t.Fatal("错误结果未拒绝")

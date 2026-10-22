@@ -25,15 +25,37 @@ type AIReportReadControl interface {
 }
 type AIReportReadService struct {
 	base    *AIReportService
+	deep    *AIReportService
 	control AIReportReadControl
 	enabled bool
 }
 
 func NewAIReportReadService(base *AIReportService, control AIReportReadControl, enabled bool) (*AIReportReadService, error) {
+	// 单策略构造器传入类型2策略时，它本身就是深度读取器。
+	if base != nil && base.policy != nil && base.policy.AnalysisType() == task.DeepAnalysisType {
+		return NewAIReportReadServiceWithDeep(base, base, control, enabled)
+	}
+	return NewAIReportReadServiceWithDeep(base, nil, control, enabled)
+}
+
+// NewAIReportReadServiceWithDeep 允许同一端点按任务类型选择 L1/L2 策略；未提供深度策略时深度报告失败关闭。
+func NewAIReportReadServiceWithDeep(base, deep *AIReportService, control AIReportReadControl, enabled bool) (*AIReportReadService, error) {
 	if base == nil || base.store == nil || enabled && (!base.policy.Valid() || control == nil) {
 		return nil, points.ErrInvalid
 	}
-	return &AIReportReadService{base, control, enabled}, nil
+	if deep != nil && (deep.store == nil || !deep.policy.Valid() || deep.policy.AnalysisType() != task.DeepAnalysisType) {
+		return nil, points.ErrInvalid
+	}
+	return &AIReportReadService{base: base, deep: deep, control: control, enabled: enabled}, nil
+}
+
+// SetDeep 由启动装配在开始服务前挂载类型2读取策略；未挂载时深度报告失败关闭。
+func (s *AIReportReadService) SetDeep(deep *AIReportService) error {
+	if s == nil || deep == nil || deep.store == nil || !deep.policy.Valid() || deep.policy.AnalysisType() != task.DeepAnalysisType {
+		return points.ErrInvalid
+	}
+	s.deep = deep
+	return nil
 }
 
 type reportReadView struct {
@@ -51,6 +73,13 @@ func (s *AIReportReadService) load(ctx context.Context, uid, id int64) (reportRe
 		if v.Status != task.Succeeded {
 			return finalreport.ErrUnavailable
 		}
+		base := s.base
+		if v.AnalysisType == task.DeepAnalysisType {
+			if s.deep == nil {
+				return finalreport.ErrUnavailable
+			}
+			base = s.deep
+		}
 		c, err := tx.ReportCommit(ctx, uid, id)
 		if errors.Is(err, points.ErrNotFound) {
 			return points.ErrInvariant
@@ -59,7 +88,7 @@ func (s *AIReportReadService) load(ctx context.Context, uid, id int64) (reportRe
 			return err
 		}
 		r := finalreport.Request{TaskNo: v.No, Stage: task.StageRequest{UserID: uid, TaskID: id, Fence: c.Fence, Owner: "member_report_read", StepNo: c.StepNo, Stage: "judge", OperationKey: c.OperationKey, InputDigest: c.InputDigest}}
-		view, err := s.base.readReportView(ctx, tx, r)
+		view, err := base.readReportView(ctx, tx, r)
 		if errors.Is(err, points.ErrNotFound) {
 			return points.ErrInvariant
 		}
@@ -72,21 +101,21 @@ func (s *AIReportReadService) load(ctx context.Context, uid, id int64) (reportRe
 		if view.old == nil || view.old.Status != task.Succeeded {
 			return points.ErrInvariant
 		}
-		p, err := s.base.policy.Decode(string(view.old.Payload))
+		p, err := base.policy.Decode(string(view.old.Payload))
 		if err != nil {
 			return points.ErrInvariant
 		}
 		if p.TaskNo != v.No || p.ThemeID != v.SubjectID {
 			return points.ErrInvariant
 		}
-		snaps, theme, err := s.base.reportEvidence(ctx, tx, v, s.base.policy.EvidenceIDs(p))
+		snaps, theme, err := base.reportEvidence(ctx, tx, v, base.policy.EvidenceIDs(p))
 		if err != nil {
 			if knownEvidenceRejection(err) {
 				return finalreport.ErrUnavailable
 			}
 			return err
 		}
-		if s.base.policy.Bind(p, snaps, theme) != nil {
+		if base.policy.Bind(p, snaps, theme) != nil {
 			return finalreport.ErrUnavailable
 		}
 		d := p.Report.Disclosure

@@ -52,6 +52,10 @@ type Config struct {
 	DeepModel       string
 	Timeout         time.Duration
 	MaxSubmissions  int
+	// SelectedAnalysts 可选：默认 news+fundamentals；缩减流程用于本地稳定性验收。
+	SelectedAnalysts []string
+	// AnalysisDate 可选 YYYY-MM-DD；空值由上游用“今天”。测试环境日期可能领先真实数据，需显式指定历史交易日。
+	AnalysisDate string
 }
 
 func (c Config) Validate() error {
@@ -206,7 +210,11 @@ func (c *Client) Submit(ctx context.Context, symbol string) (agents.Acceptance, 
 		Quick     string   `json:"quick_analysis_model"`
 		Deep      string   `json:"deep_analysis_model"`
 		Trace     bool     `json:"enable_trace"`
-	}{"v2", "A股", "快速", []string{"news", "fundamentals"}, false, false, "zh-CN", c.cfg.QuickModel, c.cfg.DeepModel, false}
+		Date      string   `json:"analysis_date,omitempty"`
+	}{"v2", "A股", "快速", c.cfg.SelectedAnalysts, false, false, "zh-CN", c.cfg.QuickModel, c.cfg.DeepModel, false, c.cfg.AnalysisDate}
+	if len(params.Analysts) == 0 {
+		params.Analysts = []string{"news", "fundamentals"}
+	}
 	data, err := c.call(ctx, http.MethodPost, "/api/analysis/single", struct {
 		Symbol     string `json:"symbol"`
 		Parameters any    `json:"parameters"`
@@ -259,7 +267,8 @@ func (c *Client) Result(ctx context.Context, id string) (agents.Result, error) {
 		ID      string                     `json:"analysis_id"`
 		Reports map[string]json.RawMessage `json:"reports"`
 	}
-	if json.Unmarshal(data, &v) != nil || v.ID != id || len(v.Reports) == 0 {
+	// 上游 analysis_id 是“代码_日期_时间”，不是任务 UUID；结果身份由请求 URL 与任务 ID 绑定。
+	if json.Unmarshal(data, &v) != nil || v.ID == "" || len(v.Reports) == 0 {
 		return agents.Result{}, &Error{Code: "invalid_result"}
 	}
 	// 逐字段替换已知服务器凭据；不能直接替换 JSON 字节，否则引号可能破坏 JSON。

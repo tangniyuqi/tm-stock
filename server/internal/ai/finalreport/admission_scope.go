@@ -4,7 +4,14 @@ import "github.com/tangniyuqi/tm-stock/server/internal/ai/task"
 
 // 只比对首次已批准范围，不授予当前来源、质量、模型或发布许可。
 func (p *Policy) admittedIdentity(a task.AdmissionPlan, id int64, name string) bool {
-	return p.Valid() && a.Validate(a.Scope) == nil && a.Scope.AnalysisType == 1 && a.Scope.SubjectType == task.Theme && a.Scope.SubjectID == id && a.SubjectName == name && a.ModelName == p.cfg.ModelName && a.FilingNo == p.cfg.FilingNo && p.companyAdmission(a)
+	if !p.Valid() {
+		return false
+	}
+	wantType := 1
+	if p.cfg.AnalysisType == 2 {
+		wantType = 2
+	}
+	return a.Validate(a.Scope) == nil && a.Scope.AnalysisType == wantType && a.Scope.SubjectType == task.Theme && a.Scope.SubjectID == id && a.SubjectName == name && a.ModelName == p.cfg.ModelName && a.FilingNo == p.cfg.FilingNo && p.companyAdmission(a)
 }
 func admittedMaterial(a task.AdmissionPlan, id int64, hash, url, category string, at int64) bool {
 	for _, m := range a.Materials {
@@ -20,6 +27,7 @@ func (p *Policy) MatchesAdmission(a task.AdmissionPlan, v Proposal) bool {
 	if !p.admittedIdentity(a, v.ThemeID, v.ThemeName) || !validProposalIdentity(v.TaskNo, v.ThemeID, v.ThemeName) || len(v.Report.Sections) != len(sectionOrder) || v.Report.Disclosure.ModelName != a.ModelName || v.Report.Disclosure.FilingNo != a.FilingNo {
 		return false
 	}
+	quotes := 0
 	for i, s := range v.Report.Sections {
 		if p.companies != nil && s.Key == "companies" {
 			if i != 3 || !p.companySection(s) {
@@ -35,7 +43,11 @@ func (p *Policy) MatchesAdmission(a task.AdmissionPlan, v Proposal) bool {
 			if q == nil || !admittedMaterial(a, q.SnapshotID, q.ContentHash, q.URL, q.SourceType, q.FetchedAt) {
 				return false
 			}
+			quotes++
 		}
+	}
+	if quotes < p.cfg.MinQuotes {
+		return false
 	}
 	return true
 }

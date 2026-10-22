@@ -12,17 +12,24 @@ param(
     [switch]$TaskRecoveryOnly,
     [switch]$TaskCancelOnly,
     [switch]$TaskEventsOnly,
+    [switch]$ConversationsOnly,
     [switch]$TaskExpiryOnly,
     [switch]$TaskAgentBridgeOnly,
     [switch]$ReportsOnly,
     [switch]$NonReportsOnly,
+    [switch]$FeedbackConsoleOnly,
+    [switch]$LiveAgents,
+    [ValidateLength(1, 256)][string]$ConversationPattern = '^TestIntegrationAIConversations',
     [ValidateLength(1, 256)][string]$ReportPattern = '^TestIntegrationAIReport'
 )
 
 $ErrorActionPreference = 'Stop'
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+if ($LiveAgents -and (-not $ReportsOnly -or $RunCount -ne 1 -or $ReportPattern -ne '^TestIntegrationAIReportLiveAgents$' -or $env:TM_TEST_AI_LIVE -ne 'local-fixture-only')) { throw '付费联调只允许显式本地单用例、单次执行' }
 if ($RepositoryCoveragePath -ne '' -and $ServiceCoveragePath -ne '') { throw '一次只采集一个仓储或服务覆盖率文件' }
-if (@($AgentsOnly,$TaskBudgetOnly,$TaskStagesOnly,$TaskRecoveryOnly,$TaskCancelOnly,$TaskEventsOnly,$TaskExpiryOnly,$TaskAgentBridgeOnly,$ReportsOnly,$NonReportsOnly).Where({ [bool]$_ }).Count -gt 1) { throw '专项模式不能同时选择' }
+if (@($AgentsOnly,$TaskBudgetOnly,$TaskStagesOnly,$TaskRecoveryOnly,$TaskCancelOnly,$TaskEventsOnly,$ConversationsOnly,$TaskExpiryOnly,$TaskAgentBridgeOnly,$ReportsOnly,$NonReportsOnly,$FeedbackConsoleOnly).Where({ [bool]$_ }).Count -gt 1) { throw '专项模式不能同时选择' }
 if ($ReportPattern -ne '^TestIntegrationAIReport' -and (-not $ReportsOnly -or -not $ReportPattern.StartsWith('^TestIntegrationAIReport'))) { throw '自定义报告选择器只能用于显式报告专项，且必须保留报告用例前缀' }
+if ($ConversationPattern -ne '^TestIntegrationAIConversations' -and (-not $ConversationsOnly -or -not $ConversationPattern.StartsWith('^TestIntegrationAIConversations'))) { throw '自定义会话选择器只能用于显式会话专项，且必须保留会话用例前缀' }
 $PSNativeCommandUseErrorActionPreference = $false
 if ($BashPath -eq '') {
     $bashCommand = Get-Command bash -ErrorAction SilentlyContinue
@@ -79,21 +86,25 @@ try {
     $env:MYSQL_PWD = $testPassword
     $env:TM_TEST_DSN = "root:$testPassword@tcp(127.0.0.1:$testPort)/tm_ai_source_test?parseTime=true&multiStatements=true&charset=utf8mb4&loc=UTC"
     Write-Output "隔离实例已就绪：回环端口 $testPort；临时目录 $testRoot"
+    if (-not $FeedbackConsoleOnly) {
     Push-Location (Join-Path $PSScriptRoot '../../server')
     try {
         if (-not $AgentsOnly) {
-        if (-not $TaskBudgetOnly -and -not $TaskStagesOnly -and -not $TaskRecoveryOnly -and -not $TaskCancelOnly -and -not $TaskEventsOnly -and -not $TaskExpiryOnly -and -not $TaskAgentBridgeOnly -and -not $ReportsOnly) {
+        if (-not $TaskBudgetOnly -and -not $TaskStagesOnly -and -not $TaskRecoveryOnly -and -not $TaskCancelOnly -and -not $TaskEventsOnly -and -not $ConversationsOnly -and -not $TaskExpiryOnly -and -not $TaskAgentBridgeOnly -and -not $ReportsOnly) {
         go test -p 1 -race -tags=integration ./internal/repository -count $RunCount -v
         if ($LASTEXITCODE -ne 0) { throw 'AI / 共表迁移 / C 端仓储集成测试失败' }
         }
         # 整包用例已增长；明确每轮20分钟的测试进程看门狗，不改变单次SQL/网络/租约时限。
         $suiteTimeout = [string](20 * $RunCount) + 'm'
-        $pointsTestArgs = @('test', '-p', '1', '-race', '-tags=integration', './integration/points', '-timeout', $suiteTimeout, '-count', [string]$RunCount, '-v')
+        $integrationTags = 'integration'
+        if ($LiveAgents) { $integrationTags = 'integration,liveagents' }
+        $pointsTestArgs = @('test', '-p', '1', '-race', "-tags=$integrationTags", './integration/points', '-timeout', $suiteTimeout, '-count', [string]$RunCount, '-v')
         if ($TaskBudgetOnly) { $pointsTestArgs += @('-run', '^TestIntegrationAITaskBudget') }
         if ($TaskStagesOnly) { $pointsTestArgs += @('-run', '^TestIntegrationAITaskStage') }
         if ($TaskRecoveryOnly) { $pointsTestArgs += @('-run', '^TestIntegrationAITaskRecovery') }
         if ($TaskCancelOnly) { $pointsTestArgs += @('-run', '^TestIntegrationAITaskMemberCancel') }
         if ($TaskEventsOnly) { $pointsTestArgs += @('-run', '^TestIntegrationAITaskMemberEvents') }
+        if ($ConversationsOnly) { $pointsTestArgs += @('-run', $ConversationPattern) }
         if ($TaskExpiryOnly) { $pointsTestArgs += @('-run', '^TestIntegrationAITaskExpiry') }
         if ($TaskAgentBridgeOnly) { $pointsTestArgs += @('-run', '^TestIntegrationAITaskAgentBridge') }
         if ($ReportsOnly) {
@@ -117,26 +128,37 @@ try {
         go @pointsTestArgs
         if ($LASTEXITCODE -ne 0) { throw '账本服务跨层集成测试失败' }
         }
-        if ($TaskCancelOnly -or (-not $AgentsOnly -and -not $TaskBudgetOnly -and -not $TaskStagesOnly -and -not $TaskRecoveryOnly -and -not $TaskEventsOnly -and -not $TaskExpiryOnly -and -not $TaskAgentBridgeOnly -and -not $ReportsOnly)) {
+        if ($ConversationsOnly) {
+        go test -p 1 -race -tags=integration ./cmd/api -run '^TestIntegrationAIReportReadStartup$' -count $RunCount -v
+        if ($LASTEXITCODE -ne 0) { throw '会话及报告只读启动装配集成测试失败' }
+        }
+        if ($TaskCancelOnly -or (-not $AgentsOnly -and -not $TaskBudgetOnly -and -not $TaskStagesOnly -and -not $TaskRecoveryOnly -and -not $TaskEventsOnly -and -not $ConversationsOnly -and -not $TaskExpiryOnly -and -not $TaskAgentBridgeOnly -and -not $ReportsOnly)) {
         $apiTestArgs = @('test', '-p', '1', '-race', '-tags=integration', './cmd/api', '-run', '^TestIntegrationAITaskCancelStartup$', '-count', [string]$RunCount, '-v')
         if ($APICoveragePath -ne '') { $apiTestArgs += "-coverprofile=$APICoveragePath" }
         go @apiTestArgs
         if ($LASTEXITCODE -ne 0) { throw '会员取消启动装配集成测试失败' }
         }
-        if ($ReportsOnly -or (-not $AgentsOnly -and -not $TaskBudgetOnly -and -not $TaskStagesOnly -and -not $TaskRecoveryOnly -and -not $TaskCancelOnly -and -not $TaskEventsOnly -and -not $TaskExpiryOnly -and -not $TaskAgentBridgeOnly)) {
+        if ($ReportsOnly -or (-not $AgentsOnly -and -not $TaskBudgetOnly -and -not $TaskStagesOnly -and -not $TaskRecoveryOnly -and -not $TaskCancelOnly -and -not $TaskEventsOnly -and -not $ConversationsOnly -and -not $TaskExpiryOnly -and -not $TaskAgentBridgeOnly)) {
         go test -p 1 -race -tags=integration ./cmd/api -run '^TestIntegration(AIReportRead|AITaskCreate)Startup$' -count $RunCount -v
         if ($LASTEXITCODE -ne 0) { throw '会员创建/报告读取启动装配集成测试失败' }
         }
-        if (-not $TaskBudgetOnly -and -not $TaskStagesOnly -and -not $TaskRecoveryOnly -and -not $TaskCancelOnly -and -not $TaskEventsOnly -and -not $TaskExpiryOnly -and -not $TaskAgentBridgeOnly -and -not $ReportsOnly) {
+        if (-not $TaskBudgetOnly -and -not $TaskStagesOnly -and -not $TaskRecoveryOnly -and -not $TaskCancelOnly -and -not $TaskEventsOnly -and -not $ConversationsOnly -and -not $TaskExpiryOnly -and -not $TaskAgentBridgeOnly -and -not $ReportsOnly) {
         go test -p 1 -race -tags=integration ./integration/agents -count $RunCount -v
         if ($LASTEXITCODE -ne 0) { throw '外部 Agent 持久执行链路集成测试失败' }
         }
     } finally { Pop-Location }
-    if (-not $AgentsOnly -and -not $TaskBudgetOnly -and -not $TaskStagesOnly -and -not $TaskRecoveryOnly -and -not $TaskCancelOnly -and -not $TaskEventsOnly -and -not $TaskExpiryOnly -and -not $TaskAgentBridgeOnly -and -not $ReportsOnly) {
+    }
+    if ($FeedbackConsoleOnly -or (-not $AgentsOnly -and -not $TaskBudgetOnly -and -not $TaskStagesOnly -and -not $TaskRecoveryOnly -and -not $TaskCancelOnly -and -not $TaskEventsOnly -and -not $ConversationsOnly -and -not $TaskExpiryOnly -and -not $TaskAgentBridgeOnly -and -not $ReportsOnly)) {
     Push-Location (Join-Path $PSScriptRoot '../../backend/server')
     try {
+        if (-not $FeedbackConsoleOnly) {
         go test -p 1 -race -tags=integration ./service/quant -run MySQL -count $RunCount -v
         if ($LASTEXITCODE -ne 0) { throw 'GVA 共表读写集成测试失败' }
+        }
+        Write-Output '反馈后台MySQL专项：真实目录行锁/并发、原登录及角色授权；不代表全仓SQL回归。'
+        # 两包串行使用本次创建的专库；登录组再用独立进程隔离GVA全局单例。
+        go test -p 1 -race -tags=integration ./service/feedbackconsole ./api/v1/quant -run '^TestFeedbackConsoleMySQL(Catalog|Login)$' -count $RunCount -timeout 10m -v
+        if ($LASTEXITCODE -ne 0) { throw '反馈后台MySQL目录/登录集成测试失败' }
     } finally { Pop-Location }
     }
     # 同一隔离实例另建可丢弃库，实测 mysql 客户端执行全部迁移，避免驱动与客户端分隔符不一致。

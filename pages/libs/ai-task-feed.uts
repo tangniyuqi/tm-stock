@@ -1,0 +1,114 @@
+import { AiApi } from './ai-api.uts'
+import { AITaskProgress, isSafeAIId, isSafeAIInteger } from './ai.uts'
+import { currentAIMemberToken } from './ai-session.uts'
+import { AITaskStreamParser, AIPublicTaskEvent, AIStreamFrame } from './ai-task-stream.uts'
+
+export type AITaskFeedControl = { close : () => void }
+export type AITaskFeedHooks = {
+	current : () => boolean,
+	progress : (value : AITaskProgress) => void,
+	event : (value : AIPublicTaskEvent) => void,
+	mode : (value : string) => void,
+	error : (code : number) => void
+}
+// #ifdef WEB
+type AIWebDecoderInit = { fatal : boolean }
+type AIWebDecodeOptions = { stream : boolean }
+type AIWebUTF8Decoder = { fatal : boolean, decode : (input : Uint8Array, options : AIWebDecodeOptions) => string }
+type AIWebDecoderConstructor = new (encoding : string, options : AIWebDecoderInit) => AIWebUTF8Decoder
+// #endif
+
+// 只读进度订阅：没有生成、取消、报告或积分入口。
+export const watchAITaskFeed = (id : number, after : number, token : string, hooks : AITaskFeedHooks) : AITaskFeedControl => {
+	let stopped : boolean = false; let timer : number = 0; let cursor : number = after; let reconnects : number = 0
+	let abort : (() => void) | null = null
+	const close = () : void => { stopped = true; if (timer != 0) { clearTimeout(timer); timer = 0 }; if (abort != null) { abort!(); abort = null } }
+	const current = () : boolean => {
+		if (stopped) return false
+		if (!hooks.current() || token.length == 0 || token != currentAIMemberToken()) { close(); return false }
+		return true
+	}
+	const fail = (code : number) : void => { if (current()) { close(); hooks.error(code) } }
+	const snapshot = async () : Promise<boolean> => {
+		if (!current()) return false
+		const result = await AiApi.progress(id)
+		if (!current()) return false
+		if (result.code != 0 || result.data == null) { fail(result.code); return false }
+		// 当前详情不能倒退到已经确认的事件之前，也不据事件解锁报告。
+		if (result.data!.eventSeq < cursor) { fail(50001); return false }
+		hooks.progress(result.data!)
+		if (result.data!.status >= 3) { close(); return false }
+		return current()
+	}
+	function poll() : void {
+		if (!current()) return
+		hooks.mode('poll')
+		timer = setTimeout(() => {
+			timer = 0; snapshot().then((again : boolean) => { if (again) poll() }).catch(() => { fail(50001) })
+		}, 3000)
+	}
+	// WEB以外不触碰DOM API；降级仍调用原受控GET，不使用URL令牌或Cookie。
+	// #ifdef WEB
+	async function connect() : Promise<void> {
+		if (!current()) return
+		if (typeof window.fetch != 'function' || typeof AbortController == 'undefined' || typeof window.TextDecoder != 'function') { poll(); return }
+		const controller : AbortController = new AbortController()
+		const watchdog : number = setTimeout(() => { controller.abort() }, 18000)
+		abort = () : void => { clearTimeout(watchdog); controller.abort() }
+		let protocolFailed : boolean = false; let rejected : boolean = false
+		hooks.mode(reconnects == 0 ? 'connecting' : 'reconnecting')
+		try {
+			const response = await window.fetch('/api/v1/ai/tasks/' + id.toString() + '/stream?after_seq=' + cursor.toString(), {
+				method: 'GET', headers: { Authorization: 'Bearer ' + token, Accept: 'text/event-stream' },
+				credentials: 'omit', cache: 'no-store', redirect: 'error', signal: controller.signal
+			})
+			if (!current()) return
+			if (response.status == 401 || response.status == 403) { rejected = true; fail(response.status == 401 ? 40100 : 40301); return }
+			if (response.status != 200 || !/^text\/event-stream(?:\s*;\s*charset=utf-8)?$/i.test(response.headers.get('Content-Type') ?? '') || response.body == null) { protocolFailed = true; throw new Error('进度流不可用') }
+			const Decoder : AIWebDecoderConstructor = window.TextDecoder as AIWebDecoderConstructor
+			const decoder : AIWebUTF8Decoder = new Decoder('utf-8', {fatal: true} as AIWebDecoderInit)
+			if (!decoder.fatal) { protocolFailed = true; throw new Error('当前浏览器不支持严格解码') }
+			const reader = response.body!.getReader(); const parser : AITaskStreamParser = new AITaskStreamParser(cursor)
+			hooks.mode('stream')
+			try {
+				while (current()) {
+					const part = await reader.read(); if (!current()) return
+					let frames : AIStreamFrame[] = [] as AIStreamFrame[]
+					try {
+						frames = parser.push(decoder.decode(part.done ? new Uint8Array(0) : part.value, {stream: !part.done} as AIWebDecodeOptions))
+						if (part.done) parser.finish()
+					} catch (_) { protocolFailed = true; break }
+					for (let n = 0; n < frames.length; n++) {
+						if (!current()) return
+						const frame : AIStreamFrame = frames[n]
+						if (frame.code != 0) {
+							if (frame.code == 40100) { rejected = true; fail(40100); return }
+							protocolFailed = true; break
+						}
+						cursor = frame.event!.seq; hooks.event(frame.event!)
+					}
+					if (protocolFailed) break
+					// 每批完整事件只发一个串行详情GET，刷新真实状态而不从事件补造许可。
+					if (frames.length > 0 && !await snapshot()) return
+					if (part.done) break
+				}
+			} finally { await reader.cancel().catch(() => { /* 断开已失效连接，不显示驱动详情。 */ }) }
+		} catch (_) { /* 网络/看门狗失败只按原游标重连，不重发写请求。 */ }
+		finally { clearTimeout(watchdog); controller.abort(); abort = null }
+		if (!current() || rejected) return
+		if (protocolFailed || reconnects >= 3) { poll(); return }
+		const delay : number = [1000, 2000, 4000][reconnects]; reconnects++
+		hooks.mode('reconnecting')
+		timer = setTimeout(() => { timer = 0; snapshot().then((again : boolean) => { if (again) connect() }).catch(() => { fail(50001) }) }, delay)
+	}
+	// #endif
+	if (!isSafeAIId(id) || !isSafeAIInteger(after) || token.length == 0) { fail(40001); return { close: close } as AITaskFeedControl }
+	// #ifdef WEB
+	connect().catch(() => { fail(50001) })
+	return { close: close } as AITaskFeedControl
+	// #endif
+	// #ifndef WEB
+	poll()
+	// #endif
+	return { close: close } as AITaskFeedControl
+}

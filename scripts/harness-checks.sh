@@ -102,11 +102,20 @@ elif ! command -v go >/dev/null 2>&1; then
   echo -e "${YELLOW}  跳过（本机未安装 Go）${NC}"
 else
   # 包清单与 .github/workflows/ci.yml 的 gva-backend 作业保持一致
-  GVA_PKGS="./middleware/... ./service/member/... ./router/... ./api/client/... ./initialize/... ./service/quant/... ./utils"
+  GVA_PKGS="./middleware/... ./service/member/... ./router/... ./api/client/... ./initialize/... ./service/quant/... ./utils ./service/feedbackconsole ./api/v1/quant"
   if (cd backend/server && go test $GVA_PKGS -count=1 2>&1 | tail -20); then
     echo -e "${GREEN}  ✅ GVA 关键包测试通过${NC}"
   else
     echo -e "${RED}  ❌ GVA 关键包测试失败${NC}"; RESULT=1
+  fi
+  # config原包的历史部署模板不在本仓库；保留原门禁范围，单独必跑本次环境配置契约。
+  if (cd backend/server && go test ./config -run '^TestFeedbackConsoleConfig$' -count=1); then
+    echo -e "${GREEN}  ✅ 反馈后台环境配置契约通过${NC}"
+  else
+    echo -e "${RED}  ❌ 反馈后台环境配置契约失败${NC}"; RESULT=1
+  fi
+  if [ "$WITH_COVERAGE" = true ]; then
+    bash scripts/check-feedback-console-coverage.sh || { echo -e "${RED}  ❌ 反馈后台覆盖率未过门槛${NC}"; RESULT=1; }
   fi
 fi
 
@@ -123,6 +132,7 @@ echo -e "\n${BLUE}[4/4] 前端（uni-app x）...${NC}"
 if [ -f pages.json ]; then
   # 校验 pages.json 是否合法 JSON（uni-app x 无 CLI lint，这是能自动做的最有价值检查）
   if command -v node >/dev/null 2>&1; then
+    run_selftest "Agent本地评估网关与异步桥（无真实调用）" node --test scripts/dev/tradingcn-live-gateway.test.mjs scripts/dev/tradingcn-local-chain.test.mjs
     node -e "JSON.parse(require('fs').readFileSync('pages.json','utf8'))" 2>/dev/null \
       && echo -e "${GREEN}  ✅ pages.json 合法${NC}" \
       || { echo -e "${RED}  ❌ pages.json 不是合法 JSON${NC}"; RESULT=1; }

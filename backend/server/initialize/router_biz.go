@@ -12,6 +12,7 @@ func holder(routers ...*gin.RouterGroup) {
 func initBizRouter(routers ...*gin.RouterGroup) {
 	privateGroup := routers[0]
 	publicGroup := routers[1]
+	registerFeedbackConsole(privateGroup)
 	holder(publicGroup, privateGroup)
 	{
 		memberRouter := router.RouterGroupApp.Member

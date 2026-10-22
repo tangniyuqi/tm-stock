@@ -224,3 +224,23 @@ func TestAITaskReadReportAvailabilityOnlyOnDetail(t *testing.T) {
 		t.Fatal("缺仓储")
 	}
 }
+func TestReportReadSetDeep(t *testing.T) {
+	s, _, _ := reportReadFixture(t)
+	if err := s.SetDeep(nil); !errors.Is(err, points.ErrInvalid) {
+		t.Fatal("nil deep accepted")
+	}
+	if err := s.SetDeep(s.base); err == nil {
+		t.Fatal("L1 policy accepted as deep")
+	}
+	cfg := finalreport.Config{Ref: "test-only", ModelName: "测试模型", FilingNo: "test-only-filing", EntailmentVersion: "test-ent", SemanticVersion: "test-sem", AllowedDomains: []string{"evidence.example.test"}, AnalysisType: task.DeepAnalysisType, MinQuotes: task.DeepMinQuotes}
+	l2, err := finalreport.NewPolicy(cfg, func(context.Context, finalreport.EntailmentInput) (finalreport.Verdict, error) {
+		return finalreport.Pass, nil
+	}, func(context.Context, string) (finalreport.Verdict, error) { return finalreport.Pass, nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+	deep := &AIReportService{store: s.base.store, core: s.base.core, policy: l2, enabled: true}
+	if err := s.SetDeep(deep); err != nil || s.deep != deep {
+		t.Fatal("valid deep not attached", err)
+	}
+}

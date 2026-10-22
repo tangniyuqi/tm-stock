@@ -1,0 +1,28 @@
+import { MemberApi, MemberApiResult } from './member-api.uts'
+import { isSafeAIId } from './ai.uts'
+import { isAIRequestKey } from './ai-submission.uts'
+import { AIQAStatus, AIQAAnswer, AIPendingQA, isAIQAStatus, isAIQAAnswer, isAIPendingQA, qaMatchesPending, aiQAError } from './ai-qa.uts'
+
+const failure = <T>(code : number) : MemberApiResult<T> => ({code:code,message:aiQAError(code),data:null} as MemberApiResult<T>)
+export class AIQAApi {
+	public static async submit(p : AIPendingQA) : Promise<MemberApiResult<AIQAStatus>> {
+		if (!isAIPendingQA(p)) return failure<AIQAStatus>(40001)
+		const r = await MemberApi.aiQuestion<AIQAStatus>('submit',p.conversationId,0,{version:p.version,subjectType:'theme',subjectId:p.subjectId,skill:p.skill,taskId:p.taskId,question:p.question} as UTSJSONObject,p.key)
+		return r.code != 0 ? failure<AIQAStatus>(r.code) : isAIQAStatus(r.data,0) && qaMatchesPending(r.data!,p) ? r : failure<AIQAStatus>(50001)
+	}
+	public static async receipt(cid : number, key : string) : Promise<MemberApiResult<AIQAStatus>> {
+		if (!isSafeAIId(cid) || !isAIRequestKey(key)) return failure<AIQAStatus>(40001)
+		const r = await MemberApi.aiQuestion<AIQAStatus>('receipt',cid,0,{} as UTSJSONObject,key)
+		return r.code != 0 ? failure<AIQAStatus>(r.code) : isAIQAStatus(r.data,0) ? r : failure<AIQAStatus>(50001)
+	}
+	public static async status(cid : number, seq : number) : Promise<MemberApiResult<AIQAStatus>> {
+		if (!isSafeAIId(cid) || !isSafeAIId(seq)) return failure<AIQAStatus>(40001)
+		const r = await MemberApi.aiQuestion<AIQAStatus>('status',cid,seq,{} as UTSJSONObject,'')
+		return r.code != 0 ? failure<AIQAStatus>(r.code) : isAIQAStatus(r.data,seq) ? r : failure<AIQAStatus>(50001)
+	}
+	public static async answer(cid : number, seq : number) : Promise<MemberApiResult<AIQAAnswer>> {
+		if (!isSafeAIId(cid) || !isSafeAIId(seq)) return failure<AIQAAnswer>(40001)
+		const r = await MemberApi.aiQuestion<AIQAAnswer>('answer',cid,seq,{} as UTSJSONObject,'')
+		return r.code != 0 ? failure<AIQAAnswer>(r.code) : isAIQAAnswer(r.data,seq) ? r : failure<AIQAAnswer>(50001)
+	}
+}

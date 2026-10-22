@@ -1,0 +1,104 @@
+<script lang="ts" setup>
+import { ref, watch, onBeforeUnmount } from 'vue'
+import { AiFeedbackApi } from '../../libs/ai-feedback-api.uts'
+import { AIFeedback, aiFeedbackStatus, aiFeedbackResolution, isAIFeedbackCategory } from '../../libs/ai-feedback.uts'
+import { aiFeedbackCategoryLabel } from '../../libs/ai-report-presentation.uts'
+import { currentAIMemberToken } from '../../libs/ai-session.uts'
+import { isSafeAIId } from '../../libs/ai.uts'
+import { formatMillis } from '../../libs/theme.uts'
+
+type FeedbackProps = { taskId : number, sessionToken : string }
+const props = defineProps<FeedbackProps>()
+const emit = defineEmits<{ unauthorized : [] }>()
+const categories : string[] = ['fact', 'source', 'display', 'other']
+const expanded = ref<boolean>(false)
+const items = ref<AIFeedback[]>([])
+const category = ref<string>('fact')
+const busy = ref<boolean>(false)
+const loaded = ref<boolean>(false)
+const uncertain = ref<string>('')
+const message = ref<string>('')
+let generation : number = 0
+let alive : boolean = true
+
+const currentSession = () : boolean => alive && isSafeAIId(props.taskId) && props.sessionToken != '' && currentAIMemberToken() == props.sessionToken
+const reset = () : void => { generation++; expanded.value = false; items.value = []; category.value = 'fact'; busy.value = false; loaded.value = false; uncertain.value = ''; message.value = '' }
+const findCategory = (value : string) : AIFeedback | null => {
+	for (let i = 0; i < items.value.length; i++) { if (items.value[i].category == value) return items.value[i] }
+	return null
+}
+const load = () : void => {
+	if (busy.value || !currentSession()) return
+	const id : number = props.taskId; const token : string = props.sessionToken; const round : number = generation
+	busy.value = true; loaded.value = false; items.value = []; message.value = ''
+	AiFeedbackApi.list(id).then((result) => {
+		if (!currentSession() || round != generation || id != props.taskId || token != props.sessionToken) return
+		busy.value = false
+		if (result.code == 40100) { reset(); emit('unauthorized'); return }
+		if (result.code != 0 || result.data == null) { message.value = result.message; return }
+		items.value = result.data!.items; loaded.value = true
+		if (uncertain.value != '') {
+			message.value = findCategory(uncertain.value) != null ? '已查询到原分类的受理记录，未重复提交。' : '尚未查询到原分类记录；如需重试，请重新确认提交同一分类。'
+			uncertain.value = ''
+		}
+	})
+}
+const toggle = () : void => { if (busy.value) return; expanded.value = !expanded.value; if (expanded.value) load() }
+const choose = (value : string) : void => { if (!busy.value && uncertain.value == '' && isAIFeedbackCategory(value)) { category.value = value; message.value = '' } }
+const submit = () : void => {
+	if (busy.value || !loaded.value || uncertain.value != '' || !currentSession()) return
+	if (findCategory(category.value) != null) { message.value = '本分类已有受理记录，请查询处理状态，无需重复提交。'; return }
+	const id : number = props.taskId; const token : string = props.sessionToken; const round : number = generation; const selected : string = category.value
+	const current = () : boolean => currentSession() && round == generation && id == props.taskId && token == props.sessionToken
+	busy.value = true; message.value = ''
+	uni.showModal({ title: '确认提交报告反馈', content: '任务 #' + id.toString() + '，分类：' + aiFeedbackCategoryLabel(selected) + '。仅提交任务编号与分类，不含正文或联系方式；受理不代表报告更正或自动退款。', confirmText: '提交反馈', cancelText: '取消', success: (choice) => {
+		if (!current()) return
+		if (!choice.confirm) { busy.value = false; return }
+		// 先标记未知；超时或无效回包只能显式查询，不自动重发POST。
+		uncertain.value = selected
+		AiFeedbackApi.submit(id, selected).then((result) => {
+			if (!current()) return
+			busy.value = false
+			if (result.code == 40100) { reset(); emit('unauthorized'); return }
+			if (result.code != 0 || result.data == null) {
+				loaded.value = false; items.value = []
+				message.value = '提交结果未确认，请先查询反馈；不会自动重新提交。'; return
+			}
+			uncertain.value = ''; items.value.push(result.data!); items.value.sort((a : AIFeedback, b : AIFeedback) : number => a.id - b.id)
+			message.value = '反馈已受理，可查询处理状态；不会重新生成报告。'
+		})
+	}, fail: () => { if (current()) { busy.value = false; message.value = '确认窗口暂不可用，未提交。' } } })
+}
+watch(() : number => props.taskId, () => { reset() }, { flush: 'sync' })
+watch(() : string => props.sessionToken, () => { reset() }, { flush: 'sync' })
+onBeforeUnmount(() => { alive = false; reset() })
+</script>
+
+<template>
+	<x-sheet :margin="16" :padding="16" :round="12" dark-color="#ffffff">
+		<text class="feedback-heading text-weight-b">报告反馈 · 任务 #{{ taskId }}</text>
+		<text class="feedback-copy mt-8">报告暂不可读时仍可查询反馈。反馈不触发重新生成、扣费或自动退款。</text>
+		<x-button class="mt-12" height="44" :block="true" skin="outline" :disabled="busy" @click="toggle">{{ expanded ? '收起报告反馈' : '举报与反馈' }}</x-button>
+		<view v-if="expanded">
+			<x-button class="mt-12" height="44" :block="true" skin="outline" :loading="busy" :disabled="busy" @click="load">查询反馈状态</x-button>
+			<text v-if="busy" class="feedback-copy mt-8">正在核对，请稍候…</text>
+			<text v-if="loaded && items.length == 0" class="feedback-copy mt-8">本报告暂无反馈记录，可选择问题分类后提交。</text>
+			<view v-for="item in items" :key="item.id" class="feedback-receipt mt-12 pa-12 round-8">
+				<text class="feedback-heading">受理单 #{{ item.id }} · {{ aiFeedbackStatus(item) }}</text>
+				<text class="feedback-copy mt-4">{{ aiFeedbackCategoryLabel(item.category) }}</text>
+				<text class="feedback-copy mt-4">{{ aiFeedbackResolution(item) }}</text>
+				<text class="feedback-copy mt-4">更新时间：{{ formatMillis(item.updatedAt) }}</text>
+			</view>
+			<text class="feedback-copy mt-12">选择问题分类；不收集自由文本、账号、联系方式或报告正文。</text>
+			<x-button v-for="item in categories" :key="item" class="mt-8" height="44" :block="true" :skin="category == item ? 'thin' : 'outline'" :disabled="busy || !loaded || uncertain != ''" @click="choose(item)">{{ aiFeedbackCategoryLabel(item) }}</x-button>
+			<x-button class="mt-12" height="44" :block="true" :disabled="busy || !loaded || uncertain != ''" @click="submit">确认反馈分类</x-button>
+			<text v-if="message != ''" class="feedback-copy mt-8">{{ message }}</text>
+		</view>
+	</x-sheet>
+</template>
+
+<style scoped>
+.feedback-heading { color: #30343c; }
+.feedback-copy { color: #586174; font-size: 13px; line-height: 22px; }
+.feedback-receipt { background-color: #f5f7fa; }
+</style>

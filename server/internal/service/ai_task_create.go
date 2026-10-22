@@ -13,6 +13,11 @@ import (
 
 // AITaskAdmissionControl 必须查证真实定价/模型/质量/授权来源/远端硬预算，不能调用模型。
 // Ready 用于启动检查；Plan/Recheck 均在数据库事务外。生产没有默认通过实现。
+// AITaskDeepAdmission 是可选的深度准入证明；启用深度时控制面必须显式实现并通过启动检查。
+type AITaskDeepAdmission interface {
+	ReadyDeep(context.Context) error
+}
+
 type AITaskAdmissionControl interface {
 	Ready(context.Context) error
 	Plan(context.Context, task.AdmissionScope) (task.AdmissionPlan, error)
@@ -23,13 +28,31 @@ type AITaskCreateService struct {
 	tasks   *AITaskService
 	control AITaskAdmissionControl
 	enabled bool
+	deep    AITaskDeepLimiter
 }
 
 func NewAITaskCreateService(tasks *AITaskService, control AITaskAdmissionControl, enabled bool) (*AITaskCreateService, error) {
 	if tasks == nil || tasks.store == nil || tasks.ledger == nil || enabled && control == nil {
 		return nil, points.ErrInvalid
 	}
-	return &AITaskCreateService{tasks, control, enabled}, nil
+	return &AITaskCreateService{tasks: tasks, control: control, enabled: enabled}, nil
+}
+
+// SetDeepLimiter 由启动装配注入；未注入时深度创建必须失败关闭，不能默认放行。
+func (s *AITaskCreateService) SetDeepLimiter(l AITaskDeepLimiter) {
+	if s != nil {
+		s.deep = l
+	}
+}
+
+func (s *AITaskCreateService) acquireDeep(ctx context.Context, scope task.AdmissionScope) (func(), error) {
+	if scope.AnalysisType != task.DeepAnalysisType {
+		return func() {}, nil
+	}
+	if s.deep == nil {
+		return nil, task.ErrAdmissionUnavailable
+	}
+	return s.deep.Acquire(ctx, scope.UserID)
 }
 
 func admissionScope(uid int64, kind, subject string, id int64) (task.AdmissionScope, error) {
@@ -47,7 +70,7 @@ func admissionScope(uid int64, kind, subject string, id int64) (task.AdmissionSc
 }
 
 func (s *AITaskCreateService) plan(ctx context.Context, scope task.AdmissionScope) (task.AdmissionPlan, error) {
-	if scope.AnalysisType != 1 || scope.SubjectType != task.Theme {
+	if (scope.AnalysisType != 1 && scope.AnalysisType != 2) || scope.SubjectType != task.Theme {
 		return task.AdmissionPlan{}, task.ErrAdmissionUnavailable
 	}
 	p, err := s.control.Plan(ctx, scope)
@@ -272,6 +295,19 @@ func (s *AITaskCreateService) Receipt(parent context.Context, uid int64, key str
 }
 
 func (s *AITaskCreateService) Create(parent context.Context, uid int64, key string, input dto.AITaskCreateInput) (dto.AITaskCreation, error) {
+	return s.createQuoted(parent, uid, key, input, 0)
+}
+
+// CreateQuoted 供会话意图复用原创建核；额外核对已确认金额，不改变原任务请求哈希。
+// 不能在冻结之后才比较报价，否则会先按错误金额扣住积分。
+func (s *AITaskCreateService) CreateQuoted(parent context.Context, uid int64, key string, input dto.AITaskCreateInput, expectedPoints int64) (dto.AITaskCreation, error) {
+	if expectedPoints <= 0 {
+		return dto.AITaskCreation{}, points.ErrInvalid
+	}
+	return s.createQuoted(parent, uid, key, input, expectedPoints)
+}
+
+func (s *AITaskCreateService) createQuoted(parent context.Context, uid int64, key string, input dto.AITaskCreateInput, expectedPoints int64) (dto.AITaskCreation, error) {
 	if s == nil {
 		return dto.AITaskCreation{}, points.ErrInvalid
 	}
@@ -289,6 +325,9 @@ func (s *AITaskCreateService) Create(parent context.Context, uid int64, key stri
 	ctx, cancel := context.WithTimeout(parent, 10*time.Second)
 	defer cancel()
 	if old, found, err := s.lookup(ctx, uid, key, &r); found || err != nil {
+		if err == nil && found && expectedPoints > 0 && old.PricePoints != expectedPoints {
+			return dto.AITaskCreation{}, points.ErrIdempotency
+		}
 		return old, err
 	}
 	p, err := s.plan(ctx, scope)
@@ -298,9 +337,14 @@ func (s *AITaskCreateService) Create(parent context.Context, uid int64, key stri
 	if err := s.recheck(ctx, p); err != nil {
 		return dto.AITaskCreation{}, err
 	}
-	if p.Price.Version != input.PriceVersion {
+	if p.Price.Version != input.PriceVersion || expectedPoints > 0 && p.Price.Points != expectedPoints {
 		return dto.AITaskCreation{}, points.ErrPriceChanged
 	}
+	release, err := s.acquireDeep(ctx, scope)
+	if err != nil {
+		return dto.AITaskCreation{}, err
+	}
+	defer release()
 	created, err := s.tasks.createAdmitted(ctx, r, p)
 	if err != nil {
 		return dto.AITaskCreation{}, fmt.Errorf("会员任务创建未确认: %w", err)

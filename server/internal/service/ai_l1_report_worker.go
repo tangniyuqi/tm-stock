@@ -24,6 +24,8 @@ type AIL1ReportPlan struct {
 	ThemeName string
 	Snapshots []sources.Snapshot
 	Companies *finalreport.CompanyDraft `json:"-"`
+	// AnalysisType 0 保留既有 L1 编码；2 为深度报告，必须与任务、终检策略同时为 2。
+	AnalysisType int `json:",omitempty"`
 }
 
 func (p AIL1ReportPlan) String() string {
@@ -83,7 +85,17 @@ func pendingPolicy(c finalreport.Config, companies ...*finalreport.CompanyDraft)
 	return finalreport.NewPolicy(c, e, s)
 }
 func (p AIL1ReportPlan) validate(v task.Task, model *provider.OpenAICompat) (*finalreport.Policy, error) {
-	if p.Agent.ValidateScope(v) != nil || v.SubjectType != task.Theme || v.AnalysisType != 1 || model == nil || !model.MatchesDirect(p.Model.ProfileDigest, p.Model.Model) || p.Policy.ModelName != p.Model.Model || p.Policy.FilingNo != p.Model.FilingNo {
+	wantType := 1
+	if p.AnalysisType == task.DeepAnalysisType {
+		wantType = task.DeepAnalysisType
+	} else if p.AnalysisType != 0 {
+		return nil, points.ErrInvalid
+	}
+	wantPolicyType := 0
+	if wantType == task.DeepAnalysisType {
+		wantPolicyType = task.DeepAnalysisType
+	}
+	if p.Agent.ValidateScope(v) != nil || v.SubjectType != task.Theme || v.AnalysisType != wantType || p.Policy.AnalysisType != wantPolicyType || model == nil || !model.MatchesDirect(p.Model.ProfileDigest, p.Model.Model) || p.Policy.ModelName != p.Model.Model || p.Policy.FilingNo != p.Model.FilingNo {
 		return nil, points.ErrInvalid
 	}
 	ent, err := finalreport.CheckPolicyVersion(finalreport.CheckEntailment, p.Model)
@@ -98,7 +110,7 @@ func (p AIL1ReportPlan) validate(v task.Task, model *provider.OpenAICompat) (*fi
 		return nil, task.ErrStagePolicy
 	}
 	// 全计划保守容量预检。下游每步仍须持久预留；本地候选不宣称实际模型调用。
-	units, err := p.Agent.Units.Add(task.Units{Calls: 4, Tokens: 3*p.Model.MaxInputTokens + 2048 + 128 + 1})
+	units, err := p.Agent.Units.Add(task.Units{Calls: 4, Tokens: 3*p.Model.MaxInputTokens + int64(p.Model.SelectionTokens()) + int64(p.Model.CheckTokens()) + 1})
 	if err != nil || units.Validate() != nil || !units.Fits(v.Budget.Limits()) {
 		return nil, task.ErrBudget
 	}
@@ -327,6 +339,11 @@ func (w *AIL1ReportWorker) runOwned(ctx context.Context, v task.Task, p AIL1Repo
 		if sem.Evidence == nil {
 			return AIL1ReportReceipt{Task: sem.Task}, nil
 		}
+	}
+	// 语义判定提交后必须刷新任务步号；否则最终阶段可能按旧 current_step 预留失败。
+	v, err = w.tasks.Inspect(ctx, v.UserID, v.ID)
+	if err != nil {
+		return AIL1ReportReceipt{}, err
 	}
 	finalPolicy, err := finalreport.NewCapturedPolicy(p.Policy, ent.Evidence, sem.Evidence, p.Companies)
 	if err != nil {

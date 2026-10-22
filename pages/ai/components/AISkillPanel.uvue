@@ -1,0 +1,40 @@
+<script lang="ts" setup>
+import { AISkill, aiSkills, isAISkillUsable, aiSkillStateLabel } from '../../libs/ai-skills.uts'
+type SkillProps = { active : string }
+defineOptions({name: 'AISkillPanel'})
+const props = defineProps<SkillProps>()
+const emit = defineEmits<{ select: [key : string] }>()
+const skills : AISkill[] = aiSkills()
+const choose = (skill : AISkill) : void => {
+	if (isAISkillUsable(skill) && skill.key != props.active) emit('select', skill.key)
+}
+const cardStyle = (skill : AISkill) : string => {
+	if (skill.state == 'unavailable') return 'width:48%;margin-bottom:12px;padding:12px;border-radius:8px;background:#f2f3f5;'
+	if (skill.key == props.active) return 'width:48%;margin-bottom:12px;padding:12px;border-radius:8px;background:#eef6ff;border:1px solid #2f7cf6;'
+	return 'width:48%;margin-bottom:12px;padding:12px;border-radius:8px;background:#fafbfc;border:1px solid #e3e6eb;'
+}
+</script>
+
+<template>
+	<x-sheet :margin="16" :padding="16" :round="12" dark-color="#ffffff">
+		<text class="skill-heading text-weight-b">选择技能</text>
+		<text class="skill-copy mt-8">技能会说明可用范围与是否计费；暂不可用的技能不能提交。服务开放状态以实际接口核验为准。</text>
+		<view class="skill-grid mt-12">
+			<view v-for="skill in skills" :key="skill.key" :style="cardStyle(skill)">
+				<text class="skill-title text-weight-b">{{ skill.title }}</text>
+				<text class="skill-copy mt-4">{{ skill.summary }}</text>
+				<text class="skill-copy mt-4">范围：{{ skill.scope }}</text>
+				<text class="skill-copy mt-4">{{ skill.price }} · {{ aiSkillStateLabel(skill.state) }}</text>
+				<text v-if="skill.state == 'unavailable'" class="skill-copy mt-4">{{ skill.reason }}</text>
+				<x-button class="mt-8" height="44" :block="true" :disabled="!isAISkillUsable(skill)" :skin="skill.key == active ? 'primary' : 'outline'" @click="choose(skill)">{{ !isAISkillUsable(skill) ? '暂不可用' : (skill.key == active ? '当前技能' : '使用该技能') }}</x-button>
+			</view>
+		</view>
+	</x-sheet>
+</template>
+
+<style scoped>
+.skill-heading { color: #30343c; line-height: 24px; }
+.skill-copy { color: #586174; font-size: 13px; line-height: 20px; }
+.skill-title { color: #30343c; font-size: 15px; line-height: 22px; }
+.skill-grid { flex-direction: row; flex-wrap: wrap; justify-content: space-between; }
+</style>

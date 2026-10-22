@@ -4,9 +4,14 @@ import { AiApi } from '../libs/ai-api.uts'
 import { AIReport, AITaskSummary, AITaskProgress, isSafeAIId, aiTaskStatusLabel, aiTaskOutcomeMessage, aiReadErrorMessage } from '../libs/ai.uts'
 import { formatMillis } from '../libs/theme.uts'
 import { currentAIMemberToken } from '../libs/ai-session.uts'
+import { watchAITaskFeed, AITaskFeedControl, AITaskFeedHooks } from '../libs/ai-task-feed.uts'
+import { AIPublicTaskEvent } from '../libs/ai-task-stream.uts'
 import AIReportPanel from './components/AIReportPanel.uvue'
+import AIReportFeedbackPanel from './components/AIReportFeedbackPanel.uvue'
 import AICreatePanel from './components/AICreatePanel.uvue'
 import AICancelPanel from './components/AICancelPanel.uvue'
+import AIConversationPanel from './components/AIConversationPanel.uvue'
+import AIReportQuestionPanel from './components/AIReportQuestionPanel.uvue'
 
 type AIReadState = 'guest' | 'loading' | 'ready' | 'empty' | 'error'
 const state = ref<AIReadState>('guest')
@@ -22,22 +27,32 @@ const detailMessage = ref<string>('')
 const report = ref<AIReport | null>(null)
 const reportLoading = ref<boolean>(false)
 const cancelInteracting = ref<boolean>(false)
+const feedMode = ref<string>('')
+const feedEvents = ref<AIPublicTaskEvent[]>([] as AIPublicTaskEvent[])
+const conversationId = ref<number>(0)
+const conversationArchived = ref<boolean>(false)
+const activeTab = ref<string>('conversation')
+const showTab = (tab : string) : void => { if (state.value == 'guest') return; activeTab.value = tab }
 let visible : boolean = false
 let epoch : number = 0
 let detailEpoch : number = 0
-let pollTimer : number = 0
 let sessionTimer : number = 0
 let visibleToken : string = ''
+let activeFeed : AITaskFeedControl | null = null
 
-const stopPoll = () : void => { if (pollTimer != 0) { clearTimeout(pollTimer); pollTimer = 0 } }
+const stopPoll = () : void => {
+	if (activeFeed != null) { activeFeed!.close(); activeFeed = null }
+}
 const stopSessionWatch = () : void => { if (sessionTimer != 0) { clearInterval(sessionTimer); sessionTimer = 0 } }
 const clearPrivateState = () : void => {
 	epoch++; detailEpoch++; stopPoll()
 	history.value = [] as AITaskSummary[]; progress.value = null; report.value = null
-	hasMore.value = false; beforeId.value = 0; selectedId.value = 0
+	hasMore.value = false; beforeId.value = 0; selectedId.value = 0; conversationId.value = 0; conversationArchived.value = false
 	detailLoading.value = false; reportLoading.value = false; loadingMore.value = false
 	cancelInteracting.value = false
 	message.value = ''; detailMessage.value = ''
+	feedMode.value = ''; feedEvents.value = [] as AIPublicTaskEvent[]
+	activeTab.value = 'conversation'
 }
 const goLogin = () : void => { uni.navigateTo({ url: '/pages/member/login' }) }
 // 历史摘要不授予报告许可；仅同一任务的当前详情可更新它的可见状态文案。
@@ -68,6 +83,7 @@ const loadProgress = (id : number) : void => {
 	cancelInteracting.value = false
 	stopPoll(); const generation : number = epoch; const token : string = currentAIMemberToken(); const detailGeneration : number = ++detailEpoch
 	selectedId.value = id; progress.value = null; report.value = null; detailLoading.value = true; reportLoading.value = false; detailMessage.value = ''
+	feedEvents.value = [] as AIPublicTaskEvent[]; feedMode.value = ''
 	AiApi.progress(id).then((result) => {
 		if (!isCurrentRequest(generation, token) || detailGeneration != detailEpoch) return
 		if (!acceptMemberRead(result.code)) return
@@ -126,20 +142,40 @@ const retryHistory = () : void => { loadHistory(false) }
 const loadMore = () : void => { if (hasMore.value) loadHistory(true) }
 const retryDetail = () : void => { if (isSafeAIId(selectedId.value)) loadProgress(selectedId.value) }
 const creationUnauthorized = () : void => { clearPrivateState(); state.value = 'guest' }
+const conversationContext = (id : number) : void => { conversationId.value = id }
+const conversationArchive = (value : boolean) : void => { conversationArchived.value = value }
+const changeConversation = () : void => { detailEpoch++; stopPoll(); selectedId.value = 0; progress.value = null; report.value = null; feedEvents.value = [] as AIPublicTaskEvent[]; feedMode.value = ''; detailMessage.value = ''; cancelInteracting.value = false; detailLoading.value = false; reportLoading.value = false }
 
-// 轮询只对运行态发出一个串行请求；失败停止，不自动重试报告或触发生成。
+// 初次详情确认身份/对象；流只表达公开事件，报告仍须独立GET重新核验。
 const scheduleProgressPoll = () : void => {
 	stopPoll()
 	const value : AITaskProgress | null = progress.value
-	if (cancelInteracting.value || value == null || (value.status != 1 && value.status != 2)) return
+	if (cancelInteracting.value || value == null || (value.status != 1 && value.status != 2)) { feedMode.value = ''; return }
 	const generation : number = epoch; const detailGeneration : number = detailEpoch; const token : string = visibleToken; const id : number = value.id
-	pollTimer = setTimeout(() => { if (isCurrentRequest(generation, token) && detailGeneration == detailEpoch) loadProgress(id) }, 3000)
+	activeFeed = watchAITaskFeed(id, value.eventSeq, token, {
+		current: () : boolean => isCurrentRequest(generation, token) && detailGeneration == detailEpoch && !cancelInteracting.value,
+		progress: (next : AITaskProgress) : void => {
+			if (!isCurrentRequest(generation, token) || detailGeneration != detailEpoch) return
+			progress.value = next; report.value = null
+		},
+		event: (event : AIPublicTaskEvent) : void => {
+			feedEvents.value = feedEvents.value.concat([event]).slice(-20)
+		},
+		mode: (mode : string) : void => { feedMode.value = mode },
+		error: (code : number) : void => {
+			if (!isCurrentRequest(generation, token) || detailGeneration != detailEpoch) return
+			if (code == 40100 || code == 40101 || code == 40301) { clearPrivateState(); state.value = 'guest'; return }
+			progress.value = null; report.value = null; feedEvents.value = [] as AIPublicTaskEvent[]
+			detailMessage.value = aiReadErrorMessage(code); feedMode.value = 'error'
+		}
+	} as AITaskFeedHooks)
 }
 const pauseCancellation = (paused : boolean) : void => {
 	cancelInteracting.value = paused; stopPoll()
-	if (paused) { detailEpoch++; report.value = null } else if (visible) scheduleProgressPoll()
+	if (paused) { detailEpoch++; report.value = null; feedMode.value = 'paused' } else if (visible) scheduleProgressPoll()
 }
-watch(() : AITaskProgress | null => progress.value, () => { scheduleProgressPoll() })
+// 相同任务运行态的详情更新不重新开流；切任务、终态、取消交互会关闭原订阅。
+watch(() : string => progress.value == null ? '' : progress.value!.id.toString() + ':' + (progress.value!.status >= 3 ? 'terminal' : 'running'), () => { scheduleProgressPoll() })
 onShow(() => {
 	visible = true; stopSessionWatch(); loadHistory(false)
 	// 存储不是响应式：可见期间有限轮询清除跨页签登出后的已显示内容，不记录令牌。
@@ -155,31 +191,41 @@ onUnload(() => { visible = false; stopSessionWatch(); clearPrivateState() })
 
 <template>
 	<view class="ai-shell">
-		<x-navbar title="资料整理"></x-navbar>
+		<x-navbar title="AI 资料助手"></x-navbar>
 		<scroll-view scroll-y="true" class="ai-scroll">
 			<x-sheet :margin="16" :padding="16" :round="12" dark-color="#ffffff">
-				<text class="ai-heading text-size-lg text-weight-b">我的资料任务</text>
-				<text class="ai-copy mt-8">查询本人任务与报告。创建需先核对报价并确认，真实生成尚未开放。</text>
-				<text class="ai-copy mt-4">报告以公开事实及可追溯来源为限，不提供投资建议。</text>
+				<text class="ai-heading text-size-lg text-weight-b">从会话开始</text>
+				<text class="ai-copy mt-8">默认进入会话：新建或打开本人会话，再选择题材做资料问答，或核对报价后发起资料整理。问答不扣积分，生成报告须另行报价确认；历史任务在“全部任务”页签。</text>
+				<text class="ai-copy mt-4">报告仅限公开事实及可追溯出处，不提供投资建议。</text>
 			</x-sheet>
+			<view v-if="state != 'guest'" class="px-16 flex-row mt-8">
+				<view class="flex-1 mr-8"><x-button height="44" :block="true" :skin="activeTab == 'conversation' ? 'primary' : 'outline'" @click="showTab('conversation')">会话</x-button></view>
+				<view class="flex-1"><x-button height="44" :block="true" :skin="activeTab == 'tasks' ? 'primary' : 'outline'" @click="showTab('tasks')">全部任务</x-button></view>
+			</view>
+			<view v-if="state != 'guest'" :style="activeTab == 'conversation' ? '' : 'display: none;'">
+				<AIConversationPanel :session-token="visibleToken" @task="loadProgress" @selected="changeConversation" @context="conversationContext" @archived="conversationArchive" @unauthorized="creationUnauthorized"></AIConversationPanel>
+			</view>
 			<x-sheet v-if="state == 'guest'" :margin="16" :padding="16" :round="12" dark-color="#ffffff">
 				<text class="ai-heading">登录后查看本人任务</text>
 				<x-button class="mt-16" height="44" :block="true" @click="goLogin">前往登录</x-button>
 				<x-button class="mt-8" height="44" :block="true" skin="outline" @click="retryHistory">重新核对登录状态</x-button>
 			</x-sheet>
-			<view v-else class="px-16">
-				<text v-if="state == 'loading'" class="ai-copy">正在读取任务记录…</text>
-				<text v-if="state == 'empty'" class="ai-copy">当前账号暂无任务记录。</text>
-				<text v-if="message != ''" class="ai-copy">{{ message }}</text>
-				<x-button class="mt-8" height="44" :block="true" skin="outline" :loading="loadingMore" @click="retryHistory">重新查询</x-button>
+			<view v-if="state != 'guest'" :style="activeTab == 'tasks' ? '' : 'display: none;'">
+				<view class="px-16">
+					<text v-if="state == 'loading'" class="ai-copy">正在读取任务记录…</text>
+					<text v-if="state == 'empty'" class="ai-copy">当前账号暂无任务记录。</text>
+					<text v-if="message != ''" class="ai-copy">{{ message }}</text>
+					<x-button class="mt-8" height="44" :block="true" skin="outline" :loading="loadingMore" @click="retryHistory">重新查询</x-button>
+				</view>
+				<AICreatePanel v-if="conversationId == 0" :session-token="visibleToken" @created="openCreatedTask" @unauthorized="creationUnauthorized"></AICreatePanel>
+				<view v-if="state == 'ready'" class="px-16 mt-8"><text class="ai-heading text-weight-b">全部资料任务（历史）</text><text class="ai-copy mt-4">以下为本人全部任务记录；新任务请在会话内发起。</text></view>
+				<view v-for="item in history" :key="item.id" class="ai-task pa-16 ma-16 round-12">
+					<text class="ai-heading text-weight-b">任务 #{{ item.id }} · {{ item.analysisType == 1 ? '轻度资料整理' : '深度资料整理' }}</text>
+					<text class="ai-copy mt-8">{{ historyStatusLabel(item) }} · {{ item.subjectType == 'theme' ? '题材' : '专题' }} #{{ item.subjectId }}</text>
+					<x-button class="mt-12" height="44" :block="true" skin="outline" @click="loadProgress(item.id)">查看进度与报告</x-button>
+				</view>
+				<view v-if="hasMore" class="pa-16"><x-button height="44" :loading="loadingMore" :block="true" @click="loadMore">加载更多</x-button></view>
 			</view>
-			<AICreatePanel v-if="state != 'guest'" :session-token="visibleToken" @created="openCreatedTask" @unauthorized="creationUnauthorized"></AICreatePanel>
-			<view v-for="item in history" :key="item.id" class="ai-task pa-16 ma-16 round-12">
-				<text class="ai-heading text-weight-b">任务 #{{ item.id }} · {{ item.analysisType == 1 ? '轻度资料整理' : '深度资料整理' }}</text>
-				<text class="ai-copy mt-8">{{ historyStatusLabel(item) }} · {{ item.subjectType == 'theme' ? '题材' : '专题' }} #{{ item.subjectId }}</text>
-				<x-button class="mt-12" height="44" :block="true" skin="outline" @click="loadProgress(item.id)">查看进度与报告</x-button>
-			</view>
-			<view v-if="hasMore" class="pa-16"><x-button height="44" :loading="loadingMore" :block="true" @click="loadMore">加载更多</x-button></view>
 			<x-sheet v-if="selectedId > 0" :margin="16" :padding="16" :round="12" dark-color="#ffffff">
 				<text class="ai-heading text-weight-b">任务 #{{ selectedId }}</text>
 				<text v-if="detailLoading" class="ai-copy mt-8">正在核对当前进度…</text>
@@ -191,11 +237,19 @@ onUnload(() => { visible = false; stopSessionWatch(); clearPrivateState() })
 					<text v-if="progress!.cancelRequested && (progress!.status == 1 || progress!.status == 2)" class="ai-copy mt-4">取消请求已登记，等待后台确认。</text>
 					<x-button v-if="progress!.reportAvailable" class="mt-12" height="44" :block="true" :loading="reportLoading" @click="loadReport">核对并查看报告</x-button>
 				</view>
+				<text v-if="feedMode == 'connecting' || feedMode == 'reconnecting'" class="ai-copy mt-8">正在连接公开进度；断线不会重新创建任务。</text>
+				<text v-if="feedMode == 'stream'" class="ai-copy mt-8">已连接公开阶段进度，不显示内部推理或模型原文。</text>
+				<text v-if="feedMode == 'poll'" class="ai-copy mt-8">当前使用状态查询；未收到的事件历史不作补造。</text>
+				<text v-if="feedMode == 'paused'" class="ai-copy mt-8">取消确认期间进度读取已暂停，尚未确认任务终态。</text>
+				<text v-for="event in feedEvents" :key="event.seq" class="ai-copy mt-4">事件 #{{ event.seq }} · {{ aiTaskStatusLabel(event.status) }} · 已完成步骤 {{ event.step }}</text>
 				<AICancelPanel :id="selectedId" :task="progress" :session-token="visibleToken" @pause="pauseCancellation" @refresh="loadProgress" @unauthorized="creationUnauthorized"></AICancelPanel>
 				<text v-if="detailMessage != ''" class="ai-copy mt-8">{{ detailMessage }}</text>
 				<x-button class="mt-12" height="44" :block="true" skin="outline" :disabled="detailLoading || cancelInteracting" @click="retryDetail">重新核对状态</x-button>
 			</x-sheet>
-			<AIReportPanel v-if="report != null" :report="report!"></AIReportPanel>
+			<AIReportFeedbackPanel v-if="progress != null && progress!.status == 3" :task-id="progress!.id" :session-token="visibleToken" @unauthorized="creationUnauthorized"></AIReportFeedbackPanel>
+			<AIReportPanel v-if="report != null" :report="report!" :session-token="visibleToken"></AIReportPanel>
+			<AIReportQuestionPanel v-if="report != null && conversationId > 0" :session-token="visibleToken" :conversation-id="conversationId" :task-id="report!.taskId" :subject-id="report!.subjectId" :archived="conversationArchived"></AIReportQuestionPanel>
+			<view v-if="report != null && conversationId == 0" class="px-16"><text class="ai-copy">报告追问需先进入会话；请在会话内打开关联报告后使用。</text></view>
 			<view class="pa-16"><text class="ai-copy">本平台为公开信息聚合与历史数据统计，不构成任何投资建议。</text></view>
 		</scroll-view>
 	</view>
