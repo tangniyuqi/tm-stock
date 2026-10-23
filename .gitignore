@@ -26,6 +26,9 @@ server/vendor/
 # 内部审核导出含来源正文与人工决定，不能入仓
 /server/ai-review-output/
 
+# 后端运行日志（zap 按日期分目录写入，属运行产物，不入仓）
+backend/server/log/
+
 # IDE / 系统
 .idea/
 .vscode/
