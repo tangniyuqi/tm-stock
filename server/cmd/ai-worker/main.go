@@ -1,4 +1,4 @@
-// ai-worker 当前只恢复已有隔离结果，不执行 Provider/Agent、采集、报告或成功结算。
+// ai-worker 提供已有隔离结果恢复和本地配置预检，尚不执行报告队列。
 package main
 
 import (
@@ -104,6 +104,9 @@ func failure(output io.Writer) int {
 	return 1
 }
 func runCommand(ctx context.Context, args []string, output io.Writer) int {
+	if len(args) > 0 && args[0] == "check-local" {
+		return checkLocalConfig(ctx, args[1:], output)
+	}
 	opts, err := parseOptions(args)
 	if errors.Is(err, flag.ErrHelp) {
 		_, err := io.WriteString(output, "用法：ai-worker recover -user <编号> -task <编号> -plan <可信本地JSON文件>\n仅恢复已有隔离响应；不发起模型/Agent、不新增预留、不生成报告或成功结算。连接只读环境变量 TM_DB_DSN。0=恢复完成但待报告/已有终态，2=响应未知，1=未完成，130=中断。\n")
@@ -154,6 +157,31 @@ func runCommand(ctx context.Context, args []string, output io.Writer) int {
 	return execute(ctx, output, func(ctx context.Context) error { return repository.NewAITaskSchemaVerifier(db).Verify(ctx) }, func(ctx context.Context) (task.RecoveryResult, error) {
 		return w.Recover(ctx, opts.userID, opts.taskID)
 	})
+}
+
+// 只验证隔离启动配置，不连接数据库、不构造模型，也不启动队列。
+func checkLocalConfig(ctx context.Context, args []string, output io.Writer) int {
+	fail := func() int {
+		_, _ = io.WriteString(output, "本地启动配置预检未通过（详情已隐藏），未启动任务。\n")
+		return 1
+	}
+	if ctx == nil || ctx.Err() != nil {
+		return 130
+	}
+	fs := flag.NewFlagSet("ai-worker check-local", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	path := fs.String("config", "", "受控本地配置绝对路径")
+	if fs.Parse(args) != nil || fs.NArg() != 0 {
+		return fail()
+	}
+	c, err := config.ReadAILocalRuntime(*path)
+	if err != nil || c.CheckDSN(os.Getenv("TM_DB_DSN")) != nil {
+		return fail()
+	}
+	if _, err = io.WriteString(output, "本地启动配置预检通过；尚未验证数据库所有权、结构及批准，不启动任务或真实调用。\n"); err != nil {
+		return 1
+	}
+	return 0
 }
 func execute(ctx context.Context, output io.Writer, verify func(context.Context) error, recover func(context.Context) (task.RecoveryResult, error)) int {
 	if ctx.Err() != nil {

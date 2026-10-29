@@ -40,6 +40,14 @@ func run() error {
 		return err
 	}
 	log.Printf("配置: %s", cfg.Redacted()) // Redacted 刻意不含 DSN
+	localRuntime, err := config.LoadAILocalRuntime(cfg.DSN)
+	if err != nil {
+		return err
+	}
+	listenAddress := ":" + cfg.Port
+	if localRuntime != nil {
+		listenAddress = localRuntime.Listen
+	}
 	readCfg, err := config.LoadAITaskRead()
 	if err != nil {
 		return err
@@ -172,7 +180,7 @@ func run() error {
 	}
 
 	srv := &http.Server{
-		Addr:              ":" + cfg.Port,
+		Addr:              listenAddress,
 		Handler:           mux,
 		ReadHeaderTimeout: 10 * time.Second, // 防慢速头攻击
 		ReadTimeout:       30 * time.Second,
