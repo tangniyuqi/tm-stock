@@ -18,10 +18,10 @@ func TestQAStartupClosedAndNoImplicitFactories(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	for _, c := range []config.AIQAConfig{{}, {Read: true}, {Read: true, Submit: true}, {Submit: true}, {Read: true, Submit: true, ReportSubmit: true}} {
+	for _, c := range []config.AIQAConfig{{}, {Read: true}, {Read: true, Submit: true}, {Submit: true}, {ReportSubmit: true}, {Read: true, ReportSubmit: true}, {Read: true, Submit: true, ReportSubmit: true}} {
 		mux := http.NewServeMux()
 		err := registerAIQA(context.Background(), mux, db, read, true, c)
-		if (err != nil) != (c.Read || c.Submit) {
+		if (err != nil) != (c.Read || c.Submit || c.ReportSubmit) {
 			t.Fatal("问答启动未拒绝缺失依赖", err)
 		}
 		for _, path := range []string{"/api/v1/ai/conversations/1/question-receipt", "/api/v1/ai/conversations/1/questions/1/answer"} {

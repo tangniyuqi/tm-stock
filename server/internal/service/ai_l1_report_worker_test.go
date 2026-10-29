@@ -37,6 +37,35 @@ func (c l1TestSelectionControl) Recheck(ctx context.Context, _ task.Task, _ *fin
 	return ctx.Err()
 }
 
+func TestL1PreflightReservesBothIndependentChecks(t *testing.T) {
+	p, v, model := l1PlanFixture(t)
+	want := p.Agent.Units.Tokens + 3*p.Model.MaxInputTokens + int64(p.Model.SelectionTokens()) + 2*int64(p.Model.CheckTokens()) + 1
+	v.Budget.MaxTokens = want - 1
+	if _, err := p.validate(v, model); !errors.Is(err, task.ErrBudget) {
+		t.Fatal("预算少于完整选择及两次判定仍通过", err)
+	}
+	v.Budget.MaxTokens = want
+	if _, err := p.validate(v, model); err != nil {
+		t.Fatal("精确完整预算被拒绝", err)
+	}
+}
+
+func TestAIL2AdmissionRejectsIncompleteBudget(t *testing.T) {
+	p, v, _ := l1PlanFixture(t)
+	p.AnalysisType, p.Model.AnalysisType, p.Policy.AnalysisType, p.Policy.MinQuotes = task.DeepAnalysisType, task.DeepAnalysisType, task.DeepAnalysisType, task.DeepMinQuotes
+	want := p.Agent.Units.Tokens + 3*p.Model.MaxInputTokens + int64(p.Model.SelectionTokens()) + 2*int64(p.Model.CheckTokens()) + 1
+	budget := v.Budget
+	budget.MaxTokens = want - 1
+	price := points.Price{Version: "v1", Points: task.DeepPricePoints}
+	if _, err := NewAIL2ReportPlan(p, price, budget, "test-only-approval", "test-only-quality", "test-only-budget", "test-only-price", "test-only-source"); !errors.Is(err, task.ErrBudget) {
+		t.Fatal("不足预算在冻结前未被拒绝", err)
+	}
+	budget.MaxTokens = want
+	if _, err := NewAIL2ReportPlan(p, price, budget, "test-only-approval", "test-only-quality", "test-only-budget", "test-only-price", "test-only-source"); err != nil {
+		t.Fatal("完整预算被拒绝", err)
+	}
+}
+
 func l1PlanFixture(t *testing.T) (AIL1ReportPlan, task.Task, *provider.OpenAICompat) {
 	t.Helper()
 	s, st, _ := reportFixture(t)

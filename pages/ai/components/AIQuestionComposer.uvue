@@ -1,0 +1,29 @@
+<script lang="ts" setup>
+import { isAIQAQuestion } from '../../libs/ai-qa.uts'
+
+// 只负责受控输入展示；草稿、原键与提交状态仍由原问答面板持有。
+type ComposerProps = { question : string, scopeLabel : string, placeholder : string, submitLabel : string, busy : boolean, docked? : boolean, dockLeft? : number, dockBottom? : number }
+defineOptions({name: 'AIQuestionComposer'})
+const props = withDefaults(defineProps<ComposerProps>(), { docked: false, dockLeft: 16, dockBottom: 0 })
+const emit = defineEmits<{ change: [value : string], submit: [] }>()
+const change = (value : string) : void => { if (!props.busy) emit('change', value) }
+const submit = () : void => { if (!props.busy && isAIQAQuestion(props.question)) emit('submit') }
+</script>
+
+<template>
+	<view>
+		<view class="composer-frame" :class="docked ? 'composer-docked' : ''" :style="docked ? 'left:' + dockLeft.toString() + 'px;bottom:' + dockBottom.toString() + 'px;' : ''">
+			<text class="composer-scope">{{ scopeLabel }}</text>
+			<x-input class="mt-8" type="textarea" :model-value="question" @update:modelValue="change" :trim="false" :maxlength="2000" :height="docked ? '64' : '112'" :placeholder="placeholder" :disabled="busy" :fixed="docked"></x-input>
+			<x-button class="mt-8" height="44" :block="true" :disabled="busy || !isAIQAQuestion(question)" @click="submit">{{ submitLabel }}</x-button>
+			<view v-if="docked" class="composer-safe"></view>
+		</view>
+	</view>
+</template>
+
+<style scoped>
+.composer-scope { color: #30343c; font-size: 14px; line-height: 20px; }
+.composer-frame { min-width: 0; }
+.composer-docked { position: fixed; right: 16px; bottom: 0; z-index: 10; padding: 12px; background-color: #ffffff; border-radius: 12px; border: 1px solid #e3e6eb; }
+.composer-safe { height: env(safe-area-inset-bottom); }
+</style>

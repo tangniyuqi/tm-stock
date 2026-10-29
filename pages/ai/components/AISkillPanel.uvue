@@ -1,34 +1,34 @@
 <script lang="ts" setup>
-import { AISkill, aiSkills, isAISkillUsable, aiSkillStateLabel } from '../../libs/ai-skills.uts'
+import { computed } from 'vue'
+import { AISkill, aiSkills, aiSkillByKey, isAISkillUsable, aiSkillStateLabel } from '../../libs/ai-skills.uts'
 type SkillProps = { active : string }
 defineOptions({name: 'AISkillPanel'})
 const props = defineProps<SkillProps>()
 const emit = defineEmits<{ select: [key : string] }>()
 const skills : AISkill[] = aiSkills()
+const selectedSkill = computed(() : AISkill | null => aiSkillByKey(props.active))
 const choose = (skill : AISkill) : void => {
 	if (isAISkillUsable(skill) && skill.key != props.active) emit('select', skill.key)
-}
-const cardStyle = (skill : AISkill) : string => {
-	if (skill.state == 'unavailable') return 'width:48%;margin-bottom:12px;padding:12px;border-radius:8px;background:#f2f3f5;'
-	if (skill.key == props.active) return 'width:48%;margin-bottom:12px;padding:12px;border-radius:8px;background:#eef6ff;border:1px solid #2f7cf6;'
-	return 'width:48%;margin-bottom:12px;padding:12px;border-radius:8px;background:#fafbfc;border:1px solid #e3e6eb;'
 }
 </script>
 
 <template>
 	<x-sheet :margin="16" :padding="16" :round="12" dark-color="#ffffff">
 		<text class="skill-heading text-weight-b">选择技能</text>
-		<text class="skill-copy mt-8">技能会说明可用范围与是否计费；暂不可用的技能不能提交。服务开放状态以实际接口核验为准。</text>
-		<view class="skill-grid mt-12">
-			<view v-for="skill in skills" :key="skill.key" :style="cardStyle(skill)">
-				<text class="skill-title text-weight-b">{{ skill.title }}</text>
-				<text class="skill-copy mt-4">{{ skill.summary }}</text>
-				<text class="skill-copy mt-4">范围：{{ skill.scope }}</text>
-				<text class="skill-copy mt-4">{{ skill.price }} · {{ aiSkillStateLabel(skill.state) }}</text>
-				<text v-if="skill.state == 'unavailable'" class="skill-copy mt-4">{{ skill.reason }}</text>
-				<x-button class="mt-8" height="44" :block="true" :disabled="!isAISkillUsable(skill)" :skin="skill.key == active ? 'primary' : 'outline'" @click="choose(skill)">{{ !isAISkillUsable(skill) ? '暂不可用' : (skill.key == active ? '当前技能' : '使用该技能') }}</x-button>
+		<view class="skill-grid mt-8">
+			<view v-for="skill in skills" :key="skill.key" class="skill-option">
+				<x-button height="44" :block="true" :disabled="!isAISkillUsable(skill)" :skin="skill.key == active ? 'default' : 'outline'" @click="choose(skill)">{{ skill.title }}</x-button>
+				<text class="skill-copy mt-4">{{ skill.state == 'report' ? '报告内使用' : skill.price }}</text>
 			</view>
 		</view>
+		<view v-if="selectedSkill != null" class="mt-8">
+			<text class="skill-title text-weight-b">当前技能：{{ selectedSkill!.title }}</text>
+			<text class="skill-copy mt-4">{{ selectedSkill!.summary }}</text>
+			<text class="skill-copy mt-4">范围：{{ selectedSkill!.scope }} · {{ aiSkillStateLabel(selectedSkill!.state) }}</text>
+			<text v-if="selectedSkill!.reason != ''" class="skill-copy mt-4">{{ selectedSkill!.reason }}</text>
+		</view>
+		<text v-else class="skill-copy mt-8">尚未选择有效技能，请先选择；此处不会自动提交。</text>
+		<text class="skill-copy mt-8">切换技能不创建任务、不扣积分；服务开放状态以实际接口核验为准。报告追问需打开本人可读报告后，从报告下方发起追问。</text>
 	</x-sheet>
 </template>
 
@@ -37,4 +37,5 @@ const cardStyle = (skill : AISkill) : string => {
 .skill-copy { color: #586174; font-size: 13px; line-height: 20px; }
 .skill-title { color: #30343c; font-size: 15px; line-height: 22px; }
 .skill-grid { flex-direction: row; flex-wrap: wrap; justify-content: space-between; }
+.skill-option { flex: 1; min-width: 140px; margin: 4px; }
 </style>

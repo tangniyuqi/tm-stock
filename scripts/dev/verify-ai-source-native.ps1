@@ -19,16 +19,34 @@ param(
     [switch]$NonReportsOnly,
     [switch]$FeedbackConsoleOnly,
     [switch]$LiveAgents,
+    [switch]$MaterialQABrowser,
+    [switch]$StreamReplayBrowser,
+    [switch]$TimeoutRecoveryTests,
+    [switch]$DeepH5Tests,
     [ValidateLength(1, 256)][string]$ConversationPattern = '^TestIntegrationAIConversations',
     [ValidateLength(1, 256)][string]$ReportPattern = '^TestIntegrationAIReport'
 )
 
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
-if ($LiveAgents -and (-not $ReportsOnly -or $RunCount -ne 1 -or $ReportPattern -ne '^TestIntegrationAIReportLiveAgents$' -or $env:TM_TEST_AI_LIVE -ne 'local-fixture-only')) { throw '付费联调只允许显式本地单用例、单次执行' }
+$liveReportPatterns = @('^TestIntegrationAIReportLiveAgents$', '^TestIntegrationAIReportDeepLiveAgents$')
+if ($ReportPattern -in $liveReportPatterns -and -not $LiveAgents) { throw '真实Agent根组需要显式编译专项标签，禁止零用例假通过' }
+if ($ReportPattern -eq '^TestIntegrationAIReportMaterialQAH5$' -and -not $MaterialQABrowser) { throw '资料问答浏览器根组需要显式编译专项标签，禁止零用例假通过' }
+if ($ReportPattern -eq '^TestIntegrationAIReportH5StreamReplay$' -and -not $StreamReplayBrowser) { throw 'SSE浏览器根组需要显式编译专项标签，禁止零用例假通过' }
+if ($LiveAgents -and (-not $ReportsOnly -or $RunCount -ne 1 -or $ReportPattern -notin $liveReportPatterns -or $env:TM_TEST_AI_LIVE -ne 'local-fixture-only')) { throw '付费联调只允许显式本地单用例、单次执行' }
+if ($MaterialQABrowser -and ($LiveAgents -or -not $ReportsOnly -or $RunCount -ne 1 -or $ReportPattern -ne '^TestIntegrationAIReportMaterialQAH5$' -or $env:TM_TEST_AI_H5_MATERIAL_QA -ne 'local-fixture-only')) { throw '资料问答浏览器只允许显式隔离单用例，不能混用真实Agent模式' }
+if ($StreamReplayBrowser -and ($LiveAgents -or $MaterialQABrowser -or -not $ReportsOnly -or $RunCount -ne 1 -or $ReportPattern -ne '^TestIntegrationAIReportH5StreamReplay$' -or $env:TM_TEST_AI_H5_STREAM_REPLAY -ne 'local-fixture-only')) { throw '原事件SSE浏览器只允许独立、显式隔离单用例' }
+$timeoutRecoveryPatterns = @('^TestIntegrationAIReportTimeoutRecovery$', '^TestIntegrationAIReportH5TimeoutRecovery$')
+if ($ReportPattern -in $timeoutRecoveryPatterns -and -not $TimeoutRecoveryTests) { throw '超时恢复根组需要显式编译专项标签，禁止零用例假通过' }
+if ($TimeoutRecoveryTests -and ($LiveAgents -or $MaterialQABrowser -or $StreamReplayBrowser -or -not $ReportsOnly -or $RunCount -ne 1 -or $ReportPattern -notin $timeoutRecoveryPatterns)) { throw '自然超时恢复只允许独立单次精确专项' }
+if ($TimeoutRecoveryTests -and $ReportPattern -eq '^TestIntegrationAIReportH5TimeoutRecovery$' -and $env:TM_TEST_AI_H5_TIMEOUT_RECOVERY -ne 'local-fixture-only') { throw '实际H5超时恢复需要显式隔离标志' }
+$deepH5Patterns = @('^TestIntegrationDeepH5GatewayHTTP$', '^TestIntegrationAIReportH5Deep$')
+if ($ReportPattern -in $deepH5Patterns -and -not $DeepH5Tests) { throw '深度网关精确专项需要显式入口，禁止零用例假通过' }
+if ($DeepH5Tests -and ($LiveAgents -or $MaterialQABrowser -or $StreamReplayBrowser -or $TimeoutRecoveryTests -or -not $ReportsOnly -or $RunCount -ne 1 -or $ReportPattern -notin $deepH5Patterns)) { throw '深度网关只允许独立单次精确专项' }
+if ($DeepH5Tests -and $ReportPattern -eq '^TestIntegrationAIReportH5Deep$' -and $env:TM_TEST_AI_H5_DEEP -ne 'local-fixture-only') { throw '深度实际H5需要显式隔离标志' }
 if ($RepositoryCoveragePath -ne '' -and $ServiceCoveragePath -ne '') { throw '一次只采集一个仓储或服务覆盖率文件' }
 if (@($AgentsOnly,$TaskBudgetOnly,$TaskStagesOnly,$TaskRecoveryOnly,$TaskCancelOnly,$TaskEventsOnly,$ConversationsOnly,$TaskExpiryOnly,$TaskAgentBridgeOnly,$ReportsOnly,$NonReportsOnly,$FeedbackConsoleOnly).Where({ [bool]$_ }).Count -gt 1) { throw '专项模式不能同时选择' }
-if ($ReportPattern -ne '^TestIntegrationAIReport' -and (-not $ReportsOnly -or -not $ReportPattern.StartsWith('^TestIntegrationAIReport'))) { throw '自定义报告选择器只能用于显式报告专项，且必须保留报告用例前缀' }
+if ($ReportPattern -ne '^TestIntegrationAIReport' -and (-not $ReportsOnly -or (-not $ReportPattern.StartsWith('^TestIntegrationAIReport') -and -not ($DeepH5Tests -and $ReportPattern -eq '^TestIntegrationDeepH5GatewayHTTP$')))) { throw '自定义报告选择器只能用于显式报告专项，且必须保留报告用例前缀' }
 if ($ConversationPattern -ne '^TestIntegrationAIConversations' -and (-not $ConversationsOnly -or -not $ConversationPattern.StartsWith('^TestIntegrationAIConversations'))) { throw '自定义会话选择器只能用于显式会话专项，且必须保留会话用例前缀' }
 $PSNativeCommandUseErrorActionPreference = $false
 if ($BashPath -eq '') {
@@ -98,6 +116,8 @@ try {
         $suiteTimeout = [string](20 * $RunCount) + 'm'
         $integrationTags = 'integration'
         if ($LiveAgents) { $integrationTags = 'integration,liveagents' }
+        if ($MaterialQABrowser -or $StreamReplayBrowser -or $TimeoutRecoveryTests) { $integrationTags = 'integration,browser' }
+        if ($DeepH5Tests -and $ReportPattern -eq '^TestIntegrationAIReportH5Deep$') { $integrationTags = 'integration,browser' }
         $pointsTestArgs = @('test', '-p', '1', '-race', "-tags=$integrationTags", './integration/points', '-timeout', $suiteTimeout, '-count', [string]$RunCount, '-v')
         if ($TaskBudgetOnly) { $pointsTestArgs += @('-run', '^TestIntegrationAITaskBudget') }
         if ($TaskStagesOnly) { $pointsTestArgs += @('-run', '^TestIntegrationAITaskStage') }

@@ -151,6 +151,21 @@ func TestIntegrationAIReportQA(t *testing.T) {
 			if answer.State != "answered" || len(answer.Quotes) != 1 || answer.Quotes[0].Excerpt == "" || answer.Quotes[0].SourceURL == "" {
 				t.Fatal("报告追问答案不符", answer)
 			}
+			// 模拟重启为只读：不装配模型客户端，也不重写原问题或证明。
+			readOnly, err := service.NewAIQAServiceWithReportAccess(repository.NewAIQARepo(e.db), nil, nil, reportQAAuth{"one": 1}, false, false, evidence, reportQAConfig{cfg})
+			if err != nil {
+				t.Fatal(err)
+			}
+			readBack, err := readOnly.Answer(e.ctx, "one", 1, conv.ID, status.Seq)
+			if err != nil || len(readBack.Quotes) != 1 || readBack.Quotes[0] != answer.Quotes[0] {
+				t.Fatal("关闭提交及模型后历史答案不可读", err)
+			}
+			if _, err := readOnly.Submit(e.ctx, "one", 1, conv.ID, "question_read_only_denied", input); !errors.Is(err, qa.ErrUnavailable) {
+				t.Fatal("只读报告装配放行了新问题", err)
+			}
+			if upstream.Count() != 3 || e.queryInt("SELECT COUNT(*) FROM tm_ai_qa_requests") != 1 {
+				t.Fatal("只读回放或拒绝新提交增加了调用或请求")
+			}
 			if e.queryInt("SELECT frozen FROM tm_points_accounts WHERE user_id=1") != 0 || e.queryInt("SELECT COUNT(*) FROM tm_points_txns") != txnsBefore {
 				t.Fatal("报告追问改动了积分")
 			}
@@ -234,6 +249,9 @@ func TestIntegrationAIReportQA(t *testing.T) {
 			}
 			if _, err := svc.Answer(e.ctx, "one", 1, conv.ID, status.Seq); !errors.Is(err, qa.ErrUnavailable) {
 				t.Fatal("来源撤回后仍读取报告追问", err)
+			}
+			if _, err := readOnly.Answer(e.ctx, "one", 1, conv.ID, status.Seq); !errors.Is(err, qa.ErrUnavailable) {
+				t.Fatal("只读装配在来源撤回后仍返回历史答案", err)
 			}
 			if _, err := svc.Submit(e.ctx, "one", 1, conv.ID, "question_report_qa_0003", input); !errors.Is(err, qa.ErrUnavailable) {
 				t.Fatal("来源撤回后仍可提交报告追问", err)

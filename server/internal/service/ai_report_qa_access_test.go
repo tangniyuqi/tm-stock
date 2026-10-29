@@ -120,3 +120,30 @@ func TestAIReportQAAccessFailures(t *testing.T) {
 		t.Fatal("超出报告范围时限未拒绝")
 	}
 }
+
+func TestAIReportQAHistoryAfterExecutionExpiry(t *testing.T) {
+	now := time.Date(2026, 10, 22, 5, 0, 0, 0, time.UTC)
+	plan, evidence := reportAccessPlan(t, now)
+	source := &fakeReportEvidenceSource{evidence: evidence}
+	access, _ := NewAIReportQAAccess(source)
+	access.now = func() time.Time { return now.Add(3*time.Minute + time.Nanosecond) }
+	if _, err := access.Scope(context.Background(), plan.Proof()); !errors.Is(err, qa.ErrInvalid) {
+		t.Fatal("过期执行授权不应续期", err)
+	}
+	scope, err := access.ScopeForRead(context.Background(), plan.Proof())
+	if err != nil {
+		t.Fatal("当前报告可读却因执行过期拒绝历史", err)
+	}
+	if !scope.ValidUntil.Equal(plan.Proof().ValidUntil) {
+		t.Fatal("历史读取偷偷延长执行期")
+	}
+	input := conversation.MessageInput{Kind: "question", SubjectType: "theme", SubjectID: 7, Skill: "report_qa", TaskID: 9, Question: "报告的题材定义引用了什么分类？"}
+	replayed, err := qa.NewReportReadPlanScoped(plan.Proof().Identity, input, scope, qaEvidenceConfig(), access.now().Truncate(time.Millisecond))
+	if err != nil || !reflect.DeepEqual(replayed.Proof(), plan.Proof()) {
+		t.Fatal("历史读取改变原存证证明", err)
+	}
+	source.err = qa.ErrUnavailable
+	if _, err := access.ScopeForRead(context.Background(), plan.Proof()); !errors.Is(err, qa.ErrUnavailable) {
+		t.Fatal("撤权后历史仍可读", err)
+	}
+}

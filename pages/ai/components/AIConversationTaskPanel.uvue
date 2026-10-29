@@ -18,6 +18,8 @@ const intent = ref<AIConversationTask | null>(null)
 const reviewQuote = ref<AISubmissionQuote | null>(null)
 const rows = ref<AIConversationTaskSummary[]>([] as AIConversationTaskSummary[])
 const busy = ref<boolean>(false)
+const confirmationWaiting = ref<boolean>(false)
+let confirmationGeneration : number = 0
 const ready = ref<boolean>(false)
 const safeStorage = ref<boolean>(false)
 const legacyPending = ref<boolean>(false)
@@ -35,6 +37,17 @@ const accept = (code : number) : boolean => {
 	return true
 }
 const ownsIntent = () : boolean => pending.value != null && intent.value != null && pending.value!.intentId == intent.value!.id && intentMatchesPending(intent.value!, pending.value!)
+// 只合并已通过接口校验的服务端摘要；分页游标仍由列表响应决定。
+const mergeRows = (items : AIConversationTaskSummary[]) : void => {
+	const merged : AIConversationTaskSummary[] = rows.value.slice()
+	items.forEach((item : AIConversationTaskSummary) => {
+		const index : number = merged.findIndex((row : AIConversationTaskSummary) : boolean => row.id == item.id)
+		if (index < 0) merged.push(item)
+		else if (item.updatedAt >= merged[index].updatedAt) merged[index] = item
+	})
+	merged.sort((a : AIConversationTaskSummary, b : AIConversationTaskSummary) : number => b.id - a.id)
+	rows.value = merged
+}
 const list = (more : boolean) : void => {
 	if (busy.value || !current(generation, props.sessionToken) || (more && !hasMore.value)) return
 	const round : number = generation; const token : string = props.sessionToken; const before : number = more ? nextBefore.value : 0
@@ -43,7 +56,9 @@ const list = (more : boolean) : void => {
 		if (!current(round, token) || !accept(r.code)) return
 		busy.value = false
 		if (r.code != 0 || r.data == null) { message.value = aiSubmissionError(r.code); return }
-		rows.value = more ? rows.value.concat(r.data!.items) : r.data!.items; hasMore.value = r.data!.hasMore; nextBefore.value = r.data!.nextBeforeId; ready.value = true
+		if (more) mergeRows(r.data!.items)
+		else rows.value = r.data!.items
+		hasMore.value = r.data!.hasMore; nextBefore.value = r.data!.nextBeforeId; ready.value = true
 	}).catch(() => { if (current(round, token)) { busy.value = false; message.value = aiSubmissionError(50001) } })
 }
 const applyIntent = async (v : AIConversationTask, original : boolean, round : number, token : string) : Promise<void> => {
@@ -56,6 +71,7 @@ const applyIntent = async (v : AIConversationTask, original : boolean, round : n
 		pending.value = marked
 	}
 	intent.value = v; reviewQuote.value = null
+	mergeRows([{id: v.id, state: v.state, analysisType: v.analysisType, subjectType: v.subjectType, subjectId: v.subjectId, updatedAt: v.updatedAt} as AIConversationTaskSummary])
 	if (v.state == 'linked') emit('linked')
 }
 const prepare = async (q : AISubmissionQuote) : Promise<void> => {
@@ -128,15 +144,25 @@ const submit = async (round : number, token : string, v : AIConversationTask, q 
 	} catch (_) { if (current(round, token)) { reviewQuote.value = null; intent.value = null; message.value = '确认结果未明，请保留原键核查；未自动重发' } }
 	finally { if (current(round, token)) busy.value = false }
 }
+// 仅退出尚未发送的弹窗等待；原意图记录不变，迟到回调不得提交。
+const cancelConfirmation = () : void => {
+	if (!confirmationWaiting.value) return
+	confirmationGeneration++; confirmationWaiting.value = false; busy.value = false; reviewQuote.value = null
+	message.value = '已退出本次确认等待，未发送创建请求；请重新核对报价后再确认。'
+}
 const confirm = () : void => {
 	if (busy.value || props.archived || !ownsIntent() || intent.value!.state != 'prepared' || pending.value!.confirmSent || reviewQuote.value == null || reviewQuote.value!.availablePoints < reviewQuote.value!.pricePoints || !current(generation, props.sessionToken)) return
 	const round : number = generation; const token : string = props.sessionToken; const v : AIConversationTask = intent.value!; const q : AISubmissionQuote = reviewQuote.value!
 	busy.value = true
-	uni.showModal({title: '确认' + (v.analysisType == 'deep' ? '深度' : '轻度') + '会话资料任务', content: '会话 #' + boundCID.toString() + '，题材：' + q.subjectName + '。确认后按原任务规则冻结 ' + q.pricePoints.toString() + ' 积分，终检交付后结算；失败释放以原任务核查为准。不生成问答或额外任务。', confirmText: '确认冻结', cancelText: '暂不创建', success: (decision) => {
-		if (!current(round, token)) return
+	confirmationWaiting.value = true
+	const confirmationRound : number = ++confirmationGeneration
+	try { uni.showModal({title: '确认' + (v.analysisType == 'deep' ? '深度' : '轻度') + '会话资料任务', content: '会话 #' + boundCID.toString() + '，题材：' + q.subjectName + '。确认后按原任务规则冻结 ' + q.pricePoints.toString() + ' 积分，终检交付后结算；失败释放以原任务核查为准。不生成问答或额外任务。', confirmText: '确认冻结', cancelText: '暂不创建', success: (decision) => {
+		if (!current(round, token) || confirmationRound != confirmationGeneration || !confirmationWaiting.value) return
+		confirmationWaiting.value = false
 		if (!decision.confirm) { busy.value = false; return }
 		submit(round, token, v, q)
-	}, fail: () => { if (current(round, token)) busy.value = false }})
+	}, fail: () => { if (current(round, token) && confirmationRound == confirmationGeneration && confirmationWaiting.value) cancelConfirmation() }})
+	} catch (_) { if (current(round, token) && confirmationRound == confirmationGeneration && confirmationWaiting.value) cancelConfirmation() }
 }
 const finish = async () : Promise<void> => {
 	if (busy.value || !ownsIntent() || !['linked', 'not_created'].includes(intent.value!.state) || !current(generation, props.sessionToken)) return
@@ -156,6 +182,7 @@ const finish = async () : Promise<void> => {
 }
 const showTask = () : void => { if (!busy.value && intent.value != null && intent.value!.state == 'linked' && current(generation, props.sessionToken)) emit('task', intent.value!.taskId) }
 watch(() : string => props.sessionToken + ':' + props.conversationId.toString(), () => {
+	confirmationGeneration++; confirmationWaiting.value = false
 	generation++; boundCID = props.conversationId; intent.value = null; reviewQuote.value = null; rows.value = [] as AIConversationTaskSummary[]; pending.value = null; busy.value = false; ready.value = false; safeStorage.value = false; hasMore.value = false; nextBefore.value = 0; message.value = ''
 	partition = intentPartition(props.sessionToken)
 	try { pending.value = readPendingIntent(partition); legacyPending.value = readAIPending(aiPendingStorageKey(props.sessionToken)) != null; safeStorage.value = true } catch (_) { message.value = '本机意图记录不可读取，停止新建；请保留记录核查' }
@@ -169,11 +196,12 @@ onBeforeUnmount(() => { active = false; generation++; intent.value = null; revie
 		<AICreatePanel v-if="!archived && ready && safeStorage && !legacyPending && pending == null" :key="analysisType" :session-token="sessionToken" :analysis-type="analysisType" :quote-only="true" :locked="busy" @quoted="prepare" @unauthorized="emit('unauthorized')"></AICreatePanel>
 		<x-sheet :margin="16" :padding="16" :round="12" dark-color="#ffffff">
 			<text class="intent-heading text-weight-b">会话 #{{ conversationId }} 的{{ analysisType == 'deep' ? '深度' : '轻度' }}资料任务</text>
-			<text class="intent-copy mt-8">{{ analysisType == 'deep' ? '深度资料整理按 30 积分报价，确认后冻结；失败/取消/超时按原任务规则释放。' : '轻度题材资料整理按报价确认后冻结。' }}专题及自由问答尚未开放。原独立任务不会自动迁入会话。生产真实调用保持关闭。</text>
+			<text class="intent-copy mt-8">{{ analysisType == 'deep' ? '深度题材资料整理按当前报价确认后冻结。' : '轻度题材资料整理按当前报价确认后冻结。' }}结算或释放以原任务核查为准。专题及自由问答尚未开放。</text>
 			<text v-if="!safeStorage" class="intent-copy mt-8">本机意图记录不可读取，停止新建；请保留记录联系维护者核查。</text>
 			<text v-if="legacyPending" class="intent-copy mt-8">本机独立任务入口有原请求待核查，暂不准备新的会话意图；请先从原入口核查并记录。</text>
 			<text v-if="archived" class="intent-copy mt-8">当前会话已归档，只能查询原意图及关联任务。</text>
 			<text v-if="busy" class="intent-copy mt-8">正在核查或等待确认，请勿重复操作…</text>
+			<x-button v-if="confirmationWaiting" class="mt-8" height="44" :block="true" skin="outline" @click="cancelConfirmation">取消本次确认等待</x-button>
 			<x-button class="mt-8" height="44" :block="true" skin="outline" :disabled="busy" @click="list(false)">查询会话任务意图</x-button>
 			<text v-if="ready && rows.length == 0" class="intent-copy mt-8">当前会话暂无任务意图。</text>
 			<view v-for="row in rows" :key="row.id" class="mt-12">
@@ -183,12 +211,14 @@ onBeforeUnmount(() => { active = false; generation++; intent.value = null; revie
 			</view>
 			<x-button v-if="hasMore" class="mt-8" height="44" :block="true" skin="outline" :disabled="busy" @click="list(true)">加载更多意图</x-button>
 			<view v-if="pending != null" class="mt-12">
+				<text class="intent-copy">待核查原意图：{{ pending!.analysisType == 'deep' ? '深度资料整理' : '轻度资料整理' }}。切换技能不改变这项意图。</text>
 				<text class="intent-copy">本机保留会话 #{{ pending!.conversationId }} 的原意图。确认未知不换键、不补交；原收据404也不是退款或可重建证明。</text>
 				<text v-if="pending!.conversationId != conversationId" class="intent-copy mt-4">请切换到上述会话核查；此处不会创建另一项意图。</text>
 				<x-button v-else class="mt-8" height="44" :block="true" skin="outline" :disabled="busy" @click="check">查询本机原意图</x-button>
 			</view>
 			<view v-if="intent != null" class="mt-12">
 				<text class="intent-heading">意图 #{{ intent!.id }} · {{ intentStateLabel(intent!.state) }}</text>
+				<text class="intent-copy mt-4">原意图类型：{{ intent!.analysisType == 'deep' ? '深度资料整理' : '轻度资料整理' }}</text>
 				<text class="intent-copy mt-4">原报价 {{ intent!.pricePoints }} 积分 · 版本 {{ intent!.priceVersion }}</text>
 				<text v-if="intent!.state == 'not_created'" class="intent-copy mt-4">{{ intentRejectionLabel(intent!.rejectionCode) }}；不是报告交付或退款收据。</text>
 				<text v-if="ownsIntent() && pending!.confirmSent && intent!.state == 'prepared'" class="intent-copy mt-4">本机确认曾进入发送阶段，不再确认第二次；只可查询原意图。</text>

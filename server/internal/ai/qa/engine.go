@@ -77,7 +77,7 @@ func (e *Engine) check(ctx context.Context, p *Plan) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if !time.Now().Before(p.scope.ValidUntil) {
+	if !p.replayOnly && !time.Now().Before(p.scope.ValidUntil) {
 		return ErrUnavailable
 	}
 	if err := e.control.Recheck(ctx, p.Proof()); err != nil {
@@ -217,7 +217,7 @@ func (e *Engine) complete(ctx context.Context, p *Plan, state, reason string, pi
 
 // Run只有一次执行权限，至多三个单次调用；异常不重试、不回退、不隐式生成报告。
 func (e *Engine) Run(parent context.Context, p *Plan) (*Outcome, error) {
-	if e == nil || e.control == nil || parent == nil || !p.Valid() {
+	if e == nil || e.control == nil || parent == nil || !p.Valid() || p.replayOnly {
 		return nil, ErrInvalid
 	}
 	ctx, cancel := context.WithTimeout(parent, p.cfg.Limits.Timeout)

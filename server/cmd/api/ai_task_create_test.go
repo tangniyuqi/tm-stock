@@ -14,6 +14,12 @@ import (
 	"github.com/tangniyuqi/tm-stock/server/internal/memberauth"
 )
 
+func TestDeepCreateCannotOutliveCreateSwitch(t *testing.T) {
+	if svc, err := prepareAITaskCreatesWithDeep(context.Background(), nil, config.AITaskReadConfig{}, false, true, nil); svc != nil || !errors.Is(err, memberauth.ErrInvalidConfig) {
+		t.Fatal("创建关闭却接受深度开关", err)
+	}
+}
+
 // 启动反例控制器：不能提供任何可创建的计划，也不是生产准入。
 type createStartupDeny struct{ calls int }
 

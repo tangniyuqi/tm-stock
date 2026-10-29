@@ -40,7 +40,7 @@ BEGIN
  JOIN tm_points_txns p ON p.id=h.terminal_txn_id AND p.user_id=t.user_id
  WHERE t.id=NEW.task_id AND t.user_id=NEW.user_id AND t.task_no=NEW.task_no AND t.status=NEW.status
   AND t.current_step=NEW.step_no AND t.fence=NEW.fence AND t.event_seq=NEW.event_seq AND t.cancel_req=0
-  AND t.analysis_type IN (1,2) AND t.subject_type='theme'
+  AND t.analysis_type=1 AND t.subject_type='theme'
   AND s.stage='judge' AND s.policy_digest=NEW.policy_digest AND s.output_digest=NEW.content_digest AND s.input_digest=NEW.input_digest
   AND r.reservation_key=NEW.operation_key AND e.status=NEW.status AND e.step_no=NEW.step_no AND NEW.terminal_txn_id=p.id
   AND h.amount=t.price_points AND h.price_ver=t.price_ver AND p.biz_type=h.biz_type AND p.biz_id=h.biz_id

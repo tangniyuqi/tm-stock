@@ -162,6 +162,35 @@ func BuildReportScopeUntil(ev ReportEvidence, now, validUntil time.Time) (Scope,
 	return Scope{SubjectType: ev.SubjectType, SubjectID: ev.SubjectID, SubjectName: ev.SubjectName, ApprovalRef: reportApprovalBase + fmt.Sprintf("%d:%s", ev.TaskID, ev.Digest), ValidUntil: validUntil, Snapshots: snapshots}, nil
 }
 
+// BuildReportReadScope 保留原执行截止时点，只供当前可读报告的历史回放；不授予执行权限。
+func BuildReportReadScope(ev ReportEvidence, now, validUntil time.Time) (Scope, error) {
+	if !conversation.Time(now) || !conversation.Time(validUntil) || validUntil.After(now.Add(reportScopeTTL)) {
+		return Scope{}, ErrInvalid
+	}
+	validationTime := now
+	if !validUntil.After(now) {
+		validationTime = validUntil.Add(-time.Millisecond)
+	}
+	return BuildReportScopeUntil(ev, validationTime, validUntil)
+}
+
+// NewReportReadPlanScoped 复现原摘要，但计划只能回放已完成存证，不能提交或调用模型。
+func NewReportReadPlanScoped(id Identity, in conversation.MessageInput, scope Scope, c Config, now time.Time) (*Plan, error) {
+	if !conversation.Time(now) || !conversation.Time(scope.ValidUntil) || scope.ValidUntil.After(now.Add(reportScopeTTL)) {
+		return nil, ErrInvalid
+	}
+	validationTime := now
+	if !scope.ValidUntil.After(now) {
+		validationTime = scope.ValidUntil.Add(-time.Millisecond)
+	}
+	p, err := NewReportPlanScoped(id, in, scope, c, validationTime)
+	if err != nil {
+		return nil, err
+	}
+	p.replayOnly = true
+	return p, nil
+}
+
 // NewReportPlan 只允许 report_qa 使用报告引文范围；任务编号必须与原报告一致，不能借其他报告充数。
 func NewReportPlan(id Identity, in conversation.MessageInput, ev ReportEvidence, c Config, now time.Time) (*Plan, error) {
 	if in.TaskID != ev.TaskID {

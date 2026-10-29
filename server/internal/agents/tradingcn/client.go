@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -83,6 +84,19 @@ func (c Config) Validate() error {
 			return fmt.Errorf("Agent 服务器凭据格式无效")
 		}
 	}
+	seen := map[string]bool{}
+	for _, analyst := range c.SelectedAnalysts {
+		if (analyst != "news" && analyst != "fundamentals") || seen[analyst] {
+			return fmt.Errorf("Agent 分析师须为不重复的已批准资料分析师")
+		}
+		seen[analyst] = true
+	}
+	if c.AnalysisDate != "" {
+		date, err := time.Parse("2006-01-02", c.AnalysisDate)
+		if err != nil || date.Year() < 1900 || date.Format("2006-01-02") != c.AnalysisDate {
+			return fmt.Errorf("Agent 分析日期须为规范日历日期")
+		}
+	}
 	return nil
 }
 
@@ -99,10 +113,17 @@ func validText(v string, max int) bool {
 }
 
 func (c Config) Profile() agents.Profile {
-	// 固定顺序编码；令牌轮换不改变请求所属的执行配置。
-	body, _ := json.Marshal([]any{UpstreamCommit, c.LocalEvaluation, strings.TrimSuffix(c.BaseURL, "/"), c.ApprovedHost, c.ApprovalRef, c.LicenseRef, c.QuickModel, c.DeepModel, c.MaxSubmissions})
+	// v2 绑定实际分析师及日期策略；旧摘要不得自动换配置重提，令牌轮换仍不改变身份。
+	body, _ := json.Marshal([]any{"tradingcn-execution-v2", UpstreamCommit, c.LocalEvaluation, strings.TrimSuffix(c.BaseURL, "/"), c.ApprovedHost, c.ApprovalRef, c.LicenseRef, c.QuickModel, c.DeepModel, c.MaxSubmissions, c.analysts(), c.AnalysisDate})
 	sum := sha256.Sum256(body)
 	return agents.Profile{Digest: hex.EncodeToString(sum[:]), MaxSubmissions: c.MaxSubmissions}
+}
+
+func (c Config) analysts() []string {
+	if len(c.SelectedAnalysts) == 0 {
+		return []string{"news", "fundamentals"}
+	}
+	return slices.Clone(c.SelectedAnalysts)
 }
 
 type Client struct {
@@ -115,6 +136,7 @@ func New(cfg Config) (*Client, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
+	cfg.SelectedAnalysts = cfg.analysts()
 	tr := http.DefaultTransport.(*http.Transport).Clone()
 	tr.Proxy = nil
 	tr.DisableCompression = true

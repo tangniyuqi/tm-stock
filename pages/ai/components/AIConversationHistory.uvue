@@ -1,0 +1,43 @@
+<script lang="ts" setup>
+import { AIConversationSummary, isAIConversationTitle } from '../../libs/ai-conversation.uts'
+import { formatMillis } from '../../libs/theme.uts'
+
+// 只展示父组件的状态；桌面栏和抽屉不各自请求接口或保存原键。
+type HistoryProps = { rows : AIConversationSummary[], title : string, archived : boolean, pending : boolean, ready : boolean, loading : boolean, busy : boolean, hasMore : boolean, selectedId : number, message : string }
+defineProps<HistoryProps>()
+const emit = defineEmits<{ title: [value : string], refresh: [], filter: [], create: [], check: [], open: [id : number], more: [] }>()
+</script>
+
+<template>
+	<view class="history-body">
+		<text class="history-title text-weight-b">我的会话</text>
+		<text class="history-copy mt-8">仅展示本人记录。新建会话和资料问答不扣积分，生成报告须另行报价确认。</text>
+		<x-button class="mt-12" height="44" :block="true" skin="outline" :disabled="busy || loading" @click="emit('refresh')">查询会话</x-button>
+		<x-button class="mt-8" height="44" :block="true" skin="outline" :disabled="busy || loading" @click="emit('filter')">{{ archived ? '查看进行中' : '查看已归档' }}</x-button>
+		<text v-if="loading" class="history-copy mt-8">正在查询本人会话…</text>
+		<text v-if="ready && !loading && rows.length == 0 && selectedId == 0" class="history-copy mt-8">{{ archived ? '暂无已归档会话。' : '暂无会话，可填写标题新建。' }}</text>
+		<view v-if="!pending && !archived" class="mt-12">
+			<x-input :model-value="title" @update:modelValue="emit('title', $event)" :maxlength="80" height="44" placeholder="新会话标题，1至40字" :disabled="busy || !ready"></x-input>
+			<x-button class="mt-8" height="44" :block="true" :disabled="busy || !ready || loading || !isAIConversationTitle(title)" @click="emit('create')">新建会话</x-button>
+		</view>
+		<view v-if="pending" class="mt-12">
+			<text class="history-copy">有待核查的新建会话原键，暂不生成第二个。核查只读取本人收据。</text>
+			<x-button class="mt-8" height="44" :block="true" skin="outline" :loading="busy" :disabled="busy" @click="emit('check')">核查原会话</x-button>
+		</view>
+		<view v-for="row in rows" :key="row.id" class="history-item mt-12" :class="row.id == selectedId ? 'history-current' : ''">
+			<text class="history-title">{{ row.title }}</text>
+			<text class="history-copy mt-4">{{ row.archived ? '已归档' : '进行中' }} · {{ formatMillis(row.updatedAt) }}</text>
+			<x-button class="mt-8" height="44" :block="true" skin="outline" :disabled="busy" @click="emit('open', row.id)">打开会话 #{{ row.id }}</x-button>
+		</view>
+		<x-button v-if="hasMore" class="mt-12" height="44" :block="true" :disabled="loading || busy" @click="emit('more')">加载更多会话</x-button>
+		<text v-if="message != ''" class="history-copy mt-12">{{ message }}</text>
+	</view>
+</template>
+
+<style scoped>
+.history-body { padding: 16px; }
+.history-title { color: #30343c; line-height: 24px; }
+.history-copy { color: #586174; font-size: 14px; line-height: 22px; }
+.history-item { padding: 12px; border-radius: 8px; background-color: #f5f6f8; }
+.history-current { background-color: #edf2ff; }
+</style>

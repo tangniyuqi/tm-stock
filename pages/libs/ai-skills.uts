@@ -33,9 +33,9 @@ const catalog : AISkill[] = [
 		title: '深度资料整理',
 		summary: '多 Agent 深度整理：四节报告、至少六条逐字引文。',
 		scope: '会话内当前所选题材',
-		price: '30积分/次',
+		price: '需报价确认',
 		state: 'quote',
-		reason: '需先按题材核对 30 积分报价，确认后冻结；失败/取消/超时全额释放。'
+		reason: '先核对当前题材报价，确认后冻结；结算或释放以原任务核查为准。'
 	},
 	{
 		key: 'report_qa',
@@ -43,7 +43,7 @@ const catalog : AISkill[] = [
 		summary: '针对本人当前可读报告的有出处追问。',
 		scope: '会话内本人当前可读报告',
 		price: '不扣积分',
-		state: 'unavailable',
+		state: 'report',
 		reason: '请在会话内打开本人可读报告后，从报告下方发起追问。'
 	}
 ]
@@ -59,7 +59,8 @@ export const aiSkillByKey = (key : string) : AISkill | null => {
 }
 export const isAISkillUsable = (skill : AISkill | null) : boolean => skill != null && (skill!.state == 'available' || skill!.state == 'quote')
 export const aiSkillStateLabel = (state : string) : string => {
-	if (state == 'available') return '可用'
+	if (state == 'available') return '提交前核验'
 	if (state == 'quote') return '需报价'
+	if (state == 'report') return '报告内使用'
 	return '暂不可用'
 }

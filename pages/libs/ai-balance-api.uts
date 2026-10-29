@@ -1,0 +1,12 @@
+import { MemberApi, MemberApiResult } from './member-api.uts'
+import { isSafeAIInteger, isSafeAIId } from './ai.uts'
+
+export type AIPointsBalance = { availablePoints : number, frozenPoints : number, checkedAt : number }
+export class AIBalanceApi {
+	public static async read() : Promise<MemberApiResult<AIPointsBalance>> {
+		const result = await MemberApi.aiBalance<AIPointsBalance>()
+		const value = result.data
+		if (result.code == 0 && value != null && typeof value == 'object' && !Array.isArray(value) && isSafeAIInteger(value.availablePoints) && isSafeAIInteger(value.frozenPoints) && isSafeAIId(value.checkedAt) && value.checkedAt <= 8640000000000000) return result
+		return { code: result.code == 0 ? 50001 : result.code, message: '积分余额暂不可用', data: null } as MemberApiResult<AIPointsBalance>
+	}
+}

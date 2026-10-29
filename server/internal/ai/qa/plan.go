@@ -91,6 +91,8 @@ type Plan struct {
 	scope          Scope
 	cfg            Config
 	digest, policy string
+	// replayOnly 只允许历史存证回放，不延长执行授权，也不改变原计划摘要。
+	replayOnly bool
 }
 
 func (Plan) String() string     { return "受限问答计划（问题和资料已隐藏）" }

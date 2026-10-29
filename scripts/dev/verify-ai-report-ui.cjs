@@ -14,7 +14,7 @@ const compiler = dependency('@vue/compiler-sfc');
 const vue = dependency('vue');
 const { renderToString } = dependency('@vue/server-renderer');
 const { webcrypto } = require('node:crypto');
-const native = tag => ['view', 'text', 'scroll-view', 'x-sheet', 'x-button', 'x-navbar', 'x-input'].includes(tag);
+const native = tag => ['view', 'text', 'scroll-view', 'x-sheet', 'x-button', 'x-navbar', 'x-input', 'x-drawer'].includes(tag);
 const clone = value => JSON.parse(JSON.stringify(value));
 const now = 1792281600000;
 const memberToken = id => 'test.' + Buffer.from(JSON.stringify({ ID: id, UserType: 'client' })).toString('base64url') + '.test';
@@ -47,7 +47,11 @@ function environment(sharedStorage = new Map(), conversations = false, conversat
   const requests = [], timers = new Map(), intervals = new Map(), hooks = { show: [], hide: [], unload: [] };
   const storage = sharedStorage, modals = [], opened = [], navigation = [], clipboard = [], lockQueues = new Map();
   let timerID = 0;
+  let viewportWidth = 1280;
+  let viewportHeight = 800;
+  const resizeListeners = new Set();
   const uni = {
+    getWindowInfo: () => ({ windowWidth: viewportWidth, windowHeight: viewportHeight }),
     getStorageSync: key => storage.get(key), request: options => {
       // 旧任务专项明确保持新会话服务关闭；会话专项另行启用并捕获全部请求。
       if (!conversations && /\/api\/v1\/ai\/conversation/.test(options.url)) { options.success({statusCode:404,data:JSON.stringify({code:40403,msg:'测试会话服务关闭',data:null})}); return; }
@@ -64,6 +68,7 @@ function environment(sharedStorage = new Map(), conversations = false, conversat
       lockQueues.set(name, result.catch(() => {})); return result;
     } } }, open: url => { const target = { opener: '测试占位' }; opened.push({ url, target }); return target; } },
     onShow: fn => hooks.show.push(fn), onHide: fn => hooks.hide.push(fn), onUnload: fn => hooks.unload.push(fn),
+    onResize: fn => resizeListeners.add(fn),
     setTimeout: (fn, ms) => { const id = ++timerID; timers.set(id, { fn, ms }); return id; },
     clearTimeout: id => timers.delete(id),
     setInterval: (fn, ms) => { const id = ++timerID; intervals.set(id, { fn, ms }); return id; },
@@ -94,11 +99,12 @@ function environment(sharedStorage = new Map(), conversations = false, conversat
     return exports;
   }
   const reply = (request, data, status = 200, code = 0) => request.success({ statusCode: status, data: JSON.stringify({ code, msg: '测试内部文字不得展示', data }) });
-  return { load, requests, timers, intervals, hooks, storage, modals, opened, navigation, clipboard, reply, globals, uni };
+  return { load, requests, timers, intervals, hooks, storage, modals, opened, navigation, clipboard, reply, globals, uni, resizeListeners,
+    resize: (width, height = viewportHeight) => { viewportWidth = width; viewportHeight = height; for (const listener of resizeListeners) listener({size:{windowWidth:width,windowHeight:height}}); } };
 }
 
 function mount(component, props = {}) {
-  const node = (tag, text = '') => ({ tag, text, children: [], props: {}, parent: null });
+  const node = (tag, text = '') => ({ tag, text, children: [], props: {}, style: {}, parent: null });
   const renderer = vue.createRenderer({
     createElement: tag => node(tag), createText: text => node('#text', text), createComment: text => node('#comment', text),
     insert(child, parent, anchor) {
@@ -114,9 +120,11 @@ function mount(component, props = {}) {
   const tree = node('root'), app = renderer.createApp(component, props);
   app.mount(tree);
   const text = n => (n.tag === '#comment' ? '' : n.text) + n.children.map(text).join('');
+  // 仅模拟抽屉show及v-show的可见性，不替代TMUI实际动画、层级和点击验收。
+  const visibleText = n => n.style.display === 'none' || (n.tag === 'x-drawer' && !n.props.show) ? '' : (n.tag === '#comment' ? '' : n.text) + n.children.map(visibleText).join('');
   const all = n => [n, ...n.children.flatMap(all)];
-  return { app, tree, state: app._instance.setupState, text: () => text(tree), input(value) {
-    const field = all(tree).find(n => n.tag === 'x-input' && !n.props.disabled); assert.ok(field, '找不到可编辑的实际输入绑定');
+  return { app, tree, state: app._instance.setupState, text: () => text(tree), visibleText: () => visibleText(tree), input(value, placeholder) {
+    const field = all(tree).find(n => n.tag === 'x-input' && !n.props.disabled && (placeholder == null || n.props.placeholder === placeholder)); assert.ok(field, '找不到可编辑的实际输入绑定');
     assert.ok(!field.props.disabled); field.props['on:update:modelValue'](value);
   }, click(label, occurrence = 0) {
     const button = all(tree).filter(n => n.tag === 'x-button' && text(n) === label)[occurrence];
@@ -276,10 +284,15 @@ async function taskOutcomeFeedback() {
 async function page() {
   const env = environment(), component = env.load('pages/ai/index.uvue').default, ui = mount(component);
   env.hooks.show.forEach(fn => fn()); await flush(); assert.ok(ui.text().includes('登录后查看本人任务')); assert.equal(env.requests.length, 0);
+  const findGuestScroll = n => n.props.class === 'ai-guest-scroll' ? n : n.children.map(findGuestScroll).find(Boolean);
+  const guestScroll = findGuestScroll(ui.tree); assert.ok(guestScroll);
+  assert.ok(ui.visibleText().includes('登录后查看本人任务'));
   ui.click('前往登录'); assert.equal(env.navigation[0], '/pages/member/login');
   env.storage.set('token', 'test-member-one'); ui.click('重新核对登录状态'); await flush();
   assert.ok(ui.text().includes('正在读取任务记录')); env.reply(env.requests.shift(), { items: [], nextBeforeId: 0, hasMore: false }); await flush();
   assert.ok(ui.text().includes('当前账号暂无任务记录'));
+  assert.equal(findGuestScroll(ui.tree), guestScroll, '登录后保留游客滚动实例，避免激活恢复访问销毁节点');
+  assert.ok(!ui.visibleText().includes('登录后查看本人任务'), '已登录时隐藏游客入口');
   ui.click('重新查询'); env.requests.shift().fail(); await flush(); assert.ok(ui.text().includes('资料服务暂不可用'));
   ui.click('重新查询'); env.reply(env.requests.shift(), { items: [summary()], nextBeforeId: 9, hasMore: true }); await flush();
   ui.click('加载更多'); assert.ok(env.requests[0].url.endsWith('&before_id=9'));
@@ -534,7 +547,9 @@ async function submissionContracts() {
   assert.equal(request.url, '/api/v1/ai/tasks/quote'); assert.equal(request.method, 'POST');
   assert.deepEqual(JSON.parse(JSON.stringify(request.data)), { analysis_type: 'light', subject_type: 'theme', subject_id: 7 });
   assert.equal(request.header['Idempotency-Key'], undefined); env.reply(request, quote()); assert.equal((await promise).code, 0);
-  assert.equal((await api.quote({ ...scope, analysisType: 'deep' })).code, 40001); assert.equal(env.requests.length, 0);
+  promise=api.quote({...scope,analysisType:'deep'}); request=env.requests.shift();
+  assert.equal(request.method,'POST'); assert.equal(request.data.analysis_type,'deep');
+  env.reply(request,quote({analysisType:'deep',pricePoints:30,availablePoints:50})); assert.equal((await promise).code,0); assert.equal(env.requests.length,0);
   promise = api.create(original); request = env.requests.shift(); assert.equal(request.header.Authorization, 'Bearer ' + token);
   assert.equal(request.header['Idempotency-Key'], original.key); assert.equal(request.url, '/api/v1/ai/tasks');
   assert.deepEqual(JSON.parse(JSON.stringify(request.data)), { analysis_type: 'light', subject_type: 'theme', subject_id: 7, price_version: 'test-v1' });
@@ -806,6 +821,25 @@ async function shellTabs() {
   assert.ok(ui.text().includes('会话'));
   assert.ok(ui.text().includes('全部任务'));
   assert.ok(ui.text().includes('我的会话'), '会话面板默认挂载');
+  const guidanceRequests = env.requests.length;
+  const disclaimer = '本平台为公开信息聚合与历史数据统计，不构成任何投资建议。';
+  assert.ok(ui.text().includes(disclaimer));
+  assert.ok(!ui.visibleText().includes('默认进入会话：'));
+  ui.click('使用说明'); await flush();
+  assert.ok(ui.visibleText().includes('问答不扣积分，生成报告须另行报价确认'));
+  assert.ok(ui.text().includes(disclaimer));
+  ui.click('收起说明'); await flush();
+  assert.ok(!ui.visibleText().includes('默认进入会话：'));
+  assert.ok(ui.text().includes(disclaimer));
+  assert.equal(env.requests.length, guidanceRequests, '使用说明开关不得发业务请求');
+  const requestCount = env.requests.length;
+  for (const width of [375, 960, 959, 1280]) {
+    env.resize(width); await flush();
+    assert.equal(ui.state.windowWidth, width, '页面接收原onResize尺寸');
+    const scrolls = n => [...(n.tag === 'scroll-view' && n.props.class === 'conversation-history-scroll' ? [n] : []), ...n.children.flatMap(scrolls)];
+    assert.equal(scrolls(ui.tree).length, width >= 960 ? 1 : 0, '原页面尺寸必须传到实际会话组件');
+    assert.equal(env.requests.length, requestCount, '页面缩放不得新增业务请求');
+  }
   ui.click('全部任务'); await flush();
   assert.equal(ui.state.activeTab, 'tasks');
   assert.ok(ui.text().includes('全部资料任务（历史）'), '历史任务仅在第二页签呈现');
@@ -816,6 +850,58 @@ async function shellTabs() {
   assert.equal(env.requests.length, before, '切换页签不得触发新请求');
   ui.app.unmount();
   console.log('通过：实际首页默认会话主入口、会话/全部任务双页签、历史任务区归属与切换不重发请求。');
+}
+
+async function reportQuestionPageAccess() {
+  {
+    const e=environment(new Map(),true);e.storage.set('token',memberToken(42));
+    const page=mount(e.load('pages/ai/index.uvue').default);
+    e.hooks.show.forEach(fn=>fn());e.reply(e.requests.shift(),{items:[],nextBeforeId:0,hasMore:false});await flush();
+    e.reply(e.requests.shift(),{items:[],nextBeforeId:0,hasMore:false});await flush();
+    page.state.conversationId=3;page.state.loadProgress(9);e.reply(e.requests.shift(),progress());await flush();
+    page.click('核对并查看报告');e.reply(e.requests.shift(),report());await flush();
+    page.input('报告中的事实出处是什么？','输入针对本报告的事实问题，最多1000字');await flush();
+    page.click('将报告追问固定到底部');await flush();
+    assert.equal(page.state.reportInputDocked,true);
+    assert.equal(e.requests.length,0,'固定报告输入不能重读或提交');
+    const findInput = n => n.tag === 'x-input' && n.props.type === 'textarea' ? n : n.children.map(findInput).find(Boolean);
+    const originalInput = findInput(page.tree);
+    for (const [height, docked] of [[320,false],[519,false],[520,true],[568,true]]) {
+      e.resize(375,height);await flush();
+      assert.equal(page.state.allowDock,docked);
+      assert.equal(page.state.reportInputDocked,true,'低高度仅切换布局，不丢用户固定偏好');
+      assert.equal(findInput(page.tree),originalInput,'尺寸变化不得重新挂载输入或丢草稿');
+      assert.equal(originalInput.props.fixed,docked);
+      assert.equal(originalInput.props['model-value'],'报告中的事实出处是什么？');
+      assert.equal(e.requests.length,0,'高度变化不得提交或重新读取报告');
+    }
+    page.click('恢复报告内输入');await flush();assert.equal(page.state.reportInputDocked,false);
+    page.click('将报告追问固定到底部');await flush();
+    page.click('全部任务');await flush();assert.equal(page.state.reportInputDocked,false);
+    page.click('会话');await flush();
+    page.click('将报告追问固定到底部');await flush();
+    page.state.changeConversation();await flush();assert.equal(page.state.reportInputDocked,false);
+    assert.equal(page.state.report,null);assert.equal(e.requests.length,0);page.app.unmount();
+  }
+  const env=environment(new Map(),true);env.storage.set('token',memberToken(42));
+  const ui=mount(env.load('pages/ai/index.uvue').default);
+  env.hooks.show.forEach(fn=>fn());env.reply(env.requests.shift(),{items:[],nextBeforeId:0,hasMore:false});await flush();
+  env.reply(env.requests.shift(),{items:[],nextBeforeId:0,hasMore:false});await flush();
+  ui.state.conversationId=3;
+  ui.state.openReportQuestion(9,2);
+  let request=env.requests.shift();assert.equal(request.method,'GET');assert.equal(request.url,'/api/v1/ai/tasks/9');
+  env.reply(request,progress());await flush();
+  assert.equal(ui.state.reportQuestionSeq,2);
+  assert.ok(ui.text().includes('请核对并查看关联报告'));
+  ui.click('核对并查看报告');request=env.requests.shift();assert.equal(request.method,'GET');
+  env.reply(request,report());await flush();
+  request=env.requests.shift();assert.equal(request.method,'GET');assert.equal(request.url,'/api/v1/ai/conversations/3/questions/2');
+  env.reply(request,null,401,40100);await flush();
+  assert.equal(ui.state.state,'guest','子追问鉴权失败必须清理父页面');
+  assert.equal(ui.state.report,null);assert.equal(ui.state.progress,null);assert.equal(ui.state.conversationId,0);assert.equal(ui.state.reportQuestionSeq,0);
+  assert.equal(env.requests.length,0,'历史查看或失效身份不得隐式发起任务/问答');
+  ui.app.unmount();
+  console.log('通过：历史报告追问绑定原任务/序号、先核报告再读取、无隐式POST；子追问401清理父页面全部私有状态。');
 }
 
 async function conversationFrontend() {
@@ -848,15 +934,252 @@ async function conversationFrontend() {
   }
   {
     const e=environment(new Map(),true),token=memberToken(1);e.storage.set('token',token);
-    const tasks=[],ui=mount(e.load('pages/ai/components/AIConversationPanel.uvue').default,{sessionToken:token,onTask:id=>tasks.push(id)});await flush();e.reply(e.requests.shift(),page());await flush();ui.input('测试会话');await flush();ui.click('新建会话');ui.state.create();await flush();assert.equal(e.requests.length,1);
+    const tasks=[],reportTargets=[],ui=mount(e.load('pages/ai/components/AIConversationPanel.uvue').default,{sessionToken:token,onTask:id=>tasks.push(id),onReportQuestion:(id,seq)=>reportTargets.push([id,seq])});await flush();e.reply(e.requests.shift(),page());await flush();ui.input('测试会话');await flush();ui.click('新建会话');ui.state.create();await flush();assert.equal(e.requests.length,1);
     let req=e.requests.shift();assert.equal(req.method,'POST');assert.equal(req.data.title,'测试会话');const key=req.header['Idempotency-Key'];assert.ok(key.startsWith('conversation_'));assert.ok([...e.storage.values()].some(v=>typeof v==='string'&&v.includes(key)),'先持久保存再POST');req.fail();await flush();assert.ok(ui.text().includes('待核查'));ui.click('核查原会话');req=e.requests.shift();assert.equal(req.method,'GET');assert.equal(req.header['Idempotency-Key'],key);e.reply(req,null,404,40403);await flush();assert.equal(e.requests.length,0);assert.ok(ui.state.pending);
-    ui.click('核查原会话');e.reply(e.requests.shift(),{id:1,createdAt:now});await flush();e.reply(e.requests.shift(),detail());await flush();e.reply(e.requests.shift(),history([msg()]));await flush();assert.ok(ui.text().includes('当前会话：测试会话'));assert.equal(ui.state.pending,null);ui.click('查看关联任务 #9');assert.deepEqual(tasks,[9]);
+    ui.click('核查原会话');e.reply(e.requests.shift(),{id:1,createdAt:now});await flush();e.reply(e.requests.shift(),detail());await flush();e.reply(e.requests.shift(),history([msg(),{...msg(2),kind:'question',skill:'report_qa',question:'报告引用了什么分类？'}]));await flush();
+    const refreshed=e.requests.shift();assert.equal(refreshed.url,'/api/v1/ai/conversations?limit=20&archived=0');assert.equal(refreshed.method,'GET');e.reply(refreshed,page([summary()]));await flush();
+    assert.ok(ui.text().includes('当前会话：测试会话'));assert.equal(ui.state.pending,null);ui.click('查看关联任务 #9');assert.deepEqual(tasks,[9]);
+    ui.click('查询报告追问 #2');assert.deepEqual(reportTargets,[[9,2]],'历史入口必须绑定原报告和消息序号');
     ui.state.renameTitle='测试改名';ui.click('保存会话标题');req=e.requests.shift();assert.equal(req.method,'PATCH');assert.equal(req.data.expectedVersion,1);e.reply(req,{...detail(),title:'测试改名',version:2,updatedAt:now+1});await flush();assert.ok(ui.text().includes('当前会话：测试改名'));
     ui.click('归档当前会话');assert.equal(e.requests.length,0);e.modals.shift().success({confirm:true});req=e.requests.shift();assert.equal(req.method,'POST');assert.equal(req.data.expectedVersion,2);e.reply(req,{...detail(),archived:true,version:3,updatedAt:now+2});await flush();assert.equal(ui.state.selected,null);assert.equal(e.requests.length,0,'归档不能取消任务或生成报告');
     ui.click('查看已归档');req=e.requests.shift();assert.ok(req.url.endsWith('archived=1'));e.reply(req,page([{...summary(),archived:true,version:3}]));await flush();ui.click('打开会话 #1');const late=e.requests.shift();e.storage.set('token',memberToken(2));ui.app._instance.props.sessionToken=memberToken(2);await flush();e.reply(late,detail());e.reply(e.requests.shift(),page());await flush();assert.equal(ui.state.selected,null);assert.equal(ui.state.rows.length,0);assert.ok(!ui.text().includes('测试改名'));ui.app.unmount();
   }
   console.log('DEBUG conversationFrontend end');
   console.log('通过：会话DTO/七个固定接口、标题/连续历史/分页拒绝、安全原键跨页签互斥、未知只查原键、新建/改名/归档/关联任务及换账号迟到隔离。');
+}
+
+async function conversationLateMessages() {
+  for (const outcome of ['success','network','unauthorized']) {
+    const e=environment(new Map(),true,true),token=memberToken(1);e.storage.set('token',token);
+    let unauthorized=0;
+    const ui=mount(e.load('pages/ai/components/AIConversationPanel.uvue').default,{sessionToken:token,onUnauthorized:()=>unauthorized++});
+    const first={id:1,title:'先前会话',archived:false,version:1,updatedAt:now,createdAt:now,lastSeq:0};
+    const second={...first,id:2,title:'当前会话'};
+    const take=path=>{const i=e.requests.findIndex(r=>r.url===path);assert.ok(i>=0,'缺少请求：'+path);return e.requests.splice(i,1)[0]};
+    e.reply(take('/api/v1/ai/conversations?limit=20&archived=0'),{items:[second,first],hasMore:false,nextBeforeId:0});await flush();
+    ui.click('打开会话 #1');e.reply(take('/api/v1/ai/conversations/1'),first);await flush();
+    const late=take('/api/v1/ai/conversations/1/messages?limit=20&after_seq=0');
+    ui.click('打开会话 #2');e.reply(take('/api/v1/ai/conversations/2'),second);await flush();
+    e.reply(take('/api/v1/ai/conversations/2/messages?limit=20&after_seq=0'),{conversationId:2,items:[],upperSeq:0,nextAfterSeq:0,hasMore:false});await flush();
+    if(outcome==='network')late.fail();
+    else if(outcome==='unauthorized')e.reply(late,null,401,40100);
+    else e.reply(late,{conversationId:1,items:[{seq:1,kind:'question',subjectType:'theme',subjectId:7,skill:'material_qa',question:'旧会话的私有问题',taskId:0,createdAt:now}],upperSeq:1,nextAfterSeq:1,hasMore:false});
+    await flush();
+    assert.equal(ui.state.selected.id,2,outcome+'：旧消息不能改变当前会话');
+    assert.equal(ui.state.messages.length,0);assert.equal(ui.state.loadingMessages,false);
+    assert.equal(ui.state.message,'');assert.equal(unauthorized,0,'过期请求不能使当前会话退出登录');
+    assert.ok(!ui.text().includes('旧会话的私有问题'));assert.equal(e.requests.length,0);
+    ui.app.unmount();
+  }
+  console.log('通过：同账号切换会话后，旧消息成功、网络失败及401迟到均不能覆盖新会话或触发退出。');
+}
+
+async function pointsBalanceContract() {
+  for(const mode of ['ok','zero','negative','fraction','overflow','time','null','array','failure','network']) {
+    const e=environment();e.storage.set('token',memberToken(1));
+    const api=e.load('pages/libs/ai-balance-api.uts').AIBalanceApi;
+    const promise=api.read();const req=e.requests.shift();assert.equal(req.url,'/api/v1/ai/points/balance');assert.equal(req.method,'GET');assert.equal(req.header.Authorization,'Bearer '+memberToken(1));
+    let data={availablePoints:13,frozenPoints:7,checkedAt:now};
+    if(mode==='zero')data={...data,availablePoints:0,frozenPoints:0};
+    if(mode==='negative')data.availablePoints=-1;if(mode==='fraction')data.frozenPoints=0.1;if(mode==='overflow')data.availablePoints=9007199254740992;if(mode==='time')data.checkedAt=0;
+    if(mode==='null')data=null;if(mode==='array')data=[];
+    if(mode==='network')req.fail();else if(mode==='failure')e.reply(req,data,503,50302);else e.reply(req,data);
+    const result=await promise;
+    if(mode==='ok'||mode==='zero'){assert.equal(result.code,0);assert.deepEqual(clone(result.data),data)}else{assert.notEqual(result.code,0);assert.equal(result.data,null);assert.equal(result.message,'积分余额暂不可用')}
+    assert.equal(e.requests.length,0);
+  }
+  console.log('通过：新余额固定只读接口、Bearer、零余额、非法数字/时点/响应与网络失败拒绝。');
+}
+
+async function conversationRefreshDuringEdit() {
+  for(const mode of ['draft_before_refresh','pristine_refresh','archived_refresh','rename_ok','rename_error','rename_network','rename_unauthorized','archive_cancel','archive_ok','archive_network','switch_account','unmount']) {
+  const token=memberToken(1),e=environment(new Map(),true,true);e.storage.set('token',token);
+  const archiveStates=[];
+  const props=vue.reactive({sessionToken:token,refreshKey:0,onArchived:value=>archiveStates.push(value)});
+  const component=e.load('pages/ai/components/AIConversationPanel.uvue').default;
+  const ui=mount(component,props),c={id:1,title:'测试刷新竞争',archived:false,version:1,updatedAt:now,createdAt:now,lastSeq:0};
+  const take=path=>{const i=e.requests.findIndex(r=>r.url===path);assert.ok(i>=0,'缺少实际请求：'+path);return e.requests.splice(i,1)[0]};
+  const messages={conversationId:1,items:[],upperSeq:0,nextAfterSeq:0,hasMore:false};
+  e.reply(take('/api/v1/ai/conversations?limit=20&archived=0'),{items:[c],hasMore:false,nextBeforeId:0});await flush();
+  ui.click('打开会话 #1');e.reply(take('/api/v1/ai/conversations/1'),c);await flush();
+  e.reply(take('/api/v1/ai/conversations/1/messages?limit=20&after_seq=0'),messages);await flush();
+  if(mode.endsWith('_refresh')) {
+    const draft='尚未保存的会话标题';
+    if(mode==='draft_before_refresh')ui.input(draft,'新的会话标题');
+    ui.app._instance.props.refreshKey=1;await flush();
+    const refresh=take('/api/v1/ai/conversations/1');assert.equal(refresh.method,'GET');
+    assert.throws(()=>ui.input('刷新中不允许编辑','新的会话标题'),/找不到可编辑/);
+    e.reply(refresh,{...c,title:'另一页已保存的标题',archived:mode==='archived_refresh',version:2,updatedAt:now+1});await flush();
+    e.reply(take('/api/v1/ai/conversations/1/messages?limit=20&after_seq=0'),messages);await flush();
+    assert.equal(ui.state.selected.title,'另一页已保存的标题');assert.equal(ui.state.selected.version,2);
+    assert.equal(ui.state.renameTitle,mode==='draft_before_refresh'?draft:'另一页已保存的标题');
+    assert.equal(archiveStates.at(-1),mode==='archived_refresh','历史刷新必须同步父页面的报告追问只读状态');
+    assert.equal(e.requests.length,0,'同步历史不能自动保存草稿');
+    const next=memberToken(2);e.storage.set('token',next);ui.app._instance.props.sessionToken=next;await flush();
+    e.reply(take('/api/v1/ai/conversations?limit=20&archived=0'),{items:[],hasMore:false,nextBeforeId:0});await flush();
+    assert.equal(ui.state.renameTitle,'');assert.equal(ui.state.selected,null);ui.app.unmount();continue;
+  }
+  const archiving=mode.startsWith('archive');let request;
+  if(archiving){ui.click('归档当前会话');assert.equal(e.modals.length,1)}
+  else{ui.state.renameTitle='测试刷新后的标题';ui.click('保存会话标题');request=take('/api/v1/ai/conversations/1');assert.equal(request.method,'PATCH')}
+  // 多次保存通知只合并成一次只读刷新，不能抢占当前写请求或归档确认。
+  for(const key of [1,2]){ui.app._instance.props.refreshKey=key;await flush();assert.equal(e.requests.length,0,mode+'：交互结束前不发历史GET')}
+  const renamed={...c,title:'测试刷新后的标题',version:2,updatedAt:now+1};
+  if(mode==='unmount'){ui.app.unmount();e.reply(request,renamed);await flush();assert.equal(e.requests.length,0);continue}
+  if(mode==='switch_account') {
+    const next=memberToken(2);e.storage.set('token',next);ui.app._instance.props.sessionToken=next;await flush();
+    e.reply(request,renamed);e.reply(take('/api/v1/ai/conversations?limit=20&archived=0'),{items:[],hasMore:false,nextBeforeId:0});await flush();
+    assert.equal(ui.state.selected,null);assert.equal(ui.state.busy,false);assert.equal(e.requests.length,0);ui.app.unmount();continue;
+  }
+  if(archiving){
+    e.modals.shift().success({confirm:mode!=='archive_cancel'});await flush();
+    if(mode!=='archive_cancel'){request=take('/api/v1/ai/conversations/1/archive');assert.equal(request.method,'POST');if(mode==='archive_network')request.fail();else e.reply(request,{...c,archived:true,version:2,updatedAt:now+1})}
+  } else if(mode==='rename_network')request.fail();
+  else if(mode==='rename_error')e.reply(request,null,409,40901);
+  else if(mode==='rename_unauthorized')e.reply(request,null,401,40100);
+  else e.reply(request,renamed);
+  await flush();assert.equal(ui.state.busy,false,mode+'：不能永久锁住会话');
+  if(mode==='rename_ok'||mode==='archive_cancel') {
+    assert.equal(e.requests.length,1,mode+'：通知合并为一次GET');
+    const late=take('/api/v1/ai/conversations/1');assert.equal(late.method,'GET');
+    assert.throws(()=>ui.click('保存会话标题'),/按钮被禁用/);assert.throws(()=>ui.click('归档当前会话'),/按钮被禁用/);
+    ui.state.rename();ui.state.archive();await flush();assert.equal(e.requests.length,0,'刷新期间直接调用也不能发写请求');
+    e.reply(late,renamed);await flush();
+    e.reply(take('/api/v1/ai/conversations/1/messages?limit=20&after_seq=0'),messages);await flush();
+    assert.equal(ui.state.selected.title,renamed.title);
+  } else assert.equal(ui.state.selected,null,mode+'：失败/归档/无权后不能恢复旧详情');
+  assert.equal(e.requests.length,0);ui.app.unmount();
+  }
+  console.log('通过：会话历史刷新与改名/归档交错，合并只读通知、反向写入门禁、错误/取消/401/换账号/卸载不锁死或恢复旧状态。');
+}
+
+async function conversationResponsiveLayout() {
+  {
+    const e=environment(new Map(),true,true),token=memberToken(1);e.storage.set('token',token);
+    const ui=mount(e.load('pages/ai/components/AIConversationPanel.uvue').default,{sessionToken:token});
+    const c={id:1,title:'测试历史问题入口',archived:false,version:2,updatedAt:now,createdAt:now,lastSeq:1};
+    e.reply(e.requests.shift(),{items:[c],hasMore:false,nextBeforeId:0});await flush();
+    ui.click('打开会话 #1');e.reply(e.requests.shift(),c);await flush();
+    e.reply(e.requests.shift(),{conversationId:1,items:[{seq:1,kind:'question',subjectType:'theme',subjectId:7,skill:'material_qa',question:'资料有哪些分类？',taskId:0,createdAt:now}],upperSeq:1,nextAfterSeq:1,hasMore:false});await flush();
+    ui.click('深度资料整理');await flush();assert.equal(ui.state.activeSkill,'deep');
+    const intents=e.requests.shift();assert.ok(intents.url.includes('/task-intents'));e.reply(intents,{items:[],hasMore:false,nextBeforeId:0});await flush();
+    ui.click('查询问题状态 #1');await flush();
+    assert.equal(ui.state.activeSkill,'material_qa','历史问题入口必须展示对应问答区，不能只在隐藏面板读取');
+    assert.equal(e.requests.length,1);const read=e.requests.shift();assert.equal(read.method,'GET');assert.equal(read.url,'/api/v1/ai/conversations/1/questions/1');
+    e.reply(read,{seq:1,state:'queued',subjectType:'theme',subjectId:7,skill:'material_qa',question:'资料有哪些分类？',createdAt:now,updatedAt:now});await flush();
+    assert.equal(e.requests.length,0);assert.ok(ui.text().includes('问题 #1：资料有哪些分类？'));ui.app.unmount();
+  }
+  const e=environment(new Map(),true,true),token=memberToken(1);e.storage.set('token',token);
+  const ui=mount(e.load('pages/ai/components/AIConversationPanel.uvue').default,{sessionToken:token});
+  const c={id:1,title:'测试布局会话',archived:false,version:1,updatedAt:now,createdAt:now,lastSeq:0};
+  e.reply(e.requests.shift(),{items:[c],hasMore:false,nextBeforeId:0});await flush();
+  ui.input('未提交的标题');await flush();
+  assert.equal(ui.state.wide,true);assert.equal(e.resizeListeners.size,0);
+  ui.app._instance.props.windowWidth=375;await flush();ui.click('会话历史 / 新建');await flush();
+  assert.equal(ui.state.historyVisible,true);assert.equal(ui.state.title,'未提交的标题');assert.equal(e.requests.length,0);
+  ui.click('打开会话 #1');e.reply(e.requests.shift(),c);await flush();
+  assert.equal(ui.state.historyVisible,false);
+  e.reply(e.requests.shift(),{conversationId:1,items:[],upperSeq:0,nextAfterSeq:0,hasMore:false});await flush();
+  ui.input('尚未保存的改名','新的会话标题');await flush();
+  const original=ui.state.selected;
+  const readingNodes=n=>[...(n.props?.class==='conversation-main'?[n]:[]),...n.children.flatMap(readingNodes)];
+  for(const docked of [true,false,true,false]) {
+    ui.app._instance.props.reportInputActive=docked;await flush();
+    const reading=readingNodes(ui.tree)[0];
+    assert.ok(reading,'固定输入仍复用原阅读区');
+    assert.equal(JSON.stringify(reading.props.style).includes('240px'),docked,'固定输入须缩小可滚动视口而不是只加内容尾部留白');
+    assert.equal(ui.state.selected,original);assert.equal(ui.state.renameTitle,'尚未保存的改名');
+    assert.equal(e.requests.length,0,'输入避让不得重新请求任务或报告');
+  }
+  ui.click('回到底部');assert.equal(ui.state.scrollTarget,'');await flush();assert.equal(ui.state.scrollTarget,'ai-conversation-bottom');
+  ui.click('回到底部');assert.equal(ui.state.scrollTarget,'');await flush();assert.equal(ui.state.scrollTarget,'ai-conversation-bottom');
+  assert.equal(ui.state.selected,original);assert.equal(ui.state.renameTitle,'尚未保存的改名');assert.equal(e.requests.length,0,'回到底部不得发送接口或丢失草稿');
+  ui.click('技能与范围');await flush();assert.equal(ui.state.skillsVisible,true);
+  assert.equal(e.requests.length,0,'展开技能抽屉不得请求报价或创建任务');
+  ui.app._instance.props.windowWidth=1280;await flush();assert.equal(ui.state.wide,true);assert.equal(ui.state.selected,original);
+  assert.equal(ui.state.renameTitle,'尚未保存的改名');assert.equal(e.requests.length,0,'布局切换不得重发详情、问答或意图请求');
+  ui.app._instance.props.windowWidth=375;await flush();ui.click('会话历史 / 新建');await flush();
+  ui.app._instance.props.activeTab='tasks';await flush();assert.equal(ui.state.historyVisible,false);assert.equal(ui.state.selected,original);
+  assert.equal(ui.state.skillsVisible,false,'离开会话页签关闭技能抽屉');
+  assert.equal(ui.state.scrollTarget,'','切换页签清理滚动目标');
+  ui.app._instance.props.activeTab='conversation';await flush();ui.click('会话历史 / 新建');await flush();
+  ui.click('技能与范围');await flush();assert.equal(ui.state.skillsVisible,true);
+  const next=memberToken(2);e.storage.set('token',next);ui.app._instance.props.sessionToken=next;await flush();
+  assert.equal(ui.state.historyVisible,false);assert.equal(ui.state.title,'');assert.equal(ui.state.selected,null);
+  assert.equal(ui.state.skillsVisible,false,'切换会员关闭技能抽屉');
+  assert.equal(ui.state.scrollTarget,'','切换会员清理滚动目标');
+  e.reply(e.requests.shift(),{items:[],hasMore:false,nextBeforeId:0});await flush();
+  assert.ok(!ui.text().includes(c.title));assert.equal(e.requests.length,0);
+  ui.app.unmount();assert.equal(e.resizeListeners.size,0);e.resize(1280);assert.equal(e.requests.length,0);
+  // 进度/报告经插槽保留同一个组件实例，改变历史展示不能重建订阅或丢失草稿。
+  const slotsEnv=environment(new Map(),true,true);slotsEnv.storage.set('token',token);
+  const panel=slotsEnv.load('pages/ai/components/AIConversationPanel.uvue').default;
+  let mounted=0,unmounted=0;
+  const resultProbe={setup(){vue.onMounted(()=>mounted++);vue.onBeforeUnmount(()=>unmounted++);return()=>vue.h('text','仅测试报告实例')}};
+  const tab=vue.ref('conversation');
+  const layoutWidth=vue.ref(1280);
+  const slotsUI=mount({render:()=>vue.h(panel,{sessionToken:token,activeTab:tab.value,windowWidth:layoutWidth.value},{result:()=>vue.h(resultProbe),tasks:()=>vue.h('text','仅测试全部任务')})});
+  slotsEnv.reply(slotsEnv.requests.shift(),{items:[],hasMore:false,nextBeforeId:0});await flush();
+  const scrollNodes=n=>[...(n.tag==='scroll-view'?[n]:[]),...n.children.flatMap(scrollNodes)];
+  for(const width of [375,960,959,1280]){
+    layoutWidth.value=width;await flush();assert.equal(mounted,1);assert.equal(unmounted,0);
+    const scrolls=scrollNodes(slotsUI.tree);
+    assert.equal(scrolls.filter(n=>n.props.class==='conversation-main').length,1,'消息和报告始终共用一个独立滚动区');
+    assert.equal(scrolls.filter(n=>n.props.class==='conversation-history-scroll').length,width>=960?1:0,'桌面历史独立滚动，窄屏改用原抽屉');
+  }
+  tab.value='tasks';await flush();tab.value='conversation';await flush();
+  assert.equal(mounted,1);assert.equal(unmounted,0);assert.equal(slotsEnv.requests.length,0);
+  slotsUI.app.unmount();assert.equal(unmounted,1);assert.equal(slotsEnv.resizeListeners.size,0);
+  // POST在途和结果未知时切换断点，仍只允许核查同一原键；不把展示组件重建当作再次创建许可。
+  const pendingEnv=environment(new Map(),true,true);pendingEnv.storage.set('token',token);
+  const pendingUI=mount(pendingEnv.load('pages/ai/components/AIConversationPanel.uvue').default,{sessionToken:token});
+  pendingEnv.reply(pendingEnv.requests.shift(),{items:[],hasMore:false,nextBeforeId:0});await flush();
+  pendingUI.input('测试断点未知收据');await flush();pendingUI.click('新建会话');await flush();
+  assert.equal(pendingEnv.requests.length,1);const originalPost=pendingEnv.requests.shift();assert.equal(originalPost.method,'POST');
+  const originalKey=pendingUI.state.pending.key;
+  const partition=pendingEnv.load('pages/libs/ai-conversation.uts').conversationPartition(token);
+  const stored=pendingEnv.storage.get(partition);
+  for(const width of [375,1280,375]){pendingUI.app._instance.props.windowWidth=width;await flush();assert.equal(pendingUI.state.pending.key,originalKey);assert.equal(pendingEnv.storage.get(partition),stored)}
+  assert.equal(pendingEnv.requests.length,0);originalPost.fail();await flush();
+  assert.equal(pendingUI.state.busy,false);assert.equal(pendingUI.state.pending.key,originalKey);
+  pendingUI.click('核查原会话');await flush();const lookup=pendingEnv.requests.shift();assert.equal(lookup.method,'GET');
+  assert.equal(lookup.url,'/api/v1/ai/conversation-receipt');assert.equal(lookup.header['Idempotency-Key'],originalKey);assert.equal(originalPost.header['Idempotency-Key'],originalKey);
+  pendingEnv.reply(lookup,null,404,40403);await flush();
+  assert.equal(pendingUI.state.pending.key,originalKey);assert.equal(pendingEnv.storage.get(partition),stored);assert.equal(pendingEnv.requests.length,0);
+  pendingUI.app.unmount();assert.equal(pendingEnv.resizeListeners.size,0);
+  console.log('通过：375/1280布局切换保留标题、当前会话和未保存改名，零重复请求；开会话/换页签/换账号关闭抽屉，卸载解绑窗口监听。');
+}
+
+async function conversationCreatedList() {
+  for(const mode of ['success','list_error','unauthorized','switch_account','unmount']) {
+  const token=memberToken(1),e=environment(new Map(),true,true);e.storage.set('token',token);
+  const tasks=[],ui=mount(e.load('pages/ai/components/AIConversationPanel.uvue').default,{sessionToken:token,onTask:id=>tasks.push(id)});
+  const take=path=>{const i=e.requests.findIndex(r=>r.url===path);assert.ok(i>=0,'缺少实际请求：'+path);return e.requests.splice(i,1)[0]};
+  const c={id:1,title:'服务端核实的新会话',archived:false,version:2,updatedAt:now,createdAt:now,lastSeq:1};
+  assert.equal(e.load('pages/libs/ai-conversation.uts').isAIConversation(c,1),true,'先验证测试详情满足原版本/序号契约');
+  e.reply(take('/api/v1/ai/conversations?limit=20&archived=0'),{items:[],hasMore:false,nextBeforeId:0});await flush();
+  ui.input('待创建标题');await flush();ui.click('新建会话');await flush();const created=take('/api/v1/ai/conversations');assert.equal(created.method,'POST');
+  e.reply(created,{id:1,createdAt:now});await flush();e.reply(take('/api/v1/ai/conversations/1'),c);await flush();
+  assert.ok(!ui.text().includes('暂无会话，可填写标题新建。'),'当前会话已由服务端核实，不能同时显示暂无会话');
+  const listing=take('/api/v1/ai/conversations?limit=20&archived=0');assert.equal(listing.method,'GET');
+  assert.ok(!ui.text().includes('打开会话 #1'),'不能仅凭创建收据补造列表摘要');
+  const history=take('/api/v1/ai/conversations/1/messages?limit=20&after_seq=0');
+  const messages={conversationId:1,items:[{seq:1,kind:'task',subjectType:'theme',subjectId:7,skill:'light',question:'',taskId:9,createdAt:now}],upperSeq:1,nextAfterSeq:1,hasMore:false};
+  if(mode==='unmount'){ui.app.unmount();e.reply(listing,{items:[c],hasMore:false,nextBeforeId:0});e.reply(history,messages);await flush();assert.equal(e.requests.length,0);continue}
+  if(mode==='switch_account') {
+    const next=memberToken(2);e.storage.set('token',next);ui.app._instance.props.sessionToken=next;await flush();
+    e.reply(listing,{items:[c],hasMore:false,nextBeforeId:0});e.reply(history,messages);e.reply(take('/api/v1/ai/conversations?limit=20&archived=0'),{items:[],hasMore:false,nextBeforeId:0});await flush();
+    assert.equal(ui.state.selected,null);assert.equal(ui.state.rows.length,0);assert.ok(!ui.text().includes(c.title));assert.equal(e.requests.length,0);ui.app.unmount();continue;
+  }
+  if(mode==='unauthorized')e.reply(listing,null,401,40100);
+  else if(mode==='list_error')e.reply(listing,null,503,50302);
+  else e.reply(listing,{items:[c],hasMore:false,nextBeforeId:0});
+  e.reply(history,messages);await flush();
+  if(mode==='unauthorized'){assert.equal(ui.state.selected,null);assert.equal(ui.state.rows.length,0);assert.ok(!ui.text().includes(c.title))}
+  else{assert.equal(ui.state.selected.id,1);assert.equal(ui.state.rows.length,mode==='success'?1:0);assert.ok(!ui.text().includes('暂无会话，可填写标题新建。'));ui.click('查看关联任务 #9');assert.deepEqual(tasks,[9])}
+  assert.equal(e.requests.length,0);ui.app.unmount();
+  }
+  console.log('通过：新建原收据→独立详情/真实列表刷新，不补造摘要、不显示矛盾空态；列表失败保留当前会话，401/换账号/卸载拒绝迟到摘要及消息。');
 }
 
 async function conversationTaskFrontend() {
@@ -909,7 +1232,41 @@ async function conversationTaskFrontend() {
     ui.click('重新核对报价与资料范围');e.reply(e.requests.shift(),quote());await flush();ui.click('确认会话报价并创建');assert.equal(e.requests.length,0);e.modals.shift().success({confirm:true});await flush();assert.equal(JSON.parse(e.storage.get(partition)).confirmSent,true);const confirm=e.requests.shift();assert.ok(confirm.url.endsWith('/3/confirm'));e.reply(confirm,dto('linked'));await flush();ui.click('查看会话关联任务 #9');assert.deepEqual(tasks,[9]);
     ui.click('核对终态并记录完成');assert.ok(e.storage.has(partition));e.reply(e.requests.shift(),dto('linked'));await flush();assert.equal(e.storage.has(partition),false);ui.app.unmount();
   }
+  // 弹窗未出现时可退出等待；旧弹窗的迟到成功/失败不能干扰下一次确认。
+  {
+    const {e,ui}=await start({pending:pending()});
+    ui.click('查询本机原意图');e.reply(e.requests.shift(),dto());await flush();
+    ui.click('重新核对报价与资料范围');e.reply(e.requests.shift(),quote());await flush();
+    const original=e.storage.get(partition);
+    ui.click('确认会话报价并创建');const stale=e.modals.shift();await flush();
+    ui.click('取消本次确认等待');await flush();
+    assert.equal(e.storage.get(partition),original);assert.equal(e.requests.length,0);
+    assert.ok(!ui.text().includes('确认会话报价并创建'));
+    stale.success({confirm:true});stale.fail();await flush();assert.equal(e.requests.length,0);
+    ui.click('重新核对报价与资料范围');e.reply(e.requests.shift(),quote());await flush();
+    ui.click('确认会话报价并创建');const fresh=e.modals.shift();await flush();
+    stale.success({confirm:true});stale.fail();await flush();
+    assert.ok(ui.text().includes('取消本次确认等待'));assert.equal(e.requests.length,0);
+    fresh.success({confirm:true});fresh.success({confirm:true});await flush();
+    assert.equal(e.requests.length,1);assert.ok(e.requests[0].url.endsWith('/3/confirm'));
+    e.reply(e.requests.shift(),dto('linked'));await flush();ui.app.unmount();
+  }
   // Prepare/Confirm未知、重载、关闭、变价、跨用户、离页、归档和迟到回包均不补交。
+  // 原详情同步列表，分页重叠不重复、不覆盖较新终态，游标仍使用服务端响应。
+  {
+    const {e,ui,props}=await start({pending:pending()});
+    ui.click('查询会话任务意图');e.reply(e.requests.shift(),{items:[item(5)],hasMore:true,nextBeforeId:5});await flush();
+    ui.click('查询本机原意图');e.reply(e.requests.shift(),dto('linked'));await flush();
+    assert.ok(!ui.text().includes('当前会话暂无任务意图'));assert.ok(ui.text().includes('核对意图 #3'));assert.equal(e.requests.length,0);
+    ui.click('加载更多意图');const next=e.requests.shift();assert.ok(next.url.includes('before_id=5'));
+    e.reply(next,page([item(3),item(2)]));await flush();
+    assert.equal(ui.text().split('核对意图 #3').length-1,1);
+    // 清除本机保护后，列表仍保留真实关联状态。
+    ui.click('核对终态并记录完成');e.reply(e.requests.shift(),dto('linked'));await flush();
+    assert.ok(ui.text().includes('核对意图 #3'));assert.equal(ui.text().split('原任务已关联；报告仍须单独核对').length-1,1);
+    props.conversationId=2;await flush();e.reply(e.requests.shift(),page());await flush();
+    assert.ok(!ui.text().includes('核对意图 #3'));assert.ok(ui.text().includes('当前会话暂无任务意图'));ui.app.unmount();
+  }
   for(const mode of ['prepare_unknown','confirm_unknown','404','price_changed','wrong_scope','401','switch','unmount','archive','storage_fail','duplicate_tab']){
     const initial=mode==='prepare_unknown'?{...pending(),intentId:0}:pending();const {e,ui,props}=await start({pending:initial});
     ui.click('查询本机原意图');const original=e.requests.shift();assert.equal(original.method,'GET');assert.equal(original.header['Idempotency-Key'],initial.key);
@@ -933,18 +1290,23 @@ async function conversationTaskFrontend() {
   }
   {const {e,ui}=await start({archived:true});assert.ok(!ui.text().includes('查询题材'));assert.equal(e.requests.length,0);ui.app.unmount()}
   {const e=environment(new Map(),true,true);e.storage.set('token',token);e.storage.set(partition,JSON.stringify(pending()));const ui=mount(e.load('pages/ai/components/AICreatePanel.uvue').default,{sessionToken:token});assert.ok(ui.text().includes('独立入口暂不新建'));assert.ok(!ui.text().includes('查询题材'));assert.equal(e.requests.length,0);ui.app.unmount()}
-  {
+  for (const opening of ['after_messages','before_detail','before_messages']) {
     const e=environment(new Map(),true,true);e.storage.set('token',token);const ui=mount(e.load('pages/ai/index.uvue').default);
     const take=path=>{const i=e.requests.findIndex(r=>r.url===path);assert.ok(i>=0,'缺少实际请求：'+path);return e.requests.splice(i,1)[0]};
     e.hooks.show.forEach(fn=>fn());e.reply(take('/api/v1/ai/tasks?limit=20'),page());await flush();
     const c={id:1,title:'测试会话纵向',archived:false,version:1,updatedAt:now,createdAt:now,lastSeq:0};
     e.reply(take('/api/v1/ai/conversations?limit=20&archived=0'),page([{id:1,title:c.title,archived:false,version:1,updatedAt:now}]));await flush();ui.click('打开会话 #1');e.reply(take('/api/v1/ai/conversations/1'),c);await flush();
-    e.reply(take('/api/v1/ai/conversations/1/messages?limit=20&after_seq=0'),{conversationId:1,items:[],upperSeq:0,nextAfterSeq:0,hasMore:false});ui.click('使用该技能');await flush();e.reply(take('/api/v1/ai/conversations/1/task-intents?limit=20'),page());await flush();assert.equal(ui.state.conversationId,1);assert.ok(!ui.text().includes('新建轻度资料整理'));
+    e.reply(take('/api/v1/ai/conversations/1/messages?limit=20&after_seq=0'),{conversationId:1,items:[],upperSeq:0,nextAfterSeq:0,hasMore:false});ui.click('轻度资料整理');await flush();e.reply(take('/api/v1/ai/conversations/1/task-intents?limit=20'),page());await flush();assert.equal(ui.state.conversationId,1);assert.ok(!ui.text().includes('新建轻度资料整理'));
     // 定位共用报价组件，避免会话标题输入框与题材输入框混用。
     const fields=[];function walk(n){if(n.tag==='x-input'&&n.props.placeholder==='输入题材名称，仅用于查询目录')fields.push(n);n.children.forEach(walk)}walk(ui.tree);assert.equal(fields.length,1);fields[0].props['on:update:modelValue']('测试题材');await flush();
     ui.click('查询题材');e.reply(e.requests.shift(),[{id:7,name:'测试示例题材'}]);await flush();ui.click('核对该题材报价');e.reply(e.requests.shift(),quote());await flush();ui.click('保存会话报价意图（不冻结积分）');await flush();e.reply(e.requests.shift(),dto());await flush();ui.click('重新核对报价与资料范围');e.reply(e.requests.shift(),quote());await flush();ui.click('确认会话报价并创建');e.modals.shift().success({confirm:true});await flush();e.reply(e.requests.shift(),dto('linked'));await flush();
-    e.reply(take('/api/v1/ai/conversations/1'),{...c,version:2,lastSeq:1});await flush();e.reply(take('/api/v1/ai/conversations/1/messages?limit=20&after_seq=0'),{conversationId:1,items:[{seq:1,kind:'task',subjectType:'theme',subjectId:7,skill:'light',question:'',taskId:9,createdAt:now}],upperSeq:1,nextAfterSeq:1,hasMore:false});await flush();
-    ui.click('查看会话关联任务 #9');e.reply(take('/api/v1/ai/tasks/9'),progress());await flush();ui.click('核对并查看报告');e.reply(take('/api/v1/ai/tasks/9/report'),report());await flush();assert.equal(ui.state.report.taskId,9);assert.equal(ui.state.conversationId,1);assert.equal(e.requests.length,0);
+    if(opening==='before_detail'){ui.click('查看会话关联任务 #9');e.reply(take('/api/v1/ai/tasks/9'),progress());await flush();assert.equal(ui.state.selectedId,9)}
+    e.reply(take('/api/v1/ai/conversations/1'),{...c,version:2,lastSeq:1});await flush();
+    if(opening==='before_messages'){ui.click('查看会话关联任务 #9');e.reply(take('/api/v1/ai/tasks/9'),progress());await flush();assert.equal(ui.state.selectedId,9)}
+    e.reply(take('/api/v1/ai/conversations/1/messages?limit=20&after_seq=0'),{conversationId:1,items:[{seq:1,kind:'task',subjectType:'theme',subjectId:7,skill:'light',question:'',taskId:9,createdAt:now}],upperSeq:1,nextAfterSeq:1,hasMore:false});await flush();
+    if(opening==='after_messages'){ui.click('查看会话关联任务 #9');e.reply(take('/api/v1/ai/tasks/9'),progress());await flush()}
+    assert.equal(ui.state.selectedId,9,opening+'：刷新历史不能抹除已选择任务');assert.equal(ui.state.progress.id,9);
+    ui.click('核对并查看报告');e.reply(take('/api/v1/ai/tasks/9/report'),report());await flush();assert.equal(ui.state.report.taskId,9);assert.equal(ui.state.conversationId,1);assert.equal(e.requests.length,0);
     e.hooks.hide.forEach(fn=>fn());await flush();assert.equal(ui.state.report,null);assert.equal(ui.state.conversationId,0);ui.app.unmount();
   }
   {
@@ -980,8 +1342,44 @@ async function conversationTaskFrontend() {
     assert.equal(JSON.parse(e.storage.get(partition)).confirmSent,true);
     ui.app.unmount();
   }
-  console.log('通过：会话意图六接口/闭集DTO、先存原键与跨页签单次确认、实际搜索报价→准备→二次确认→关联任务→终态核查；深度按30积分准备并携带analysisType=deep。');
+  // 切换技能后恢复原意图：展示、复核报价及确认都绑定原类型，不按当前技能改写收费任务。
+  for (const originalType of ['light','deep']) {
+    const selectedType=originalType==='light'?'deep':'light';
+    const originalPoints=originalType==='light'?7:37;
+    const stored={...pending(),analysisType:originalType,pricePoints:originalPoints};
+    const originalDto={...dto(),analysisType:originalType,pricePoints:originalPoints};
+    const {e,ui}=await start({analysisType:selectedType,pending:stored});
+    const originalLabel=originalType==='deep'?'深度资料整理':'轻度资料整理';
+    assert.ok(ui.text().includes('待核查原意图：'+originalLabel));
+    assert.ok(!ui.text().includes('30 积分报价'));
+    ui.click('查询本机原意图'); e.reply(e.requests.shift(),originalDto); await flush();
+    assert.ok(ui.text().includes('原意图类型：'+originalLabel));
+    ui.click('重新核对报价与资料范围'); const review=e.requests.shift();
+    assert.equal(review.data.analysis_type,originalType);
+    e.reply(review,quote({analysisType:originalType,pricePoints:originalPoints,availablePoints:50}));await flush();
+    ui.click('确认会话报价并创建');const modal=e.modals.shift();
+    assert.ok(modal.title.includes(originalType==='deep'?'深度':'轻度'));
+    assert.ok(modal.content.includes('冻结 '+originalPoints+' 积分'));
+    modal.success({confirm:true});await flush();const req=e.requests.shift();
+    assert.ok(req.url.endsWith('/3/confirm'));assert.equal(e.requests.length,0);
+    e.reply(req,{...originalDto,state:'linked',taskId:9,messageSeq:1,updatedAt:now+1});await flush();
+    assert.equal(JSON.parse(e.storage.get(partition)).analysisType,originalType);
+    assert.equal(JSON.parse(e.storage.get(partition)).confirmSent,true);
+    ui.app.unmount();
+  }
+  console.log('通过：会话意图六接口/闭集DTO、原键单次确认、搜索报价到关联任务；轻深技能切换恢复仍绑定原类型及实际报价。');
 }
 
-(async () => { await validators(); await conversationTaskFrontend(); await api(); await historyReportPermission(); await taskOutcomeFeedback(); await page(); await panel(); await reportPresentation(); await reportTools(); await feedbackContracts(); await feedbackPanel(); entry(); await submissionContracts(); await submissionPage(); await memberFlow(); await creationHistoryFlow(); await cancellationContracts(); await cancellationPanel(); await cancellationMemberFlow(); await shellTabs(); await conversationFrontend(); await conversationTaskFrontend(); console.log('本脚本不覆盖：真实 UTS/uni-app x 整体构建、TMUI实现与浏览器布局；须另做实际H5验收，不能因依赖已经存在而升级源码测试证据。'); })()
-  .catch(error => { console.error(error); process.exitCode = 1; });
+let completed = false, currentCase = '';
+process.once('beforeExit', () => {
+  if (!completed) { console.error('源码验收尚未完成，不得以退出0计通过：'+currentCase); process.exitCode=1; }
+});
+(async () => {
+  for (const check of [validators, conversationResponsiveLayout, conversationCreatedList, conversationTaskFrontend, api, historyReportPermission, taskOutcomeFeedback, page, panel, reportPresentation, reportTools, feedbackContracts, feedbackPanel, entry, submissionContracts, submissionPage, memberFlow, creationHistoryFlow, cancellationContracts, cancellationPanel, cancellationMemberFlow, shellTabs, reportQuestionPageAccess, conversationFrontend, conversationRefreshDuringEdit]) {
+    currentCase=check.name; await check();
+  }
+  currentCase='conversationLateMessages'; await conversationLateMessages();
+  currentCase='pointsBalanceContract'; await pointsBalanceContract();
+  completed=true;
+  console.log('本脚本不覆盖：真实 UTS/uni-app x 整体构建、TMUI实现与浏览器布局；须另做实际H5验收，不能因依赖已经存在而升级源码测试证据。');
+})().catch(error => { completed=true; console.error(error); process.exitCode = 1; });

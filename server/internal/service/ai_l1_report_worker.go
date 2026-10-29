@@ -109,10 +109,8 @@ func (p AIL1ReportPlan) validate(v task.Task, model *provider.OpenAICompat) (*fi
 	if ent != p.Policy.EntailmentVersion || sem != p.Policy.SemanticVersion {
 		return nil, task.ErrStagePolicy
 	}
-	// 全计划保守容量预检。下游每步仍须持久预留；本地候选不宣称实际模型调用。
-	units, err := p.Agent.Units.Add(task.Units{Calls: 4, Tokens: 3*p.Model.MaxInputTokens + int64(p.Model.SelectionTokens()) + int64(p.Model.CheckTokens()) + 1})
-	if err != nil || units.Validate() != nil || !units.Fits(v.Budget.Limits()) {
-		return nil, task.ErrBudget
+	if err := p.preflightBudget(v.Budget); err != nil {
+		return nil, err
 	}
 	policy, err := pendingPolicy(p.Policy, p.Companies)
 	if err != nil {
@@ -122,6 +120,18 @@ func (p AIL1ReportPlan) validate(v task.Task, model *provider.OpenAICompat) (*fi
 		return nil, err
 	}
 	return policy, nil
+}
+
+// 准入与执行共用完整容量预检，下游各步仍须持久预留，不能等冻结/模型调用之后才发现不足。
+func (p AIL1ReportPlan) preflightBudget(budget task.Budget) error {
+	if _, err := finalreport.CheckPolicyVersion(finalreport.CheckEntailment, p.Model); err != nil {
+		return err
+	}
+	units, err := p.Agent.Units.Add(task.Units{Calls: 4, Tokens: 3*p.Model.MaxInputTokens + int64(p.Model.SelectionTokens()) + 2*int64(p.Model.CheckTokens()) + 1})
+	if err != nil || units.Validate() != nil || !units.Fits(budget.Limits()) {
+		return task.ErrBudget
+	}
+	return nil
 }
 
 type l1AgentPlanner struct {

@@ -37,6 +37,9 @@ func TestReportSelectionModelBoundedRequestAndReplay(t *testing.T) {
 		t.Fatal("选择计划绑定失败")
 	}
 	req := p.Request()
+	if !strings.Contains(req.System, "同一章节允许返回多条selection") || !strings.Contains(req.System, "[1,5]") {
+		t.Fatal("选句提示未说明非连续编号必须分条，不能靠修补模型回包通过")
+	}
 	if !strings.Contains(req.Prompt, "test-only-private-hint") || strings.Contains(req.Prompt, s.snapshots[0].LicenseRef) || strings.Contains(req.Prompt, s.snapshots[0].URL) || req.Attempt != 1 || req.MaxTokens != 2048 || !req.Strict || req.Format != provider.FormatJSONSchema {
 		t.Fatal("提示/预算/信息边界错误")
 	}

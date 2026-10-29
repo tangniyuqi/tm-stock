@@ -187,6 +187,9 @@ export class MemberApi {
 		}
 		return requestWithToken<T>(path, 'GET', {} as UTSJSONObject, true, currentAIMemberToken())
 	}
+	public static aiBalance<T>() : Promise<MemberApiResult<T>> {
+		return requestWithToken<T>('/api/v1/ai/points/balance', 'GET', {} as UTSJSONObject, true, currentAIMemberToken())
+	}
 	public static profile() : Promise<MemberApiResult<MemberProfile>> {
 		return requestApi<MemberProfile>('/api/v1/member/profile', 'GET', {} as UTSJSONObject, true)
 	}

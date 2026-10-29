@@ -19,7 +19,7 @@ func (s *AIQAService) submitReport(parent context.Context, token string, uid, ci
 	if err := s.check(parent, token, uid); err != nil {
 		return dto.AIQAStatus{}, err
 	}
-	if !s.submit || !s.reportReady() {
+	if !s.submit || !s.reportSubmit || !s.reportReady() {
 		return dto.AIQAStatus{}, qa.ErrUnavailable
 	}
 	ctx, cancel := context.WithTimeout(parent, 25*time.Second)
@@ -125,7 +125,7 @@ func (s *AIQAService) answerReport(parent context.Context, token string, uid, ci
 	}
 	ctx, cancel := context.WithTimeout(parent, 8*time.Second)
 	defer cancel()
-	scope, err := s.reportAccess.Scope(ctx, r.Proof)
+	scope, err := s.reportAccess.ScopeForRead(ctx, r.Proof)
 	if err != nil {
 		return dto.AIQAAnswer{}, reportQAError(err)
 	}
@@ -138,7 +138,7 @@ func (s *AIQAService) answerReport(parent context.Context, token string, uid, ci
 		return dto.AIQAAnswer{}, reportQAError(err)
 	}
 	now := time.Now().UTC().Truncate(time.Millisecond)
-	plan, err := qa.NewReportPlanScoped(r.Proof.Identity, m.Input, scope, cfg, now)
+	plan, err := qa.NewReportReadPlanScoped(r.Proof.Identity, m.Input, scope, cfg, now)
 	if err != nil {
 		return dto.AIQAAnswer{}, qa.ErrUnavailable
 	}

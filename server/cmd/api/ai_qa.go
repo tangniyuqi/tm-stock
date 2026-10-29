@@ -20,10 +20,10 @@ var aiQAProvidersFactory func(context.Context, *sql.DB) (service.AIQAProviders, 
 var aiReportQAFactory func(context.Context, *sql.DB) (service.AIReportQAEvidenceSource, service.AIReportQAConfigProvider, error)
 
 func registerAIQA(ctx context.Context, mux *http.ServeMux, db *sql.DB, read config.AITaskReadConfig, conversations bool, c config.AIQAConfig) error {
-	if !c.Read && !c.Submit {
+	if !c.Read && !c.Submit && !c.ReportSubmit {
 		return nil
 	}
-	if ctx == nil || mux == nil || db == nil || !conversations || !c.Read || !read.Enabled || read.Auth.Validate() != nil || c.Submit && (aiQAPoliciesFactory == nil || aiQAProvidersFactory == nil) {
+	if ctx == nil || mux == nil || db == nil || !conversations || !c.Read || !read.Enabled || read.Auth.Validate() != nil || c.ReportSubmit && !c.Submit || c.Submit && (aiQAPoliciesFactory == nil || aiQAProvidersFactory == nil) {
 		return memberauth.ErrInvalidConfig
 	}
 	if err := repository.NewAIQASchemaVerifier(db).Verify(ctx); err != nil {
@@ -46,7 +46,8 @@ func registerAIQA(ctx context.Context, mux *http.ServeMux, db *sql.DB, read conf
 	}
 	var reportEvidence service.AIReportQAEvidenceSource
 	var reportConfig service.AIReportQAConfigProvider
-	if c.ReportSubmit {
+	// 可信报告工厂只提供证据与无密钥配置；只读启动也可装配，不能由此放开提交。
+	if aiReportQAFactory != nil || c.ReportSubmit {
 		if aiReportQAFactory == nil {
 			return memberauth.ErrInvalidConfig
 		}
@@ -71,8 +72,8 @@ func registerAIQA(ctx context.Context, mux *http.ServeMux, db *sql.DB, read conf
 		return err
 	}
 	var svc *service.AIQAService
-	if c.ReportSubmit {
-		svc, err = service.NewAIQAServiceWithReports(repository.NewAIQARepo(db), policies, models, sessions, c.Submit, reportEvidence, reportConfig)
+	if reportEvidence != nil {
+		svc, err = service.NewAIQAServiceWithReportAccess(repository.NewAIQARepo(db), policies, models, sessions, c.Submit, c.ReportSubmit, reportEvidence, reportConfig)
 	} else {
 		svc, err = service.NewAIQAService(repository.NewAIQARepo(db), policies, models, sessions, c.Submit)
 	}

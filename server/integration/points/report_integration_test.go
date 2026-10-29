@@ -72,6 +72,7 @@ func newReportEnvWithBudget(t *testing.T, level sql.IsolationLevel, lease time.D
 	e, db, repo, tasks, ledger, now := persistentTaskFixture(t, level)
 	reportDDL(t, e, "20261010_create_ai_source_snapshots.sql")
 	reportDDL(t, e, "20261016_create_tm_ai_report_commits.sql")
+	reportDDL(t, e, "20261023_allow_deep_ai_report_commits.sql")
 	reportDDL(t, e, "20261018_create_tm_ai_task_admissions.sql")
 	e.mustExec(`CREATE TABLE addon_quant_theme(id bigint UNSIGNED PRIMARY KEY,name varchar(100),status tinyint,deleted_at datetime(3));INSERT INTO addon_quant_theme VALUES(1,'示例题材',1,NULL)`)
 	x := &reportEnv{pointsTestEnv: e, db: db, repo: repo, tasks: tasks, ledger: ledger, entailment: finalreport.Pass, semantic: finalreport.Pass}

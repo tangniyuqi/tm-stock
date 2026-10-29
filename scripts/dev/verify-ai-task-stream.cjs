@@ -52,6 +52,23 @@ function parsers(){
   console.log('通过：公开事件闭集、UTF-8逐字节/中文/CRLF拆帧、重放去重、坏帧/缺序/超限/EOF拒绝。');
 }
 async function feeds(){
+  // 贯穿订阅器验证重连旧帧去重；不能只用解析器单测代替请求/回调副作用检查。
+  {
+    const e=environment(),ctl=e.feed.watchAITaskFeed(9,1,'test-only-member',e.hooks);
+    const first=e.response(e.connections.shift());await flush();
+    first.enqueue(new TextEncoder().encode(frame(event())));await flush();
+    e.requests.shift().resolve({code:0,data:snapshot(2)});await flush();
+    first.close();await flush();e.runTimer(1000);await flush();
+    e.requests.shift().resolve({code:0,data:snapshot(2)});await flush();
+    const reconnect=e.connections.shift();assert.ok(reconnect.url.endsWith('after_seq=2'));
+    const second=e.response(reconnect);await flush();
+    second.enqueue(new TextEncoder().encode(frame(event())+frame(event())));await flush();
+    assert.equal(e.events.length,1,'重连重复帧不能重复展示');assert.equal(e.requests.length,0,'重复帧不得额外查询状态');
+    const done=event(3,'succeeded',3);second.enqueue(new TextEncoder().encode(frame(done)+frame(done)));await flush();
+    assert.deepEqual(e.events.map(v=>v.seq),[2,3]);assert.equal(e.requests.length,1,'新终态只触发一次独立查询');
+    e.requests.shift().resolve({code:0,data:snapshot(3,3)});await flush();
+    assert.equal(e.progress.at(-1).status,3);assert.equal(e.timers.size,0);assert.equal(e.connections.length,0);ctl.close();
+  }
   {
     const e=environment(),control=e.feed.watchAITaskFeed(9,1,'test-only-member',e.hooks),c=e.connections.shift();assert.equal(c.url,'/api/v1/ai/tasks/9/stream?after_seq=1');assert.equal(c.options.credentials,'omit');assert.equal(c.options.redirect,'error');assert.equal(c.options.headers.Authorization,'Bearer test-only-member');
     const body=e.response(c);await flush();body.enqueue(new TextEncoder().encode(frame(event())));await flush();assert.equal(e.events.length,1);assert.equal(e.progress.length,0,'事件不能授报告许可');assert.equal(e.requests.length,1);e.requests.shift().resolve({code:0,data:snapshot(2)});await flush();body.close();await flush();e.runTimer(1000);await flush();e.requests.shift().resolve({code:0,data:snapshot(2)});await flush();const again=e.connections.shift();assert.equal(again.url,'/api/v1/ai/tasks/9/stream?after_seq=2');control.close();assert.equal(again.options.signal.aborted,true);assert.equal(e.timers.size,0);again.resolve({status:401});await flush();assert.equal(e.errors.length,0);
@@ -71,4 +88,6 @@ async function feeds(){
   {const e=environment(),c=e.feed.watchAITaskFeed(9,1,'test-only-member',e.hooks);for(const ms of [1000,2000,4000]){e.connections.shift().resolve(Promise.reject(new Error('测试断网')));await flush();e.runTimer(ms);await flush();e.requests.shift().resolve({code:0,data:snapshot()});await flush()};e.connections.shift().resolve(Promise.reject(new Error('测试断网')));await flush();assert.ok(e.modes.includes('poll'));assert.equal(e.timers.size,1);c.close()}
   console.log('通过：同源Bearer、18秒看门狗、有界原游标重连、GET降级、终态独立核查、401/403/切账号/离页清理。');
 }
-(async()=>{parsers();await feeds()})().catch(e=>{console.error(e);process.exitCode=1});
+let completed=false;
+process.once('beforeExit',()=>{if(!completed){console.error('公开进度源码验收尚未全部完成');process.exitCode=1;}});
+(async()=>{parsers();await feeds();completed=true;})().catch(e=>{completed=true;console.error(e);process.exitCode=1});

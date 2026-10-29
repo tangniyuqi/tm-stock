@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/tangniyuqi/tm-stock/server/internal/ai/finalreport"
+	"github.com/tangniyuqi/tm-stock/server/internal/ai/task"
 	"github.com/tangniyuqi/tm-stock/server/internal/config"
 	"github.com/tangniyuqi/tm-stock/server/internal/handler"
 	"github.com/tangniyuqi/tm-stock/server/internal/memberauth"
@@ -19,17 +20,31 @@ import (
 
 // prepareAIReportReads 只装配读取，不开启终检写入。缺真实发布证明就不准启动。
 func prepareAIReportReads(ctx context.Context, db *sql.DB, read config.AITaskReadConfig, enabled bool, p *finalreport.Policy, control service.AIReportReadControl) (*service.AIReportReadService, error) {
+	return prepareAIReportReadsWithDeep(ctx, db, read, enabled, p, nil, control)
+}
+
+// 深度策略由可信启动装配显式提供；不由会员参数或深度创建开关隐式启用。
+func prepareAIReportReadsWithDeep(ctx context.Context, db *sql.DB, read config.AITaskReadConfig, enabled bool, p, deepPolicy *finalreport.Policy, control service.AIReportReadControl) (*service.AIReportReadService, error) {
 	if !enabled {
 		return nil, nil
 	}
 	if !read.Enabled || read.Auth.Validate() != nil || !p.Valid() || control == nil {
 		return nil, memberauth.ErrInvalidConfig
 	}
-	if db == nil {
+	if deepPolicy != nil && (!deepPolicy.Valid() || deepPolicy.AnalysisType() != task.DeepAnalysisType || p.AnalysisType() == task.DeepAnalysisType) {
+		return nil, memberauth.ErrInvalidConfig
+	}
+	if db == nil || ctx == nil {
 		return nil, points.ErrInvalid
 	}
 	checkCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
-	err := repository.NewAIReportSchemaVerifier(db).Verify(checkCtx)
+	verifier := repository.NewAIReportSchemaVerifier(db)
+	var err error
+	if deepPolicy != nil || p.AnalysisType() == task.DeepAnalysisType {
+		err = verifier.VerifyWithDeep(checkCtx)
+	} else {
+		err = verifier.Verify(checkCtx)
+	}
 	checkErr := checkCtx.Err()
 	cancel()
 	if err != nil || checkErr != nil {
@@ -43,7 +58,14 @@ func prepareAIReportReads(ctx context.Context, db *sql.DB, read config.AITaskRea
 	if err != nil {
 		return nil, err
 	}
-	return service.NewAIReportReadService(base, control, true)
+	if deepPolicy == nil {
+		return service.NewAIReportReadService(base, control, true)
+	}
+	deep, err := service.NewAIReportService(repository.NewAITaskRepo(db), ledger, deepPolicy, false)
+	if err != nil {
+		return nil, err
+	}
+	return service.NewAIReportReadServiceWithDeep(base, deep, control, true)
 }
 func registerAIReportReads(mux *http.ServeMux, db *sql.DB, cfg config.AITaskReadConfig, reads *service.AIReportReadService) error {
 	if reads == nil {

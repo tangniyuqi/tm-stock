@@ -54,6 +54,8 @@
 
 ## 移动端要点
 
+- 尺寸变化应由页面`onResize((event : OnResizeOptions) => ...)`接收后以属性传给业务组件。5.26曾报`Property 'onWindowResize' does not exist on type 'Uni'`（offWindowResize同类）；不要用`uni.onWindowResize`或类型强转掩盖。TMUI的`uni.$on('onResize')`只有实际安装对应插件mixin后才有事件源，不能仅看组件代码就假设已安装。测试须覆盖页面到组件的传播，不得用测试自造API证明平台支持；编译通过仍须实际缩放验收。
+
 - 按 375px 设计，向上适配；禁止横向滚动
 - 点击区域 ≥ 44×44px；注意 iOS 安全区
 - 列表长滚动做分页/虚拟列表，避免卡顿

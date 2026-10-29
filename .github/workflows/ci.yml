@@ -226,6 +226,37 @@ jobs:
         run: |
           set -o pipefail
           go test -p 1 -race -tags=integration ./internal/repository/... ./integration/points/... ./integration/agents/... ./cmd/api/... -timeout=20m -count=1 -v 2>&1 | tee /tmp/it.log | tail -40
+          # 原自然30秒执行期限与一分钟租约不缩短；独立精准运行，不挤占原套件看门狗。
+          go test -p 1 -race -tags=integration,browser ./integration/points -run '^TestIntegrationAIReportTimeoutRecovery$' -timeout=5m -count=1 -v 2>&1 | tee /tmp/timeout-recovery.log
+          TIMEOUT_ROOT=$(grep -Ec '^--- PASS: TestIntegrationAIReportTimeoutRecovery ' /tmp/timeout-recovery.log || true)
+          TIMEOUT_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportTimeoutRecovery/(Read_Committed|Repeatable_Read) ' /tmp/timeout-recovery.log || true)
+          TIMEOUT_SKIPS=$(grep -Ec '^[[:space:]]*--- SKIP' /tmp/timeout-recovery.log || true)
+          if [ "$TIMEOUT_ROOT" -ne 1 ] || [ "$TIMEOUT_LEVELS" -ne 2 ] || [ "$TIMEOUT_SKIPS" -ne 0 ]; then
+            echo '::error::自然执行超时、有效租约拒绝接管与到期取消释放的两种隔离级别未完整验收'; exit 1
+          fi
+          DEEP_GATEWAY_ROOT=$(grep -Ec '^--- PASS: TestIntegrationDeepH5GatewayHTTP ' /tmp/it.log || true)
+          DEEP_GATEWAY_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationDeepH5GatewayHTTP/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          if [ "$DEEP_GATEWAY_ROOT" -ne 1 ] || [ "$DEEP_GATEWAY_LEVELS" -ne 2 ]; then
+            echo '::error::深度会话原网关、异步worker、报告及单次结算的两种隔离级别未完整验收'; exit 1
+          fi
+          DEEP_UPGRADE_ROOTS=$(grep -Ec '^--- PASS: TestIntegrationAIReportDeepUpgrade(Execution|PreservesHistory) ' /tmp/it.log || true)
+
+          DEEP_QUEUE_ROOT=$(grep -Ec '^--- PASS: TestIntegrationAIReportDeepQueue ' /tmp/it.log || true)
+
+          QUEUE_LOOP_ROOT=$(grep -Ec '^--- PASS: TestIntegrationAIReportQueueLoop ' /tmp/it.log || true)
+          QUEUE_LOOP_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportQueueLoop/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          if [ "$QUEUE_LOOP_ROOT" -ne 1 ] || [ "$QUEUE_LOOP_LEVELS" -ne 2 ]; then
+            echo '::error::常驻循环发现新任务、重扫与取消退出未完整验收'; exit 1
+          fi
+          DEEP_QUEUE_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportDeepQueue/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          if [ "$DEEP_QUEUE_ROOT" -ne 1 ] || [ "$DEEP_QUEUE_LEVELS" -ne 2 ]; then
+            echo '::error::深度队列执行、结算与幂等重扫未完整验收'; exit 1
+          fi
+          DEEP_UPGRADE_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportDeepUpgrade(Execution|PreservesHistory)/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          DEEP_UPGRADE_SKIPS=$(grep -Ec '^[[:space:]]*--- SKIP: TestIntegrationAIReportDeepUpgrade' /tmp/it.log || true)
+          if [ "$DEEP_UPGRADE_ROOTS" -ne 2 ] || [ "$DEEP_UPGRADE_LEVELS" -ne 4 ] || [ "$DEEP_UPGRADE_SKIPS" -ne 0 ]; then
+            echo '::error::旧轻度库升级、深度执行和历史账本保留的两种隔离级别未完整验收'; exit 1
+          fi
           PASS=$(grep -c '^[[:space:]]*--- PASS' /tmp/it.log || true)
           SKIP=$(grep -c '^[[:space:]]*--- SKIP' /tmp/it.log || true)
           echo "通过 $PASS 项 / 跳过 $SKIP 项"
@@ -358,8 +389,15 @@ jobs:
           FEEDBACK_STARTUP_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportReadStartup/feedback_(off|on) ' /tmp/it.log || true)
           CONVERSATION_STARTUP_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportReadStartup/conversation_(off|on) ' /tmp/it.log || true)
           INTENT_STARTUP_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportReadStartup/conversation_tasks_(off|on) ' /tmp/it.log || true)
-          QA_STARTUP_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportReadStartup/qa_(off|read|submit_without_factory|policy_error|missing_trigger|cancelled|submit_factories|submit_model_error|submit_nil_policy|submit_nil_model) ' /tmp/it.log || true)
-          if [ "$REPORT_READ_STARTUP" -ne 1 ] || [ "$REPORT_READ_STARTUP_CASES" -ne 26 ] || [ "$STREAM_STARTUP_CASES" -ne 2 ] || [ "$FEEDBACK_STARTUP_CASES" -ne 2 ] || [ "$CONVERSATION_STARTUP_CASES" -ne 2 ] || [ "$INTENT_STARTUP_CASES" -ne 2 ] || [ "$QA_STARTUP_CASES" -ne 10 ]; then
+          QA_STARTUP_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportReadStartup/qa_(off|read|report_read|report_error|report_nil_evidence|report_nil_config|submit_without_factory|policy_error|missing_trigger|cancelled|submit_factories|submit_model_error|submit_nil_policy|submit_nil_model) ' /tmp/it.log || true)
+          BALANCE_AUTH_ROOT=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportReadStartup/points_balance_auth ' /tmp/it.log || true)
+          BALANCE_AUTH_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportReadStartup/points_balance_auth/(owner|other_empty|disabled|deleted|missing|admin|expired|bad_signature|anonymous|other_query) ' /tmp/it.log || true)
+          BALANCE_ROOT=$(grep -Ec '^--- PASS: TestIntegrationAIReportBalanceRead ' /tmp/it.log || true)
+          BALANCE_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportBalanceRead/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          if [ "$BALANCE_AUTH_ROOT" -ne 1 ] || [ "$BALANCE_AUTH_CASES" -ne 10 ] || [ "$BALANCE_ROOT" -ne 1 ] || [ "$BALANCE_LEVELS" -ne 2 ]; then
+            echo '::error::新账本余额只读及会员鉴权验收漏跑'; exit 1
+          fi
+          if [ "$REPORT_READ_STARTUP" -ne 1 ] || [ "$REPORT_READ_STARTUP_CASES" -ne 41 ] || [ "$STREAM_STARTUP_CASES" -ne 2 ] || [ "$FEEDBACK_STARTUP_CASES" -ne 2 ] || [ "$CONVERSATION_STARTUP_CASES" -ne 2 ] || [ "$INTENT_STARTUP_CASES" -ne 2 ] || [ "$QA_STARTUP_CASES" -ne 14 ]; then
             echo '❌ 会员报告启动保护必跑用例缺失'; exit 1
           fi
           MEMBER_SUBMISSIONS=$(grep -Ec '^--- PASS: TestIntegrationAIReportMemberSubmission(Lifecycle|Boundaries|Concurrency) ' /tmp/it.log || true)
@@ -438,6 +476,24 @@ jobs:
           REPORT_H5_GATEWAY_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportH5Gateway/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
           REPORT_H5_GATEWAY_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportH5Gateway/(Read_Committed|Repeatable_Read)/(success|cancel|library|receipt_unknown|running_cancel|feedback) ' /tmp/it.log || true)
           REPORT_H5_ORIGIN=$(grep -Ec '^--- PASS: TestH5TestOrigin ' /tmp/it.log || true)
+          REPORT_H5_LOGIN_GUARDS=$(grep -Ec '^--- PASS: TestH5MemberLogin(Configuration|PassLine) ' /tmp/it.log || true)
+          REPORT_H5_LOGIN_CONFIG_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestH5MemberLoginConfiguration/' /tmp/it.log || true)
+          LIVE_CONVERSATION_CONFIG=$(grep -Ec '^--- PASS: TestLiveConversationConfiguration ' /tmp/it.log || true)
+          LIVE_CONVERSATION_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestLiveConversationConfiguration/' /tmp/it.log || true)
+          if [ "$LIVE_CONVERSATION_CONFIG" -ne 1 ] || [ "$LIVE_CONVERSATION_CASES" -ne 8 ]; then
+            echo "::error::真实会话入口无调用配置守卫漏跑"; exit 1
+          fi
+          LIVE_DEPTH_CONFIG=$(grep -Ec '^--- PASS: TestLiveDepthConfiguration ' /tmp/it.log || true)
+          LIVE_DEPTH_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestLiveDepthConfiguration/' /tmp/it.log || true)
+          if [ "$LIVE_DEPTH_CONFIG" -ne 1 ] || [ "$LIVE_DEPTH_CASES" -ne 5 ]; then
+            echo "::error::真实深度入口无调用配置守卫漏跑"; exit 1
+          fi
+          REPORT_H5_EOF_WRITER=$(grep -Ec '^--- PASS: TestH5EarlyEOFWriter ' /tmp/it.log || true)
+          REPORT_H5_REPLAY_GUARDS=$(grep -Ec '^--- PASS: TestH5StreamReplay(Configuration|Writer) ' /tmp/it.log || true)
+          REPORT_H5_REPLAY_CONFIG_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestH5StreamReplayConfiguration/' /tmp/it.log || true)
+          if [ "$REPORT_H5_LOGIN_GUARDS" -ne 2 ] || [ "$REPORT_H5_LOGIN_CONFIG_CASES" -ne 8 ] || [ "$REPORT_H5_EOF_WRITER" -ne 1 ] || [ "$REPORT_H5_REPLAY_GUARDS" -ne 2 ] || [ "$REPORT_H5_REPLAY_CONFIG_CASES" -ne 8 ]; then
+            echo "::error::原登录模式失败关闭、最终回执识别或原SSE传输包装守卫漏跑"; exit 1
+          fi
           REPORT_H5_CONVERSATION=$(grep -Ec '^--- PASS: TestIntegrationAIReportH5Conversation ' /tmp/it.log || true)
           REPORT_H5_CONVERSATION_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportH5Conversation/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
           REPORT_H5_CONVERSATION_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportH5Conversation/(Read_Committed|Repeatable_Read)/(success|bind_unknown) ' /tmp/it.log || true)
@@ -448,6 +504,11 @@ jobs:
             echo "::error::本地H5测试接线、真库成功/取消或回环源边界用例漏跑"; exit 1
           fi
           FEEDBACK_ROOTS=$(grep -Ec '^--- PASS: TestIntegrationAIReportFeedback(Lifecycle|Rollback|HTTP|SchemaGuards) ' /tmp/it.log || true)
+          ASSISTANT_COMBINED=$(grep -Ec '^--- PASS: TestIntegrationAIReportAssistantCombined ' /tmp/it.log || true)
+          ASSISTANT_COMBINED_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportAssistantCombined/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          if [ "$ASSISTANT_COMBINED" -ne 1 ] || [ "$ASSISTANT_COMBINED_LEVELS" -ne 2 ]; then
+            echo "::error::同一会话问答、原任务报告与反馈组合验收漏跑"; exit 1
+          fi
           FEEDBACK_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportFeedback(Lifecycle|Rollback)/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
           FEEDBACK_SCHEMA=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportFeedbackSchemaGuards/' /tmp/it.log || true)
           if [ "$FEEDBACK_ROOTS" -ne 4 ] || [ "$FEEDBACK_LEVELS" -ne 4 ] || [ "$FEEDBACK_SCHEMA" -ne 9 ]; then
@@ -549,6 +610,7 @@ jobs:
           npm install --prefix "$qa_dir" --ignore-scripts --package-lock=false --no-audit --no-fund \
             vue@3.5.13 @vue/compiler-sfc@3.5.13 @vue/server-renderer@3.5.13 typescript@5.7.2 axios@1.8.2 vue-router@4.4.3
           node scripts/dev/verify-ai-report-ui.cjs "$qa_dir"
+          node scripts/dev/verify-member-login-script.cjs "$qa_dir"
           node scripts/dev/verify-ai-task-stream.cjs "$qa_dir"
           node scripts/dev/verify-ai-qa-ui.cjs "$qa_dir"
           node scripts/dev/verify-evidence-ui.cjs "$qa_dir"

@@ -12,9 +12,7 @@ export const aiQARefusalTemplates : string[] = ['所选授权资料中没有可�
 const qaTime = (v : number) : boolean => isSafeAIId(v) && v <= 8640000000000000
 const qaPlain = (v : string, max : number) : boolean => typeof v == 'string' && v.length > 0 && v.length <= max * 2 && v == v.trim() && [...v].length <= max && !/[\u0000-\u001f\u007f-\u009f\ud800-\udfff]/u.test(v)
 export const isAIQAQuestion = (v : string) : boolean => qaPlain(v, 1000)
-const qaKeys = (v : UTSJSONObject, keys : string[]) : boolean => {
-	if (v == null || typeof v != 'object' || Array.isArray(v)) return false
-	const names : string[] = Object.keys(v)
+const qaKeys = (names : string[], keys : string[]) : boolean => {
 	return names.length == keys.length && names.every((name : string) : boolean => keys.includes(name))
 }
 const qaBytes = (v : string) : number => {
@@ -22,10 +20,10 @@ const qaBytes = (v : string) : number => {
 	for (const ch of [...v]) { const c : number = ch.charCodeAt(0); bytes += ch.length == 2 ? 4 : c <= 127 ? 1 : c <= 2047 ? 2 : 3 }
 	return bytes
 }
-export const isAIQAStatus = (v : AIQAStatus | null, seq : number) : boolean => v != null && qaKeys(v as UTSJSONObject, ['seq','state','subjectType','subjectId','skill','question','createdAt','updatedAt']) && isSafeAIId(v.seq) && (seq == 0 || v.seq == seq) && ['queued','running','answered','refused','failed'].includes(v.state) && v.subjectType == 'theme' && isSafeAIId(v.subjectId) && (v.skill == 'material_qa' || v.skill == 'report_qa') && isAIQAQuestion(v.question) && qaTime(v.createdAt) && qaTime(v.updatedAt) && v.updatedAt >= v.createdAt
-export const isAIQAQuote = (v : AIQAQuote | null) : boolean => v != null && qaKeys(v as UTSJSONObject, ['snapshotId','startByte','endByte','excerpt','sourceType','sourceUrl','collectedAt']) && isSafeAIId(v.snapshotId) && isSafeAIInteger(v.startByte) && isSafeAIId(v.endByte) && v.endByte > v.startByte && v.endByte <= 65536 && typeof v.excerpt == 'string' && v.excerpt.trim().length > 0 && v.excerpt.length <= 2000 && [...v.excerpt].length <= 1000 && !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f\ud800-\udfff]/u.test(v.excerpt) && qaBytes(v.excerpt) == v.endByte-v.startByte && qaPlain(v.sourceType,128) && qaPlain(v.sourceUrl,2048) && isSafeExternalUrl(v.sourceUrl) && qaTime(v.collectedAt)
+export const isAIQAStatus = (v : AIQAStatus | null, seq : number) : boolean => v != null && typeof v == 'object' && !Array.isArray(v) && qaKeys(Object.keys(v), ['seq','state','subjectType','subjectId','skill','question','createdAt','updatedAt']) && isSafeAIId(v.seq) && (seq == 0 || v.seq == seq) && ['queued','running','answered','refused','failed'].includes(v.state) && v.subjectType == 'theme' && isSafeAIId(v.subjectId) && (v.skill == 'material_qa' || v.skill == 'report_qa') && isAIQAQuestion(v.question) && qaTime(v.createdAt) && qaTime(v.updatedAt) && v.updatedAt >= v.createdAt
+export const isAIQAQuote = (v : AIQAQuote | null) : boolean => v != null && typeof v == 'object' && !Array.isArray(v) && qaKeys(Object.keys(v), ['snapshotId','startByte','endByte','excerpt','sourceType','sourceUrl','collectedAt']) && isSafeAIId(v.snapshotId) && isSafeAIInteger(v.startByte) && isSafeAIId(v.endByte) && v.endByte > v.startByte && v.endByte <= 65536 && typeof v.excerpt == 'string' && v.excerpt.trim().length > 0 && v.excerpt.length <= 2000 && [...v.excerpt].length <= 1000 && !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f\ud800-\udfff]/u.test(v.excerpt) && qaBytes(v.excerpt) == v.endByte-v.startByte && qaPlain(v.sourceType,128) && qaPlain(v.sourceUrl,2048) && isSafeExternalUrl(v.sourceUrl) && qaTime(v.collectedAt)
 export const isAIQAAnswer = (v : AIQAAnswer | null, seq : number) : boolean => {
-	if (v == null || !qaKeys(v as UTSJSONObject, ['seq','state','template','subjectName','aiGenerated','modelName','filingNo','quotes']) || !isSafeAIId(seq) || v.seq != seq || !qaPlain(v.subjectName,128) || typeof v.aiGenerated != 'boolean' || !Array.isArray(v.quotes) || v.quotes.length > 4) return false
+	if (v == null || typeof v != 'object' || Array.isArray(v) || !qaKeys(Object.keys(v), ['seq','state','template','subjectName','aiGenerated','modelName','filingNo','quotes']) || !isSafeAIId(seq) || v.seq != seq || !qaPlain(v.subjectName,128) || typeof v.aiGenerated != 'boolean' || !Array.isArray(v.quotes) || v.quotes.length > 4) return false
 	if (v.aiGenerated ? !qaPlain(v.modelName,128) || !qaPlain(v.filingNo,128) : v.modelName != '' || v.filingNo != '') return false
 	if (v.state == 'refused') return aiQARefusalTemplates.includes(v.template) && v.quotes.length == 0
 	if (v.state != 'answered' || !v.aiGenerated || v.template != aiQAAnswerTemplate || v.quotes.length == 0) return false
@@ -60,7 +58,7 @@ export const aiQAError = (code : number) : string => {
 	return '问答尚未开放、资料不可用或结果未确认；请核查原问题，未自动重发'
 }
 export const qaPartition = (token : string) : string => aiPendingStorageKey(token).replace('tm_ai_pending_v1_', 'tm_ai_question_v1_')
-export const isAIPendingQA = (v : AIPendingQA | null) : boolean => v != null && qaKeys(v as UTSJSONObject, ['key','conversationId','version','subjectId','taskId','skill','question']) && isAIRequestKey(v.key) && isSafeAIId(v.conversationId) && isSafeAIId(v.version) && isSafeAIId(v.subjectId) && (v.skill == 'material_qa' && v.taskId == 0 || v.skill == 'report_qa' && isSafeAIId(v.taskId)) && isAIQAQuestion(v.question)
+export const isAIPendingQA = (v : AIPendingQA | null) : boolean => v != null && typeof v == 'object' && !Array.isArray(v) && qaKeys(Object.keys(v), ['key','conversationId','version','subjectId','taskId','skill','question']) && isAIRequestKey(v.key) && isSafeAIId(v.conversationId) && isSafeAIId(v.version) && isSafeAIId(v.subjectId) && (v.skill == 'material_qa' && v.taskId == 0 || v.skill == 'report_qa' && isSafeAIId(v.taskId)) && isAIQAQuestion(v.question)
 export const qaMatchesPending = (v : AIQAStatus, p : AIPendingQA) : boolean => isAIQAStatus(v,0) && isAIPendingQA(p) && v.subjectId == p.subjectId && v.skill == p.skill && v.question == p.question
 export const readPendingQA = (partition : string) : AIPendingQA | null => {
 	if (!/^tm_ai_question_v1_[1-9][0-9]*$/.test(partition)) throw new Error('问答分区无效')

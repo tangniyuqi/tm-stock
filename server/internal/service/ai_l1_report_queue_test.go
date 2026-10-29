@@ -82,6 +82,16 @@ func TestAIL1ReportQueueConstructionAndClosed(t *testing.T) {
 	if _, err := q.RunBatch(context.Background(), task.MemberQueueOptions{MaxTasks: 1}); !errors.Is(err, finalreport.ErrDisabled) || scan.queries != 0 {
 		t.Fatal(err)
 	}
+	deep, err := NewAIL2ReportQueue(w, scan, false)
+	if err != nil || deep == nil || !deep.deep {
+		t.Fatal("深度队列构造失败", err)
+	}
+	if _, err := deep.RunBatch(context.Background(), task.MemberQueueOptions{MaxTasks: 1}); !errors.Is(err, finalreport.ErrDisabled) || scan.queries != 0 {
+		t.Fatal("深度队列默认关闭失效", err)
+	}
+	if _, err := NewAIL2ReportQueue(w, scan, true); !errors.Is(err, points.ErrInvalid) {
+		t.Fatal("关闭的worker被深度队列开启", err)
+	}
 	for _, q := range []*AIL1ReportQueue{nil, {}} {
 		if _, err := q.RunBatch(context.Background(), task.MemberQueueOptions{MaxTasks: 1}); !errors.Is(err, points.ErrInvalid) {
 			t.Fatal(err)
@@ -115,6 +125,50 @@ func TestAIL1ReportQueuePaginationAndRecovery(t *testing.T) {
 	scan.window.UpperID, scan.page = 0, nil
 	if c, err := q.RunBatch(context.Background(), task.MemberQueueOptions{MaxTasks: 1}); err != nil || !c.Complete {
 		t.Fatal(c, err)
+	}
+}
+
+func TestAIL2ReportQueueTypeIsolationAndAdmission(t *testing.T) {
+	for _, mode := range []string{"deep", "light", "missing_admission", "changed_type", "disabled"} {
+		t.Run(mode, func(t *testing.T) {
+			q, scan, runner, st := queueFixture(t)
+			q.deep = true
+			st.v.AnalysisType = task.DeepAnalysisType
+			st.record.Plan.Scope.AnalysisType = task.DeepAnalysisType
+			_, digest, err := st.record.Plan.Encode()
+			if err != nil {
+				t.Fatal(err)
+			}
+			st.record.Digest = digest
+			scan.page[0].AnalysisType = task.DeepAnalysisType
+			switch mode {
+			case "light":
+				scan.page[0].AnalysisType = task.LightAnalysisType
+			case "missing_admission":
+				st.marked = false
+			case "changed_type":
+				st.v.AnalysisType = task.LightAnalysisType
+			case "disabled":
+				q.enabled = false
+			}
+			out, err := q.RunBatch(context.Background(), task.MemberQueueOptions{MaxTasks: 1})
+			if mode == "deep" {
+				if err != nil || runner.calls != 1 || out.TerminalObserved != 1 {
+					t.Fatal(out, err, runner.calls)
+				}
+			} else {
+				if runner.calls != 0 {
+					t.Fatal("深度队列执行了范围外或未经复核的任务")
+				}
+				if mode == "light" {
+					if err != nil || out.Skipped != 1 {
+						t.Fatal(out, err)
+					}
+				} else if err == nil {
+					t.Fatal("失效准入或关闭队列仍成功")
+				}
+			}
+		})
 	}
 }
 

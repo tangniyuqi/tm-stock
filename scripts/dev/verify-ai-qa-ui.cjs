@@ -13,7 +13,7 @@ const ts = dependency('typescript');
 const compiler = dependency('@vue/compiler-sfc');
 const vue = dependency('vue');
 const { webcrypto } = require('node:crypto');
-const native = tag => ['view', 'text', 'scroll-view', 'x-sheet', 'x-button', 'x-navbar', 'x-input'].includes(tag);
+const native = tag => ['view', 'text', 'scroll-view', 'x-sheet', 'x-button', 'x-navbar', 'x-input', 'x-drawer'].includes(tag);
 const now = 1792281600000;
 const token = 'test.' + Buffer.from(JSON.stringify({ ID: 1, UserType: 'client' })).toString('base64url') + '.test';
 const excerpt = '测试示例题材：此处为自动化测试引文，非实际资料。';
@@ -29,6 +29,7 @@ function environment() {
   const cache = new Map();
   const requests = [], modals = [], opened = [], storage = new Map(), hooks = { show: [], hide: [], unload: [] }, lockQueues = new Map();
   const uni = {
+    getWindowInfo: () => ({ windowWidth: 1280 }), onWindowResize: () => {}, offWindowResize: () => {},
     getStorageSync: key => storage.get(key), setStorageSync: (key, value) => storage.set(key, value), removeStorageSync: key => storage.delete(key),
     request: options => requests.push(options), showModal: options => modals.push(options), showToast: () => {},
     setClipboardData: () => {}, navigateTo: () => {},
@@ -88,7 +89,7 @@ function mount(component, props = {}) {
   app.mount(tree);
   const text = n => (n.tag === '#comment' ? '' : n.text) + n.children.map(text).join('');
   const all = n => [n, ...n.children.flatMap(all)];
-  return { app, tree, state: app._instance.setupState, text: () => text(tree), input(value, placeholder) {
+  return { app, tree, state: app._instance.setupState, nodes: () => all(tree), updateProps: values => Object.assign(app._instance.props, values), text: () => text(tree), input(value, placeholder) {
     const field = all(tree).find(n => n.tag === 'x-input' && !n.props.disabled && (placeholder == null || n.props.placeholder === placeholder));
     assert.ok(field, '找不到可编辑的实际输入绑定');
     field.props['on:update:modelValue'](value);
@@ -103,6 +104,13 @@ const flush = async () => { for (let i = 0; i < 10; i++) { await Promise.resolve
 
 async function validators() {
   const env = environment(), qa = env.load('pages/libs/ai-qa.uts');
+  // 字段名检查不得接受带齐同名属性的数组/函数，或放过未知字段。
+  const pendingShape={key:'question_0123456789abcdef',conversationId:3,version:5,subjectId:7,taskId:0,skill:'material_qa',question};
+  for(const [check,value] of [[v=>qa.isAIQAStatus(v,1),status()],[v=>qa.isAIQAAnswer(v,1),answer()],[qa.isAIQAQuote,quote()],[qa.isAIPendingQA,pendingShape]]) {
+    assert.equal(check(value),true);
+    for(const invalid of [null,undefined,1,'test',Object.assign([],value),Object.assign(()=>{},value),{...value,unexpected:true}]) assert.equal(check(invalid),false);
+    for(const key of Object.keys(value)){const missing={...value};delete missing[key];assert.equal(check(missing),false)}
+  }
   assert.equal(qa.isAIQAStatus(status(), 1), true);
   assert.equal(qa.isAIQAStatus(status(), 0), true);
   const badStatus = [
@@ -171,6 +179,7 @@ async function skillCatalog() {
   assert.equal(m.isAISkillUsable(m.aiSkillByKey('light')), true);
   assert.equal(m.isAISkillUsable(m.aiSkillByKey('deep')), true);
   assert.equal(m.isAISkillUsable(m.aiSkillByKey('report_qa')), false);
+	assert.equal(m.aiSkillByKey('report_qa').state, 'report');
   assert.equal(m.isAISkillKey('deep'), true);
   assert.equal(m.isAISkillKey('other'), false);
   assert.equal(m.aiSkillByKey('other'), null);
@@ -184,27 +193,61 @@ async function skillCatalog() {
   assert.ok(text.includes('轻度资料整理'));
   assert.ok(text.includes('深度资料整理'));
   assert.ok(text.includes('报告追问'));
-  assert.ok(text.includes('暂不可用'));
-  assert.ok(text.includes('30积分/次'));
+  assert.ok(text.includes('报告内使用'));
+  assert.ok(text.includes('需报价确认'));
+  assert.ok(!text.includes('30积分/次'), '技能目录不能把开发报价当作固定售价');
   assert.ok(text.includes('从报告下方发起追问'));
   const buttons = [];
   const walk = n => { if (n.tag === 'x-button') buttons.push(n); n.children.forEach(walk); };
   walk(ui.tree);
   assert.equal(buttons.filter(b => b.props.disabled === true).length, 1, '仅报告追问不可提交');
   assert.ok(buttons.some(b => b.props.disabled !== true && ui.text().includes('当前技能')));
-  ui.click('使用该技能');
+  ui.click('轻度资料整理');
   assert.equal(picked, 'light', '可用技能应发出选择事件');
+  ui.updateProps({active:'deep'}); await flush();
+  assert.ok(ui.text().includes('当前技能：深度资料整理'));
+  assert.ok(ui.text().includes('先核对当前题材报价，确认后冻结'));
+  assert.ok(!ui.text().includes('当前技能：资料问答'));
+  picked=''; ui.click('深度资料整理'); assert.equal(picked,'','当前技能不能重复发选择事件');
+  ui.state.choose(m.aiSkillByKey('report_qa')); assert.equal(picked,'','报告追问不能绕过按钮进入通用提交');
+  ui.updateProps({active:'unknown'}); await flush();
+  assert.ok(ui.text().includes('尚未选择有效技能'));
+  assert.equal(env.requests.length,0); assert.equal(env.storage.size,0);
   ui.app.unmount();
   console.log('通过：技能目录闭集、可用/需报价/暂不可用状态、不可用技能不可提交、可用技能发出选择。');
 }
 
+async function reportHistoryEntry() {
+  const env = environment(); env.storage.set('token', token);
+  const ui = mount(env.load('pages/ai/components/AIReportQuestionPanel.uvue').default, {sessionToken:token,conversationId:3,taskId:9,subjectId:7,archived:true,questionSeq:1});
+  await flush();
+  const request=env.requests.shift();
+  assert.ok(request,'历史追问必须按服务端消息序号查询，不能依赖本机原键');
+  assert.equal(request.method,'GET'); assert.equal(request.url,'/api/v1/ai/conversations/3/questions/1');
+  env.reply(request,status({skill:'report_qa',state:'answered'})); await flush();
+  assert.ok(!ui.text().includes('提交报告追问（不扣积分）'));
+  ui.click('核对当前答案'); const read=env.requests.shift();
+  assert.equal(read.method,'GET'); env.reply(read,answer()); await flush();
+  assert.ok(ui.text().includes(excerpt));
+  assert.equal(env.requests.length,0); assert.equal(env.storage.size,1,'历史读取不能写原键或令牌副本');
+  ui.app.unmount();
+}
+
 async function reportPanel() {
   const env = environment(); env.storage.set('token', token);
-  const ui = mount(env.load('pages/ai/components/AIReportQuestionPanel.uvue').default, { sessionToken: token, conversationId: 3, taskId: 9, subjectId: 7, archived: false });
+  let saved=0;
+  const ui = mount(env.load('pages/ai/components/AIReportQuestionPanel.uvue').default, { sessionToken: token, conversationId: 3, taskId: 9, subjectId: 7, archived: false, onSaved:()=>{saved++} });
   await flush();
   assert.ok(ui.text().includes('报告追问 · 任务 #9'));
   ui.input(question, '输入针对本报告的事实问题，最多1000字');
   await flush();
+  for (const layout of [{allowDock:true,dockInput:true,dockLeft:324},{dockLeft:16},{dockInput:false},{allowDock:false,dockInput:true},{allowDock:true}]) {
+    ui.updateProps(layout); await flush();
+    assert.equal(ui.state.question,question,'报告输入布局切换保留唯一草稿');
+    assert.equal(env.requests.length,0,'布局操作不请求报告、不提交问题');
+  }
+  assert.ok(ui.nodes().some(n=>n.props.class==='report-qa-composer-reserve'));
+  assert.equal(ui.nodes().filter(n=>n.tag==='x-input'&&n.props.type==='textarea').length,1);
   ui.click('提交报告追问（不扣积分）');
   let request = env.requests.shift();
   assert.equal(request.url, '/api/v1/ai/conversations/3'); assert.equal(request.method, 'GET');
@@ -217,6 +260,7 @@ async function reportPanel() {
   assert.equal(stored.skill, 'report_qa'); assert.equal(stored.taskId, 9);
   env.reply(submit, status({ skill: 'report_qa', state: 'answered', updatedAt: now + 1000 })); await flush();
   assert.equal(ui.state.status.skill, 'report_qa');
+  assert.equal(saved,1,'提交已保存后必须通知父会话刷新消息');
   assert.ok(ui.text().includes('原问题已完成'));
   ui.click('核对当前答案');
   request = env.requests.shift();
@@ -249,6 +293,11 @@ async function reportPanel() {
   assert.ok(ui2.text().includes('当前会话已归档'));
   assert.ok(!ui2.text().includes('提交报告追问（不扣积分）'));
   assert.ok(ui2.text().includes('另有一条待核查问题'));
+  assert.ok(ui2.text().includes('待核查的是会话 #3 的资料问答'));
+  assert.ok(!ui2.text().includes('任务 #0'));
+  assert.ok(!ui2.text().includes('原报告问题'));
+  assert.equal(env2.requests.length, 0, '跨技能提示不能代替用户核查或提交');
+  assert.equal(JSON.parse(env2.storage.get('tm_ai_question_v1_1')).skill, 'material_qa', '提示不清除原键');
   ui2.app.unmount();
 
   // 401：清空私有状态并通知外层，不继续提交。
@@ -396,6 +445,86 @@ async function panelSubmit() {
   console.log('通过：问答面板选题→详情核版本→持久原键→提交→状态回执；待核查期间无重复提交。');
 }
 
+async function controlledComposer() {
+  const env = environment(); let changed = '', submitted = 0;
+  const ui = mount(env.load('pages/ai/components/AIQuestionComposer.uvue').default, {
+    question: '', scopeLabel: '测试所选题材', placeholder: '测试受控输入', submitLabel: '测试提交', busy: false,
+    onChange: value => { changed = value; }, onSubmit: () => { submitted++; },
+  });
+  const input = () => ui.nodes().find(n => n.tag === 'x-input');
+  const button = () => ui.nodes().find(n => n.tag === 'x-button');
+  ui.input(question); await flush();
+  assert.equal(changed, question); assert.equal(input().props['model-value'], '', '子组件不得自建草稿');
+  button().props.onClick(); assert.equal(submitted, 0, '非法输入即使直接触发事件也不得提交');
+  ui.updateProps({question, docked: true, dockLeft: 324}); await flush();
+  assert.equal(input().props.fixed, true);
+  assert.equal(input().props.height, '64', '固定输入保留两行编辑空间，避免占满低高度正文');
+  assert.ok(ui.nodes().some(n => n.props.style === 'left:324px;bottom:0px;'));
+  ui.updateProps({dockBottom:60}); await flush();
+  assert.ok(ui.nodes().some(n => n.props.style === 'left:324px;bottom:60px;'));
+  assert.equal(input().props['model-value'],question);
+  assert.ok(!ui.nodes().some(n => n.props.class === 'composer-reserve'), '留白由面板末尾统一放置，不能位于错误提示之前');
+  ui.click('测试提交'); assert.equal(submitted, 1);
+  ui.updateProps({busy:true}); await flush();
+  input().props['on:update:modelValue']('迟到输入'); button().props.onClick();
+  assert.equal(changed, question); assert.equal(submitted, 1); assert.equal(button().props.disabled, true);
+  ui.updateProps({busy:false, docked:false}); await flush();
+  assert.equal(input().props['model-value'], question); assert.equal(input().props.fixed, false);
+  assert.equal(input().props.height, '112', '恢复内联只改变尺寸，不重建草稿');
+  assert.ok(!ui.nodes().some(n => n.props.class === 'composer-reserve'));
+  assert.equal(env.requests.length,0); assert.equal(env.storage.size,0);
+  ui.app.unmount();
+
+  env.storage.set('token', token);
+  const panel = mount(env.load('pages/ai/components/AIQuestionPanel.uvue').default, {
+    sessionToken:token, conversationId:3, archived:false, questionSeq:0, dockInput:true, dockLeft:324,
+  });
+  const textarea = () => panel.nodes().find(n => n.tag === 'x-input' && n.props.type === 'textarea');
+  await flush(); assert.equal(textarea(), undefined, '未选题材不得出现通用聊天输入');
+  panel.input('示例题材','查找本次问答的题材'); panel.click('查询问答题材');
+  env.reply(env.requests.shift(),[{id:7,name:'测试示例题材',description:''}]); await flush();
+  panel.click('选择问答题材 #7'); await flush();
+  // 同一轮连续输入事件必须逐次同步到唯一父草稿，不能节流成首字。
+  const deliverInput = textarea().props['on:update:modelValue'];
+  for (const value of ['资', '资料有哪些', question]) {
+    deliverInput(value);
+    assert.equal(panel.state.question,value,'每次输入事件须同步更新父草稿');
+  }
+  assert.equal(env.requests.length,0,'输入事件本身不能自动提交');
+  panel.input(question,'输入所选资料的事实问题，最多1000字'); await flush();
+  for (const props of [{dockLeft:16,dockBottom:60},{dockInput:false},{dockInput:true,dockLeft:324}]) {
+    panel.updateProps(props); await flush();
+    assert.equal(panel.state.question,question); assert.equal(textarea().props['model-value'],question);
+    assert.equal(env.requests.length,0); assert.equal(env.storage.size,1,'布局变化不得持久化新原键');
+  }
+  panel.click('提交本次资料问题（不扣积分）'); await flush();
+  assert.equal(textarea().props.disabled,true);
+  env.reply(env.requests.shift(),null,503,50301); await flush();
+  assert.equal(env.requests.length,0,'详情核验失败不得发送问题POST');
+  assert.equal(panel.state.question,question); assert.equal(textarea().props.disabled,false);
+  const nodes=panel.nodes(), reserve=nodes.find(n=>n.props.class==='qa-composer-reserve');
+  const error=nodes.find(n=>n.tag==='text' && n.text.includes('当前会话不可提问'));
+  assert.ok(error); assert.ok(reserve,'固定输入必须在问答面板末尾留白');
+  assert.ok(nodes.indexOf(reserve)>nodes.indexOf(error),'失败提示必须位于留白之前，以便滚动出固定输入遮挡区');
+  panel.click('提交本次资料问题（不扣积分）'); await flush();
+  panel.updateProps({dockLeft:16}); await flush();
+  assert.equal(panel.state.question,question);
+  env.reply(env.requests.shift(),conversation()); await flush();
+  const request=env.requests.shift(), key=request.header['Idempotency-Key'];
+  assert.equal(request.method,'POST'); assert.equal(textarea(),undefined,'持久原键后固定输入必须消失');
+  request.fail({errMsg:'测试未知结果'}); await flush();
+  panel.updateProps({dockInput:false}); await flush(); panel.updateProps({dockInput:true}); await flush();
+  assert.equal(textarea(),undefined); assert.equal(env.requests.length,0);
+  assert.equal(panel.state.pending.key,key,'未知结果切布局必须保留唯一原键');
+  panel.click('核查本机原问题');
+  const receipt=env.requests.shift(); assert.equal(receipt.method,'GET'); assert.equal(receipt.header['Idempotency-Key'],key);
+  env.reply(receipt,status()); await flush();
+  panel.updateProps({sessionToken:'',conversationId:0}); await flush();
+  assert.equal(textarea(),undefined); assert.equal(panel.state.question,''); assert.equal(panel.state.subject,null);
+  panel.app.unmount();
+  console.log('通过：受控输入无副本、忙态与非法输入禁发、固定/内联切换保留草稿、原键持久后收起输入、未知结果只核原键、退出清除范围。');
+}
+
 async function panelAnswer() {
   const env = environment(); env.storage.set('token', token);
   const key = 'question_0123456789abcdef';
@@ -499,13 +628,18 @@ async function isolation() {
   console.log('通过：401 清状态、切换登录丢弃迟到回包、归档只读、存储故障失败关闭、卸载后不写页面。');
 }
 
+let completed=false;
+process.once('beforeExit',()=>{if(!completed){console.error('问答源码验收尚未全部完成');process.exitCode=1;}});
 (async () => {
   await validators();
   await skillCatalog();
+  await reportHistoryEntry();
   await reportPanel();
   await api();
   await panelSubmit();
+  await controlledComposer();
   await panelAnswer();
   await isolation();
+  completed=true;
   console.log('本脚本不覆盖：真实 UTS/uni-app x 整体构建、真实模型质量、浏览器布局与生产开关；须另做实际 H5 与浏览器验收。');
-})().catch(error => { console.error(error); process.exit(1); });
+})().catch(error => { completed=true; console.error(error); process.exitCode=1; });

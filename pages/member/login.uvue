@@ -99,6 +99,7 @@ const loading = ref(false)
 
 // 非响应式计时器 id
 let intervalId : number = -1
+let loginPageActive = true
 
 // 手机号合法性校验（以 1 开头的 11 位数字）
 const isValidPhone = (num : string) : boolean => {
@@ -161,9 +162,11 @@ const getSmsCode = async () => {
 
 // 登录后加载用户资料并保存本地，然后返回登录前页面。
 // 注意：资料请求失败不能阻塞跳转，否则会出现“登录成功但不跳转”。
-const saveProfileAndGoHome = async () => {
+const saveProfileAndGoHome = async (expectedToken : string) => {
+	const current = () : boolean => loginPageActive && expectedToken == uni.getStorageSync('token')
 	try {
 		let profile = await memberApi.getProfile()
+		if (!current()) return
 		if (profile != null) {
 			uni.setStorageSync('nickname', profile.nickname)
 			uni.setStorageSync('mobile', profile.mobile)
@@ -178,6 +181,7 @@ const saveProfileAndGoHome = async () => {
 	}
 
 	// 返回登录前的页面；若无可返回页面则跳到个人中心
+	if (!current()) return
 	const pages = getCurrentPages()
 	if (pages.length > 1) {
 		uni.navigateBack()
@@ -187,7 +191,7 @@ const saveProfileAndGoHome = async () => {
 }
 
 // 登录提交
-const doLogin = async () => {
+const doLogin = async () : Promise<void> => {
 	if (loading.value) {
 		return
 	}
@@ -216,18 +220,22 @@ const doLogin = async () => {
 	}
 
 	loading.value = true
+	const previousToken = uni.getStorageSync('token')
 	try {
 		let resp = await authApi.login(
 			mobile,
 			isCodeLogin.value ? '' : password.value,
 			isCodeLogin.value ? smsCode.value.trim() : ''
 		)
+		if (!loginPageActive || previousToken != uni.getStorageSync('token')) return
 		if (resp != null) {
 			uni.setStorageSync('token', resp.token)
 			uni.setStorageSync('loginMobile', mobile)
 			uni.showToast({ title: '登录成功', icon: 'success' })
-			await saveProfileAndGoHome()
+			await saveProfileAndGoHome(resp.token)
 		}
+	} catch (_) {
+		// 请求层已提示登录失败；消费拒绝，避免按钮事件产生未处理异常，不重复弹错。
 	} finally {
 		loading.value = false
 	}
@@ -244,6 +252,7 @@ const goForget = () => {
 }
 
 onBeforeUnmount(() => {
+	loginPageActive = false
 	stopCountdown()
 })
 </script>

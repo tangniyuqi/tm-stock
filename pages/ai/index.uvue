@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { AiApi } from '../libs/ai-api.uts'
 import { AIReport, AITaskSummary, AITaskProgress, isSafeAIId, aiTaskStatusLabel, aiTaskOutcomeMessage, aiReadErrorMessage } from '../libs/ai.uts'
 import { formatMillis } from '../libs/theme.uts'
@@ -15,6 +15,11 @@ import AIReportQuestionPanel from './components/AIReportQuestionPanel.uvue'
 
 type AIReadState = 'guest' | 'loading' | 'ready' | 'empty' | 'error'
 const state = ref<AIReadState>('guest')
+const guidanceExpanded = ref<boolean>(false)
+const windowWidth = ref<number>(uni.getWindowInfo().windowWidth)
+const windowHeight = ref<number>(uni.getWindowInfo().windowHeight)
+// 低高度窗口使用同一内联输入，避免固定输入占满正文阅读区。
+const allowDock = computed<boolean>(() : boolean => windowHeight.value >= 520)
 const history = ref<AITaskSummary[]>([] as AITaskSummary[])
 const hasMore = ref<boolean>(false)
 const beforeId = ref<number>(0)
@@ -31,8 +36,12 @@ const feedMode = ref<string>('')
 const feedEvents = ref<AIPublicTaskEvent[]>([] as AIPublicTaskEvent[])
 const conversationId = ref<number>(0)
 const conversationArchived = ref<boolean>(false)
+const reportQuestionSeq = ref<number>(0)
+const reportInputDocked = ref<boolean>(false)
+watch(() : AIReport | null => report.value, (value : AIReport | null) => { if (value == null) reportInputDocked.value = false })
+const conversationRefresh = ref<number>(0)
 const activeTab = ref<string>('conversation')
-const showTab = (tab : string) : void => { if (state.value == 'guest') return; activeTab.value = tab }
+const showTab = (tab : string) : void => { if (state.value == 'guest') return; reportInputDocked.value = false; activeTab.value = tab }
 let visible : boolean = false
 let epoch : number = 0
 let detailEpoch : number = 0
@@ -45,6 +54,8 @@ const stopPoll = () : void => {
 }
 const stopSessionWatch = () : void => { if (sessionTimer != 0) { clearInterval(sessionTimer); sessionTimer = 0 } }
 const clearPrivateState = () : void => {
+	reportInputDocked.value = false
+	guidanceExpanded.value = false
 	epoch++; detailEpoch++; stopPoll()
 	history.value = [] as AITaskSummary[]; progress.value = null; report.value = null
 	hasMore.value = false; beforeId.value = 0; selectedId.value = 0; conversationId.value = 0; conversationArchived.value = false
@@ -53,6 +64,7 @@ const clearPrivateState = () : void => {
 	message.value = ''; detailMessage.value = ''
 	feedMode.value = ''; feedEvents.value = [] as AIPublicTaskEvent[]
 	activeTab.value = 'conversation'
+	reportQuestionSeq.value = 0; conversationRefresh.value = 0
 }
 const goLogin = () : void => { uni.navigateTo({ url: '/pages/member/login' }) }
 // 历史摘要不授予报告许可；仅同一任务的当前详情可更新它的可见状态文案。
@@ -81,6 +93,8 @@ const loadProgress = (id : number) : void => {
 	if (!visible || !isSafeAIId(id) || !isCurrentRequest(epoch, visibleToken)) return
 	if (cancelInteracting.value && id == selectedId.value) return
 	cancelInteracting.value = false
+	reportQuestionSeq.value = 0
+	reportInputDocked.value = false
 	stopPoll(); const generation : number = epoch; const token : string = currentAIMemberToken(); const detailGeneration : number = ++detailEpoch
 	selectedId.value = id; progress.value = null; report.value = null; detailLoading.value = true; reportLoading.value = false; detailMessage.value = ''
 	feedEvents.value = [] as AIPublicTaskEvent[]; feedMode.value = ''
@@ -98,7 +112,7 @@ const loadProgress = (id : number) : void => {
 const loadReport = () : void => {
 	if (!isCurrentRequest(epoch, visibleToken) || progress.value == null || !progress.value!.reportAvailable || reportLoading.value || selectedId.value != progress.value!.id) return
 	const id : number = selectedId.value; const generation : number = epoch; const detailGeneration : number = detailEpoch; const token : string = currentAIMemberToken()
-	report.value = null; reportLoading.value = true; detailMessage.value = ''
+	reportInputDocked.value = false; report.value = null; reportLoading.value = true; detailMessage.value = ''
 	AiApi.report(id).then((result) => {
 		if (!isCurrentRequest(generation, token) || detailGeneration != detailEpoch) return
 		if (!acceptMemberRead(result.code)) return
@@ -144,7 +158,13 @@ const retryDetail = () : void => { if (isSafeAIId(selectedId.value)) loadProgres
 const creationUnauthorized = () : void => { clearPrivateState(); state.value = 'guest' }
 const conversationContext = (id : number) : void => { conversationId.value = id }
 const conversationArchive = (value : boolean) : void => { conversationArchived.value = value }
-const changeConversation = () : void => { detailEpoch++; stopPoll(); selectedId.value = 0; progress.value = null; report.value = null; feedEvents.value = [] as AIPublicTaskEvent[]; feedMode.value = ''; detailMessage.value = ''; cancelInteracting.value = false; detailLoading.value = false; reportLoading.value = false }
+const changeConversation = () : void => { detailEpoch++; stopPoll(); selectedId.value = 0; progress.value = null; report.value = null; feedEvents.value = [] as AIPublicTaskEvent[]; feedMode.value = ''; detailMessage.value = ''; cancelInteracting.value = false; detailLoading.value = false; reportLoading.value = false; reportQuestionSeq.value = 0 }
+const openReportQuestion = (id : number, seq : number) : void => {
+	if (!isSafeAIId(id) || !isSafeAIId(seq) || conversationId.value == 0 || !isCurrentRequest(epoch,visibleToken)) return
+	loadProgress(id); reportQuestionSeq.value = seq
+	detailMessage.value = '已选择历史报告问题 #'+seq.toString()+'，请核对并查看关联报告后读取原答案。'
+}
+const refreshConversation = () : void => { if (visible && conversationId.value > 0) conversationRefresh.value++ }
 
 // 初次详情确认身份/对象；流只表达公开事件，报告仍须独立GET重新核验。
 const scheduleProgressPoll = () : void => {
@@ -176,6 +196,7 @@ const pauseCancellation = (paused : boolean) : void => {
 }
 // 相同任务运行态的详情更新不重新开流；切任务、终态、取消交互会关闭原订阅。
 watch(() : string => progress.value == null ? '' : progress.value!.id.toString() + ':' + (progress.value!.status >= 3 ? 'terminal' : 'running'), () => { scheduleProgressPoll() })
+onResize((event : OnResizeOptions) => { windowWidth.value = event.size.windowWidth; windowHeight.value = event.size.windowHeight })
 onShow(() => {
 	visible = true; stopSessionWatch(); loadHistory(false)
 	// 存储不是响应式：可见期间有限轮询清除跨页签登出后的已显示内容，不记录令牌。
@@ -192,25 +213,42 @@ onUnload(() => { visible = false; stopSessionWatch(); clearPrivateState() })
 <template>
 	<view class="ai-shell">
 		<x-navbar title="AI 资料助手"></x-navbar>
-		<scroll-view scroll-y="true" class="ai-scroll">
+		<view class="ai-workspace">
+			<!-- 登录返回时保留滚动实例，避免页面激活恢复已销毁的滚动节点。 -->
+			<scroll-view v-show="state == 'guest'" class="ai-guest-scroll" scroll-y>
 			<x-sheet :margin="16" :padding="16" :round="12" dark-color="#ffffff">
+				<view>
 				<text class="ai-heading text-size-lg text-weight-b">从会话开始</text>
 				<text class="ai-copy mt-8">默认进入会话：新建或打开本人会话，再选择题材做资料问答，或核对报价后发起资料整理。问答不扣积分，生成报告须另行报价确认；历史任务在“全部任务”页签。</text>
 				<text class="ai-copy mt-4">报告仅限公开事实及可追溯出处，不提供投资建议。</text>
+				</view>
+				<text class="ai-copy mt-4">本平台为公开信息聚合与历史数据统计，不构成任何投资建议。</text>
 			</x-sheet>
-			<view v-if="state != 'guest'" class="px-16 flex-row mt-8">
-				<view class="flex-1 mr-8"><x-button height="44" :block="true" :skin="activeTab == 'conversation' ? 'primary' : 'outline'" @click="showTab('conversation')">会话</x-button></view>
-				<view class="flex-1"><x-button height="44" :block="true" :skin="activeTab == 'tasks' ? 'primary' : 'outline'" @click="showTab('tasks')">全部任务</x-button></view>
-			</view>
-			<view v-if="state != 'guest'" :style="activeTab == 'conversation' ? '' : 'display: none;'">
-				<AIConversationPanel :session-token="visibleToken" @task="loadProgress" @selected="changeConversation" @context="conversationContext" @archived="conversationArchive" @unauthorized="creationUnauthorized"></AIConversationPanel>
-			</view>
-			<x-sheet v-if="state == 'guest'" :margin="16" :padding="16" :round="12" dark-color="#ffffff">
+			<x-sheet :margin="16" :padding="16" :round="12" dark-color="#ffffff">
 				<text class="ai-heading">登录后查看本人任务</text>
 				<x-button class="mt-16" height="44" :block="true" @click="goLogin">前往登录</x-button>
 				<x-button class="mt-8" height="44" :block="true" skin="outline" @click="retryHistory">重新核对登录状态</x-button>
 			</x-sheet>
-			<view v-if="state != 'guest'" :style="activeTab == 'tasks' ? '' : 'display: none;'">
+			</scroll-view>
+			<x-sheet v-if="state != 'guest'" :margin="8" :padding="8" :round="12" dark-color="#ffffff">
+				<text class="ai-copy mt-4">本平台为公开信息聚合与历史数据统计，不构成任何投资建议。</text>
+			</x-sheet>
+			<view v-if="state != 'guest'" class="px-16 flex-row mt-8">
+				<view class="flex-1 mr-8"><x-button height="44" :block="true" :skin="activeTab == 'conversation' ? 'primary' : 'outline'" @click="showTab('conversation')">会话</x-button></view>
+				<view class="flex-1 mr-8"><x-button height="44" :block="true" :skin="activeTab == 'tasks' ? 'primary' : 'outline'" @click="showTab('tasks')">全部任务</x-button></view>
+				<view class="flex-1"><x-button height="44" :block="true" skin="text" @click="guidanceExpanded = true">使用说明</x-button></view>
+			</view>
+			<x-drawer v-if="state != 'guest'" :show="guidanceExpanded" @update:show="guidanceExpanded = $event" title="使用说明与计费边界" position="right" size="88%" :show-close="true" content-margin="0">
+				<view class="pa-16">
+					<text class="ai-heading text-size-lg text-weight-b">从会话开始</text>
+					<text class="ai-copy mt-8">默认进入会话：新建或打开本人会话，再选择题材做资料问答，或核对报价后发起资料整理。问答不扣积分，生成报告须另行报价确认；历史任务在“全部任务”页签。</text>
+					<text class="ai-copy mt-4">报告仅限公开事实及可追溯出处，不提供投资建议。</text>
+					<text class="ai-copy mt-4">本平台为公开信息聚合与历史数据统计，不构成任何投资建议。</text>
+					<x-button class="mt-16" height="44" :block="true" skin="outline" @click="guidanceExpanded = false">收起说明</x-button>
+				</view>
+			</x-drawer>
+			<AIConversationPanel v-if="state != 'guest'" :allow-dock="allowDock" :report-input-active="allowDock && reportInputDocked && report != null" :window-width="windowWidth" :active-tab="activeTab" :session-token="visibleToken" :refresh-key="conversationRefresh" @skill-selected="reportInputDocked = false" @task="loadProgress" @report-question="openReportQuestion" @selected="changeConversation" @context="conversationContext" @archived="conversationArchive" @unauthorized="creationUnauthorized">
+			<template #tasks>
 				<view class="px-16">
 					<text v-if="state == 'loading'" class="ai-copy">正在读取任务记录…</text>
 					<text v-if="state == 'empty'" class="ai-copy">当前账号暂无任务记录。</text>
@@ -225,7 +263,8 @@ onUnload(() => { visible = false; stopSessionWatch(); clearPrivateState() })
 					<x-button class="mt-12" height="44" :block="true" skin="outline" @click="loadProgress(item.id)">查看进度与报告</x-button>
 				</view>
 				<view v-if="hasMore" class="pa-16"><x-button height="44" :loading="loadingMore" :block="true" @click="loadMore">加载更多</x-button></view>
-			</view>
+			</template>
+			<template #result>
 			<x-sheet v-if="selectedId > 0" :margin="16" :padding="16" :round="12" dark-color="#ffffff">
 				<text class="ai-heading text-weight-b">任务 #{{ selectedId }}</text>
 				<text v-if="detailLoading" class="ai-copy mt-8">正在核对当前进度…</text>
@@ -248,16 +287,18 @@ onUnload(() => { visible = false; stopSessionWatch(); clearPrivateState() })
 			</x-sheet>
 			<AIReportFeedbackPanel v-if="progress != null && progress!.status == 3" :task-id="progress!.id" :session-token="visibleToken" @unauthorized="creationUnauthorized"></AIReportFeedbackPanel>
 			<AIReportPanel v-if="report != null" :report="report!" :session-token="visibleToken"></AIReportPanel>
-			<AIReportQuestionPanel v-if="report != null && conversationId > 0" :session-token="visibleToken" :conversation-id="conversationId" :task-id="report!.taskId" :subject-id="report!.subjectId" :archived="conversationArchived"></AIReportQuestionPanel>
+			<AIReportQuestionPanel v-if="report != null && conversationId > 0" :allow-dock="allowDock && activeTab == 'conversation'" :dock-input="reportInputDocked" :dock-left="windowWidth >= 960 ? 324 : 16" @dock="reportInputDocked = $event" :session-token="visibleToken" :conversation-id="conversationId" :task-id="report!.taskId" :subject-id="report!.subjectId" :archived="conversationArchived" :question-seq="reportQuestionSeq" @saved="refreshConversation" @unauthorized="creationUnauthorized"></AIReportQuestionPanel>
 			<view v-if="report != null && conversationId == 0" class="px-16"><text class="ai-copy">报告追问需先进入会话；请在会话内打开关联报告后使用。</text></view>
-			<view class="pa-16"><text class="ai-copy">本平台为公开信息聚合与历史数据统计，不构成任何投资建议。</text></view>
-		</scroll-view>
+			</template>
+			</AIConversationPanel>
+		</view>
 	</view>
 </template>
 
 <style scoped>
-.ai-shell { flex: 1; background-color: #f5f6f8; }
-.ai-scroll { flex: 1; }
+.ai-shell { flex: 1; min-height: 0; background-color: #f5f6f8; }
+.ai-workspace { flex: 1; min-height: 0; overflow: hidden; }
+.ai-guest-scroll { flex: 1; min-height: 0; height: 100%; }
 .ai-heading { color: #30343c; line-height: 24px; }
 .ai-copy { color: #586174; font-size: 14px; line-height: 22px; }
 .ai-task { background-color: #ffffff; }

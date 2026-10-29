@@ -22,6 +22,7 @@ type AIL1ReportQueue struct {
 	store   task.AdmissionStore
 	scan    task.MemberQueueScanner
 	enabled bool
+	deep    bool
 	mu      sync.Mutex
 }
 
@@ -35,8 +36,23 @@ func NewAIL1ReportQueue(worker *AIL1ReportWorker, scan task.MemberQueueScanner, 
 func queueTimeValid(at time.Time) bool {
 	return at.UnixMilli() > 0 && at.Nanosecond()%int(time.Millisecond) == 0
 }
-func memberQueueDue(v task.MemberQueueCandidate, at time.Time) bool {
-	if !v.HasAdmission || v.AnalysisType != 1 || v.SubjectType != task.Theme || v.Status != task.Queued && v.Status != task.Running {
+
+// NewAIL2ReportQueue 显式选择深度任务，沿用原准入复核、租约和执行核。
+func NewAIL2ReportQueue(worker *AIL1ReportWorker, scan task.MemberQueueScanner, enabled bool) (*AIL1ReportQueue, error) {
+	q, err := NewAIL1ReportQueue(worker, scan, enabled)
+	if err != nil {
+		return nil, err
+	}
+	q.deep = true
+	return q, nil
+}
+
+func (q *AIL1ReportQueue) accepts(analysisType int) bool {
+	return !q.deep && analysisType == task.LightAnalysisType || q.deep && analysisType == task.DeepAnalysisType
+}
+
+func (q *AIL1ReportQueue) memberQueueDue(v task.MemberQueueCandidate, at time.Time) bool {
+	if !v.HasAdmission || !q.accepts(v.AnalysisType) || v.SubjectType != task.Theme || v.Status != task.Queued && v.Status != task.Running {
 		return false
 	}
 	return !v.Deadline.After(at) || v.Status == task.Queued && !v.NotBefore.After(at) || v.Status == task.Running && v.LeaseUntil != nil && !v.LeaseUntil.After(at)
@@ -69,7 +85,7 @@ func (q *AIL1ReportQueue) currentDue(ctx context.Context, hint task.MemberQueueC
 		if err != nil {
 			return err
 		}
-		if v.ID != hint.ID || v.UserID != hint.UserID || v.AnalysisType != 1 || v.SubjectType != task.Theme {
+		if v.ID != hint.ID || v.UserID != hint.UserID || v.AnalysisType != hint.AnalysisType || !q.accepts(v.AnalysisType) || v.SubjectType != task.Theme {
 			return points.ErrInvariant
 		}
 		record, found, err := tx.ReadAdmission(ctx, v)
@@ -89,7 +105,7 @@ func (q *AIL1ReportQueue) currentDue(ctx context.Context, hint task.MemberQueueC
 		if !queueTimeValid(now) {
 			return points.ErrInvariant
 		}
-		due = memberQueueDue(task.MemberQueueCandidate{AnalysisType: v.AnalysisType, SubjectType: v.SubjectType, Status: v.Status, NotBefore: v.NotBefore, Deadline: v.Deadline, LeaseUntil: v.LeaseUntil, HasAdmission: true}, now)
+		due = q.memberQueueDue(task.MemberQueueCandidate{AnalysisType: v.AnalysisType, SubjectType: v.SubjectType, Status: v.Status, NotBefore: v.NotBefore, Deadline: v.Deadline, LeaseUntil: v.LeaseUntil, HasAdmission: true}, now)
 		return nil
 	})
 	if err != nil {
@@ -183,7 +199,7 @@ func (q *AIL1ReportQueue) RunBatch(parent context.Context, opts task.MemberQueue
 		if err := ctx.Err(); err != nil {
 			return out, err
 		}
-		if !memberQueueDue(v, window.AsOf) {
+		if !q.memberQueueDue(v, window.AsOf) {
 			out.Skipped++
 		} else {
 			due, err := q.currentDue(ctx, v)

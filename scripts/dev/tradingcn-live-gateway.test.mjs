@@ -1,7 +1,7 @@
 // 只测纯守卫，不启动子进程、不使用真实Key、不访问模型服务。
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { validateEvaluationRequest, recordReceipt } from './tradingcn-live-gateway.mjs'
+import { validateEvaluationRequest, recordReceipt, evaluationRoute, evaluationBody } from './tradingcn-live-gateway.mjs'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -10,6 +10,30 @@ const valid = () => ({ execute: true, method: 'POST', url: '/v1/chat/completions
   headers: { authorization: 'Bearer test-session', 'content-type': 'application/json' },
   session: 'test-session', requests: 0,
   data: { model: 'deepseek-flash', messages: [{ role: 'user', content: '仅测试' }], max_tokens: 8, stream: false } })
+
+test('千问测试路由固定目的地址与模型，拒绝任意目的地且不改输入', () => {
+  assert.throws(() => evaluationRoute('https://example.com'))
+  const route = evaluationRoute('qwen-token-plan')
+  assert.equal(route.hostname, 'token-plan.maas.qianwenaiapi.com')
+  const data = validateEvaluationRequest(valid()), original = structuredClone(data)
+  const body = evaluationBody(data, route)
+  assert.equal(body.model, 'qwen3.7-plus')
+  assert.equal(body.enable_thinking, false)
+  assert.equal(Object.hasOwn(body, 'thinking'), false)
+  assert.deepEqual(data, original)
+  assert.throws(() => evaluationBody(data, { ...route, hostname: 'example.com' }))
+  assert.equal(evaluationBody(data, evaluationRoute()).model, 'deepseek-flash')
+})
+
+test('报告模型使用实际身份，不能沿用Agent协议别名或接受任意模型', () => {
+  const input=valid()
+  input.model='qwen3.7-plus'
+  assert.equal(validateEvaluationRequest(input),null)
+  input.data.model='qwen3.7-plus'
+  assert.equal(validateEvaluationRequest(input).model,'qwen3.7-plus')
+  input.model='other'; input.data.model='other'
+  assert.equal(validateEvaluationRequest(input),null)
+})
 
 test('正常请求保留原模型且不修改输入', () => {
   const input = valid()

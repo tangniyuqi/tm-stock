@@ -78,6 +78,8 @@ func NewSelectionModelPlan(c CheckConfig, s *SelectionStage, v task.Task, hint *
 		req.System = companySelectionSystem
 		req.Schema = json.RawMessage(strings.ReplaceAll(selectionSchema, `,"companies"`, ``))
 	}
+	// 章节可以重复，但每条编号仍须连续；不在响应端修补非连续或重复编号。
+	req.System += "\n同一章节允许返回多条selection。每条sentence_ids必须是单个编号或严格递增的连续区间；例如同一节选择1和5，必须拆为两条section相同、sentence_ids分别为[1]和[5]的selection，不能写成[1,5]，也不能补入未选择的2至4。"
 	bound, err := json.Marshal([]any{SelectionModelVersion, c, s.InputDigest(), hint.Plan().InputDigest(v), hint.Record().ResultDigest, req})
 	if err != nil {
 		return nil, points.ErrInvalid

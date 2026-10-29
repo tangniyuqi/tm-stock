@@ -27,6 +27,16 @@ func (qaStartupPolicy) ForPolicy(context.Context, string) (qa.Config, error) {
 
 type qaStartupModel struct{}
 
+type qaStartupReport struct{}
+
+func (qaStartupReport) ForQA(context.Context, int64, int64) (qa.ReportEvidence, error) {
+	return qa.ReportEvidence{}, qa.ErrUnavailable
+}
+
+func (qaStartupReport) ForReport(context.Context, qa.ReportEvidence) (qa.Config, error) {
+	return qa.Config{}, qa.ErrUnavailable
+}
+
 func (qaStartupModel) ForPlan(context.Context, qa.Proof) ([3]*provider.OpenAICompat, error) {
 	return [3]*provider.OpenAICompat{}, qa.ErrUnavailable
 }
@@ -40,13 +50,33 @@ func checkQAStartup(t *testing.T, ctx context.Context, db *sql.DB, read config.A
 		t.Fatal("问答隔离迁移失败", err)
 	}
 	originalPolicies, originalModels := aiQAPoliciesFactory, aiQAProvidersFactory
-	defer func() { aiQAPoliciesFactory, aiQAProvidersFactory = originalPolicies, originalModels }()
-	for _, mode := range []string{"off", "read", "submit_without_factory", "policy_error", "missing_trigger", "cancelled", "submit_factories", "submit_model_error", "submit_nil_policy", "submit_nil_model"} {
+	originalReport := aiReportQAFactory
+	defer func() {
+		aiQAPoliciesFactory, aiQAProvidersFactory, aiReportQAFactory = originalPolicies, originalModels, originalReport
+	}()
+	for _, mode := range []string{"off", "read", "report_read", "report_error", "report_nil_evidence", "report_nil_config", "submit_without_factory", "policy_error", "missing_trigger", "cancelled", "submit_factories", "submit_model_error", "submit_nil_policy", "submit_nil_model"} {
 		t.Run("qa_"+mode, func(t *testing.T) {
 			aiQAPoliciesFactory, aiQAProvidersFactory = nil, nil
+			aiReportQAFactory = nil
 			factoryCalls := 0
+			reportCalls := 0
+			if strings.HasPrefix(mode, "report_") {
+				aiReportQAFactory = func(context.Context, *sql.DB) (service.AIReportQAEvidenceSource, service.AIReportQAConfigProvider, error) {
+					reportCalls++
+					switch mode {
+					case "report_error":
+						return nil, nil, qa.ErrUnavailable
+					case "report_nil_evidence":
+						return nil, qaStartupReport{}, nil
+					case "report_nil_config":
+						return qaStartupReport{}, nil, nil
+					default:
+						return qaStartupReport{}, qaStartupReport{}, nil
+					}
+				}
+			}
 			// 只读启动不能构造任何模型；此工厂即使被调用也始终拒绝。
-			if mode == "read" {
+			if mode == "read" || strings.HasPrefix(mode, "report_") {
 				aiQAProvidersFactory = func(context.Context, *sql.DB) (service.AIQAProviders, error) {
 					factoryCalls++
 					return nil, fmt.Errorf("仅测试拒绝装配")
@@ -93,15 +123,15 @@ func checkQAStartup(t *testing.T, ctx context.Context, db *sql.DB, read config.A
 			c := config.AIQAConfig{Read: mode != "off", Submit: strings.HasPrefix(mode, "submit_")}
 			mux := http.NewServeMux()
 			err := registerAIQA(callCtx, mux, db, read, true, c)
-			expectedError := mode != "off" && mode != "read" && mode != "submit_factories"
-			if (err != nil) != expectedError || factoryCalls != 0 {
+			expectedError := mode != "off" && mode != "read" && mode != "report_read" && mode != "submit_factories"
+			if (err != nil) != expectedError || factoryCalls != 0 || strings.HasPrefix(mode, "report_") && reportCalls != 1 {
 				t.Fatal("问答启动保护或只读工厂隔离失败", err, factoryCalls)
 			}
 			for _, methodPath := range [][2]string{{"GET", "/api/v1/ai/conversations/1/question-receipt"}, {"GET", "/api/v1/ai/conversations/1/questions/1/answer"}, {"POST", "/api/v1/ai/conversations/1/questions"}} {
 				w := httptest.NewRecorder()
 				mux.ServeHTTP(w, httptest.NewRequest(methodPath[0], methodPath[1], nil))
 				want := 404
-				if mode == "submit_factories" || mode == "read" && methodPath[0] == "GET" {
+				if mode == "submit_factories" || (mode == "read" || mode == "report_read") && methodPath[0] == "GET" {
 					want = 401
 				}
 				if w.Code != want {

@@ -74,7 +74,7 @@ func TestIntegrationAIReportReadStartup(t *testing.T) {
 	}
 	defer db.Close()
 	var admissionDDL string
-	for _, migration := range []string{"20261011_create_points_ledger.sql", "20261011_create_tm_ai_tasks.sql", "20261015_create_tm_ai_task_budgets.sql", "20261015_create_tm_ai_task_steps.sql", "20261016_create_tm_ai_report_commits.sql", "20261018_create_tm_ai_task_admissions.sql", "20261020_create_tm_ai_report_feedbacks.sql"} {
+	for _, migration := range []string{"20261011_create_points_ledger.sql", "20261011_create_tm_ai_tasks.sql", "20261015_create_tm_ai_task_budgets.sql", "20261015_create_tm_ai_task_steps.sql", "20261016_create_tm_ai_report_commits.sql", "20261018_create_tm_ai_task_admissions.sql", "20261020_create_tm_ai_report_feedbacks.sql", "20261023_allow_deep_ai_report_commits.sql"} {
 		b, err := os.ReadFile(filepath.Join("..", "..", "migrations", migration))
 		if err != nil {
 			t.Fatal(err)
@@ -115,6 +115,7 @@ func TestIntegrationAIReportReadStartup(t *testing.T) {
 	}
 	key := strings.Repeat("k", 40)
 	read := config.AITaskReadConfig{Enabled: true, Auth: memberauth.Config{SigningKey: key, Issuer: "GVA", Audience: "GVA"}}
+	checkPointsBalanceStartup(t, ctx, db, read)
 	checkFeedbackStartup(t, ctx, db, read)
 	checkTaskStreamStartup(t, ctx, db, read)
 	checkConversationStartup(t, ctx, db, read)
@@ -163,6 +164,10 @@ func TestIntegrationAIReportReadStartup(t *testing.T) {
 				}
 			}
 			r, err := prepareAIReportReads(callCtx, db, current, enabled, p, control)
+			if mode == "configured" && err == nil {
+				// 原轻度入口成功后，再验证同一数据库的双策略启动及原鉴权路由。
+				r, err = prepareAIReportReadsWithDeep(callCtx, db, current, enabled, p, startupTestReportPolicy(t, true), control)
+			}
 			if mode != "default_off" && mode != "configured" {
 				if err == nil || r != nil {
 					t.Fatal("缺准入/保护或取消仍启动")

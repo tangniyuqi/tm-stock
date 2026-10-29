@@ -10,7 +10,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"slices"
 	"strings"
 	"sync"
@@ -110,15 +109,16 @@ func (s *workflowStore) WithinReportTx(ctx context.Context, fn func(finalreport.
 
 type workflowEnv struct {
 	*reportEnv
-	planner    *workflowPlanner
-	control    *checkSQLControl
-	model      *provider.OpenAICompat
-	server     *providertest.Server
-	agent      *service.AIAgentService
-	payloads   *repository.AIAgentRepo
-	store      *workflowStore
-	submits    atomic.Int32
-	agentPolls atomic.Int32
+	planner       *workflowPlanner
+	control       *checkSQLControl
+	model         *provider.OpenAICompat
+	server        *providertest.Server
+	agent         *service.AIAgentService
+	payloads      *repository.AIAgentRepo
+	store         *workflowStore
+	submits       atomic.Int32
+	agentPolls    atomic.Int32
+	agentComplete atomic.Bool // 仅浏览器流续读夹具显式放行回环Agent；普通运行模式保持原行为。
 }
 
 func workflowSelectionJSON(t *testing.T, id int64) string {
@@ -138,10 +138,6 @@ func newWorkflowEnv(t *testing.T, level sql.IsolationLevel, mode string) *workfl
 	budget := taskBudget()
 	budget.MaxCalls = 6
 	budget.MaxTokens = 5000
-	if os.Getenv("TM_REAL_MODEL_KEY") != "" || os.Getenv("TM_TA_PRECOMPLETED") == "1" {
-		budget.MaxCalls = 10
-		budget.MaxTokens = 200000
-	}
 	x := newReportEnvWithBudget(t, level, time.Minute, false, budget)
 	snapshots := []sources.Snapshot{x.snap}
 	if mode == "multi_source" {
@@ -223,7 +219,7 @@ func newWorkflowEnv(t *testing.T, level sql.IsolationLevel, mode string) *workfl
 			io.WriteString(w, `{"success":true,"data":{"task_id":"l1_test_remote","status":"queued"}}`)
 		case "/api/analysis/tasks/l1_test_remote/status":
 			e.agentPolls.Add(1)
-			if mode == "agent_running" {
+			if mode == "agent_running" && !e.agentComplete.Load() {
 				io.WriteString(w, `{"success":true,"data":{"task_id":"l1_test_remote","status":"running"}}`)
 			} else if mode == "agent_failed" {
 				io.WriteString(w, `{"success":true,"data":{"task_id":"l1_test_remote","status":"failed"}}`)

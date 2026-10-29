@@ -48,6 +48,10 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	balanceEnabled, err := config.LoadPointsBalance(readCfg)
+	if err != nil {
+		return err
+	}
 	reportEnabled, err := config.LoadAIReportRead(readCfg)
 	if err != nil {
 		return err
@@ -115,6 +119,9 @@ func run() error {
 	}
 
 	mux := http.NewServeMux()
+	if err := registerPointsBalance(context.Background(), mux, db, readCfg, balanceEnabled); err != nil {
+		return err
+	}
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		w.WriteHeader(http.StatusOK)

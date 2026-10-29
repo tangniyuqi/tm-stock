@@ -4,12 +4,14 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"testing"
 	"time"
 
 	"github.com/tangniyuqi/tm-stock/server/internal/ai/conversation"
+	"github.com/tangniyuqi/tm-stock/server/internal/ai/task"
 )
 
 type qaReportAccess struct {
@@ -21,6 +23,80 @@ type qaReportAccess struct {
 func (a *qaReportAccess) Scope(_ context.Context, _ Proof) (Scope, error) {
 	a.calls++
 	return a.scope, a.err
+}
+
+func (a *qaReportAccess) ScopeForRead(ctx context.Context, p Proof) (Scope, error) {
+	return a.Scope(ctx, p)
+}
+
+// 直接构造显著测试存证，不冒充真实模型调用；实际回放核必须核对三步及原摘要。
+func TestReportExpiredHistoryReplaysAllStoredChecks(t *testing.T) {
+	now := reportNow()
+	p, err := NewReportPlan(Identity{1, 3, 1}, reportMessage(), validReportEvidence(), validReportConfig(), now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !p.scope.ValidUntil.Before(time.Now()) {
+		t.Fatal("夹具必须已过执行期")
+	}
+	rows := []CallRecord{}
+	var picks []Citation
+	for n, stage := range []string{"select", "entailment", "semantic"} {
+		req, model, err := p.request(stage, picks)
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, err := json.Marshal(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		text := `{"verdict":"pass","reason":"verified"}`
+		if n == 0 {
+			text = `{"action":"answer","reason":"none","citations":[{"snapshot_id":1,"sentence_ids":[1]}]}`
+		}
+		decision, err := p.decision(stage, text)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if n == 0 {
+			picks = decision.Citations
+		}
+		rows = append(rows, CallRecord{Call: Call{InputDigest: p.digest, Stage: stage, RequestDigest: task.StageDigest(body), ProfileDigest: model.ProfileDigest, Model: model.Name, Step: n + 1, MaxTokens: p.cfg.Limits.MaxInputTokens + p.cfg.Limits.MaxOutputTokens}, State: "recorded", Result: CallResult{ResponseDigest: reportDigest(stage), RequestID: "test-only-request", Model: model.Name, Usage: testUsage, Decision: decision}, CreatedAt: now, UpdatedAt: now})
+	}
+	hash, err := p.input.Digest(1, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	record := Record{Proof: p.Proof(), MessageHash: hash, State: "answered", Citations: picks, Calls: 3, ReservedTokens: 3 * (p.cfg.Limits.MaxInputTokens + p.cfg.Limits.MaxOutputTokens), QuotaDay: now.Format("2006-01-02"), Version: 6, CreatedAt: now, UpdatedAt: now}
+	store := &qaMemoryStore{data: qaMemoryData{Conv: conversation.Record{ID: 3, UserID: 1, Key: "test_conversation_key_01", RequestHash: conversation.CreationHash("测试会话"), Title: "测试会话", Version: 2, LastSeq: 1, CreatedAt: now, UpdatedAt: now}, Messages: []conversation.Message{{ConversationID: 3, UserID: 1, Seq: 1, Key: "test_question_key_01", RequestHash: hash, Input: p.input, CreatedAt: now}}, Question: &record, Calls: rows}}
+	readPlan, err := NewReportReadPlanScoped(p.identity, p.input, p.scope, p.cfg, time.Now().UTC().Truncate(time.Millisecond))
+	if err != nil {
+		t.Fatal(err)
+	}
+	access := &qaReportAccess{scope: p.scope}
+	ctl, err := NewDurableControlWithReports(store, readPlan, access)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for n := 0; n < 2; n++ {
+		view, err := ctl.Read(context.Background())
+		if err != nil || len(view.Quotes) != 1 || view.Quotes[0].Text != validReportEvidence().Quotes[0].Text {
+			t.Fatal("过期历史无法从三步存证回放", err)
+		}
+	}
+	if len(store.data.Calls) != 3 || store.data.Question.Version != 6 {
+		t.Fatal("读取改变存证或执行次数")
+	}
+	store.data.Calls[1].Result.Decision.Verdict = "uncertain"
+	store.data.Calls[1].Result.Decision.Reason = "uncertain"
+	if v, err := ctl.Read(context.Background()); err == nil || len(v.Quotes) != 0 {
+		t.Fatal("损坏的判定存证仍可交付")
+	}
+	store.data.Calls[1].Result.Decision = Decision{Verdict: "pass", Reason: "verified"}
+	access.err = ErrUnavailable
+	if v, err := ctl.Read(context.Background()); err == nil || len(v.Quotes) != 0 {
+		t.Fatal("当前报告撤权仍可读历史")
+	}
 }
 
 func qaReportPlan(t *testing.T, count int) *Plan {

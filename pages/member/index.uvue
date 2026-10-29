@@ -27,16 +27,19 @@
       <!-- 常用功能卡片 -->
       <x-sheet class="menu-card" margin="0" padding="6px 0" :round="['16','16','16','16']" :shadow="['10','24','rgba(0,0,0,0.06)']">
         <x-cell icon="vip-crown-2-line" icon-color="#E93030" icon-size="18" title="VIP会员"
-          title-color="#333333" title-size="16" :label="isLoggedIn() ? vipExpire : '未登录'" link :card="false" bottomBorderInsert @click="comingSoon"></x-cell>
+          title-color="#333333" title-size="16" :label="profileLoggedIn ? vipExpire : '未登录'" link :card="false" bottomBorderInsert @click="comingSoon"></x-cell>
 
         <x-cell icon="coin-line" icon-color="#E93030" icon-size="18" title="我的积分"
-          title-color="#333333" title-size="16" :label="isLoggedIn() ? credit : '未登录'" link :card="false" bottomBorderInsert @click="goCredit"></x-cell>
+          title-color="#333333" title-size="16" :label="profileLoggedIn ? credit : '未登录'" link :card="false" bottomBorderInsert @click="goCredit"></x-cell>
+
+        <x-cell title="冻结积分" title-color="#333333" title-size="16"
+          :label="profileLoggedIn ? frozenCredit : '未登录'" :card="false" bottomBorderInsert></x-cell>
 
         <x-cell title="资料整理" title-color="#333333" title-size="16" label="任务与报告"
           url="/pages/ai/index" min-height="55" :link="true" :card="false" bottomBorderInsert></x-cell>
         
         <x-cell icon="settings-3-line" icon-color="#E93030" icon-size="18" title="个人设置"
-          title-color="#333333" title-size="16" :label="isLoggedIn() ? '' : '未登录'" link :card="false" bottomBorderInsert :showBottomBorder="false" @click="goSetting"></x-cell>
+          title-color="#333333" title-size="16" :label="profileLoggedIn ? '' : '未登录'" link :card="false" bottomBorderInsert :showBottomBorder="false" @click="goSetting"></x-cell>
       </x-sheet>
 
       <!-- 服务与支持宫格 -->
@@ -63,6 +66,7 @@ import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { api as memberApi } from '@/api/member/member.uts'
 import { MemberProfile } from '@/types/interface.uts'
+import { AIBalanceApi } from '@/pages/libs/ai-balance-api.uts'
 
 // 头像默认
 const avatar = ref('/static/images/avatar.png')
@@ -72,7 +76,9 @@ const nickname = ref('登录 / 注册')
 const name = ref('')
 const maskedMobile = ref('登录后解锁更多功能')
 const credit = ref('0')
+const frozenCredit = ref('—')
 const vipExpire = ref('未开通或已过期')
+const profileLoggedIn = ref<boolean>(false)
 
 // 手机号脱敏
 const maskPhone = (num: string) => {
@@ -87,7 +93,20 @@ const isLoggedIn = () : boolean => {
 }
 
 // 刷新用户信息（从后端获取）
-const refreshProfile = async () => {
+let profileGeneration : number = 0
+const refreshProfile = async () : Promise<void> => {
+	const generation : number = ++profileGeneration
+	const token = uni.getStorageSync('token')
+	profileLoggedIn.value = isLoggedIn()
+	const current = () : boolean => generation == profileGeneration && token == uni.getStorageSync('token')
+	// 旧字段和无账号归属的全局缓存不能作为本次身份的资料。
+	name.value = ''
+	avatar.value = '/static/images/avatar.png'
+	credit.value = '—'
+	frozenCredit.value = '—'
+	vipExpire.value = '暂无资料'
+	nickname.value = '已登录'
+	maskedMobile.value = '正在核对会员资料'
 	if (!isLoggedIn()) {
 		nickname.value = '登录 / 注册'
 		name.value = ''
@@ -98,20 +117,27 @@ const refreshProfile = async () => {
 	}
 
 	// 获取用户名（账号，可登录用）
-	let acc = await memberApi.getSettings()
-	name.value = (acc != null && acc.name != '') ? acc.name : ''
+	try {
+		const acc = await memberApi.getSettings()
+		if (!current()) return
+		name.value = (acc != null && acc.name != '') ? acc.name : ''
+	} catch (_) {
+		if (!current()) return
+		// 设置读取失败只清空账号名；请求层已提示，会员资料仍独立核查。
+		name.value = ''
+	}
 
 	let profile: MemberProfile | null = null
 	try {
 		profile = await memberApi.getProfile()
 	} catch (e) {
-		// 请求失败时回退本地缓存，避免中断资料刷新
+		// 请求失败保留明确的不可用状态，不读取无账号归属的资料缓存。
 		profile = null
 	}
+	if (!current()) return
 	if (profile != null) {
 		nickname.value = profile.nickname || '题材助手'
 		maskedMobile.value = maskPhone(profile.mobile)
-		credit.value = String(profile.credit)
 		avatar.value = profile.avatar || '/static/images/avatar.png'
 		let level = profile.level
 		vipExpire.value = level > 0 ? 'VIP' + level : '未开通或已过期'
@@ -119,32 +145,21 @@ const refreshProfile = async () => {
 		// 更新本地缓存（兼容旧逻辑）
 		uni.setStorageSync('nickname', profile.nickname)
 		uni.setStorageSync('mobile', profile.mobile)
-		uni.setStorageSync('credit', String(profile.credit))
 		uni.setStorageSync('level', String(level))
 	} else {
-		// API 失败时回退到本地缓存，避免已登录用户看到「登录 / 注册」
-		let cachedNickname = uni.getStorageSync('nickname') as string
-		let cachedMobile = uni.getStorageSync('mobile') as string
-		let cachedCredit = uni.getStorageSync('credit') as string
-		let cachedLevel = uni.getStorageSync('level') as string
-		if (cachedNickname != null && cachedNickname != '') {
-			nickname.value = cachedNickname
-		} else {
-			nickname.value = '已登录'
-		}
-		if (cachedMobile != null && cachedMobile != '') {
-			maskedMobile.value = maskPhone(cachedMobile)
-		} else {
-			let loginMobile = uni.getStorageSync('loginMobile') as string
-			maskedMobile.value = (loginMobile != null && loginMobile != '') ? maskPhone(loginMobile) : '已登录'
-		}
-		if (cachedCredit != null && cachedCredit != '') {
-			credit.value = cachedCredit
-		}
-		if (cachedLevel != null && cachedLevel != '') {
-			let lv = parseInt(cachedLevel)
-			vipExpire.value = lv > 0 ? 'VIP' + lv : '未开通或已过期'
-		}
+		// 缓存未绑定账号；读取失败明确留空，不展示可能属于上一会员的信息。
+		nickname.value = '已登录'
+		maskedMobile.value = '会员资料暂不可用'
+	}
+	try {
+		const balance = await AIBalanceApi.read()
+		if (!current()) return
+		credit.value = balance.code == 0 && balance.data != null ? balance.data!.availablePoints.toString() : '暂不可用'
+		frozenCredit.value = balance.code == 0 && balance.data != null ? balance.data!.frozenPoints.toString() : '暂不可用'
+	} catch (_) {
+		if (!current()) return
+		credit.value = '暂不可用'
+		frozenCredit.value = '暂不可用'
 	}
 }
 
@@ -181,7 +196,7 @@ const goCredit = () => {
     uni.navigateTo({ url: '/pages/member/login' })
     return
   }
-  uni.navigateTo({ url: '/pages/member/asset/index' })
+  uni.showModal({ title: '我的积分', content: '当前可消费积分：' + credit.value + '\n冻结积分：' + frozenCredit.value + '\n余额来自新账本，生成报告仍须单独报价确认。', showCancel: false })
 }
 
 // ============ 服务与支持（跳转独立页面） ============

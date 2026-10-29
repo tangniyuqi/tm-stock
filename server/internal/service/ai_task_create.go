@@ -96,6 +96,11 @@ func (s *AITaskCreateService) recheck(ctx context.Context, p task.AdmissionPlan)
 
 // eligiblePoints 不创建账户、不清扫、不写流水，按数据库时点复核实际可消费批次。
 func eligiblePoints(ctx context.Context, tx points.Tx, uid int64) (int64, time.Time, error) {
+	return eligiblePointsSnapshot(ctx, tx, uid, nil)
+}
+
+// snapshot 可选接收同一次账户读取的冻结额，避免余额查询再次读账户。
+func eligiblePointsSnapshot(ctx context.Context, tx points.Tx, uid int64, snapshot *PointsBalance) (int64, time.Time, error) {
 	a, err := tx.LockAccount(ctx, uid)
 	if err != nil && !errors.Is(err, points.ErrNotFound) {
 		return 0, time.Time{}, err
@@ -108,6 +113,9 @@ func eligiblePoints(ctx context.Context, tx points.Tx, uid int64) (int64, time.T
 		return 0, time.Time{}, points.ErrInvariant
 	}
 	if errors.Is(err, points.ErrNotFound) {
+		if snapshot != nil {
+			*snapshot = PointsBalance{CheckedAt: now.UnixMilli()}
+		}
 		return 0, now, nil
 	}
 	if a.UserID != uid || a.Avail < 0 || a.Frozen < 0 || a.Debt < 0 {
@@ -131,6 +139,9 @@ func eligiblePoints(ctx context.Context, tx points.Tx, uid int64) (int64, time.T
 	}
 	if available > a.Avail {
 		return 0, time.Time{}, points.ErrInvariant
+	}
+	if snapshot != nil {
+		*snapshot = PointsBalance{Available: available, Frozen: a.Frozen, CheckedAt: now.UnixMilli()}
 	}
 	return available, now, nil
 }

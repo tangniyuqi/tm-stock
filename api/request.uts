@@ -33,6 +33,8 @@ export function rqWithToken<T>(url: string, method: xRequestMethond, customData:
 			url: url,
 			method: method,
 			data: customData,
+			// 先保留原响应，避免网关纯文本/HTML错误页在框架层触发JSON解析异常。
+			dataType: 'text',
 			useCache: false,
 			showLoadToast: false,
 			showSuccessToast: false,
@@ -53,9 +55,13 @@ export function rqWithToken<T>(url: string, method: xRequestMethond, customData:
 
 			let reqData = res.data as any | null
 			if (typeof reqData == 'string') {
-				reqData = JSON.parseObject(reqData! as string)
+				try {
+					reqData = JSON.parseObject(reqData! as string)
+				} catch (_) {
+					reqData = null
+				}
 			}
-			if (typeof reqData != 'object' || reqData == null) {
+			if (typeof reqData != 'object' || reqData == null || Array.isArray(reqData)) {
 				uni.showModal({
 					title: "服务器异常",
 					content: `服务器没有正确返回json数据格式`

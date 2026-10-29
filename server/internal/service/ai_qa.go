@@ -29,25 +29,31 @@ type AIQAService struct {
 	models         AIQAProviders
 	auth           AIQAAuthenticator
 	submit         bool
+	reportSubmit   bool
 	reportEvidence AIReportQAEvidenceSource
 	reportConfig   AIReportQAConfigProvider
 	reportAccess   *AIReportQAAccess
 }
 
 func NewAIQAService(store qa.AccessStore, policies AIQAPolicies, models AIQAProviders, auth AIQAAuthenticator, submit bool) (*AIQAService, error) {
-	return newAIQAService(store, policies, models, auth, submit, nil, nil)
+	return newAIQAService(store, policies, models, auth, submit, false, nil, nil)
 }
 
 // NewAIQAServiceWithReports 额外装配报告追问；两项依赖必须同时提供，否则报告路径失败关闭。
 func NewAIQAServiceWithReports(store qa.AccessStore, policies AIQAPolicies, models AIQAProviders, auth AIQAAuthenticator, submit bool, evidence AIReportQAEvidenceSource, config AIReportQAConfigProvider) (*AIQAService, error) {
-	return newAIQAService(store, policies, models, auth, submit, evidence, config)
+	return NewAIQAServiceWithReportAccess(store, policies, models, auth, submit, submit, evidence, config)
 }
 
-func newAIQAService(store qa.AccessStore, policies AIQAPolicies, models AIQAProviders, auth AIQAAuthenticator, submit bool, evidence AIReportQAEvidenceSource, config AIReportQAConfigProvider) (*AIQAService, error) {
-	if store == nil || auth == nil || submit && (policies == nil || models == nil) || (evidence == nil) != (config == nil) {
+// NewAIQAServiceWithReportAccess 分别绑定资料提交和报告提交权限；只读不需要模型客户端。
+func NewAIQAServiceWithReportAccess(store qa.AccessStore, policies AIQAPolicies, models AIQAProviders, auth AIQAAuthenticator, submit, reportSubmit bool, evidence AIReportQAEvidenceSource, config AIReportQAConfigProvider) (*AIQAService, error) {
+	return newAIQAService(store, policies, models, auth, submit, reportSubmit, evidence, config)
+}
+
+func newAIQAService(store qa.AccessStore, policies AIQAPolicies, models AIQAProviders, auth AIQAAuthenticator, submit, reportSubmit bool, evidence AIReportQAEvidenceSource, config AIReportQAConfigProvider) (*AIQAService, error) {
+	if store == nil || auth == nil || submit && (policies == nil || models == nil) || reportSubmit && (!submit || evidence == nil) || (evidence == nil) != (config == nil) {
 		return nil, qa.ErrInvalid
 	}
-	svc := &AIQAService{store: store, policies: policies, models: models, auth: auth, submit: submit}
+	svc := &AIQAService{store: store, policies: policies, models: models, auth: auth, submit: submit, reportSubmit: reportSubmit}
 	if evidence != nil {
 		access, err := NewAIReportQAAccess(evidence)
 		if err != nil {

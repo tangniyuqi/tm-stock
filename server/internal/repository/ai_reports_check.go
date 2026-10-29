@@ -19,6 +19,15 @@ func NewAIReportSchemaVerifier(db *sql.DB) *AIReportSchemaVerifier {
 	return &AIReportSchemaVerifier{db}
 }
 func (v *AIReportSchemaVerifier) Verify(ctx context.Context) error {
+	return v.verify(ctx, false)
+}
+
+// VerifyWithDeep 额外实测类型2报告提交及保护；探针同样全部回滚。
+func (v *AIReportSchemaVerifier) VerifyWithDeep(ctx context.Context) error {
+	return v.verify(ctx, true)
+}
+
+func (v *AIReportSchemaVerifier) verify(ctx context.Context, deep bool) error {
 	if v == nil || v.db == nil {
 		return fmt.Errorf("报告自检数据库未初始化")
 	}
@@ -33,6 +42,11 @@ func (v *AIReportSchemaVerifier) Verify(ctx context.Context) error {
 	for _, f := range []func(context.Context, *sql.Tx) error{verifyPointsSession, verifyPointsSchemaMetadata, verifyAITaskMetadata, verifyAITaskBudgetMetadata, verifyAITaskStageMetadata, verifyAdmissionMetadata, verifyReportMetadata, probePointsConstraints, probeAITaskConstraints, probeAITaskBudgetConstraints, probeAITaskStageConstraints, probeAdmissionConstraints, probeReportConstraints} {
 		if err := f(ctx, tx); err != nil {
 			return err
+		}
+	}
+	if deep {
+		if err := probeReportConstraintsForType(ctx, tx, nil, task.DeepAnalysisType); err != nil {
+			return fmt.Errorf("深度报告约束探针失败: %w", err)
 		}
 	}
 	if err := tx.Rollback(); err != nil {
@@ -90,7 +104,11 @@ func probeReportConstraints(ctx context.Context, tx *sql.Tx) error {
 
 // 反馈启动探针复用同事务中的新报告正例，不读取或修改任何历史用户报告。
 func probeReportConstraintsWith(ctx context.Context, tx *sql.Tx, onSuccess func(context.Context, *sql.Tx, finalreport.Commit) error) error {
-	v, err := budgetProbeTask(ctx, tx)
+	return probeReportConstraintsForType(ctx, tx, onSuccess, task.LightAnalysisType)
+}
+
+func probeReportConstraintsForType(ctx context.Context, tx *sql.Tx, onSuccess func(context.Context, *sql.Tx, finalreport.Commit) error, analysisType int) error {
+	v, err := budgetProbeTaskForType(ctx, tx, 0, analysisType)
 	if err != nil {
 		return err
 	}

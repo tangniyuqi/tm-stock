@@ -83,6 +83,10 @@ func budgetProbeTask(ctx context.Context, tx *sql.Tx) (task.Task, error) {
 }
 
 func budgetProbeTaskAtStep(ctx context.Context, tx *sql.Tx, step int) (task.Task, error) {
+	return budgetProbeTaskForType(ctx, tx, step, task.LightAnalysisType)
+}
+
+func budgetProbeTaskForType(ctx context.Context, tx *sql.Tx, step, analysisType int) (task.Task, error) {
 	var random [8]byte
 	if _, err := rand.Read(random[:]); err != nil {
 		return task.Task{}, err
@@ -115,6 +119,7 @@ func budgetProbeTaskAtStep(ctx context.Context, tx *sql.Tx, step int) (task.Task
 	until := now.Add(time.Hour)
 	v := task.Task{UserID: uid, No: fmt.Sprintf("%032x", uid), Key: key, Hash: strings.Repeat("0", 64), AnalysisType: 1, SubjectType: task.Theme, SubjectID: 1, HoldID: hold, PriceVersion: "probe", PricePoints: 7, Budget: task.Budget{MaxAttempts: 3, MaxCalls: 4, MaxTokens: 1000, MaxPages: 3, MaxDurationMS: 3600000}, Status: task.Running, Attempt: 1, Fence: 1, LeaseOwner: key, LeaseUntil: &until, NotBefore: now, Deadline: until, EventSeq: 1}
 	v.CurrentStep = step
+	v.AnalysisType = analysisType
 	v.ID, err = insertAITaskProbe(ctx, tx, v, "")
 	return v, err
 }

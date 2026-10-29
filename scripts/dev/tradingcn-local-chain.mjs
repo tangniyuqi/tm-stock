@@ -25,7 +25,27 @@ export async function startLocalChain(options) {
 }
 
 // 子进程只收到临时桥凭据，绝不继承真正模型Key或产品配置。
-export function startChainVerification(bridge, { powershell, mysql, bash, goBin, gccBin, origin }) {
+export function chainConversationOptions({ conversation = false, loginRunner, analysisType = 'light' } = {}) {
+  if (!['light', 'deep'].includes(analysisType) || (analysisType === 'deep' && !conversation)) throw new Error('深度验收必须使用显式会话模式')
+  if (typeof conversation !== 'boolean' || (!conversation && loginRunner !== undefined)
+    || (conversation && (typeof loginRunner !== 'string' || !path.isAbsolute(loginRunner) || !/\.exe$/i.test(loginRunner)))) {
+    throw new Error('会话验收必须显式启用并提供原会员登录测试程序绝对路径')
+  }
+  return conversation ? { TM_TEST_AI_LIVE_CONVERSATION: 'local-fixture-only', TM_TEST_AI_H5_INTENTS: 'local-fixture-only',
+    TM_TEST_AI_H5_LOGIN: 'local-fixture-only', TM_TEST_AI_H5_LOGIN_RUNNER: loginRunner,
+    ...(analysisType === 'deep' ? { TM_TEST_AI_LIVE_DEPTH: 'deep' } : {}) } : {}
+}
+
+export function hasConversationProof(output) {
+  return /^[ \t]+\S+\.go:\d+: TM_STOCK_LIVE_CONVERSATION_VERIFIED\r?\n/m.test(output)
+}
+
+export function hasDeepProof(output) {
+  return /^[ \t]+\S+\.go:\d+: TM_STOCK_LIVE_DEEP_VERIFIED\r?\n/m.test(output)
+}
+
+export function startChainVerification(bridge, { powershell, mysql, bash, goBin, gccBin, origin, conversation = false, loginRunner, analysisType = 'light' }) {
+  const conversationEnv = chainConversationOptions({ conversation, loginRunner, analysisType })
   if (bridge.evaluation.child !== 'waiting') throw new Error('只能启动尚未执行的单次评估')
   const root = fileURLToPath(new URL('../../', import.meta.url))
   const env = { SystemRoot: 'C:\\Windows', WINDIR: 'C:\\Windows', PATH: `${goBin};${gccBin};C:\\Windows\\System32`, PATHEXT: '.COM;.EXE;.BAT;.CMD',
@@ -33,14 +53,19 @@ export function startChainVerification(bridge, { powershell, mysql, bash, goBin,
     TEMP: os.tmpdir(), TMP: os.tmpdir(), GOMAXPROCS: '2', GOFLAGS: '-p=1', CGO_ENABLED: '1',
     TM_TEST_AI_LIVE: 'local-fixture-only', TM_TEST_AI_AGENT_URL: bridge.url, TM_TEST_AI_AGENT_TOKEN: bridge.token,
     TM_TEST_AI_MODEL_URL: bridge.evaluation.reportEndpoint.url, TM_TEST_AI_MODEL_TOKEN: bridge.evaluation.reportEndpoint.token,
-    TM_TEST_AI_H5_ORIGIN: origin, LANG: 'zh_CN.UTF-8' }
+    TM_TEST_AI_H5_ORIGIN: origin, TM_TEST_AI_REPORT_MODEL: bridge.evaluation.route?.model ?? 'deepseek-flash', LANG: 'zh_CN.UTF-8', ...conversationEnv }
   const child = spawn(powershell, ['-NoProfile', '-File', path.join(root, 'scripts/dev/verify-ai-source-native.ps1'),
     '-MySqlBaseDir', mysql, '-RunCount', '1', '-BashPath', bash, '-ReportsOnly', '-LiveAgents', '-ReportPattern', '^TestIntegrationAIReportLiveAgents$'],
   { cwd: root, env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
   const log = createWriteStream(path.join(bridge.evaluation.output, 'local-chain-go.log'), { mode: 0o600 })
-  const state = { status: 'running', lines: '' }
+  const state = { status: 'running', lines: '', conversation, conversationVerified: false, analysisType, deepVerified: false }
   child.stdout.pipe(log, { end: false }); child.stderr.pipe(log, { end: false })
-  child.stdout.on('data', bytes => { state.lines = (state.lines + bytes.toString('utf8')).slice(-16000) })
+  child.stdout.on('data', bytes => {
+    const output = state.lines + bytes.toString('utf8')
+    state.conversationVerified ||= hasConversationProof(output)
+    state.deepVerified ||= hasDeepProof(output)
+    state.lines = output.slice(-16000)
+  })
   state.finished = new Promise(resolve => {
     child.once('error', () => { state.status = 'failed'; log.end(); resolve() })
     child.once('close', code => { state.exit = code; state.status = code === 0 ? 'passed' : 'failed'; log.end(); resolve() })
@@ -51,10 +76,14 @@ export function startChainVerification(bridge, { powershell, mysql, bash, goBin,
 export async function finishChainVerification(bridge, verification) {
   try {
     await verification.finished
+    // Go启动失败时原引擎仍未启动；这是已知零调用失败，不是待执行成功回执。
+    if (verification.status === 'failed' && bridge.evaluation.child === 'waiting') bridge.evaluation.child = 'failed'
     const provider = await recordReceipt(bridge.evaluation)
     const verified = verification.status === 'passed' && verification.exit === 0 && provider.workflow_verified && provider.report_model_calls === 3
       && bridge.counts.submissions === 1 && bridge.counts.polls > 0 && bridge.counts.results === 1
-    const receipt = { scope: 'local_web_async_real_v2_test_ledger', verified, go_exit: verification.exit,
+      && (!verification.conversation || verification.conversationVerified === true)
+      && (verification.analysisType !== 'deep' || (verification.conversation === true && verification.deepVerified === true))
+    const receipt = { scope: verification.conversation ? 'local_conversation_async_real_v2_test_ledger' : 'local_web_async_real_v2_test_ledger', analysis_type: verification.analysisType ?? 'light', verified, go_exit: verification.exit,
       async: { ...bridge.counts }, provider, production_deployed: false, real_user_points_changed: false,
       materials: 'explicit_synthetic_fixture', upstream_web_mongo_redis_verified: false }
     await fs.writeFile(path.join(bridge.evaluation.output, 'local-chain-receipt.json'), JSON.stringify(receipt, null, 2), { mode: 0o600 })
@@ -62,16 +91,23 @@ export async function finishChainVerification(bridge, verification) {
   } finally { await bridge.close() }
 }
 
-// runner注入只用于无模型网络自测。真实入口只能由startLocalChain构造。
-export async function createAsyncBridge(evaluation) {
+// runner与journalIO注入只用于无模型网络自测。真实入口固定使用默认文件系统，由startLocalChain构造。
+export async function createAsyncBridge(evaluation, journalIO = fs) {
   const token = randomBytes(32).toString('hex')
   let job = null
   let submitting = false
+  let running = null
   const counts = { submissions: 0, polls: 0, results: 0 }
   const journal = path.join(evaluation.output, 'async-job.json')
-  const save = async () => {
-    await fs.writeFile(journal + '.new', JSON.stringify(job), { mode: 0o600, flag: 'w' })
-    await fs.rename(journal + '.new', journal)
+  const save = async (next = job) => {
+    await journalIO.writeFile(journal + '.new', JSON.stringify(next), { mode: 0o600, flag: 'w' })
+    await journalIO.rename(journal + '.new', journal)
+  }
+  const transition = async status => {
+    const next = { ...job, status }
+    await save(next)
+    // 原子替换日志成功之后才发布状态；持久化失败继续保留最后已确认事实。
+    job = next
   }
   // 目录由父网关独占创建；已有日志禁止接管或重跑未知任务。
   try { await fs.access(journal); throw new Error('不得接管已有评估任务') } catch (error) { if (error.code !== 'ENOENT') throw error }
@@ -81,14 +117,13 @@ export async function createAsyncBridge(evaluation) {
   }
   const run = async () => {
     try {
-      job.status = 'running'; await save()
+      await transition('running')
       await evaluation.launch()
       const receipt = await recordReceipt(evaluation)
       if (!receipt.workflow_verified) throw new Error('真实引擎未取得完整验收回执')
-      job.status = 'completed'; await save()
+      await transition('completed')
     } catch {
-      job.status = 'failed'
-      try { await save() } catch { /* 保持失败，不能返回completed */ }
+      try { await transition('failed') } catch { /* 未确认落盘，保留原非终态，不假报失败或完成。 */ }
     }
   }
   const server = http.createServer(async (req, res) => {
@@ -107,7 +142,7 @@ export async function createAsyncBridge(evaluation) {
           job = { task_id: randomUUID(), status: 'queued', scope: 'local_fixture_v2_engine', contract_symbol: '600001', engine_subject: 'TMEVAL' }
           await save(); counts.submissions++
           respond(res, 200, { task_id: job.task_id, status: 'queued' })
-          void run()
+          running = run()
         } finally { submitting = false }
         return
       }
@@ -142,6 +177,7 @@ export async function createAsyncBridge(evaluation) {
       clearTimeout(timeout)
       if (evaluation.child === 'running') { evaluation.cancel(); await evaluation.finished }
       if (evaluation.child === 'waiting') evaluation.child = 'failed'
+      await running
       await new Promise(resolve => server.close(resolve))
       await evaluation.close()
     } }

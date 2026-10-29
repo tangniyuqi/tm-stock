@@ -26,6 +26,15 @@ func NewAIReportQAAccess(source AIReportQAEvidenceSource) (*AIReportQAAccess, er
 }
 
 func (a *AIReportQAAccess) Scope(ctx context.Context, proof qa.Proof) (qa.Scope, error) {
+	return a.scope(ctx, proof, false)
+}
+
+// ScopeForRead 仍重读本人当前可读报告，但不把原执行期限误作历史保留期限。
+func (a *AIReportQAAccess) ScopeForRead(ctx context.Context, proof qa.Proof) (qa.Scope, error) {
+	return a.scope(ctx, proof, true)
+}
+
+func (a *AIReportQAAccess) scope(ctx context.Context, proof qa.Proof, read bool) (qa.Scope, error) {
 	if a == nil || a.source == nil || ctx == nil || proof.Identity.UserID <= 0 {
 		return qa.Scope{}, qa.ErrInvalid
 	}
@@ -40,7 +49,11 @@ func (a *AIReportQAAccess) Scope(ctx context.Context, proof qa.Proof) (qa.Scope,
 	if evidence.TaskID != taskID || evidence.Digest != digest {
 		return qa.Scope{}, qa.ErrUnavailable
 	}
-	scope, err := qa.BuildReportScopeUntil(evidence, a.now().UTC(), proof.ValidUntil)
+	build := qa.BuildReportScopeUntil
+	if read {
+		build = qa.BuildReportReadScope
+	}
+	scope, err := build(evidence, a.now().UTC().Truncate(time.Millisecond), proof.ValidUntil)
 	if err != nil {
 		return qa.Scope{}, err
 	}

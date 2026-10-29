@@ -115,3 +115,44 @@ func TestCheckPlanBindsDeepTaskType(t *testing.T) {
 		t.Fatal("非法判定类型未拒绝")
 	}
 }
+
+func TestDeepSelectionRejectsNoncontiguousGroups(t *testing.T) {
+	p, v, original := fixture(t)
+	snap, err := sources.BuildSnapshot(sources.Source{ID: 1, Domain: "evidence.example.test", Category: sources.CategoryAnnualReport, LicenseTag: "test-only", LicenseRef: "test-only-private-license", Enabled: true}, original.URL, sources.MediaPlain,
+		[]byte("示例题材是本次测试资料集合。2026年10月22日，示例题材测试资料完成登记。示例题材测试环节包括资料登记。示例公司为示例题材测试资料主体。示例题材不代表真实市场题材。2026年10月22日，示例题材测试资料完成离线验收。"), original.FetchedAt, 1<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snap.ID = 2
+	cfg := p.cfg
+	cfg.AnalysisType, cfg.MinQuotes = task.DeepAnalysisType, task.DeepMinQuotes
+	deep, err := NewPolicy(cfg, p.entailment, p.semantic)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stage, err := NewSelectionStage(deep, v.TaskNo, v.ThemeID, v.ThemeName, []sources.Snapshot{snap})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 来自真实隔离试跑的编号形状；不保存供应商回执、凭据或内部研究正文。
+	bad := `{"selections":[{"section":"definition","snapshot_id":2,"sentence_ids":[1,5]},{"section":"timeline","snapshot_id":2,"sentence_ids":[2,6]},{"section":"segment","snapshot_id":2,"sentence_ids":[3]},{"section":"companies","snapshot_id":2,"sentence_ids":[4]}]}`
+	if out, err := stage.Build(context.Background(), bad); err == nil || out != "" {
+		t.Fatal("非连续编号不得被自动拆分修补为合格报告")
+	}
+	good := `{"selections":[{"section":"definition","snapshot_id":2,"sentence_ids":[1]},{"section":"definition","snapshot_id":2,"sentence_ids":[5]},{"section":"timeline","snapshot_id":2,"sentence_ids":[2]},{"section":"timeline","snapshot_id":2,"sentence_ids":[6]},{"section":"segment","snapshot_id":2,"sentence_ids":[3]},{"section":"companies","snapshot_id":2,"sentence_ids":[4]}]}`
+	out, err := stage.Build(context.Background(), good)
+	if err != nil {
+		t.Fatal("同一章节多条独立引文应通过原转换器", err)
+	}
+	proposal, err := deep.Decode(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	count := 0
+	for _, section := range proposal.Report.Sections {
+		count += len(section.Nodes)
+	}
+	if count != task.DeepMinQuotes {
+		t.Fatal("分条后仍须满足原六引文门槛", count)
+	}
+}

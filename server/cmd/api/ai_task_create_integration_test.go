@@ -47,6 +47,8 @@ func (*testCreateStartupGate) Recheck(context.Context, task.AdmissionPlan) error
 	return task.ErrAdmissionUnavailable
 }
 
+func (g *testCreateStartupGate) ReadyDeep(ctx context.Context) error { return g.Ready(ctx) }
+
 func TestIntegrationAITaskCreateStartup(t *testing.T) {
 	dsn := os.Getenv("TM_TEST_DSN")
 	if dsn == "" {
@@ -123,6 +125,25 @@ func TestIntegrationAITaskCreateStartup(t *testing.T) {
 	bearer, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(key))
 	if err != nil {
 		t.Fatal(err)
+	}
+	// 旧库不得接受深度创建；加载新增量后只允许启动，计划仍由拒绝型控制器阻止。
+	for _, migration := range []string{"20261016_create_tm_ai_report_commits.sql", "20261023_allow_deep_ai_report_commits.sql"} {
+		raw, err := os.ReadFile(filepath.Join("..", "..", "migrations", migration))
+		if err != nil {
+			t.Fatal(err)
+		}
+		script := strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(string(raw), "DELIMITER $$", ""), "DELIMITER ;", ""), "END$$", "END;")
+		if _, err := db.ExecContext(ctx, script); err != nil {
+			t.Fatal("报告隔离迁移失败", err)
+		}
+		svc, err := prepareAITaskCreatesWithDeep(ctx, db, read, true, true, &testCreateStartupGate{})
+		if migration == "20261016_create_tm_ai_report_commits.sql" {
+			if err == nil || svc != nil {
+				t.Fatal("旧报告库允许深度创建启动")
+			}
+		} else if err != nil || svc == nil {
+			t.Fatal("升级后深度创建启动失败", err)
+		}
 	}
 	for _, mode := range []string{"all_off", "read_only", "missing_control", "read_off", "denied", "configured", "cancelled_context", "broken_schema"} {
 		t.Run(mode, func(t *testing.T) {

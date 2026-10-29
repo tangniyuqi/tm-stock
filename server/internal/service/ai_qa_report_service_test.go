@@ -85,6 +85,21 @@ func TestReportQASubmitFailures(t *testing.T) {
 	}
 }
 
+func TestReportQAReadAccessDoesNotEnableSubmit(t *testing.T) {
+	for _, submit := range []bool{false, true} {
+		svc, err := NewAIQAServiceWithReportAccess(&qaStubStore{}, qaStubPolicies{}, qaStubModels{}, qaStubAuth{uid: 1}, submit, false, &fakeReportEvidenceSource{}, &fakeReportConfig{})
+		if err != nil || !svc.reportReady() {
+			t.Fatal("报告只读依赖未保留", err)
+		}
+		if _, err := svc.Submit(context.Background(), "token", 1, 3, "question_read_only_01", reportQAInput()); !errors.Is(err, qa.ErrUnavailable) {
+			t.Fatal("资料提交或报告只读装配隐含开放报告提交", err)
+		}
+	}
+	if _, err := NewAIQAServiceWithReportAccess(&qaStubStore{}, nil, nil, qaStubAuth{uid: 1}, false, true, &fakeReportEvidenceSource{}, &fakeReportConfig{}); !errors.Is(err, qa.ErrInvalid) {
+		t.Fatal("总体关闭提交时仍接受报告提交授权")
+	}
+}
+
 func TestReportQAAnswerRequiresDependencies(t *testing.T) {
 	svc, _ := NewAIQAService(&qaStubStore{}, qaStubPolicies{}, qaStubModels{}, qaStubAuth{uid: 1}, true)
 	record := qa.Record{}

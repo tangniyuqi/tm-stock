@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, watch, onBeforeUnmount } from 'vue'
+import { ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { AIConversationApi } from '../../libs/ai-conversation-api.uts'
 import { AIConversation, AIConversationSummary, AIConversationMessage, AIPendingConversation, isAIConversationTitle, aiConversationError, conversationPartition, readPendingConversation, reserveConversation, clearPendingConversation } from '../../libs/ai-conversation.uts'
 import { currentAIMemberToken } from '../../libs/ai-session.uts'
@@ -7,12 +7,13 @@ import { formatMillis } from '../../libs/theme.uts'
 import AIConversationTaskPanel from './AIConversationTaskPanel.uvue'
 import AIQuestionPanel from './AIQuestionPanel.uvue'
 import AISkillPanel from './AISkillPanel.uvue'
+import AIConversationHistory from './AIConversationHistory.uvue'
 import { isAISkillKey } from '../../libs/ai-skills.uts'
 
-type ConversationProps = { sessionToken : string }
+type ConversationProps = { sessionToken : string, refreshKey? : number, activeTab? : string, windowWidth? : number, reportInputActive? : boolean, allowDock? : boolean }
 defineOptions({name: 'AIConversationPanel'})
-const props = defineProps<ConversationProps>()
-const emit = defineEmits<{ task: [id : number], selected: [], context: [id : number], archived: [value : boolean], unauthorized: [] }>()
+const props = withDefaults(defineProps<ConversationProps>(), { refreshKey: 0, activeTab: 'conversation', windowWidth: 0, reportInputActive: false, allowDock: true })
+const emit = defineEmits<{ task: [id : number], reportQuestion: [id : number, seq : number], selected: [], context: [id : number], archived: [value : boolean], unauthorized: [], skillSelected: [] }>()
 const rows = ref<AIConversationSummary[]>([] as AIConversationSummary[])
 const selected = ref<AIConversation | null>(null)
 const messages = ref<AIConversationMessage[]>([] as AIConversationMessage[])
@@ -29,20 +30,41 @@ const busy = ref<boolean>(false)
 const ready = ref<boolean>(false)
 const message = ref<string>('')
 const pending = ref<AIPendingConversation | null>(null)
+const wide = ref<boolean>(false)
+const historyVisible = ref<boolean>(false)
+const skillsVisible = ref<boolean>(false)
+const scrollTarget = ref<string>('')
+let scrollRequest : number = 0
+const resetScroll = () : void => { scrollRequest++; scrollTarget.value = '' }
+const scrollToBottom = () : void => {
+	if (selected.value == null || props.activeTab != 'conversation' || !current(generation, props.sessionToken)) return
+	const request : number = ++scrollRequest; const round : number = generation; const token : string = props.sessionToken; const id : number = selected.value!.id
+	// 先清空目标，使用户手动向上阅读后再次点击同一锚点仍然生效。
+	scrollTarget.value = ''
+	nextTick(() => {
+		if (request == scrollRequest && current(round, token) && props.activeTab == 'conversation' && selected.value != null && selected.value!.id == id) scrollTarget.value = 'ai-conversation-bottom'
+	})
+}
+const updateLayout = () : void => {
+	wide.value = (props.windowWidth > 0 ? props.windowWidth : uni.getWindowInfo().windowWidth) >= 960
+	if (wide.value) historyVisible.value = false
+}
 let active : boolean = true
 let generation : number = 0
 let detailGeneration : number = 0
 let partition : string = ''
+let refreshPending : boolean = false
+let summaryRefreshPending : boolean = false
 
 const current = (round : number, token : string) : boolean => active && generation == round && token.length > 0 && token == props.sessionToken && token == currentAIMemberToken()
 const activeSkill = ref<string>('material_qa')
-const selectSkill = (key : string) : void => { if (isAISkillKey(key)) activeSkill.value = key }
+const selectSkill = (key : string) : void => { if (isAISkillKey(key)) { activeSkill.value = key; skillsVisible.value = false; emit('skillSelected') } }
 const questionSeq = ref<number>(0)
 const questionRequest = ref<number>(0)
-const resetDetail = () : void => { detailGeneration++; selected.value = null; messages.value = [] as AIConversationMessage[]; nextAfter.value = 0; moreMessages.value = false; loadingMessages.value = false; renameTitle.value = ''; questionSeq.value = 0; questionRequest.value = 0 }
-const clearDetail = () : void => { resetDetail(); activeSkill.value = 'material_qa'; emit('selected'); emit('context', 0); emit('archived', false) }
+const resetDetail = () : void => { detailGeneration++; refreshPending = false; selected.value = null; messages.value = [] as AIConversationMessage[]; nextAfter.value = 0; moreMessages.value = false; loadingMessages.value = false; renameTitle.value = ''; questionSeq.value = 0; questionRequest.value = 0 }
+const clearDetail = () : void => { resetScroll(); skillsVisible.value = false; resetDetail(); activeSkill.value = 'material_qa'; emit('selected'); emit('context', 0); emit('archived', false) }
 const accept = (code : number) : boolean => {
-	if (code == 40100 || code == 40101 || code == 40301) { generation++; clearDetail(); rows.value = [] as AIConversationSummary[]; title.value = ''; pending.value = null; ready.value = false; busy.value = false; loading.value = false; emit('unauthorized'); return false }
+	if (code == 40100 || code == 40101 || code == 40301) { generation++; historyVisible.value = false; clearDetail(); rows.value = [] as AIConversationSummary[]; title.value = ''; pending.value = null; ready.value = false; busy.value = false; loading.value = false; emit('unauthorized'); return false }
 	return true
 }
 const loadMessages = (more : boolean) : void => {
@@ -56,31 +78,13 @@ const loadMessages = (more : boolean) : void => {
 		messages.value = more ? messages.value.concat(r.data!.items) : r.data!.items; nextAfter.value = r.data!.nextAfterSeq; moreMessages.value = r.data!.hasMore
 	}).catch(() => { if (current(round, token) && detail == detailGeneration) { loadingMessages.value = false; message.value = aiConversationError(50001) } })
 }
-const open = (id : number) : void => {
-	if (busy.value || !current(generation, props.sessionToken)) return
-	clearDetail(); message.value = ''; const detail : number = detailGeneration; const round : number = generation; const token : string = props.sessionToken
-	loadingMessages.value = true
-	AIConversationApi.detail(id).then((r) => {
-		if (!current(round, token) || detail != detailGeneration || !accept(r.code)) return
-		loadingMessages.value = false
-		if (r.code != 0 || r.data == null) { message.value = aiConversationError(r.code); return }
-		selected.value = r.data!; renameTitle.value = r.data!.title; emit('context', r.data!.id); emit('archived', r.data!.archived); loadMessages(false)
-	}).catch(() => { if (current(round, token) && detail == detailGeneration) { loadingMessages.value = false; message.value = aiConversationError(50001) } })
-}
-const refreshLinkedHistory = () : void => {
-	if (selected.value == null || !current(generation, props.sessionToken)) return
-	const round : number = generation; const detail : number = ++detailGeneration; const token : string = props.sessionToken; const id : number = selected.value!.id
-	loadingMessages.value = true
-	AIConversationApi.detail(id).then((r) => {
-		if (!current(round, token) || detail != detailGeneration || !accept(r.code)) return
-		loadingMessages.value = false
-		if (r.code != 0 || r.data == null) { message.value = aiConversationError(r.code); return }
-		selected.value = r.data!; renameTitle.value = r.data!.title; loadMessages(false)
-	}).catch(() => { if (current(round, token) && detail == detailGeneration) { loadingMessages.value = false; message.value = aiConversationError(50001) } })
-}
-const list = (more : boolean) : void => {
+const loadList = (more : boolean, preserveSelection : boolean) : void => {
 	if (busy.value || loading.value || !current(generation, props.sessionToken) || (more && !hasMore.value)) return
-	if (!more) { generation++; if (selected.value != null) clearDetail(); else resetDetail(); rows.value = [] as AIConversationSummary[]; ready.value = false; hasMore.value = false; nextBefore.value = 0 }
+	if (!more) {
+		summaryRefreshPending = false
+		if (!preserveSelection) { generation++; if (selected.value != null) clearDetail(); else resetDetail(); rows.value = [] as AIConversationSummary[] }
+		ready.value = false; hasMore.value = false; nextBefore.value = 0
+	}
 	const round : number = generation; const token : string = props.sessionToken; const cursor : number = more ? nextBefore.value : 0; const filter : boolean = archived.value
 	loading.value = true; message.value = ''
 	AIConversationApi.list(cursor, filter).then((r) => {
@@ -90,13 +94,51 @@ const list = (more : boolean) : void => {
 		rows.value = more ? rows.value.concat(r.data!.items) : r.data!.items; hasMore.value = r.data!.hasMore; nextBefore.value = r.data!.nextBeforeId; ready.value = true
 	}).catch(() => { if (current(round, token)) { loading.value = false; message.value = aiConversationError(50001) } })
 }
+const list = (more : boolean) : void => { loadList(more, false) }
+const refreshRows = () : void => {
+	// 创建收据不含列表摘要；独立读取当前服务端列表，不能为同步列表清掉已打开会话。
+	summaryRefreshPending = true
+	if (!busy.value && !loading.value) loadList(false, true)
+}
+const open = (id : number, syncList : boolean) : void => {
+	if (busy.value || !current(generation, props.sessionToken)) return
+	clearDetail(); message.value = ''; const detail : number = detailGeneration; const round : number = generation; const token : string = props.sessionToken
+	loadingMessages.value = true
+	AIConversationApi.detail(id).then((r) => {
+		if (!current(round, token) || detail != detailGeneration || !accept(r.code)) return
+		loadingMessages.value = false
+		if (r.code != 0 || r.data == null) { message.value = aiConversationError(r.code); return }
+		selected.value = r.data!; historyVisible.value = false; renameTitle.value = r.data!.title; emit('context', r.data!.id); emit('archived', r.data!.archived); loadMessages(false)
+		if (syncList) refreshRows()
+	}).catch(() => { if (current(round, token) && detail == detailGeneration) { loadingMessages.value = false; message.value = aiConversationError(50001) } })
+}
+const refreshLinkedHistory = () : void => {
+	if (selected.value == null || !current(generation, props.sessionToken)) return
+	// 写请求/归档确认尚未结束时只合并刷新通知，不能使原响应轮次失效。
+	if (busy.value) { refreshPending = true; return }
+	refreshPending = false
+	const round : number = generation; const detail : number = ++detailGeneration; const token : string = props.sessionToken; const id : number = selected.value!.id
+	loadingMessages.value = true
+	AIConversationApi.detail(id).then((r) => {
+		if (!current(round, token) || detail != detailGeneration || !accept(r.code)) return
+		loadingMessages.value = false
+		if (r.code != 0 || r.data == null) { message.value = aiConversationError(r.code); return }
+		// 消息刷新只同步未编辑的标题；用户在请求前或等待中输入的草稿不能被覆盖。
+		const titleUnchanged : boolean = selected.value != null && renameTitle.value == selected.value!.title
+		selected.value = r.data!
+		if (titleUnchanged) renameTitle.value = r.data!.title
+		// 当前归档状态也须同步报告区，避免保留已失效的新追问入口。
+		emit('archived', r.data!.archived)
+		loadMessages(false)
+	}).catch(() => { if (current(round, token) && detail == detailGeneration) { loadingMessages.value = false; message.value = aiConversationError(50001) } })
+}
 const filter = () : void => { if (!busy.value && !loading.value) { archived.value = !archived.value; list(false) } }
 const finishReceipt = async (round : number, token : string, id : number, key : string) : Promise<void> => {
 	if (!current(round, token)) return
 	const cleared : boolean = await clearPendingConversation(partition, key)
 	if (!current(round, token)) return
 	if (!cleared) { busy.value = false; message.value = '会话已找到，本地原键仍保留，请继续核查'; return }
-	pending.value = null; title.value = ''; busy.value = false; open(id)
+	pending.value = null; title.value = ''; busy.value = false; open(id, true)
 }
 const create = async () : Promise<void> => {
 	if (!ready.value || busy.value || loading.value || archived.value || pending.value != null || !isAIConversationTitle(title.value) || !current(generation, props.sessionToken)) return
@@ -127,7 +169,7 @@ const check = async () : Promise<void> => {
 	} catch (_) { if (current(round, token)) { busy.value = false; message.value = aiConversationError(50001) } }
 }
 const rename = async () : Promise<void> => {
-	if (busy.value || selected.value == null || selected.value!.archived || !isAIConversationTitle(renameTitle.value) || !current(generation, props.sessionToken)) return
+	if (busy.value || loadingMessages.value || selected.value == null || selected.value!.archived || !isAIConversationTitle(renameTitle.value) || !current(generation, props.sessionToken)) return
 	busy.value = true; const round : number = generation; const token : string = props.sessionToken; const detail : number = detailGeneration; const id : number = selected.value!.id; const version : number = selected.value!.version
 	try {
 		const r = await AIConversationApi.rename(id, version, renameTitle.value)
@@ -138,7 +180,7 @@ const rename = async () : Promise<void> => {
 	} catch (_) { if (current(round, token) && detail == detailGeneration) { busy.value = false; clearDetail(); message.value = aiConversationError(50001) } }
 }
 const archive = () : void => {
-	if (busy.value || selected.value == null || selected.value!.archived || !current(generation, props.sessionToken)) return
+	if (busy.value || loadingMessages.value || selected.value == null || selected.value!.archived || !current(generation, props.sessionToken)) return
 	busy.value = true; const round : number = generation; const token : string = props.sessionToken; const detail : number = detailGeneration; const id : number = selected.value!.id; const version : number = selected.value!.version
 	uni.showModal({title: '归档当前会话', content: '归档后仍可查询历史，不会删除报告，也不会取消已创建任务。有未确认生成意图时无法归档。', confirmText: '确认归档', cancelText: '暂不归档', success: (decision) => {
 		if (!current(round, token) || detail != detailGeneration) return
@@ -150,54 +192,61 @@ const archive = () : void => {
 	}, fail: () => { if (current(round, token)) busy.value = false }})
 }
 const openTask = (item : AIConversationMessage) : void => { if (!busy.value && item.kind == 'task' && selected.value != null && current(generation, props.sessionToken)) emit('task', item.taskId) }
-const openQuestion = (item : AIConversationMessage) : void => { if (!busy.value && item.kind == 'question' && item.skill == 'material_qa' && selected.value != null && current(generation,props.sessionToken)) { questionSeq.value = item.seq; questionRequest.value++ } }
+const openQuestion = (item : AIConversationMessage) : void => { if (!busy.value && item.kind == 'question' && item.skill == 'material_qa' && selected.value != null && current(generation,props.sessionToken)) { emit('skillSelected'); activeSkill.value = 'material_qa'; questionSeq.value = item.seq; questionRequest.value++ } }
+const openReportQuestion = (item : AIConversationMessage) : void => {
+	if (!busy.value && item.kind == 'question' && item.skill == 'report_qa' && selected.value != null && current(generation,props.sessionToken)) emit('reportQuestion', item.taskId, item.seq)
+}
+watch(() : number => props.refreshKey, () => { refreshLinkedHistory() })
+watch(() : string => props.activeTab, () => { resetScroll(); historyVisible.value = false; skillsVisible.value = false })
+watch(() : boolean => busy.value, (value : boolean) => { if (!value && refreshPending) refreshLinkedHistory() })
+watch(() : boolean => busy.value || loading.value, (value : boolean) => { if (!value && summaryRefreshPending) refreshRows() })
 watch(() : string => props.sessionToken, () => {
-	generation++; resetDetail(); activeSkill.value = 'material_qa'; rows.value = [] as AIConversationSummary[]; title.value = ''; pending.value = null; ready.value = false; busy.value = false; loading.value = false; hasMore.value = false; archived.value = false
+	resetScroll()
+	historyVisible.value = false
+	skillsVisible.value = false
+	generation++; summaryRefreshPending = false; resetDetail(); activeSkill.value = 'material_qa'; rows.value = [] as AIConversationSummary[]; title.value = ''; pending.value = null; ready.value = false; busy.value = false; loading.value = false; hasMore.value = false; archived.value = false
 	emit('context', 0)
 	partition = conversationPartition(props.sessionToken)
 	try { pending.value = readPendingConversation(partition); list(false) } catch (_) { message.value = '本机会话原键记录不可读取，暂不新建；请保留记录联系维护者核查' }
 }, {immediate: true})
-onBeforeUnmount(() => { active = false; generation++; resetDetail(); rows.value = [] as AIConversationSummary[]; title.value = ''; pending.value = null; emit('context', 0) })
+watch(() : number => props.windowWidth, () => { updateLayout() })
+onMounted(() => { updateLayout() })
+onBeforeUnmount(() => { active = false; generation++; summaryRefreshPending = false; resetDetail(); rows.value = [] as AIConversationSummary[]; title.value = ''; pending.value = null; emit('context', 0) })
 </script>
 
 <template>
-	<view>
+	<view class="conversation-workspace" :class="wide ? 'conversation-wide' : ''">
+		<view v-if="wide" class="conversation-sidebar" :style="activeTab == 'conversation' ? '' : 'display: none;'">
+			<scroll-view scroll-y="true" class="conversation-history-scroll">
+			<AIConversationHistory :rows="rows" :title="title" :archived="archived" :pending="pending != null" :ready="ready" :loading="loading" :busy="busy" :has-more="hasMore" :selected-id="selected == null ? 0 : selected!.id" :message="message" @title="title = $event" @refresh="list(false)" @filter="filter" @create="create" @check="check" @open="open($event, false)" @more="list(true)"></AIConversationHistory>
+			</scroll-view>
+		</view>
+		<x-drawer v-if="!wide" :show="historyVisible" @update:show="historyVisible = $event" title="会话历史" position="left" size="88%" :show-close="true" content-margin="0">
+			<AIConversationHistory :rows="rows" :title="title" :archived="archived" :pending="pending != null" :ready="ready" :loading="loading" :busy="busy" :has-more="hasMore" :selected-id="selected == null ? 0 : selected!.id" :message="message" @title="title = $event" @refresh="list(false)" @filter="filter" @create="create" @check="check" @open="open($event, false)" @more="list(true)"></AIConversationHistory>
+		</x-drawer>
+		<!-- 固定报告输入占据视口底部，必须缩小阅读视口；仅在内容末尾留白不能防止按钮被覆盖。 -->
+		<scroll-view scroll-y="true" :scroll-into-view="scrollTarget" class="conversation-main" :style="reportInputActive && activeTab == 'conversation' ? 'margin-bottom: calc(240px + env(safe-area-inset-bottom));' : ''">
+		<view :style="activeTab == 'conversation' ? '' : 'display: none;'">
+		<view v-if="!wide" class="px-16 mt-16"><x-button height="44" :block="true" skin="outline" @click="historyVisible = true">会话历史 / 新建</x-button></view>
 	<x-sheet :margin="16" :padding="16" :round="12" dark-color="#ffffff">
-		<text class="conversation-title text-weight-b">我的会话</text>
-		<text class="conversation-copy mt-8">管理本人会话与历史关联，可选择资料问答或核对资料任务报价。仅限获授权事实资料，报告追问尚未开放；新建会话不扣积分。</text>
-		<view class="flex-row mt-12">
-			<x-button class="flex-1 mr-8" height="44" skin="outline" :disabled="busy || loading" @click="list(false)">查询会话</x-button>
-			<x-button class="flex-1" height="44" skin="outline" :disabled="busy || loading" @click="filter">{{ archived ? '查看进行中' : '查看已归档' }}</x-button>
+		<view v-if="selected == null && !loadingMessages">
+			<text class="conversation-title text-weight-b">选择会话，开始查阅资料</text>
+			<text class="conversation-copy mt-8">{{ wide ? '从左侧打开或新建会话。' : '从上方“会话历史 / 新建”打开或新建会话。' }}仅限获授权事实资料；报告追问从本人当前可读报告进入。</text>
 		</view>
-		<text v-if="loading" class="conversation-copy mt-8">正在查询本人会话…</text>
-		<text v-if="ready && rows.length == 0" class="conversation-copy mt-8">{{ archived ? '暂无已归档会话。' : '暂无会话，可填写标题新建。' }}</text>
-		<view v-if="pending == null && !archived" class="mt-12">
-			<x-input :model-value="title" @update:modelValue="title = $event" :maxlength="80" height="44" placeholder="新会话标题，1至40字" :disabled="busy || !ready"></x-input>
-			<x-button class="mt-8" height="44" :block="true" :disabled="busy || !ready || !isAIConversationTitle(title)" @click="create">新建会话</x-button>
-		</view>
-		<view v-if="pending != null" class="mt-12">
-			<text class="conversation-copy">有待核查的新建会话原键，暂不生成第二个。核查只读取本人收据。</text>
-			<x-button class="mt-8" height="44" :block="true" skin="outline" :loading="busy" :disabled="busy" @click="check">核查原会话</x-button>
-		</view>
-		<view v-for="row in rows" :key="row.id" class="mt-12">
-			<text class="conversation-title">{{ row.title }}</text>
-			<text class="conversation-copy mt-4">{{ row.archived ? '已归档' : '进行中' }} · {{ formatMillis(row.updatedAt) }}</text>
-			<x-button class="mt-4" height="44" :block="true" skin="outline" :disabled="busy" @click="open(row.id)">打开会话 #{{ row.id }}</x-button>
-		</view>
-		<x-button v-if="hasMore" class="mt-12" height="44" :block="true" :disabled="loading || busy" @click="list(true)">加载更多会话</x-button>
 		<text v-if="loadingMessages" class="conversation-copy mt-12">正在核对会话及消息…</text>
 		<view v-if="selected != null" class="mt-16">
 			<text class="conversation-title text-weight-b">当前会话：{{ selected!.title }}</text>
 			<view v-if="!selected!.archived" class="mt-8">
-				<x-input :model-value="renameTitle" @update:modelValue="renameTitle = $event" :maxlength="80" height="44" placeholder="新的会话标题" :disabled="busy"></x-input>
-				<x-button class="mt-8" height="44" :block="true" skin="outline" :disabled="busy || !isAIConversationTitle(renameTitle)" @click="rename">保存会话标题</x-button>
-				<x-button class="mt-8" height="44" :block="true" skin="outline" :disabled="busy" @click="archive">归档当前会话</x-button>
+				<x-input :model-value="renameTitle" @update:modelValue="renameTitle = $event" :maxlength="80" height="44" placeholder="新的会话标题" :disabled="busy || loadingMessages"></x-input>
+				<x-button class="mt-8" height="44" :block="true" skin="outline" :disabled="busy || loadingMessages || !isAIConversationTitle(renameTitle)" @click="rename">保存会话标题</x-button>
+				<x-button class="mt-8" height="44" :block="true" skin="outline" :disabled="busy || loadingMessages" @click="archive">归档当前会话</x-button>
 			</view>
 			<text v-if="messages.length == 0 && !loadingMessages" class="conversation-copy mt-12">当前会话暂无消息。此处不展示模拟回答。</text>
 			<view v-for="item in messages" :key="item.seq" class="mt-12">
 				<text class="conversation-copy">消息 #{{ item.seq }} · {{ formatMillis(item.createdAt) }}</text>
 				<text v-if="item.kind == 'question'" class="conversation-title mt-4">历史提问：{{ item.question }}</text>
 				<x-button v-if="item.kind == 'question' && item.skill == 'material_qa'" class="mt-8" height="44" :block="true" skin="outline" :disabled="busy" @click="openQuestion(item)">查询问题状态 #{{ item.seq }}</x-button>
+				<x-button v-if="item.kind == 'question' && item.skill == 'report_qa'" class="mt-8" height="44" :block="true" skin="outline" :disabled="busy" @click="openReportQuestion(item)">查询报告追问 #{{ item.seq }}</x-button>
 				<text v-if="item.kind == 'task'" class="conversation-title mt-4">{{ item.skill == 'light' ? '轻度' : '深度' }}资料任务 · {{ item.subjectType == 'theme' ? '题材' : '专题' }} #{{ item.subjectId }}</text>
 				<x-button v-if="item.kind == 'task'" class="mt-8" height="44" :block="true" skin="outline" :disabled="busy" @click="openTask(item)">查看关联任务 #{{ item.taskId }}</x-button>
 			</view>
@@ -205,9 +254,13 @@ onBeforeUnmount(() => { active = false; generation++; resetDetail(); rows.value 
 		</view>
 		<text v-if="message != ''" class="conversation-copy mt-12">{{ message }}</text>
 	</x-sheet>
-	<AISkillPanel v-if="selected != null" :active="activeSkill" @select="selectSkill"></AISkillPanel>
+		</view>
+		<view :style="activeTab == 'tasks' ? '' : 'display: none;'"><slot name="tasks"></slot></view>
+		<!-- 报告及进度由原页面持有，移动布局不会重复挂载或触发第二条订阅。 -->
+		<slot name="result"></slot>
+		<view class="conversation-composer" :style="activeTab == 'conversation' ? '' : 'display: none;'">
 	<view v-if="selected != null" :style="activeSkill == 'material_qa' ? '' : 'display: none;'">
-		<AIQuestionPanel :key="selected!.id.toString() + '_' + questionRequest.toString()" :session-token="sessionToken" :conversation-id="selected!.id" :archived="selected!.archived" :question-seq="questionSeq" @saved="refreshLinkedHistory" @unauthorized="emit('unauthorized')" @conversation="open($event)"></AIQuestionPanel>
+		<AIQuestionPanel :key="selected!.id.toString() + '_' + questionRequest.toString()" :session-token="sessionToken" :conversation-id="selected!.id" :archived="selected!.archived" :question-seq="questionSeq" :dock-input="allowDock && activeTab == 'conversation' && activeSkill == 'material_qa' && !reportInputActive" :dock-left="wide ? 324 : 16" :dock-bottom="60" @saved="refreshLinkedHistory" @unauthorized="emit('unauthorized')" @conversation="open($event, false)"></AIQuestionPanel>
 	</view>
 	<view v-if="selected != null && activeSkill == 'light'">
 		<AIConversationTaskPanel :key="selected!.id" :session-token="sessionToken" :conversation-id="selected!.id" :analysis-type="'light'" :archived="selected!.archived" @task="emit('task', $event)" @linked="refreshLinkedHistory" @unauthorized="emit('unauthorized')"></AIConversationTaskPanel>
@@ -215,10 +268,31 @@ onBeforeUnmount(() => { active = false; generation++; resetDetail(); rows.value 
 	<view v-if="selected != null && activeSkill == 'deep'">
 		<AIConversationTaskPanel :key="selected!.id + '_deep'" :session-token="sessionToken" :conversation-id="selected!.id" :analysis-type="'deep'" :archived="selected!.archived" @task="emit('task', $event)" @linked="refreshLinkedHistory" @unauthorized="emit('unauthorized')"></AIConversationTaskPanel>
 	</view>
+		</view>
+		<view v-if="selected != null && activeTab == 'conversation'" class="conversation-tools-reserve"></view>
+		<view id="ai-conversation-bottom" class="conversation-bottom-anchor"></view>
+		</scroll-view>
+		<view v-if="selected != null && activeTab == 'conversation'" class="conversation-tools" :style="'left:' + (wide ? '324' : '16') + 'px;'">
+			<view class="conversation-tool"><x-button height="44" :block="true" skin="outline" @click="skillsVisible = true">技能与范围</x-button></view>
+			<view class="conversation-tool ml-8"><x-button height="44" :block="true" skin="outline" @click="scrollToBottom">回到底部</x-button></view>
+		</view>
+		<x-drawer v-if="selected != null" :show="skillsVisible" @update:show="skillsVisible = $event" title="选择技能与核对范围" position="bottom" size="70%" :show-close="true" content-margin="0">
+			<AISkillPanel :active="reportInputActive ? 'report_qa' : activeSkill" @select="selectSkill"></AISkillPanel>
+		</x-drawer>
 	</view>
 </template>
 
 <style scoped>
 .conversation-title { color: #30343c; line-height: 24px; }
 .conversation-copy { color: #586174; font-size: 14px; line-height: 22px; }
+.conversation-workspace { flex: 1; min-height: 0; overflow: hidden; flex-direction: column; }
+.conversation-wide { flex-direction: row; align-items: stretch; }
+.conversation-sidebar { width: 292px; flex-shrink: 0; margin-top: 16px; margin-left: 16px; background-color: #ffffff; border-radius: 12px; }
+.conversation-history-scroll { flex: 1; min-height: 0; }
+.conversation-main { flex: 1; min-width: 0; min-height: 0; }
+.conversation-composer { padding-bottom: env(safe-area-inset-bottom); }
+.conversation-tools { position: fixed; right: 16px; bottom: 0; z-index: 11; padding: 8px; padding-bottom: env(safe-area-inset-bottom); background-color: #ffffff; flex-direction: row; }
+.conversation-tool { flex: 1; min-width: 0; }
+.conversation-bottom-anchor { height: 1px; flex-shrink: 0; }
+.conversation-tools-reserve { height: 60px; padding-bottom: env(safe-area-inset-bottom); }
 </style>

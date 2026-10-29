@@ -26,6 +26,9 @@ func NewAIL2ReportPlan(template AIL1ReportPlan, price points.Price, budget task.
 	if template.AnalysisType != task.DeepAnalysisType || template.Policy.AnalysisType != task.DeepAnalysisType || template.Policy.MinQuotes != task.DeepMinQuotes || template.Model.AnalysisType != task.DeepAnalysisType || template.Agent.SubjectID <= 0 || template.Agent.SubjectType != task.Theme || len(template.Snapshots) < 1 || len(template.Snapshots) > 32 || price.Validate() != nil || price.Points != task.DeepPricePoints || budget.Validate() != nil {
 		return nil, points.ErrInvalid
 	}
+	if err := template.preflightBudget(budget); err != nil {
+		return nil, err
+	}
 	digest, err := template.AdmissionDigest()
 	if err != nil {
 		return nil, err
@@ -86,18 +89,45 @@ func urlDomain(raw string) string {
 type AIL2AdmissionControl struct{ plan *AIL2ReportPlan }
 
 func NewAIL2AdmissionControl(plan *AIL2ReportPlan) (*AIL2AdmissionControl, error) {
-	if plan == nil {
-		return nil, points.ErrInvalid
+	c := &AIL2AdmissionControl{plan: plan}
+	if err := c.Ready(context.Background()); err != nil {
+		return nil, err
 	}
-	return &AIL2AdmissionControl{plan: plan}, nil
+	return c, nil
 }
-func (c *AIL2AdmissionControl) Ready(context.Context) error     { return nil }
-func (c *AIL2AdmissionControl) ReadyDeep(context.Context) error { return nil }
-func (c *AIL2AdmissionControl) Plan(_ context.Context, scope task.AdmissionScope) (task.AdmissionPlan, error) {
+func (c *AIL2AdmissionControl) Ready(ctx context.Context) error {
+	if ctx == nil || c == nil || c.plan == nil {
+		return points.ErrInvalid
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	// 仅检查受信任模板的结构，不查询会员、不创建任务，也不据此证明外部批准真实有效。
+	// 校验占位身份不参与摘要；实际请求仍须用原会员身份重新生成并验证准入计划。
+	if _, err := c.plan.Admission(task.AdmissionScope{UserID: 1, AnalysisType: task.DeepAnalysisType, SubjectType: task.Theme, SubjectID: c.plan.template.Agent.SubjectID}); err != nil {
+		return err
+	}
+	digest, err := c.plan.template.AdmissionDigest()
+	if err != nil {
+		return err
+	}
+	if digest != c.plan.digest {
+		return points.ErrInvariant
+	}
+	if err := c.plan.template.preflightBudget(c.plan.budget); err != nil {
+		return err
+	}
+	return ctx.Err()
+}
+func (c *AIL2AdmissionControl) ReadyDeep(ctx context.Context) error { return c.Ready(ctx) }
+func (c *AIL2AdmissionControl) Plan(ctx context.Context, scope task.AdmissionScope) (task.AdmissionPlan, error) {
+	if err := c.Ready(ctx); err != nil {
+		return task.AdmissionPlan{}, err
+	}
 	return c.plan.Admission(scope)
 }
 func (c *AIL2AdmissionControl) Recheck(ctx context.Context, p task.AdmissionPlan) error {
-	if err := ctx.Err(); err != nil {
+	if err := c.Ready(ctx); err != nil {
 		return err
 	}
 	want, err := c.plan.Admission(p.Scope)
@@ -121,21 +151,47 @@ func (c *AIL2AdmissionControl) Recheck(ctx context.Context, p task.AdmissionPlan
 type AIL2ExecutionPlanner struct{ plan *AIL2ReportPlan }
 
 func NewAIL2ExecutionPlanner(plan *AIL2ReportPlan) (*AIL2ExecutionPlanner, error) {
-	if plan == nil {
-		return nil, points.ErrInvalid
+	if _, err := NewAIL2AdmissionControl(plan); err != nil {
+		return nil, err
 	}
 	return &AIL2ExecutionPlanner{plan: plan}, nil
 }
-func (c *AIL2ExecutionPlanner) Plan(_ context.Context, v task.Task) (AIL1ReportPlan, error) {
-	return c.plan.Execution(v)
+func (c *AIL2ExecutionPlanner) Plan(ctx context.Context, v task.Task) (AIL1ReportPlan, error) {
+	if c == nil {
+		return AIL1ReportPlan{}, points.ErrInvalid
+	}
+	if err := (&AIL2AdmissionControl{plan: c.plan}).Ready(ctx); err != nil {
+		return AIL1ReportPlan{}, err
+	}
+	p, err := c.plan.Execution(v)
+	if err != nil {
+		return AIL1ReportPlan{}, err
+	}
+	if err := p.Agent.ValidateScope(v); err != nil {
+		return AIL1ReportPlan{}, err
+	}
+	if err := p.preflightBudget(v.Budget); err != nil {
+		return AIL1ReportPlan{}, err
+	}
+	if err := ctx.Err(); err != nil {
+		return AIL1ReportPlan{}, err
+	}
+	return p, nil
 }
-func (c *AIL2ExecutionPlanner) Recheck(_ context.Context, v task.Task, p AIL1ReportPlan) error {
+func (c *AIL2ExecutionPlanner) Recheck(ctx context.Context, v task.Task, p AIL1ReportPlan) error {
+	if _, err := c.Plan(ctx, v); err != nil {
+		return err
+	}
 	if p.AnalysisType != task.DeepAnalysisType || v.AnalysisType != task.DeepAnalysisType {
 		return points.ErrInvalid
+	}
+	// 模板摘要有意排除任务身份；必须另核会员、任务号及派生操作键。
+	if err := p.Agent.ValidateScope(v); err != nil {
+		return err
 	}
 	digest, err := p.AdmissionDigest()
 	if err != nil || digest != c.plan.digest {
 		return points.ErrIdempotency
 	}
-	return nil
+	return ctx.Err()
 }

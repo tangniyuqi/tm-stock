@@ -1,10 +1,11 @@
-//go:build integration
+//go:build integration && liveagents
 
 package agents_test
 
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"os"
 	"testing"
 	"time"
@@ -14,6 +15,9 @@ import (
 )
 
 func TestIntegrationTradingAgentsReal(t *testing.T) {
+	if os.Getenv("TM_TEST_AI_LIVE") != "local-fixture-only" || flag.Lookup("test.count").Value.String() != "1" || flag.Lookup("test.run").Value.String() != "^TestIntegrationTradingAgentsReal$" {
+		t.Fatal("真实适配器测试须显式本地开关、精确单用例且 count=1")
+	}
 	base, token := os.Getenv("TM_TA_URL"), os.Getenv("TM_TA_TOKEN")
 	if base == "" || token == "" {
 		t.Skip("缺少 TM_TA_URL/TM_TA_TOKEN")

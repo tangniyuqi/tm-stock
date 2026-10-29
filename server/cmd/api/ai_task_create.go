@@ -22,10 +22,13 @@ func prepareAITaskCreates(ctx context.Context, db *sql.DB, read config.AITaskRea
 }
 
 func prepareAITaskCreatesWithDeep(ctx context.Context, db *sql.DB, read config.AITaskReadConfig, enabled, deep bool, control service.AITaskAdmissionControl) (*service.AITaskCreateService, error) {
+	if deep && !enabled {
+		return nil, memberauth.ErrInvalidConfig
+	}
 	if !enabled && !read.Enabled {
 		return nil, nil
 	}
-	if !read.Enabled || read.Auth.Validate() != nil || enabled && (control == nil || db == nil) {
+	if !read.Enabled || read.Auth.Validate() != nil || enabled && (control == nil || db == nil || ctx == nil) {
 		return nil, memberauth.ErrInvalidConfig
 	}
 	if enabled {
@@ -71,6 +74,9 @@ func prepareAITaskCreatesWithDeep(ctx context.Context, db *sql.DB, read config.A
 		defer cancel()
 		if err := d.ReadyDeep(checkCtx); err != nil {
 			return nil, fmt.Errorf("AI深度准入启动检查失败（详情已隐藏）: %w", task.ErrAdmissionUnavailable)
+		}
+		if err := repository.NewAIReportSchemaVerifier(db).VerifyWithDeep(checkCtx); err != nil {
+			return nil, fmt.Errorf("AI深度报告结构自检失败（详情已隐藏）: %w", points.ErrInvariant)
 		}
 		limiter, err := service.NewSQLDeepLimiter(db)
 		if err != nil {

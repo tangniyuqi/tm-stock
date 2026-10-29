@@ -18,6 +18,11 @@ type ReportAccess interface {
 	Scope(context.Context, Proof) (Scope, error)
 }
 
+// ReportReadAccess 单独复核当前历史读取权，不能替代执行授权接口。
+type ReportReadAccess interface {
+	ScopeForRead(context.Context, Proof) (Scope, error)
+}
+
 // DurableControl只依赖事务存储；生产装配须另验结构保护和真实批准，不能用测试Store替代。
 type DurableControl struct {
 	store   Store
@@ -45,7 +50,17 @@ func (c *DurableControl) authorize(ctx context.Context, tx Tx, proof Proof) erro
 	if c.reports == nil || c.plan.input.Skill != "report_qa" {
 		return ErrUnavailable
 	}
-	scope, err := c.reports.Scope(ctx, proof)
+	var scope Scope
+	var err error
+	if c.plan.replayOnly {
+		reader, ok := c.reports.(ReportReadAccess)
+		if !ok {
+			return ErrUnavailable
+		}
+		scope, err = reader.ScopeForRead(ctx, proof)
+	} else {
+		scope, err = c.reports.Scope(ctx, proof)
+	}
 	if err != nil {
 		return err
 	}
@@ -55,7 +70,7 @@ func (c *DurableControl) authorize(ctx context.Context, tx Tx, proof Proof) erro
 	return nil
 }
 func (c *DurableControl) within(parent context.Context, write bool, fn func(context.Context, Tx) error) error {
-	if c == nil || c.store == nil || !c.plan.Valid() || parent == nil || fn == nil {
+	if c == nil || c.store == nil || !c.plan.Valid() || parent == nil || fn == nil || write && c.plan.replayOnly {
 		return ErrInvalid
 	}
 	ctx, cancel := context.WithTimeout(parent, 2*time.Second)

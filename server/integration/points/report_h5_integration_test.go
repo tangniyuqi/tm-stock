@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -43,9 +44,15 @@ type h5ReportAction struct {
 	done chan struct{}
 }
 
-type h5ReportQAPolicies struct{}
+type h5ReportQAPolicies struct {
+	config qa.Config
+	digest string
+}
 
-func (h5ReportQAPolicies) ForPolicy(context.Context, string) (qa.Config, error) {
+func (p h5ReportQAPolicies) ForPolicy(_ context.Context, digest string) (qa.Config, error) {
+	if p.digest != "" && digest == p.digest {
+		return p.config, nil
+	}
 	return qa.Config{}, qa.ErrUnavailable
 }
 
@@ -77,6 +84,7 @@ type h5ReportGateway struct {
 	feedbackCredential   string
 	feedbackPosts        int
 	feedbackReads        int
+	reportReads          int // 原公开报告GET成功次数；用于实际H5专项，不把服务层自读当页面交付。
 	streamReads          int
 	conversationPosts    int
 	conversationPatches  int
@@ -87,6 +95,16 @@ type h5ReportGateway struct {
 	intentCreator        *h5IntentCreator
 	intentStore          *intentSQLStore
 	intentMode           bool
+	expiredQAReads       int
+	historyReadError     bool
+	memberLogin          *h5MemberLoginBridge
+	streamCuts           int
+	streamRejects        int
+	streamCursors        []int64
+	pollProgressReads    int
+	streamReplay         *h5StreamReplay
+	timeoutRecovery      bool // 仅显式浏览器专项，把原取消回执交给原恢复服务；不改变业务状态。
+	timeoutRecovered     bool
 }
 
 // 仅测试：计数原创建核，并让原提交未知夹具绑定实际服务端任务键。
@@ -115,6 +133,15 @@ func h5TestOrigin(raw string) (*url.URL, error) {
 
 func newH5ReportGateway(t *testing.T, e *submissionHTTPEnv, origin string, live ...bool) *h5ReportGateway {
 	t.Helper()
+	if mode := os.Getenv("TM_TEST_AI_H5_STREAM_FAULTS"); mode != "" && (mode != "local-fixture-only" || os.Getenv("TM_TEST_AI_H5_ORIGIN") == "") {
+		t.Fatal("SSE传输故障只允许显式本地浏览器隔离验收")
+	}
+	if !h5StreamReplayConfigurationValid(os.Getenv("TM_TEST_AI_H5_STREAM_REPLAY"), os.Getenv("TM_TEST_AI_H5_ORIGIN"), os.Getenv("TM_TEST_AI_H5_LOGIN"), os.Getenv("TM_TEST_AI_H5_STREAM_FAULTS")) {
+		t.Fatal("SSE原事件复放只允许独立、原密码登录的本地浏览器隔离验收")
+	}
+	if !h5MemberLoginConfigurationValid(os.Getenv("TM_TEST_AI_H5_LOGIN"), os.Getenv("TM_TEST_AI_H5_LOGIN_RUNNER"), os.Getenv("TM_TEST_AI_H5_ORIGIN")) {
+		t.Fatal("原会员密码登录验收配置不完整；禁止退回JWT注入")
+	}
 	target, err := h5TestOrigin(origin)
 	if err != nil {
 		t.Fatal("H5测试只能代理显式回环HTTP源")
@@ -138,6 +165,8 @@ func newH5ReportGateway(t *testing.T, e *submissionHTTPEnv, origin string, live 
 	if err != nil {
 		t.Fatal(err)
 	}
+	// 隔离浏览器验收显式接入同一账本的只读余额；不改变正式API默认开关。
+	handler.NewPointsBalanceHandler(e.ledger).Register(mux, auth)
 	// 仅此隔离网关装配会话与公开SSE；不改变生产开关，也不自动生成会话任务。
 	for _, load := range []func() (string, error){conversationMigration, intentMigration} {
 		ddl, err := load()
@@ -169,6 +198,9 @@ func newH5ReportGateway(t *testing.T, e *submissionHTTPEnv, origin string, live 
 	}
 	handler.NewAITaskCancelHandler(cancel).Register(mux, auth)
 	g := &h5ReportGateway{e: e, actions: make(chan h5ReportAction, 8), seen: make(map[int64]bool)}
+	if os.Getenv("TM_TEST_AI_H5_STREAM_REPLAY") == "local-fixture-only" {
+		g.streamReplay = &h5StreamReplay{}
+	}
 	core, err := service.NewAITaskService(e.store, e.ledger)
 	if err != nil {
 		t.Fatal(err)
@@ -223,7 +255,11 @@ func newH5ReportGateway(t *testing.T, e *submissionHTTPEnv, origin string, live 
 		if err != nil {
 			t.Fatal(err)
 		}
-		qaSvc, err := service.NewAIQAServiceWithReports(repository.NewAIQARepo(e.db), h5ReportQAPolicies{}, h5ReportQAModels{qaDirect}, sessions, true, evidence, h5ReportQAConfig{cfg: qaCfg})
+		policies := h5ReportQAPolicies{}
+		if os.Getenv("TM_TEST_AI_H5_COMBINED") == "local-fixture-only" {
+			policies = prepareH5CombinedScope(t, e, qaCfg)
+		}
+		qaSvc, err := service.NewAIQAServiceWithReports(repository.NewAIQARepo(e.db), policies, h5ReportQAModels{qaDirect}, sessions, true, evidence, h5ReportQAConfig{cfg: qaCfg})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -231,7 +267,7 @@ func newH5ReportGateway(t *testing.T, e *submissionHTTPEnv, origin string, live 
 	}
 	notice := "示例会员、来源、CN和模型；无真实模型调用、真实费用或生产数据。不使用生产账号。"
 	if len(live) == 1 && live[0] {
-		notice = "示例会员、资料和账本；本地异步桥调用真实社区版V2引擎及付费DeepSeek模型。仅测试积分，不连接生产数据。"
+		notice = "示例会员、资料和账本；本地异步桥调用真实社区版V2引擎及本次显式配置的付费模型，实际供应商与模型以隔离回执为准。仅测试积分，不连接生产数据。"
 	}
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	proxy.Transport = &http.Transport{Proxy: nil, DialContext: (&net.Dialer{Timeout: 3 * time.Second}).DialContext, ResponseHeaderTimeout: 5 * time.Second}
@@ -253,9 +289,40 @@ func newH5ReportGateway(t *testing.T, e *submissionHTTPEnv, origin string, live 
 		if r.URL.Path == "/__test__/" && r.Method == "GET" {
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			w.Header().Set("Content-Security-Policy", "default-src 'none'; script-src 'nonce-test-only-h5'; connect-src 'self'")
+			if g.memberLogin != nil {
+				fmt.Fprintf(w, `<!doctype html><meta charset="utf-8"><title>本地H5原登录验收</title><h1>仅测试：原会员密码登录</h1><p>%s</p><a href="/__test__/login">查看本次测试账号，再进入原登录页</a><button id="guest">清理本地登录态并进入AI助手</button><button id="withdraw">撤回测试来源</button><button id="resolve-feedback">处理测试反馈</button><button id="finish">结束并核对测试</button><p id="result"></p><script nonce="test-only-h5">document.getElementById('guest').onclick=()=>{localStorage.removeItem('token');location.href='/#/pages/ai/index'};for(const id of ['withdraw','resolve-feedback','finish'])document.getElementById(id).onclick=async()=>{const r=await fetch('/__test__/'+id,{method:'POST'});document.getElementById('result').textContent=r.ok?'测试操作已确认':'测试操作未确认'};</script>`, notice)
+				if os.Getenv("TM_TEST_AI_H5_STREAM_FAULTS") == "local-fixture-only" {
+					fmt.Fprint(w, `<p id="stream-proof">等待真实轮询观测</p><script nonce="test-only-h5">const streamObserver=setInterval(async()=>{try{const r=await fetch('/__test__/stream-status');if(!r.ok)throw new Error('测试已结束');const d=await r.json();document.getElementById('stream-proof').textContent=d.ready?'已取得两次真实轮询读取':'等待真实轮询观测'}catch{clearInterval(streamObserver)}},250);</script>`)
+				}
+				return
+			}
 			if _, err := fmt.Fprintf(w, `<!doctype html><meta charset="utf-8"><title>本地H5测试会话</title><h1>仅测试：本地隔离会话</h1><p>%s</p><button id="one">进入测试会员一</button><button id="two">切换测试会员二</button><button id="guest">退出测试会话</button><button id="withdraw">撤回测试来源</button><button id="resolve-feedback">处理测试反馈</button><button id="finish">结束并核对测试</button><p id="result"></p><script nonce="test-only-h5">const tokens=%s;for(const id of ['one','two'])document.getElementById(id).onclick=()=>{localStorage.setItem('token',tokens[id]);location.href='/#/pages/ai/index'};document.getElementById('guest').onclick=()=>{localStorage.removeItem('token');location.href='/#/pages/ai/index'};for(const id of ['withdraw','resolve-feedback','finish'])document.getElementById(id).onclick=async()=>{const r=await fetch('/__test__/'+id,{method:'POST'});document.getElementById('result').textContent=r.ok?'测试操作已确认':'测试操作未确认'};</script>`, notice, tokens); err != nil {
 				return
 			}
+			return
+		}
+		if g.memberLogin != nil && r.URL.Path == "/__test__/login" && r.Method == "GET" {
+			g.memberLogin.proxy.ServeHTTP(w, r)
+			return
+		}
+		if os.Getenv("TM_TEST_AI_H5_STREAM_FAULTS") == "local-fixture-only" && r.URL.Path == "/__test__/stream-status" && r.Method == "GET" && r.URL.RawQuery == "" {
+			g.serial.Lock()
+			ready := g.streamCuts == 2 && g.streamRejects > 0 && g.pollProgressReads >= 2
+			g.serial.Unlock()
+			w.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(w).Encode(map[string]bool{"ready": ready}); err != nil {
+				return
+			}
+			return
+		}
+		if g.memberLogin != nil && strings.HasPrefix(r.URL.Path, "/api/client/") {
+			allowed := r.Method == "POST" && (r.URL.Path == "/api/client/auth/login" || r.URL.Path == "/api/client/auth/logout") || r.Method == "GET" && r.URL.Path == "/api/client/member/profile"
+			if !allowed || r.URL.RawQuery != "" || r.Method == "POST" && r.Header.Get("Origin") != g.server.URL {
+				http.NotFound(w, r)
+				return
+			}
+			r.URL.Path = strings.TrimPrefix(r.URL.Path, "/api")
+			g.memberLogin.proxy.ServeHTTP(w, r)
 			return
 		}
 		if r.URL.Path == "/__test__/mobile" && r.Method == "GET" {
@@ -286,16 +353,81 @@ func newH5ReportGateway(t *testing.T, e *submissionHTTPEnv, origin string, live 
 			}
 			return
 		}
-		if strings.HasPrefix(r.URL.Path, "/api/") {
+		// 只接后端命名空间，不能截获前端 /api/auth.uts 等源码模块。
+		if strings.HasPrefix(r.URL.Path, "/api/v1/") {
 			// SSE必须直通真实ResponseWriter，不能经Recorder缓存或占住API互斥锁。
 			if r.Method == "GET" && strings.HasSuffix(r.URL.Path, "/stream") {
+				if g.streamReplay != nil {
+					// 原handler先做严格鉴权/游标校验。只有它实际flush连接帧才启动测试worker。
+					after, err := strconv.ParseInt(r.URL.Query().Get("after_seq"), 10, 64)
+					if err != nil {
+						mux.ServeHTTP(w, r)
+						return
+					}
+					ctx, stop := context.WithCancel(r.Context())
+					defer stop()
+					writer := newH5StreamReplayWriter(w, g.streamReplay, after, stop, func() {
+						kind := "start-stream-worker"
+						g.streamReplay.mu.Lock()
+						if len(g.streamReplay.cursors) > 1 {
+							kind = "complete-stream-agent"
+						}
+						g.streamReplay.mu.Unlock()
+						select {
+						case g.actions <- h5ReportAction{kind: kind}:
+						case <-ctx.Done():
+						}
+					})
+					mux.ServeHTTP(writer, r.WithContext(ctx))
+					return
+				}
 				g.serial.Lock()
 				g.streamReads++
+				fault := os.Getenv("TM_TEST_AI_H5_STREAM_FAULTS") == "local-fixture-only"
+				attempt := g.streamReads
+				if fault {
+					after, parseErr := strconv.ParseInt(r.URL.Query().Get("after_seq"), 10, 64)
+					if parseErr == nil {
+						g.streamCursors = append(g.streamCursors, after)
+					}
+				}
 				g.serial.Unlock()
+				if fault {
+					// 先由原身份及归属服务核验，再注入不含业务数据的传输失败。
+					_, bearer, _ := strings.Cut(r.Header.Get("Authorization"), " ")
+					uid, authErr := sessions.Authenticate(r.Context(), bearer)
+					parts := strings.Split(r.URL.Path, "/")
+					id, idErr := strconv.ParseInt(parts[len(parts)-2], 10, 64)
+					if authErr == nil && idErr == nil {
+						_, authErr = streamReads.Progress(r.Context(), uid, id)
+					}
+					if authErr == nil && idErr == nil {
+						if attempt >= 3 {
+							g.serial.Lock()
+							g.streamRejects++
+							g.serial.Unlock()
+							http.Error(w, "仅测试：进度传输暂不可用", 503)
+							return
+						}
+						ctx, stop := context.WithCancel(r.Context())
+						defer stop()
+						writer := &h5EarlyEOFWriter{ResponseWriter: w, stop: stop}
+						mux.ServeHTTP(writer, r.WithContext(ctx))
+						if writer.cut {
+							g.serial.Lock()
+							g.streamCuts++
+							g.serial.Unlock()
+						}
+						return
+					}
+				}
 				mux.ServeHTTP(w, r)
 				return
 			}
 			g.serial.Lock()
+			if os.Getenv("TM_TEST_AI_H5_STREAM_FAULTS") == "local-fixture-only" && g.streamRejects > 0 && r.Method == "GET" && r.URL.Path == "/api/v1/ai/tasks/"+strconv.FormatInt(g.e.v.ID, 10) {
+				g.pollProgressReads++
+			}
 			if strings.HasSuffix(r.URL.Path, "/feedback") {
 				if r.Method == "POST" {
 					g.feedbackPosts++
@@ -324,6 +456,24 @@ func newH5ReportGateway(t *testing.T, e *submissionHTTPEnv, origin string, live 
 			}
 			rec := httptest.NewRecorder()
 			mux.ServeHTTP(rec, r)
+			if rec.Code == http.StatusOK && r.Method == "GET" && strings.HasPrefix(r.URL.Path, "/api/v1/ai/tasks/") && strings.HasSuffix(r.URL.Path, "/report") {
+				g.reportReads++
+			}
+			if os.Getenv("TM_TEST_AI_H5_QA_HISTORY") == "1" && r.Method == "GET" && strings.HasSuffix(r.URL.Path, "/answer") && rec.Code == http.StatusOK {
+				parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+				if len(parts) == 8 && parts[3] == "conversations" && parts[5] == "questions" {
+					cid, cidErr := strconv.ParseInt(parts[4], 10, 64)
+					seq, seqErr := strconv.ParseInt(parts[6], 10, 64)
+					var raw string
+					var proof qa.Proof
+					err := e.db.QueryRowContext(e.ctx, "SELECT proof_json FROM tm_ai_qa_requests WHERE user_id=1 AND conversation_id=? AND seq=?", cid, seq).Scan(&raw)
+					if cidErr != nil || seqErr != nil || err != nil || json.Unmarshal([]byte(raw), &proof) != nil || !proof.Valid() {
+						g.historyReadError = true
+					} else if !time.Now().Before(proof.ValidUntil) {
+						g.expiredQAReads++
+					}
+				}
+			}
 			if rec.Code == 200 && r.Method == "POST" && r.URL.Path == "/api/v1/ai/conversations" {
 				g.conversationPosts++
 			}
@@ -341,6 +491,7 @@ func newH5ReportGateway(t *testing.T, e *submissionHTTPEnv, origin string, live 
 					g.cancelAck = true
 				}
 			}
+			recoverTimeout := g.timeoutRecovery && g.cancelAck && r.Method == "POST" && strings.HasSuffix(r.URL.Path, "/cancel") && rec.Code == 200
 			var created int64
 			if rec.Code == 200 && intentPath {
 				var result struct {
@@ -374,6 +525,12 @@ func newH5ReportGateway(t *testing.T, e *submissionHTTPEnv, origin string, live 
 				case <-e.ctx.Done():
 				}
 			}
+			if recoverTimeout {
+				select {
+				case g.actions <- h5ReportAction{kind: "recover-timeout"}:
+				case <-e.ctx.Done():
+				}
+			}
 			return
 		}
 		proxy.ServeHTTP(w, r)
@@ -382,6 +539,9 @@ func newH5ReportGateway(t *testing.T, e *submissionHTTPEnv, origin string, live 
 	g.server.Config.WriteTimeout = 10 * time.Second
 	g.server.Start()
 	t.Cleanup(g.server.Close)
+	if runner := os.Getenv("TM_TEST_AI_H5_LOGIN_RUNNER"); runner != "" {
+		g.memberLogin = startH5MemberLogin(t, e.ctx, e.database, e.web.key, runner)
+	}
 	return g
 }
 
@@ -444,7 +604,7 @@ func (g *h5ReportGateway) process(t *testing.T, job h5ReportAction, mode string)
 		if mode == "success" || mode == "library" || mode == "feedback" {
 			g.e.run(t)
 		}
-		if mode == "running_cancel" {
+		if mode == "running_cancel" || mode == "timeout_cancel" {
 			g.startRunning(t)
 		}
 	case "resolve-feedback":
@@ -465,13 +625,13 @@ func (g *h5ReportGateway) process(t *testing.T, job h5ReportAction, mode string)
 			t.Fatal(err)
 		}
 	case "finish":
-		if mode == "running_cancel" {
+		if mode == "running_cancel" || mode == "timeout_cancel" {
 			if g.workerDone == nil || !g.cancelAck {
 				t.Fatal("H5缺少真实运行和已受理但非终态的取消回执")
 			}
 			select {
 			case <-g.workerDone:
-				if g.workerErr != nil {
+				if mode == "running_cancel" && g.workerErr != nil || mode == "timeout_cancel" && (!errors.Is(g.workerErr, context.DeadlineExceeded) || !g.timeoutRecovered) {
 					t.Fatal("H5取消worker失败", g.workerErr)
 				}
 			case <-time.After(5 * time.Second):
@@ -502,7 +662,7 @@ func (g *h5ReportGateway) process(t *testing.T, job h5ReportAction, mode string)
 			want, calls, models = task.Cancelled, 0, 0
 			settlements = 0
 		}
-		if mode == "running_cancel" {
+		if mode == "running_cancel" || mode == "timeout_cancel" {
 			want, calls, models, settlements = task.Cancelled, 1, 0, 0
 		}
 		v, err := g.e.tasks.Inspect(g.e.ctx, 1, g.e.v.ID)
@@ -529,9 +689,33 @@ func (g *h5ReportGateway) process(t *testing.T, job h5ReportAction, mode string)
 			t.Fatal("H5反馈受理、查询、处理审计未闭环")
 		}
 		if os.Getenv("TM_TEST_AI_H5_REPORT_QA") == "1" {
-			if g.e.queryInt("SELECT COUNT(*) FROM tm_ai_qa_requests") != 1 || g.e.queryInt("SELECT COUNT(*) FROM tm_ai_conversation_messages WHERE skill='report_qa' AND task_id="+strconv.FormatInt(g.e.v.ID, 10)) != 1 || g.e.queryInt("SELECT COUNT(*) FROM tm_ai_qa_calls WHERE state='recorded'") != 3 {
+			binding := "skill='report_qa' AND task_id=" + strconv.FormatInt(g.e.v.ID, 10)
+			if os.Getenv("TM_TEST_AI_H5_COMBINED") == "local-fixture-only" {
+				binding = "skill='material_qa' AND conversation_id IN (SELECT conversation_id FROM tm_ai_conversation_messages WHERE kind='task' AND task_id=" + strconv.FormatInt(g.e.v.ID, 10) + ")"
+			}
+			if g.e.queryInt("SELECT COUNT(*) FROM tm_ai_qa_requests") != 1 || g.e.queryInt("SELECT COUNT(*) FROM tm_ai_conversation_messages WHERE "+binding) != 1 || g.e.queryInt("SELECT COUNT(*) FROM tm_ai_qa_calls WHERE state='recorded'") != 3 {
 				t.Fatal("H5报告追问未恰好执行一次或未绑定原报告")
 			}
+		}
+		if os.Getenv("TM_TEST_AI_H5_QA_HISTORY") == "1" {
+			if g.historyReadError || g.expiredQAReads < 1 {
+				t.Fatal("未取得原执行期限过后仍可读取的真实答案回执")
+			}
+			t.Log("已按数据库原证明核对：执行期限过后读取历史答案成功，问答模型仍仅原三次调用")
+		}
+		if g.memberLogin != nil {
+			g.memberLogin.finish(t, g.e.ctx)
+		}
+		if os.Getenv("TM_TEST_AI_H5_STREAM_FAULTS") == "local-fixture-only" {
+			if mode != "running_cancel" || g.streamCuts != 2 || g.streamRejects < 1 || g.pollProgressReads < 2 || len(g.streamCursors) < 3 {
+				t.Fatal("SSE原传输提前结束、重连与轮询兜底未完整", g.streamCuts, g.streamRejects, g.pollProgressReads)
+			}
+			for n, cursor := range g.streamCursors {
+				if cursor <= 0 || n < 3 && cursor != g.streamCursors[0] || n > 0 && cursor < g.streamCursors[n-1] {
+					t.Fatal("无新事件时重连未携带原确认游标", g.streamCursors)
+				}
+			}
+			t.Log("原SSE两次提前结束、原游标重连、不可用后状态查询及原运行中取消/释放通过；没有复制或伪造公开事件")
 		}
 		return true
 	default:
@@ -621,6 +805,12 @@ func TestIntegrationAIReportH5Gateway(t *testing.T) {
 					h5GatewayRequest(t, g, "POST", "/__test__/withdraw", "", "", "", 403)
 					h5GatewayRequest(t, g, "GET", "/__test__/finish", "", "", "", 403)
 					h5GatewayRequest(t, g, "GET", "/", "", "", "", 200)
+					for _, module := range []string{"/api/auth.uts", "/api/member/member.uts"} {
+						body := h5GatewayRequest(t, g, "GET", module, "", "", "", 200)
+						if string(body) != "仅测试前端代理，不是真实H5验收" {
+							t.Fatal("前端API源码模块未交还官方编译源")
+						}
+					}
 					token := e.web.token(t, 1, "client")
 					foreign := e.web.token(t, 2, "client")
 					h5GatewayRequest(t, g, "GET", "/api/v1/theme/search?kw="+url.QueryEscape("示例"), "", "", "", 200)

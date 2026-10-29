@@ -69,6 +69,55 @@ func TestConfigFailClosed(t *testing.T) {
 	}
 }
 
+func TestExecutionParametersBoundAndCopied(t *testing.T) {
+	base := testConfig()
+	profile := base.Profile()
+	for name, change := range map[string]func(*Config){
+		"分析师": func(c *Config) { c.SelectedAnalysts = []string{"news"} },
+		"日期":  func(c *Config) { c.AnalysisDate = "2024-06-28" },
+	} {
+		t.Run(name, func(t *testing.T) {
+			cfg := base
+			change(&cfg)
+			if cfg.Profile() == profile {
+				t.Fatal("执行参数变更未隔离旧配置")
+			}
+		})
+	}
+	base.SelectedAnalysts = []string{"news", "fundamentals"}
+	if base.Profile() != profile {
+		t.Fatal("显式默认分析师与隐式默认不一致")
+	}
+	client, err := New(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(client.Close)
+	base.SelectedAnalysts[0] = "fundamentals"
+	if client.cfg.SelectedAnalysts[0] != "news" {
+		t.Fatal("外部修改改变客户端配置")
+	}
+}
+
+func TestExecutionParametersRejectInvalid(t *testing.T) {
+	for name, change := range map[string]func(*Config){
+		"未知分析师": func(c *Config) { c.SelectedAnalysts = []string{"arbitrary"} },
+		"重复分析师": func(c *Config) { c.SelectedAnalysts = []string{"news", "news"} },
+		"空分析师":  func(c *Config) { c.SelectedAnalysts = []string{""} },
+		"越界日期":  func(c *Config) { c.AnalysisDate = "2024-02-30" },
+		"非规范日期": func(c *Config) { c.AnalysisDate = "2024-6-28" },
+		"日期注入":  func(c *Config) { c.AnalysisDate = "2024-06-28\n" },
+	} {
+		t.Run(name, func(t *testing.T) {
+			cfg := testConfig()
+			change(&cfg)
+			if _, err := New(cfg); err == nil {
+				t.Fatal("无效执行参数放行")
+			}
+		})
+	}
+}
+
 func TestV2WireContract(t *testing.T) {
 	var calls atomic.Int32
 	c := testClient(t, func(r *http.Request) (*http.Response, error) {

@@ -1,14 +1,50 @@
 package qa
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/tangniyuqi/tm-stock/server/internal/ai/conversation"
 )
+
+func TestReportHistoryPlanCannotExecuteOrWrite(t *testing.T) {
+	now := reportNow()
+	p, err := NewReportPlan(Identity{1, 3, 5}, reportMessage(), validReportEvidence(), validReportConfig(), now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	late := now.Add(24 * time.Hour)
+	scope, err := BuildReportReadScope(validReportEvidence(), late, p.Proof().ValidUntil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := NewReportReadPlanScoped(p.identity, reportMessage(), scope, validReportConfig(), late)
+	if err != nil || !reflect.DeepEqual(p.Proof(), r.Proof()) {
+		t.Fatal("历史计划不再绑定原证明", err)
+	}
+	ctl, err := NewDurableControlWithReports(&qaMemoryStore{}, r, &qaReportAccess{scope: scope})
+	if err != nil {
+		t.Fatal(err)
+	}
+	engine := &Engine{control: ctl}
+	if _, err := engine.Run(context.Background(), r); err == nil {
+		t.Fatal("只读计划取得执行权")
+	}
+	if _, err := ctl.Enqueue(context.Background(), "test_question_key_01", 1); err == nil {
+		t.Fatal("只读计划创建新请求")
+	}
+	if err := ctl.Begin(context.Background(), r.Proof()); err == nil {
+		t.Fatal("只读计划取得写入/配额权限")
+	}
+	if _, err := NewReportPlanScoped(p.identity, reportMessage(), scope, validReportConfig(), late); err == nil {
+		t.Fatal("历史范围重新获得普通执行计划")
+	}
+}
 
 func reportDigest(seed string) string {
 	sum := sha256.Sum256([]byte(seed))
