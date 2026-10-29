@@ -39,6 +39,12 @@ func localWorkerEnvironment(dsn, bearer string) []string {
 
 func localWorkerDSN(t *testing.T, e *workflowEnv) string {
 	t.Helper()
+	return localProcessDSN(t, e, []string{"tm_points_accounts", "tm_points_txns", "tm_points_lots", "tm_points_entries", "tm_points_holds", "tm_points_hold_allocs", "tm_points_debts", "tm_points_debt_allocs", "tm_ai_tasks", "tm_ai_task_events", "tm_ai_task_budgets", "tm_ai_task_reservations", "tm_ai_task_step_results", "tm_ai_task_steps", "tm_ai_task_admissions", "tm_ai_report_call_audits", "tm_ai_report_commits", "tm_ai_agent_profiles", "tm_ai_agent_runs", "tm_ai_agent_events"}, false)
+}
+
+// 权限名单仅由测试代码提供；每个进程独立账号，不继承原生实例管理权限。
+func localProcessDSN(t *testing.T, e *workflowEnv, tables []string, memberAPI bool) string {
+	t.Helper()
 	var seed [16]byte
 	if _, err := rand.Read(seed[:]); err != nil {
 		t.Fatal(err)
@@ -54,9 +60,19 @@ func localWorkerDSN(t *testing.T, e *workflowEnv) string {
 			t.Error("清理本轮执行账号失败")
 		}
 	})
-	for _, table := range []string{"tm_points_accounts", "tm_points_txns", "tm_points_lots", "tm_points_entries", "tm_points_holds", "tm_points_hold_allocs", "tm_points_debts", "tm_points_debt_allocs", "tm_ai_tasks", "tm_ai_task_events", "tm_ai_task_budgets", "tm_ai_task_reservations", "tm_ai_task_step_results", "tm_ai_task_steps", "tm_ai_task_admissions", "tm_ai_report_call_audits", "tm_ai_report_commits", "tm_ai_agent_profiles", "tm_ai_agent_runs", "tm_ai_agent_events"} {
+	for _, table := range tables {
 		if _, err := e.db.ExecContext(e.ctx, `GRANT SELECT,INSERT,UPDATE,DELETE ON `+e.database+`.`+table+` TO '`+user+`'@'127.0.0.1'`); err != nil {
 			t.Fatal("授予本轮执行表权限失败")
+		}
+	}
+	if memberAPI {
+		if _, err := e.db.ExecContext(e.ctx, `GRANT SELECT(id,status,deleted_at) ON `+e.database+`.addon_member TO '`+user+`'@'127.0.0.1'`); err != nil {
+			t.Fatal("授予会员状态权限失败")
+		}
+		for _, proc := range []string{"tm_ai_local_conversation_trigger_metadata", "tm_ai_local_intent_trigger_metadata"} {
+			if _, err := e.db.ExecContext(e.ctx, `GRANT EXECUTE ON PROCEDURE `+e.database+`.`+proc+` TO '`+user+`'@'127.0.0.1'`); err != nil {
+				t.Fatal("授予固定元数据读取权限失败")
+			}
 		}
 	}
 	for _, table := range []string{"tm_ai_local_instance", "addon_quant_theme", "tm_ai_sources", "tm_ai_source_snapshots", "tm_ai_source_bodies"} {
@@ -74,11 +90,15 @@ func localWorkerDSN(t *testing.T, e *workflowEnv) string {
 		t.Fatal("执行账号连接失败")
 	}
 	defer db.Close()
-	for _, q := range []string{`CREATE TABLE local_run_forbidden(id int)`, `UPDATE tm_ai_sources SET enabled=enabled`, `UPDATE tm_ai_local_instance SET contains_real_users=contains_real_users`} {
+	denials := []string{`CREATE TABLE local_run_forbidden(id int)`, `UPDATE tm_ai_sources SET enabled=enabled`, `UPDATE tm_ai_local_instance SET contains_real_users=contains_real_users`}
+	if memberAPI {
+		denials = append(denials, `SELECT password FROM addon_member`, `SELECT * FROM tm_ai_agent_runs`, `INSERT INTO tm_ai_report_call_audits(id) VALUES(1)`)
+	}
+	for _, q := range denials {
 		_, err := db.ExecContext(e.ctx, q)
 		var denied *mysql.MySQLError
 		if !errors.As(err, &denied) || (denied.Number != 1044 && denied.Number != 1142 && denied.Number != 1143) {
-			t.Fatal("本地worker越权未明确拒绝")
+			t.Fatal("本地执行账号越权未明确拒绝")
 		}
 	}
 	return cfg.FormatDSN()

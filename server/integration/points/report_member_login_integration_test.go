@@ -141,6 +141,15 @@ func startH5MemberLogin(t *testing.T, parent context.Context, database, signing,
 	if os.Getenv("TM_TEST_AI_H5_LOGIN") != "local-fixture-only" || !h5MemberLoginConfigurationValid(os.Getenv("TM_TEST_AI_H5_LOGIN"), runner, os.Getenv("TM_TEST_AI_H5_ORIGIN")) {
 		t.Fatal("会员密码验收必须显式启用本地浏览器与预编译测试程序")
 	}
+	return startIsolatedMemberLogin(t, parent, database, signing, runner)
+}
+
+// 供实际进程HTTP联调复用原密码桥；不将HTTP请求冒充H5表单操作。
+func startIsolatedMemberLogin(t *testing.T, parent context.Context, database, signing, runner string) *h5MemberLoginBridge {
+	t.Helper()
+	if !filepath.IsAbs(runner) {
+		t.Fatal("登录程序必须是显式本地绝对路径")
+	}
 	dsn, err := driver.ParseDSN(os.Getenv("TM_TEST_DSN"))
 	if err != nil {
 		t.Fatal("会员密码验收DSN无效")
@@ -237,6 +246,9 @@ func startH5MemberLogin(t *testing.T, parent context.Context, database, signing,
 }
 
 func (b *h5MemberLoginBridge) finish(t *testing.T, ctx context.Context) {
+	b.finishAs(t, ctx, true)
+}
+func (b *h5MemberLoginBridge) finishAs(t *testing.T, ctx context.Context, h5 bool) {
 	t.Helper()
 	r, err := http.NewRequestWithContext(ctx, "POST", b.url+"/__test__/login-finish", nil)
 	if err != nil {
@@ -263,5 +275,9 @@ func (b *h5MemberLoginBridge) finish(t *testing.T, ctx context.Context) {
 	case <-time.After(10 * time.Second):
 		t.Fatal("会员登录子程序未返回最终结果")
 	}
-	t.Log("原H5密码表单→GVA bcrypt/JWT→同库会员资料已核验：两会员成功、至少一次拒绝、原登录时间落库")
+	if h5 {
+		t.Log("原H5密码表单→GVA bcrypt/JWT→同库会员资料已核验：两会员成功、至少一次拒绝、原登录时间落库")
+	} else {
+		t.Log("原密码HTTP路由→GVA bcrypt/JWT→同库资料核验通过；不是浏览器操作证据")
+	}
 }

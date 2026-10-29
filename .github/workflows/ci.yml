@@ -201,7 +201,8 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version-file: server/go.mod
+          # 跨进程用例还编译原GVA密码桥，工具链须同时满足两个模块。
+          go-version-file: backend/server/go.mod
           cache: false
 
       # ★ 不能只信 service 的 mysqladmin ping：
@@ -260,6 +261,13 @@ jobs:
           LOCAL_WORKER_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportLocalWorkerProcess/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
           LOCAL_WORKER_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportLocalWorkerProcess/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
           LOCAL_WORKER_SKIPS=$(grep -Ec '^[[:space:]]*--- SKIP: TestIntegrationAIReportLocalWorkerProcess' /tmp/it.log || true)
+          LOCAL_API_WORKER_ROOT=$(grep -Ec '^--- PASS: TestIntegrationAIReportLocalAPIWorker ' /tmp/it.log || true)
+          LOCAL_API_WORKER_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportLocalAPIWorker/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          LOCAL_API_WORKER_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportLocalAPIWorker/(Read_Committed|Repeatable_Read)/(1|2) ' /tmp/it.log || true)
+          LOCAL_API_WORKER_SKIPS=$(grep -Ec '^[[:space:]]*--- SKIP: TestIntegrationAIReportLocalAPIWorker' /tmp/it.log || true)
+          if [ "$LOCAL_API_WORKER_ROOT" -ne 1 ] || [ "$LOCAL_API_WORKER_LEVELS" -ne 2 ] || [ "$LOCAL_API_WORKER_CASES" -ne 4 ] || [ "$LOCAL_API_WORKER_SKIPS" -ne 0 ]; then
+            echo "原密码登录与实际API、独立worker轻深报告结算验收未完整通过"; exit 1
+          fi
           if [ "$LOCAL_WORKER_ROOT" -ne 1 ] || [ "$LOCAL_WORKER_LEVELS" -ne 2 ] || [ "$LOCAL_WORKER_CASES" -ne 12 ] || [ "$LOCAL_WORKER_SKIPS" -ne 0 ]; then
             echo "独立本地worker成功交付、未知停止及配置绑定验收未完整通过"; exit 1
           fi
@@ -573,7 +581,8 @@ jobs:
             echo '::error::问答实际JWT/HTTP/配额/当前撤权/原键未知/无模型读取或结构破坏用例漏跑'; exit 1
           fi
           # 保留原1073项，追加问答HTTP/结构45项及启动10项。
-          MIN=1128
+          # 原1128，新增实际API/独立worker的1根、2级别与4个轻深用例。
+          MIN=1135
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项，低于下限 $MIN —— 要么没跑，要么有测试被删。"; exit 1
           fi
