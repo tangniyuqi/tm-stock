@@ -27,6 +27,7 @@ param(
     [switch]$LocalAPIBootstrap,
     [switch]$LocalMemberBootstrap,
     [switch]$LocalConversationBootstrap,
+    [switch]$LocalPlanBootstrap,
     [ValidateLength(1, 256)][string]$ConversationPattern = '^TestIntegrationAIConversations',
     [ValidateLength(1, 256)][string]$ReportPattern = '^TestIntegrationAIReport'
 )
@@ -34,6 +35,7 @@ param(
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 $liveReportPatterns = @('^TestIntegrationAIReportLiveAgents$', '^TestIntegrationAIReportDeepLiveAgents$')
+if ($LocalPlanBootstrap) { $LocalAPIBootstrap = $true }
 if ($LocalConversationBootstrap) { $LocalMemberBootstrap = $true }
 if ($LocalMemberBootstrap) { $LocalAPIBootstrap = $true }
 if ($LocalAPIBootstrap) { $LocalBootstrapOnly = $true }
@@ -148,15 +150,17 @@ GRANT SELECT ON $localDatabase.tm_ai_local_instance TO '$localUser'@'127.0.0.1';
         try { go build -o $workerPath ./cmd/ai-worker; if ($LASTEXITCODE -ne 0) { throw '本地worker构建失败' } } finally { Pop-Location }
         $savedRuntimeDSN = $env:TM_DB_DSN
         $invokeLocalWorker = {
+            param([switch]$CheckPlans)
             $startInfo = [Diagnostics.ProcessStartInfo]::new()
             $startInfo.FileName = $workerPath
             $startInfo.UseShellExecute = $false
             $startInfo.CreateNoWindow = $true
             $startInfo.RedirectStandardOutput = $true
             $startInfo.RedirectStandardError = $true
-            $startInfo.ArgumentList.Add('check-local-db')
+            if ($CheckPlans) { $startInfo.ArgumentList.Add('check-local-plans') } else { $startInfo.ArgumentList.Add('check-local-db') }
             $startInfo.ArgumentList.Add('-config')
             $startInfo.ArgumentList.Add($localConfigPath)
+            if ($CheckPlans) { $startInfo.ArgumentList.Add('-plans'); $startInfo.ArgumentList.Add($localPlansPath) }
             $startInfo.Environment.Clear()
             foreach ($runtimeName in @('SystemRoot','WINDIR','PATH','PATHEXT','USERPROFILE','APPDATA','LOCALAPPDATA','TEMP','TMP')) {
                 $runtimeValue = [Environment]::GetEnvironmentVariable($runtimeName, 'Process')
@@ -208,6 +212,38 @@ GRANT SELECT ON $localDatabase.tm_ai_local_instance TO '$localUser'@'127.0.0.1';
                 [IO.File]::ReadAllText($migration) | & $clientBinary @clientArgs "--database=$localDatabase"
                 if ($LASTEXITCODE -ne 0) { throw "本地业务迁移失败：$([IO.Path]::GetFileName($migration))" }
             }
+            if ($LocalPlanBootstrap) {
+                $localPlansPath = Join-Path $testRoot 'local-plans.json'
+                $planRunner = Join-Path $testRoot 'local-plan-tests.exe'
+                Push-Location (Join-Path $PSScriptRoot '../../server')
+                try { go test -c -tags=integration -o $planRunner ./cmd/api; if ($LASTEXITCODE -ne 0) { throw '本地计划测试程序构建失败' } } finally { Pop-Location }
+                $planStart = [Diagnostics.ProcessStartInfo]::new()
+                $planStart.FileName = $planRunner; $planStart.UseShellExecute = $false; $planStart.CreateNoWindow = $true
+                $planStart.RedirectStandardInput = $true; $planStart.RedirectStandardOutput = $true; $planStart.RedirectStandardError = $true
+                foreach ($argument in @('-test.run=^TestAILocalPlanBootstrap$','-test.count=1','-test.v')) { $planStart.ArgumentList.Add($argument) }
+                $planStart.Environment.Clear()
+                foreach ($runtimeName in @('SystemRoot','WINDIR','PATH','PATHEXT','USERPROFILE','APPDATA','LOCALAPPDATA','TEMP','TMP')) {
+                    $runtimeValue = [Environment]::GetEnvironmentVariable($runtimeName, 'Process')
+                    if ($null -ne $runtimeValue) { $planStart.Environment[$runtimeName] = $runtimeValue }
+                }
+                $planStart.Environment['TM_TEST_AI_LOCAL_PLAN_CHILD'] = 'local-fixture-only'
+                $planProcess = [Diagnostics.Process]::new(); $planProcess.StartInfo = $planStart; $planStarted = $false
+                try {
+                    if (-not $planProcess.Start()) { throw '本地计划测试程序未启动' }; $planStarted = $true
+                    $planInput = @{ dsn="root:$testPassword@tcp(127.0.0.1:$testPort)/$($localDatabase)?parseTime=true&charset=utf8mb4&loc=UTC"; runtime=$localConfigPath; plans=$localPlansPath }
+                    $planProcess.StandardInput.WriteLine(($planInput | ConvertTo-Json -Compress)); $planProcess.StandardInput.Close()
+                    if (-not $planProcess.WaitForExit(100000)) { throw '本地计划数据库验收超时' }
+                    $planOutput = $planProcess.StandardOutput.ReadToEnd(); $null = $planProcess.StandardError.ReadToEnd()
+                    if ($planProcess.ExitCode -ne 0 -or $planOutput -notmatch 'LOCAL_PLAN_BOOTSTRAP_VERIFIED' -or $planOutput -notmatch '(?m)^--- PASS: TestAILocalPlanBootstrap ') {
+                        $safeLine = [regex]::Match($planOutput, 'ai_local_admission_integration_test.go:(\d+):').Groups[1].Value
+                        throw "本地计划/报价/撤回验收失败（测试行$safeLine，内部内容已隐藏）"
+                    }
+                    Write-Output 'LOCAL_PLAN_BOOTSTRAP_VERIFIED：原创建服务装配、轻深报价、来源撤回及文件变价拒绝、无积分创建拒绝通过；零任务/积分流水/模型调用。'
+                } finally {
+                    if ($planStarted -and -not $planProcess.HasExited) { $planProcess.Kill(); $planProcess.WaitForExit() }
+                    $planProcess.Dispose()
+                }
+            }
             if ($LocalMemberBootstrap) {
                 $memberRunner = Join-Path $testRoot 'local-member-tests.exe'
                 Push-Location (Join-Path $PSScriptRoot '../../backend/server')
@@ -252,6 +288,7 @@ GRANT SELECT ON $localDatabase.tm_ai_local_instance TO '$localUser'@'127.0.0.1';
             foreach ($table in @('tm_ai_local_instance','addon_quant_theme','addon_quant_base_stock','addon_quant_theme_stock','theme_daily_item','theme_daily_quote')) {
                 $apiGrant += " GRANT SELECT ON $localDatabase.$table TO '$apiUser'@'127.0.0.1';"
             }
+            if ($LocalPlanBootstrap) { foreach ($table in @('tm_ai_sources','tm_ai_source_snapshots','tm_ai_source_bodies')) { $apiGrant += " GRANT SELECT ON $localDatabase.$table TO '$apiUser'@'127.0.0.1';" } }
             if ($LocalConversationBootstrap) {
                 # 只读DEFINER视图不能继承I_S.TRIGGERS可见性；固定无参过程在所有者上下文实时读取。
                 # 只投影本库两表的触发器身份，不暴露定义正文，也不执行动态SQL/DDL。
@@ -291,6 +328,28 @@ GRANT SELECT ON $localDatabase.tm_ai_local_instance TO '$localUser'@'127.0.0.1';
             }
             $apiStart.Environment['TM_AI_LOCAL_CONFIG'] = $localConfigPath
             $apiStart.Environment['TM_DB_DSN'] = "$($apiUser):$($apiPassword)@tcp(127.0.0.1:$testPort)/$($localDatabase)?parseTime=true&charset=utf8mb4&loc=UTC"
+            if ($LocalPlanBootstrap) {
+                $apiStart.Environment['TM_AI_LOCAL_PLANS'] = $localPlansPath
+                $savedPlanDSN = $env:TM_DB_DSN
+                try {
+                    $env:TM_DB_DSN = $apiStart.Environment['TM_DB_DSN']
+                    $planWorker = & $invokeLocalWorker -CheckPlans
+                    if ($planWorker.Code -ne 0 -or $planWorker.Text -notmatch '本地合成资料计划与当前来源授权核验通过') {
+                        $safeStage = [regex]::Match($planWorker.Text,'阶段(\d+)').Groups[1].Value
+                        throw "受限只读账号实际worker计划核验未通过（阶段$safeStage）"
+                    }
+                    Write-Output $planWorker.Text.Trim()
+                    & $clientBinary @clientArgs --execute="REVOKE SELECT ON $localDatabase.tm_ai_source_bodies FROM '$apiUser'@'127.0.0.1'"
+                    if ($LASTEXITCODE -ne 0) { throw '正文读取权限撤销反例建立失败' }
+                    $blockedPlanWorker = & $invokeLocalWorker -CheckPlans
+                    if ($blockedPlanWorker.Code -eq 0 -or $blockedPlanWorker.Text -notmatch '核验失败（阶段4') { throw '缺正文读取权限仍通过计划核验，或未在证据阶段明确拒绝' }
+                    & $clientBinary @clientArgs --execute="GRANT SELECT ON $localDatabase.tm_ai_source_bodies TO '$apiUser'@'127.0.0.1'"
+                    if ($LASTEXITCODE -ne 0) { throw '正文只读权限恢复失败' }
+                    $restoredPlanWorker = & $invokeLocalWorker -CheckPlans
+                    if ($restoredPlanWorker.Code -ne 0) { throw '恢复只读权限后实际worker未通过' }
+                    Write-Output 'LOCAL_PLAN_READONLY_WORKER_VERIFIED：实际worker只读核验通过/撤回正文读取权限拒绝/恢复后再次通过；不能改来源或正文。'
+                } finally { $env:TM_DB_DSN = $savedPlanDSN }
+            }
             if ($LocalConversationBootstrap) {
                 $apiStart.Environment['TM_AI_TASK_READ_ENABLED'] = 'true'
                 $apiStart.Environment['TM_AI_CONVERSATIONS_ENABLED'] = 'true'
@@ -324,6 +383,7 @@ GRANT SELECT ON $localDatabase.tm_ai_local_instance TO '$localUser'@'127.0.0.1';
                 $env:MYSQL_PWD = $apiPassword
                 $apiArgs = @($clientArgs | Where-Object { -not $_.StartsWith('--user=') }) + "--user=$apiUser"
                 $deniedQueries = @("INSERT INTO $localDatabase.addon_quant_theme(name) VALUES('forbidden')", "UPDATE $localDatabase.tm_ai_local_instance SET contains_real_users=1", "DROP TABLE $localDatabase.addon_quant_theme", 'SELECT User FROM mysql.user')
+                if ($LocalPlanBootstrap) { $deniedQueries += @("UPDATE $localDatabase.tm_ai_sources SET enabled=0", "UPDATE $localDatabase.tm_ai_source_bodies SET body_text=body_text") }
                 if ($LocalConversationBootstrap) {
                     $deniedQueries += @("SELECT password FROM $localDatabase.addon_member", "UPDATE $localDatabase.addon_member SET status=0 WHERE id=1", "INSERT INTO $localDatabase.tm_ai_tasks(id) VALUES(1)", "INSERT INTO $localDatabase.tm_points_txns(id) VALUES(1)", "DROP TRIGGER $localDatabase.tm_ai_conversation_insert")
                 }
@@ -393,6 +453,7 @@ GRANT SELECT ON $localDatabase.tm_ai_local_instance TO '$localUser'@'127.0.0.1';
             $uncharged = & $clientBinary @clientArgs "--database=$localDatabase" --batch --skip-column-names --execute='SELECT (SELECT COUNT(*) FROM tm_ai_tasks)+(SELECT COUNT(*) FROM tm_points_txns)'
             if ($LASTEXITCODE -ne 0 -or ($uncharged -join '').Trim() -ne '0') { throw '只读API启动生成了任务或积分流水' }
             if ($LocalConversationBootstrap) { Write-Output 'LOCAL_CONVERSATION_PERMISSIONS_VERIFIED：会话专属写权限/固定只读元数据过程/无TRIGGER或DDL/不可读密码或改会员/不可写任务账本/零任务零积分流水均通过。' }
+            elseif ($LocalPlanBootstrap) { Write-Output "LOCAL_PLAN_RUNTIME_VERIFIED：$($migrations.Count)项原迁移/明确合成资料/同源计划配置/受限只读worker/实际API健康与查询/任务入口仍404/零任务零积分流水均通过。" }
             else { Write-Output "LOCAL_API_BOOTSTRAP_VERIFIED：$($migrations.Count)项原迁移/空测试目录/受限只读账号/实际API健康与目录查询/AI入口默认404/零任务零积分流水均通过。" }
         }
         Write-Output 'LOCAL_BOOTSTRAP_VERIFIED：新库/实例标记/仅SELECT核验账号/实际worker/重复初始化拒绝/四项越权拒绝均通过；其它能力以本轮专项结果为准，未启用任务执行。'

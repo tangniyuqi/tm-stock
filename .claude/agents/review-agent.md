@@ -45,3 +45,5 @@
 PowerShell执行迁移须明确使用`StringComparer.Ordinal`排序；`Sort-Object Name`的文化排序可能将`conversations_tasks.sql`放在`conversations.sql`前，引发外键目标不存在。不得靠重写迁移或关闭外键掩盖。新增启动路径须在空隔离库真实执行全部迁移，再验证运行账号的正例及明确权限错误码；脚本语法通过不代表顺序或权限正确。
 
 本地受限账号核验触发器元数据时，不得假定SQL SECURITY DEFINER视图能继承information_schema.triggers可见性；当前MySQL8/9实际验证视图结果为零。使用迁移所有者的固定无参只读过程时，运行账号仅获专属EXECUTE，过程只返回本库所需表的身份字段，不授TRIGGER/DDL、不用静态快照替代实时核验。必须实际验证元数据可见正例、缺过程拒绝、同名失效触发器拒绝及恢复后启动成功；名称元数据齐全不能替代真实约束探针。
+
+资料只读账号的权限应依据实际查询关联表核对：快照读取还JOIN正文表`tm_ai_source_bodies`，仅授来源/快照表SELECT不能证明证据读取可用。验收用实际受限账号运行完整计划核验，撤回正文SELECT须拒绝、恢复后须通过，并证明不能修改来源或正文；root初始化/服务装配成功不能替代该运行权限证据。

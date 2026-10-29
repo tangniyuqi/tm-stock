@@ -104,6 +104,9 @@ func failure(output io.Writer) int {
 	return 1
 }
 func runCommand(ctx context.Context, args []string, output io.Writer) int {
+	if len(args) > 0 && args[0] == "check-local-plans" {
+		return checkLocalPlans(ctx, args[1:], output)
+	}
 	if len(args) > 0 && (args[0] == "check-local" || args[0] == "check-local-db") {
 		return checkLocalConfig(ctx, args[1:], output, args[0] == "check-local-db")
 	}

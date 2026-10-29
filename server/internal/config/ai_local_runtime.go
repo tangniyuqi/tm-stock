@@ -33,11 +33,19 @@ func invalidLocalRuntime() error {
 }
 
 func ReadAILocalRuntime(path string) (*AILocalRuntime, error) {
+	b, err := readAILocalFile(path, 8192)
+	if err != nil {
+		return nil, err
+	}
+	return decodeAILocalRuntime(b)
+}
+
+func readAILocalFile(path string, limit int64) ([]byte, error) {
 	if !filepath.IsAbs(path) || strings.HasPrefix(filepath.ToSlash(path), "//") {
 		return nil, invalidLocalRuntime()
 	}
 	info, err := os.Lstat(path)
-	if err != nil || !info.Mode().IsRegular() || info.Size() > 8192 {
+	if err != nil || !info.Mode().IsRegular() || info.Size() > limit {
 		return nil, invalidLocalRuntime()
 	}
 	f, err := os.Open(path)
@@ -49,10 +57,14 @@ func ReadAILocalRuntime(path string) (*AILocalRuntime, error) {
 	if err != nil || !opened.Mode().IsRegular() || !os.SameFile(info, opened) {
 		return nil, invalidLocalRuntime()
 	}
-	b, err := io.ReadAll(io.LimitReader(f, 8193))
-	if err != nil || len(b) > 8192 {
+	b, err := io.ReadAll(io.LimitReader(f, limit+1))
+	if err != nil || int64(len(b)) > limit {
 		return nil, invalidLocalRuntime()
 	}
+	return b, nil
+}
+
+func decodeAILocalRuntime(b []byte) (*AILocalRuntime, error) {
 	// 逐键读取，同时拒绝重复、大小写别名、未知字段、null和尾随JSON。
 	d := json.NewDecoder(bytes.NewReader(b))
 	token, err := d.Token()

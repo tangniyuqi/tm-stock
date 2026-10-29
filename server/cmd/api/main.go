@@ -142,12 +142,16 @@ func run() error {
 	})
 	handler.NewThemeHandler(themeSvc, access).Register(mux)
 	handler.NewThemeDailyHandler(service.NewThemeDailyService(dailyRepo, cfg.QuoteDelayMin, cfg.QuoteMock)).Register(mux)
-	// 没有生产定价/来源/模型/硬预算控制器：创建误开必须启动失败，只读原键核查不开放写入。
+	// 本地只接受显式合成资料计划；没有生产控制器时创建误开仍启动失败。
 	deepEnabled, err := config.LoadAIDeepCreate(createEnabled)
 	if err != nil {
 		return err
 	}
-	creations, err := prepareAITaskCreatesWithDeep(context.Background(), db, readCfg, createEnabled, deepEnabled, nil)
+	admission, err := prepareAILocalAdmission(db, localRuntime)
+	if err != nil {
+		return err
+	}
+	creations, err := prepareAITaskCreatesWithDeep(context.Background(), db, readCfg, createEnabled, deepEnabled, admission)
 	if err != nil {
 		return err
 	}

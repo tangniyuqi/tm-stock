@@ -81,7 +81,7 @@
 | **后端（Go）** | `.claude/agents/backend-standards-go.md` + `.claude/agents/back-agent.md` |
 | 架构设计 | `.claude/agents/arch-agent.md` |
 | 需求分析 | `.claude/agents/pm-agent.md` |
-| 代码审查 | `.claude/agents/review-agent.md`（**审查必查合规红线**；含H5弹窗退出与真实点击验收、GVA登录/权限接线、旧入口退役与隔离整包构建、迁移序数排序、受限账号及触发器元数据实测） |
+| 代码审查 | `.claude/agents/review-agent.md`（**审查必查合规红线**；含H5弹窗退出与真实点击验收、GVA登录/权限接线、旧入口退役与隔离整包构建、迁移序数排序、受限账号及触发器元数据/资料正文关联读取实测） |
 | 业务概念 | `.claude/agents/domain-glossary.md`（题材/事件/产业链口径） |
 | 写文档 | `.claude/agents/no-summary-docs.md`（禁止任务总结文档） |
 
