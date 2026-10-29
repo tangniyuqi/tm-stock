@@ -387,6 +387,8 @@ SELECT 'REPORT_CHECKS', COUNT(*) FROM information_schema.table_constraints
  WHERE constraint_schema=DATABASE() AND table_name='tm_ai_report_commits' AND constraint_type='CHECK' AND enforced='YES';
 SELECT 'REPORT_TRIGGERS', COUNT(*) FROM information_schema.triggers
  WHERE trigger_schema=DATABASE() AND event_object_table='tm_ai_report_commits';
+SELECT 'REPORT_CALL_CHECKS', COUNT(*) FROM information_schema.table_constraints WHERE constraint_schema=DATABASE() AND table_name='tm_ai_report_call_audits' AND constraint_type='CHECK' AND enforced='YES';
+SELECT 'REPORT_CALL_TRIGGERS', COUNT(*) FROM information_schema.triggers WHERE trigger_schema=DATABASE() AND event_object_table='tm_ai_report_call_audits';
 SELECT 'FEEDBACK_CHECKS', COUNT(*) FROM information_schema.table_constraints
  WHERE constraint_schema=DATABASE() AND table_name IN ('tm_ai_report_feedbacks','tm_ai_report_feedback_events') AND constraint_type='CHECK' AND enforced='YES';
 SELECT 'FEEDBACK_TRIGGERS', COUNT(*) FROM information_schema.triggers
@@ -447,6 +449,8 @@ done
 [ "$(f TASK_STAGE_TRIGGERS)" = "7" ] && ok "阶段 7 个触发器完整" || bad "阶段触发器创建不完整"
 [ "$(f REPORT_CHECKS)" = "1" ] && ok "报告 CHECK 强制执行" || bad "报告 CHECK 缺失或未强制执行"
 [ "$(f REPORT_TRIGGERS)" = "3" ] && ok "报告 3 个触发器完整" || bad "报告触发器创建不完整"
+[ "$(f REPORT_CALL_CHECKS)" = "3" ] && ok "调用审计 3 个 CHECK 强制执行" || bad "调用审计 CHECK 不完整"
+[ "$(f REPORT_CALL_TRIGGERS)" = "3" ] && ok "调用审计 3 个触发器完整" || bad "调用审计触发器不完整"
 [ "$(f FEEDBACK_CHECKS)" = "2" ] && ok "反馈 2 个 CHECK 强制执行" || bad "反馈 CHECK 缺失或未强制执行"
 [ "$(f FEEDBACK_TRIGGERS)" = "6" ] && ok "反馈 6 个触发器完整" || bad "反馈触发器创建不完整"
 [ "$(f CONVERSATION_CHECKS)" = "2" ] && ok "会话 2 个 CHECK 强制执行" || bad "会话 CHECK 缺失或未强制执行"

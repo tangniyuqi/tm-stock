@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -15,13 +16,16 @@ import (
 	"testing"
 	"time"
 
+	mysqldrv "github.com/go-sql-driver/mysql"
 	"github.com/tangniyuqi/tm-stock/server/internal/ai/agenttask"
+	"github.com/tangniyuqi/tm-stock/server/internal/ai/finalreport"
 	"github.com/tangniyuqi/tm-stock/server/internal/ai/task"
 	"github.com/tangniyuqi/tm-stock/server/internal/config"
 	"github.com/tangniyuqi/tm-stock/server/internal/dto"
 	"github.com/tangniyuqi/tm-stock/server/internal/handler"
 	"github.com/tangniyuqi/tm-stock/server/internal/memberauth"
 	"github.com/tangniyuqi/tm-stock/server/internal/middleware"
+	"github.com/tangniyuqi/tm-stock/server/internal/points"
 	"github.com/tangniyuqi/tm-stock/server/internal/provider"
 	"github.com/tangniyuqi/tm-stock/server/internal/repository"
 	"github.com/tangniyuqi/tm-stock/server/internal/service"
@@ -37,9 +41,47 @@ type localCheckStartGuard struct {
 	e *workflowEnv
 }
 
+// 直接调用实际审计服务测试重放；来源撤回不应阻断已返回调用的留证。
+type localAuditReplayGuard struct {
+	e     *workflowEnv
+	audit *service.AIReportCallAuditService
+}
+
+func (g localAuditReplayGuard) Start(ctx context.Context, r task.StageRequest, req provider.Request) error {
+	if err := g.audit.Start(ctx, r, req); err != nil {
+		return err
+	}
+	if err := g.audit.Start(ctx, r, req); !errors.Is(err, task.ErrUnconfirmed) {
+		g.e.t.Fatal("重复调用前审计未阻止重发", err)
+	}
+	return nil
+}
+func (g localAuditReplayGuard) Finish(ctx context.Context, r task.StageRequest, out provider.Response, callErr error) error {
+	g.e.mustExec(`UPDATE tm_ai_sources SET enabled=0`)
+	defer g.e.mustExec(`UPDATE tm_ai_sources SET enabled=1`)
+	// 两个实际事务竞争同一个finish，必须都确认同一条结果。
+	done := make(chan error, 2)
+	for i := 0; i < 2; i++ {
+		go func() { done <- g.audit.Finish(ctx, r, out, callErr) }()
+	}
+	for i := 0; i < 2; i++ {
+		if err := <-done; err != nil {
+			return err
+		}
+	}
+	if err := g.audit.Finish(ctx, r, out, callErr); err != nil {
+		g.e.t.Fatal("同结果审计重放失败", err)
+	}
+	out.Text += "仅测试:变更结果"
+	if err := g.audit.Finish(ctx, r, out, callErr); !errors.Is(err, points.ErrIdempotency) {
+		g.e.t.Fatal("不同结果覆盖原审计", err)
+	}
+	return nil
+}
+
 func verifyLocalModelStartGuard(e *workflowEnv, r task.StageRequest, req provider.Request, start func(task.StageRequest, provider.Request) error) error {
 	e.t.Helper()
-	before := e.queryInt(`SELECT COUNT(*) FROM test_only_check_audits`)
+	before := e.queryInt(`SELECT COUNT(*) FROM tm_ai_report_call_audits`)
 	for _, mode := range []string{"提示", "模型", "追溯", "输入摘要"} {
 		changed, stage := req, r
 		switch mode {
@@ -55,7 +97,7 @@ func verifyLocalModelStartGuard(e *workflowEnv, r task.StageRequest, req provide
 		if err := start(stage, changed); err == nil {
 			e.t.Fatal("实际本地控制器放行被篡改请求", mode)
 		}
-		if e.queryInt(`SELECT COUNT(*) FROM test_only_check_audits`) != before {
+		if e.queryInt(`SELECT COUNT(*) FROM tm_ai_report_call_audits`) != before {
 			e.t.Fatal("拒绝请求仍进入调用审计", mode)
 		}
 	}
@@ -83,6 +125,7 @@ func TestIntegrationAIReportLocalPublication(t *testing.T) {
 					mode = "local_deep"
 				}
 				e := newWorkflowEnv(t, level, mode)
+				reportDDL(t, e.pointsTestEnv, "20261029_create_tm_ai_report_call_audits.sql")
 				owner := e.v.LeaseOwner
 				if _, err := e.tasks.Cancel(e.ctx, 1, e.v.ID); err != nil {
 					t.Fatal(err)
@@ -158,7 +201,11 @@ func TestIntegrationAIReportLocalPublication(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				selection, checks, model, err := service.NewAILocalReportModelControls(admission, e.ledger, e.payloads, workflowModelConfig(e.server.URL()), e.control)
+				audit, err := service.NewAIReportCallAuditService(e.repo)
+				if err != nil {
+					t.Fatal(err)
+				}
+				selection, checks, model, err := service.NewAILocalReportModelControls(admission, e.ledger, e.payloads, workflowModelConfig(e.server.URL()), localAuditReplayGuard{e, audit})
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -176,9 +223,35 @@ func TestIntegrationAIReportLocalPublication(t *testing.T) {
 				beforeTxns := e.queryInt(`SELECT COUNT(*) FROM tm_points_txns`)
 				beforeModels := len(e.server.Requests())
 				beforeAgent := e.submits.Load()
-				beforeAudits := e.queryInt(`SELECT COUNT(*) FROM test_only_check_audits`)
+				beforeAudits := e.queryInt(`SELECT COUNT(*) FROM tm_ai_report_call_audits`)
 				if beforeModels != 3 || beforeAgent != 1 || result.Task.CurrentStep != 5 || beforeAudits != 6 {
 					t.Fatal("未实际经过完整回环Agent/选句/两判定/终检五阶段")
+				}
+				for _, statement := range []string{`UPDATE tm_ai_report_call_audits SET request_digest=REPEAT('0',64)`, `DELETE FROM tm_ai_report_call_audits`} {
+					_, err := e.db.ExecContext(e.ctx, statement)
+					var denied *mysqldrv.MySQLError
+					if !errors.As(err, &denied) || denied.Number != 1644 {
+						t.Fatal("调用审计不可变保护未明确拒绝", err)
+					}
+				}
+				for _, mode := range []string{"终态补造调用", "结果错围栏"} {
+					err := e.repo.WithinCallAuditTx(e.ctx, func(tx finalreport.CallAuditTx) error {
+						a, err := tx.ReadCallAudit(e.ctx, 1, created.TaskID, 2, "start")
+						if err != nil {
+							return err
+						}
+						if mode == "结果错围栏" {
+							a.Phase = "finish"
+							a.Outcome = "returned"
+							a.ResultDigest = task.StageDigest([]byte("other"))
+							a.Request.Fence++
+						}
+						return tx.InsertCallAudit(e.ctx, a)
+					})
+					var denied *mysqldrv.MySQLError
+					if !errors.As(err, &denied) || denied.Number != 1644 {
+						t.Fatal("审计原始绑定触发器未明确拒绝", mode, err)
+					}
 				}
 				base, err := service.NewAIReportService(e.repo, e.ledger, nil, false)
 				if err != nil {
@@ -245,7 +318,7 @@ func TestIntegrationAIReportLocalPublication(t *testing.T) {
 					t.Fatal(err)
 				}
 				web.mustGet(t, url, token, 200)
-				if e.queryInt(`SELECT COUNT(*) FROM tm_points_txns`) != beforeTxns || len(e.server.Requests()) != beforeModels || e.submits.Load() != beforeAgent || e.queryInt(`SELECT COUNT(*) FROM tm_points_txns WHERE kind='settle'`) != 1 || e.queryInt(`SELECT COUNT(*) FROM test_only_check_audits`) != beforeAudits {
+				if e.queryInt(`SELECT COUNT(*) FROM tm_points_txns`) != beforeTxns || len(e.server.Requests()) != beforeModels || e.submits.Load() != beforeAgent || e.queryInt(`SELECT COUNT(*) FROM tm_points_txns WHERE kind='settle'`) != 1 || e.queryInt(`SELECT COUNT(*) FROM tm_ai_report_call_audits`) != beforeAudits {
 					t.Fatal("读取/撤回触发调用或重复结算")
 				}
 				requirePointAudit(t, e.pointsTestEnv, e.ledger)
