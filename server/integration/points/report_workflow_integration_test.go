@@ -138,7 +138,8 @@ func newWorkflowEnv(t *testing.T, level sql.IsolationLevel, mode string) *workfl
 	budget := taskBudget()
 	budget.MaxCalls = 6
 	budget.MaxTokens = 5000
-	x := newReportEnvWithBudget(t, level, time.Minute, false, budget)
+	local := mode == "local" || mode == "local_deep"
+	x := newReportEnvWithBudgetLocal(t, level, time.Minute, false, budget, local)
 	snapshots := []sources.Snapshot{x.snap}
 	if mode == "multi_source" {
 		second, err := sources.BuildSnapshot(x.source, "https://evidence.example.test/second", sources.MediaPlain, []byte(x.snap.Body), x.snap.FetchedAt, 1<<20)
@@ -155,6 +156,19 @@ func newWorkflowEnv(t *testing.T, level sql.IsolationLevel, mode string) *workfl
 	reportDDL(t, x.pointsTestEnv, "20261015_create_tm_ai_agent_runs.sql")
 	x.mustExec(`CREATE TABLE test_only_check_audits(operation_key varchar(80),phase varchar(8),payload mediumblob,PRIMARY KEY(operation_key,phase)) ENGINE=InnoDB`)
 	selectionText := workflowSelectionJSON(t, x.snap.ID)
+	if mode == "local_deep" {
+		var picks finalreport.SelectionResponse
+		if err := json.Unmarshal([]byte(selectionText), &picks); err != nil {
+			t.Fatal(err)
+		}
+		picks.Selections[2].SentenceIDs = []int{3, 4}
+		picks.Selections[3].SentenceIDs = []int{5, 6}
+		raw, err := json.Marshal(picks)
+		if err != nil {
+			t.Fatal(err)
+		}
+		selectionText = string(raw)
+	}
 	if mode == "multi_source" {
 		var picks finalreport.SelectionResponse
 		if err := json.Unmarshal([]byte(selectionText), &picks); err != nil {
@@ -190,6 +204,18 @@ func newWorkflowEnv(t *testing.T, level sql.IsolationLevel, mode string) *workfl
 		t.Fatal(err)
 	}
 	cfg := finalreport.CheckConfig{Model: "测试模型", FilingNo: "test-only-filing", Version: "test-only-v1", ApprovalRef: "test-only-approval", QualityRef: "test-only-quality", HardBudgetRef: "test-only-budget", ProfileDigest: model.DirectProfileDigest(), MaxInputTokens: 32}
+	if local {
+		cfg.FilingNo = "仅测试:公示"
+		cfg.Version = "local-eval:v1"
+		cfg.ApprovalRef = "local-eval:approval"
+		cfg.QualityRef = "local-eval:quality"
+		cfg.HardBudgetRef = "local-eval:budget"
+		cfg.SelectionMaxTokens = 2048
+		cfg.CheckMaxTokens = 64
+	}
+	if mode == "local_deep" {
+		cfg.AnalysisType = 2
+	}
 	ent, err := finalreport.CheckPolicyVersion(finalreport.CheckEntailment, cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -199,6 +225,13 @@ func newWorkflowEnv(t *testing.T, level sql.IsolationLevel, mode string) *workfl
 		t.Fatal(err)
 	}
 	fc := finalreport.Config{Ref: "test-only-policy", ModelName: cfg.Model, FilingNo: cfg.FilingNo, EntailmentVersion: ent, SemanticVersion: sem, AllowedDomains: []string{x.source.Domain}}
+	if local {
+		fc.Ref = "local-eval:policy"
+	}
+	if mode == "local_deep" {
+		fc.AnalysisType = 2
+		fc.MinQuotes = 6
+	}
 	x.policy, err = finalreport.NewPolicy(fc, func(context.Context, finalreport.EntailmentInput) (finalreport.Verdict, error) {
 		return finalreport.Uncertain, nil
 	}, func(context.Context, string) (finalreport.Verdict, error) { return finalreport.Uncertain, nil })
@@ -247,9 +280,16 @@ func newWorkflowEnv(t *testing.T, level sql.IsolationLevel, mode string) *workfl
 	}
 	a := agenttask.Plan{UserID: x.v.UserID, TaskID: x.v.ID, TaskNo: x.v.No, SubjectType: x.v.SubjectType, SubjectID: x.v.SubjectID, ActorID: 7, Symbol: "600001", ProfileDigest: cc.Profile().Digest, Units: task.Units{Calls: 1, Tokens: 100}}
 	a.OperationKey = a.RequestID()
-	e.planner = &workflowPlanner{x: x, p: service.AIL1ReportPlan{Agent: a, Model: cfg, Policy: fc, ThemeName: "示例题材", Snapshots: snapshots}}
+	theme := "示例题材"
+	if local {
+		theme = "仅测试:合成题材"
+	}
+	e.planner = &workflowPlanner{x: x, p: service.AIL1ReportPlan{Agent: a, Model: cfg, Policy: fc, ThemeName: theme, Snapshots: snapshots, AnalysisType: fc.AnalysisType}}
 	e.planner.enabled.Store(true)
 	e.control = &checkSQLControl{x: x, cfg: cfg}
+	if local {
+		e.control.theme = theme
+	}
 	return e
 }
 func (e *workflowEnv) worker(t *testing.T, enabled bool) *service.AIL1ReportWorker {

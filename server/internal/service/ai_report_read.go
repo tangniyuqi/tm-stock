@@ -23,11 +23,22 @@ type AIReportPublication struct {
 type AIReportReadControl interface {
 	Recheck(context.Context, AIReportPublication) error
 }
+
+// 仅可信装配提供策略。解析在报告事务外完成，绑定防止取错会员、题材或类型。
+type AIReportReadPolicy struct {
+	UserID, TaskID, SubjectID int64
+	AnalysisType              int
+	Policy                    *finalreport.Policy
+}
+type AIReportReadPolicySource interface {
+	Resolve(context.Context, int64, int64) (AIReportReadPolicy, error)
+}
 type AIReportReadService struct {
-	base    *AIReportService
-	deep    *AIReportService
-	control AIReportReadControl
-	enabled bool
+	base     *AIReportService
+	deep     *AIReportService
+	control  AIReportReadControl
+	enabled  bool
+	policies AIReportReadPolicySource
 }
 
 func NewAIReportReadService(base *AIReportService, control AIReportReadControl, enabled bool) (*AIReportReadService, error) {
@@ -49,6 +60,13 @@ func NewAIReportReadServiceWithDeep(base, deep *AIReportService, control AIRepor
 	return &AIReportReadService{base: base, deep: deep, control: control, enabled: enabled}, nil
 }
 
+func NewAIReportReadServiceWithPolicySource(base *AIReportService, policies AIReportReadPolicySource, control AIReportReadControl, enabled bool) (*AIReportReadService, error) {
+	if base == nil || base.store == nil || base.core == nil || base.core.ledger == nil || enabled && (policies == nil || control == nil) {
+		return nil, points.ErrInvalid
+	}
+	return &AIReportReadService{base: base, control: control, enabled: enabled, policies: policies}, nil
+}
+
 // SetDeep 由启动装配在开始服务前挂载类型2读取策略；未挂载时深度报告失败关闭。
 func (s *AIReportReadService) SetDeep(deep *AIReportService) error {
 	if s == nil || deep == nil || deep.store == nil || !deep.policy.Valid() || deep.policy.AnalysisType() != task.DeepAnalysisType {
@@ -65,6 +83,24 @@ type reportReadView struct {
 
 func (s *AIReportReadService) load(ctx context.Context, uid, id int64) (reportReadView, error) {
 	var out reportReadView
+	var selected AIReportReadPolicy
+	if s.policies != nil {
+		var err error
+		selected, err = s.policies.Resolve(ctx, uid, id)
+		if err != nil {
+			return out, err
+		}
+		if selected.UserID != uid || selected.TaskID != id || selected.SubjectID <= 0 || !selected.Policy.Valid() || selected.AnalysisType != 1 && selected.AnalysisType != 2 {
+			return out, points.ErrInvariant
+		}
+		want := 0
+		if selected.AnalysisType == 2 {
+			want = 2
+		}
+		if selected.Policy.AnalysisType() != want {
+			return out, points.ErrInvariant
+		}
+	}
 	err := s.base.store.WithinReportTx(ctx, func(tx finalreport.Tx) error {
 		v, err := lockOwnedTask(ctx, tx, uid, id)
 		if err != nil {
@@ -74,7 +110,12 @@ func (s *AIReportReadService) load(ctx context.Context, uid, id int64) (reportRe
 			return finalreport.ErrUnavailable
 		}
 		base := s.base
-		if v.AnalysisType == task.DeepAnalysisType {
+		if s.policies != nil {
+			if selected.SubjectID != v.SubjectID || selected.AnalysisType != v.AnalysisType {
+				return points.ErrInvariant
+			}
+			base = &AIReportService{store: s.base.store, core: s.base.core, policy: selected.Policy}
+		} else if v.AnalysisType == task.DeepAnalysisType {
 			if s.deep == nil {
 				return finalreport.ErrUnavailable
 			}

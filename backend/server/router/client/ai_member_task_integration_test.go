@@ -48,7 +48,7 @@ func originalLocalMemberTokens(t *testing.T, engine *gin.Engine, password string
 
 // 原登录JWT→实际cmd/api→会话意图→原任务/账本；只消费本轮合成测试积分。
 // 模型、报告交付及线上数据不参与本用例；取消终态也不等于报告终检通过。
-func verifyAIMemberTaskAPI(t *testing.T, base string, engine *gin.Engine, db *gorm.DB, password, plansPath string) {
+func verifyAIMemberTaskAPI(t *testing.T, base string, engine *gin.Engine, db *gorm.DB, password, plansPath string, reports bool) {
 	t.Helper()
 	if !localConversationAPIURL(base) {
 		t.Fatal("任务API必须是明确回环地址")
@@ -207,6 +207,11 @@ func verifyAIMemberTaskAPI(t *testing.T, base string, engine *gin.Engine, db *go
 			}
 		}
 		assertBalance(tokens[0], 50, 0)
+		if reports {
+			call("GET", taskPath+"/report", tokens[0], "", "", 422)
+			call("GET", taskPath+"/report", tokens[1], "", "", 404)
+			call("GET", taskPath+"/report", "", "", "", 401)
+		}
 		events := call("GET", taskPath+"/events", tokens[0], "", "", 200)
 		if len(events.Items) != 2 || events.Items[0].Type != "created" || events.Items[1].Type != "cancelled" {
 			t.Fatal("重放产生重复事件")

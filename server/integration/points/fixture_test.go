@@ -26,6 +26,11 @@ type pointsTestEnv struct {
 
 // 每个用例新建随机库，只清理本用例成功创建的库，不修改 DSN 原指向的表。
 func setupPointsLedger(t *testing.T) (*pointsTestEnv, *sql.DB) {
+	return setupPointsLedgerWithLocal(t, false)
+}
+
+// 本地控制器专项使用独立随机库及真实标记；原有测试库口径不变。
+func setupPointsLedgerWithLocal(t *testing.T, local bool) (*pointsTestEnv, *sql.DB) {
 	t.Helper()
 	dsn := os.Getenv("TM_TEST_DSN")
 	if dsn == "" {
@@ -48,6 +53,13 @@ func setupPointsLedger(t *testing.T) (*pointsTestEnv, *sql.DB) {
 		t.Fatal(err)
 	}
 	name := "tm_points_it_" + hex.EncodeToString(random[:])
+	if local {
+		var id [16]byte
+		if _, err := rand.Read(id[:]); err != nil {
+			t.Fatal(err)
+		}
+		name = "tm_ai_local_" + hex.EncodeToString(id[:])
+	}
 	if _, err := admin.ExecContext(ctx, "CREATE DATABASE `"+name+"` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci"); err != nil {
 		t.Fatal("创建隔离账本库失败", err)
 	}
@@ -71,6 +83,12 @@ func setupPointsLedger(t *testing.T) (*pointsTestEnv, *sql.DB) {
 	}
 	t.Cleanup(func() { _ = conn.Close() })
 	e := &pointsTestEnv{t: t, ctx: ctx, conn: conn, database: name}
+	if local {
+		e.mustExec(`CREATE TABLE tm_ai_local_instance(instance_id char(32) PRIMARY KEY,database_name varchar(64),server_uuid char(36),environment varchar(32),contains_real_users tinyint)`)
+		if _, err := conn.ExecContext(ctx, `INSERT INTO tm_ai_local_instance VALUES(?,?,@@server_uuid,'local-isolated',0)`, strings.TrimPrefix(name, "tm_ai_local_"), name); err != nil {
+			t.Fatal(err)
+		}
+	}
 	migration, err := os.ReadFile(filepath.Join("..", "..", "migrations", "20261011_create_points_ledger.sql"))
 	if err != nil {
 		t.Fatal(err)

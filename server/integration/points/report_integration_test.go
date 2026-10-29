@@ -68,20 +68,30 @@ func newReportEnvWithStage(t *testing.T, level sql.IsolationLevel, lease time.Du
 }
 
 func newReportEnvWithBudget(t *testing.T, level sql.IsolationLevel, lease time.Duration, withStage bool, budget task.Budget) *reportEnv {
+	return newReportEnvWithBudgetLocal(t, level, lease, withStage, budget, false)
+}
+func newReportEnvWithBudgetLocal(t *testing.T, level sql.IsolationLevel, lease time.Duration, withStage bool, budget task.Budget, local bool) *reportEnv {
 	t.Helper()
-	e, db, repo, tasks, ledger, now := persistentTaskFixture(t, level)
+	e, db, repo, tasks, ledger, now := persistentTaskFixtureWithLocal(t, level, local)
 	reportDDL(t, e, "20261010_create_ai_source_snapshots.sql")
 	reportDDL(t, e, "20261016_create_tm_ai_report_commits.sql")
 	reportDDL(t, e, "20261023_allow_deep_ai_report_commits.sql")
 	reportDDL(t, e, "20261018_create_tm_ai_task_admissions.sql")
 	e.mustExec(`CREATE TABLE addon_quant_theme(id bigint UNSIGNED PRIMARY KEY,name varchar(100),status tinyint,deleted_at datetime(3));INSERT INTO addon_quant_theme VALUES(1,'示例题材',1,NULL)`)
+	if local {
+		e.mustExec(`UPDATE addon_quant_theme SET name='仅测试:合成题材' WHERE id=1`)
+	}
 	x := &reportEnv{pointsTestEnv: e, db: db, repo: repo, tasks: tasks, ledger: ledger, entailment: finalreport.Pass, semantic: finalreport.Pass}
 	if _, err := ledger.Grant(e.ctx, pointGrant(now, 20)); err != nil {
 		t.Fatal(err)
 	}
 	src := repository.NewAISourceRepo(db)
 	var err error
-	x.source, err = src.RegisterSource(e.ctx, sources.Source{Domain: "evidence.example.test", Category: sources.CategoryAnnualReport, LicenseTag: "test-only", LicenseRef: "test-only-private-license"})
+	license := "test-only-private-license"
+	if local {
+		license = "local-eval:license"
+	}
+	x.source, err = src.RegisterSource(e.ctx, sources.Source{Domain: "evidence.example.test", Category: sources.CategoryAnnualReport, LicenseTag: "test-only", LicenseRef: license})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,7 +99,11 @@ func newReportEnvWithBudget(t *testing.T, level sql.IsolationLevel, lease time.D
 		t.Fatal(err)
 	}
 	x.source.Enabled = true
-	snap, err := sources.BuildSnapshot(x.source, "https://evidence.example.test/example", sources.MediaPlain, []byte("示例题材是本测试资料的主题。示例题材的事项发生于资料记载日期。示例题材包含资料所述环节。示例题材的公司信息见本段。"), now, 1<<20)
+	body := "示例题材是本测试资料的主题。示例题材的事项发生于资料记载日期。示例题材包含资料所述环节。示例题材的公司信息见本段。"
+	if local {
+		body = "仅测试:合成题材是本测试资料的主题。仅测试:合成题材的事项发生于资料记载日期。仅测试:合成题材包含资料所述环节。仅测试:合成题材的公司信息见本段。仅测试:合成题材的第五项事实见本测试资料。仅测试:合成题材的第六项事实见本测试资料。"
+	}
+	snap, err := sources.BuildSnapshot(x.source, "https://evidence.example.test/example", sources.MediaPlain, []byte(body), now, 1<<20)
 	if err != nil {
 		t.Fatal(err)
 	}

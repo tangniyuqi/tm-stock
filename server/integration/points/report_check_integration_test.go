@@ -26,10 +26,11 @@ var errCheckTest = errors.New("test-only:判定边界注入")
 
 // 只为示例资料/模拟模型服务的控制器。审计使用真实 SQL，但不是生产许可/质量证明实现。
 type checkSQLControl struct {
-	x    *reportEnv
-	cfg  finalreport.CheckConfig
-	fail string
-	hook func() error
+	x     *reportEnv
+	cfg   finalreport.CheckConfig
+	fail  string
+	hook  func() error
+	theme string
 }
 
 func (c *checkSQLControl) Recheck(ctx context.Context, v task.Task, p *finalreport.CheckPlan) error {
@@ -41,7 +42,11 @@ func (c *checkSQLControl) Recheck(ctx context.Context, v task.Task, p *finalrepo
 		if err != nil {
 			return err
 		}
-		if theme != "示例题材" || len(snaps) != 1 || snaps[0].Hash != c.x.snap.Hash {
+		expected := c.theme
+		if expected == "" {
+			expected = "示例题材"
+		}
+		if theme != expected || len(snaps) != 1 || snaps[0].Hash != c.x.snap.Hash {
 			return errCheckTest
 		}
 		return nil

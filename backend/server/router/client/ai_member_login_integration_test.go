@@ -35,6 +35,7 @@ type aiMemberLoginBridgeConfig struct {
 	APIURL    string `json:"api_url,omitempty"`
 	TaskAPI   bool   `json:"task_api,omitempty"`
 	PlansPath string `json:"plans_path,omitempty"`
+	ReportAPI bool   `json:"report_api,omitempty"`
 }
 
 func TestAIMemberLoginBridge(t *testing.T) {
@@ -265,7 +266,7 @@ func TestAIMemberLocalBootstrap(t *testing.T) {
 	if cfg.APIURL != "" {
 		verifyAIMemberConversationAPI(t, cfg.APIURL, engine, db, password, cfg.TaskAPI)
 		if cfg.TaskAPI {
-			verifyAIMemberTaskAPI(t, cfg.APIURL, engine, db, password, cfg.PlansPath)
+			verifyAIMemberTaskAPI(t, cfg.APIURL, engine, db, password, cfg.PlansPath, cfg.ReportAPI)
 		}
 	}
 	t.Log("LOCAL_MEMBER_BOOTSTRAP_VERIFIED：原bcrypt密码登录/JWT/两会员资料/错误密码拒绝及登录存证通过；仅本轮隔离会员")

@@ -36,8 +36,11 @@ var persistentTaskMigration = sync.OnceValues(func() (string, error) {
 })
 
 func persistentTaskFixture(t *testing.T, level sql.IsolationLevel) (*pointsTestEnv, *sql.DB, *repository.AITaskRepo, *service.AITaskService, *service.PointsService, time.Time) {
+	return persistentTaskFixtureWithLocal(t, level, false)
+}
+func persistentTaskFixtureWithLocal(t *testing.T, level sql.IsolationLevel, local bool) (*pointsTestEnv, *sql.DB, *repository.AITaskRepo, *service.AITaskService, *service.PointsService, time.Time) {
 	t.Helper()
-	e, db, _, ledger, now := pointsFixture(t, level)
+	e, db, _, ledger, now := pointsFixtureWithLocal(t, level, local)
 	script, err := persistentTaskMigration()
 	if err != nil {
 		t.Fatal(err)

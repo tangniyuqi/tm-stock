@@ -23,8 +23,11 @@ import (
 )
 
 func pointsFixture(t *testing.T, level sql.IsolationLevel) (*pointsTestEnv, *sql.DB, *repository.PointsRepo, *service.PointsService, time.Time) {
+	return pointsFixtureWithLocal(t, level, false)
+}
+func pointsFixtureWithLocal(t *testing.T, level sql.IsolationLevel, local bool) (*pointsTestEnv, *sql.DB, *repository.PointsRepo, *service.PointsService, time.Time) {
 	t.Helper()
-	e, db := setupPointsLedger(t)
+	e, db := setupPointsLedgerWithLocal(t, local)
 	db.SetMaxOpenConns(16)
 	repo := repository.NewPointsRepoWithIsolation(db, level)
 	s, err := service.NewPointsService(repo)

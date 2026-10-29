@@ -29,6 +29,7 @@ param(
     [switch]$LocalConversationBootstrap,
     [switch]$LocalPlanBootstrap,
     [switch]$LocalTaskBootstrap,
+    [switch]$LocalReportBootstrap,
     [ValidateLength(1, 256)][string]$ConversationPattern = '^TestIntegrationAIConversations',
     [ValidateLength(1, 256)][string]$ReportPattern = '^TestIntegrationAIReport'
 )
@@ -36,6 +37,7 @@ param(
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 $liveReportPatterns = @('^TestIntegrationAIReportLiveAgents$', '^TestIntegrationAIReportDeepLiveAgents$')
+if ($LocalReportBootstrap) { $LocalTaskBootstrap = $true }
 if ($LocalTaskBootstrap) { $LocalPlanBootstrap = $true; $LocalConversationBootstrap = $true }
 if ($LocalPlanBootstrap) { $LocalAPIBootstrap = $true }
 if ($LocalConversationBootstrap) { $LocalMemberBootstrap = $true }
@@ -256,6 +258,7 @@ GRANT SELECT ON $localDatabase.tm_ai_local_instance TO '$localUser'@'127.0.0.1';
                 try { go test -c -tags=integration -o $memberRunner ./router/client; if ($LASTEXITCODE -ne 0) { throw '原会员测试程序构建失败' } } finally { Pop-Location }
                 $memberConfig = @{ dsn="root:$testPassword@tcp(127.0.0.1:$testPort)/$($localDatabase)?parseTime=true&charset=utf8mb4&loc=UTC"; signing=([guid]::NewGuid().ToString('N')+[guid]::NewGuid().ToString('N')); control=([guid]::NewGuid().ToString('N')); task_api=[bool]$LocalTaskBootstrap }
                 if ($LocalTaskBootstrap) { $memberConfig.plans_path = $localPlansPath }
+                if ($LocalReportBootstrap) { $memberConfig.report_api = $true }
                 $invokeLocalMember = {
                 param([string]$apiURL = '')
                 $memberStart = [Diagnostics.ProcessStartInfo]::new()
@@ -387,6 +390,7 @@ GRANT SELECT ON $localDatabase.tm_ai_local_instance TO '$localUser'@'127.0.0.1';
             if ($LocalTaskBootstrap) {
                 foreach ($feature in @('TM_AI_TASK_CREATE_ENABLED','TM_AI_DEEP_SUBMIT_ENABLED','TM_AI_CONVERSATION_TASKS_ENABLED','TM_AI_TASK_CANCEL_ENABLED','TM_AI_POINTS_BALANCE_ENABLED','TM_AI_TASK_STREAM_ENABLED')) { $apiStart.Environment[$feature] = 'true' }
             }
+            if ($LocalReportBootstrap) { $apiStart.Environment['TM_AI_REPORT_READ_ENABLED'] = 'true' }
             $apiProcess = [Diagnostics.Process]::new(); $apiProcess.StartInfo = $apiStart
             $httpHandler = [Net.Http.HttpClientHandler]::new(); $httpHandler.UseProxy = $false; $httpHandler.AllowAutoRedirect = $false
             $http = [Net.Http.HttpClient]::new($httpHandler); $http.Timeout = [TimeSpan]::FromSeconds(2)
@@ -407,6 +411,11 @@ GRANT SELECT ON $localDatabase.tm_ai_local_instance TO '$localUser'@'127.0.0.1';
                 $closedPaths = @('/api/v1/ai/tasks','/api/v1/ai/conversations','/api/v1/ai/points/balance')
                 if ($LocalConversationBootstrap) { $closedPaths = @('/api/v1/ai/points/balance'); & $invokeLocalMember "http://127.0.0.1:$apiPort" }
                 if ($LocalTaskBootstrap) { $closedPaths = @('/api/v1/ai/tasks/1/report') }
+                if ($LocalReportBootstrap) {
+                    $closedPaths = @()
+                    $anonymousReport = $http.GetAsync("http://127.0.0.1:$apiPort/api/v1/ai/tasks/1/report").GetAwaiter().GetResult()
+                    try { if ([int]$anonymousReport.StatusCode -ne 401) { throw '报告读取实际路由未注册或绕过原会员鉴权' } } finally { $anonymousReport.Dispose() }
+                }
                 foreach ($closedPath in $closedPaths) {
                     $response = $http.GetAsync("http://127.0.0.1:$apiPort$closedPath").GetAwaiter().GetResult()
                     try { if ([int]$response.StatusCode -ne 404) { throw '默认关闭的AI入口意外开放' } } finally { $response.Dispose() }
@@ -515,7 +524,10 @@ GRANT SELECT ON $localDatabase.tm_ai_local_instance TO '$localUser'@'127.0.0.1';
                 $uncharged = & $clientBinary @clientArgs "--database=$localDatabase" --batch --skip-column-names --execute='SELECT (SELECT COUNT(*) FROM tm_ai_tasks)+(SELECT COUNT(*) FROM tm_points_txns)'
                 if ($LASTEXITCODE -ne 0 -or ($uncharged -join '').Trim() -ne '0') { throw '只读API启动生成了任务或积分流水' }
             }
-            if ($LocalTaskBootstrap) { Write-Output '任务验收仅使用本轮初始化的测试积分，真实模型/报告生成仍关闭，不等于成功报告结算已验。' }
+            if ($LocalTaskBootstrap) {
+                Write-Output '任务验收仅使用本轮初始化的测试积分，真实模型/报告生成仍关闭，不等于成功报告结算已验。'
+                if ($LocalReportBootstrap) { Write-Output 'LOCAL_REPORT_API_READ_GUARDS_VERIFIED：实际API装配同源发布读取控制器，匿名拒绝/跨会员拒绝/已取消任务不可读取通过；没有生成或伪造可交付报告。' }
+            }
             elseif ($LocalConversationBootstrap) { Write-Output 'LOCAL_CONVERSATION_PERMISSIONS_VERIFIED：会话专属写权限/固定只读元数据过程/无TRIGGER或DDL/不可读密码或改会员/不可写任务账本/零任务零积分流水均通过。' }
             elseif ($LocalPlanBootstrap) { Write-Output "LOCAL_PLAN_RUNTIME_VERIFIED：$($migrations.Count)项原迁移/明确合成资料/同源计划配置/受限只读worker/实际API健康与查询/任务入口仍404/零任务零积分流水均通过。" }
             else { Write-Output "LOCAL_API_BOOTSTRAP_VERIFIED：$($migrations.Count)项原迁移/空测试目录/受限只读账号/实际API健康与目录查询/AI入口默认404/零任务零积分流水均通过。" }

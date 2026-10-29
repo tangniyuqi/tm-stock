@@ -158,8 +158,13 @@ func run() error {
 	if err := registerAITaskCreates(mux, db, readCfg, creations, createEnabled); err != nil {
 		return err
 	}
-	// 尚无生产发布控制器/策略装配：即使误开报告开关也必须启动失败。
-	reports, err := prepareAIReportReads(context.Background(), db, readCfg, reportEnabled, nil, nil)
+	// 正式发布仍无默认放行；本地仅接受同一显式合成计划的已结算报告。
+	var reports *service.AIReportReadService
+	if localRuntime != nil {
+		reports, err = prepareAILocalReportReads(context.Background(), db, readCfg, reportEnabled, admission)
+	} else {
+		reports, err = prepareAIReportReads(context.Background(), db, readCfg, reportEnabled, nil, nil)
+	}
 	if err != nil {
 		return err
 	}
