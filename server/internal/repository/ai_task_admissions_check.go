@@ -79,6 +79,11 @@ func verifyAdmissionMetadata(ctx context.Context, tx *sql.Tx) error {
 }
 
 func probeAdmissionConstraints(ctx context.Context, tx *sql.Tx) error {
+	return probeAdmissionTask(ctx, tx, nil)
+}
+
+// 回调仅供同一回滚事务的后续保护探针使用，不返回可供执行的业务批准。
+func probeAdmissionTask(ctx context.Context, tx *sql.Tx, action func(task.Task, task.AdmissionRecord) error) error {
 	// 这些行仅为保护探针，全部回滚，绝不代表模型/来源/定价批准。
 	base, err := budgetProbeTask(ctx, tx)
 	if err != nil {
@@ -153,6 +158,9 @@ func probeAdmissionConstraints(ctx context.Context, tx *sql.Tx) error {
 	// 探针须检查数据库原始1062；业务仓储会把它转换为ErrConflict，不能据映射后的错误判保护失效。
 	if _, err := tx.ExecContext(ctx, insertAdmissionSQL, r.TaskID, r.UserID, r.TaskNo, r.RequestHash, r.Digest, b, pointsUTC(r.CreatedAt), pointsUTC(r.CreatedAt)); !pointsProbeError(err, 1062) {
 		return fmt.Errorf("准入唯一保护未拒绝: %w", errOrMissing(err))
+	}
+	if action != nil {
+		return action(v, r)
 	}
 	return nil
 }

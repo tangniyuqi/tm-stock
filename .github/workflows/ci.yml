@@ -252,6 +252,13 @@ jobs:
           LOCAL_PUBLICATION_ROOT=$(grep -Ec '^--- PASS: TestIntegrationAIReportLocalPublication ' /tmp/it.log || true)
           LOCAL_PUBLICATION_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportLocalPublication/(Read_Committed|Repeatable_Read)/(1|2) ' /tmp/it.log || true)
           LOCAL_PUBLICATION_SKIPS=$(grep -Ec '^[[:space:]]*--- SKIP: TestIntegrationAIReportLocalPublication' /tmp/it.log || true)
+          CALL_AUDIT_STARTUP_ROOT=$(grep -Ec '^--- PASS: TestIntegrationAIReportCallAuditStartup ' /tmp/it.log || true)
+          CALL_AUDIT_STARTUP_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportCallAuditStartup/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          CALL_AUDIT_STARTUP_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportCallAuditStartup/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          CALL_AUDIT_STARTUP_SKIPS=$(grep -Ec '^[[:space:]]*--- SKIP: TestIntegrationAIReportCallAuditStartup' /tmp/it.log || true)
+          if [ "$CALL_AUDIT_STARTUP_ROOT" -ne 1 ] || [ "$CALL_AUDIT_STARTUP_LEVELS" -ne 2 ] || [ "$CALL_AUDIT_STARTUP_CASES" -ne 34 ] || [ "$CALL_AUDIT_STARTUP_SKIPS" -ne 0 ]; then
+            echo "调用审计启动保护、受限worker及回滚验收未完整通过"; exit 1
+          fi
           if [ "$LOCAL_PUBLICATION_ROOT" -ne 1 ] || [ "$LOCAL_PUBLICATION_CASES" -ne 4 ] || [ "$LOCAL_PUBLICATION_SKIPS" -ne 0 ]; then
             echo "本地同源轻深报告发布读取与单次结算验收未完整通过"; exit 1
           fi

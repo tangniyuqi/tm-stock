@@ -37,7 +37,12 @@ func (t *aiTaskTx) InsertCallAudit(ctx context.Context, v finalreport.CallAudit)
 	if err := v.Validate(); err != nil {
 		return err
 	}
+	return pointsDBError("保存不可变报告调用审计", t.insertCallAudit(ctx, v))
+}
+
+// 保留原SQL错误码供回滚探针验证，业务入口仍先做领域校验。
+func (t *aiTaskTx) insertCallAudit(ctx context.Context, v finalreport.CallAudit) error {
 	r := v.Request
 	_, err := t.tx.ExecContext(ctx, `INSERT INTO tm_ai_report_call_audits(task_id,user_id,step_no,stage,owner,fence,operation_key,input_digest,phase,task_no,admission_digest,profile_digest,request_digest,result_digest,outcome,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,NULLIF(?,''),?,?,?)`, r.TaskID, r.UserID, r.StepNo, r.Stage, r.Owner, r.Fence, r.OperationKey, r.InputDigest, v.Phase, v.TaskNo, v.AdmissionDigest, v.ProfileDigest, v.RequestDigest, v.ResultDigest, v.Outcome, pointsUTC(v.CreatedAt), pointsUTC(v.CreatedAt))
-	return pointsDBError("保存不可变报告调用审计", err)
+	return err
 }
