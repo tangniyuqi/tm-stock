@@ -23,6 +23,7 @@ param(
     [switch]$StreamReplayBrowser,
     [switch]$TimeoutRecoveryTests,
     [switch]$DeepH5Tests,
+    [switch]$LocalAPIWorkerBrowser,
     [switch]$LocalBootstrapOnly,
     [switch]$LocalAPIBootstrap,
     [switch]$LocalMemberBootstrap,
@@ -37,6 +38,9 @@ param(
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 $liveReportPatterns = @('^TestIntegrationAIReportLiveAgents$', '^TestIntegrationAIReportDeepLiveAgents$')
+$localAPIWorkerH5Pattern = '^TestIntegrationAIReportLocalAPIWorkerH5$'
+if ($ReportPattern -eq $localAPIWorkerH5Pattern -and -not $LocalAPIWorkerBrowser) { throw '正式进程H5根组需要显式浏览器入口，禁止零用例假通过' }
+if ($LocalAPIWorkerBrowser -and ($LiveAgents -or $MaterialQABrowser -or $StreamReplayBrowser -or $TimeoutRecoveryTests -or $DeepH5Tests -or $LocalBootstrapOnly -or $LocalAPIBootstrap -or $LocalMemberBootstrap -or $LocalConversationBootstrap -or $LocalPlanBootstrap -or $LocalTaskBootstrap -or $LocalReportBootstrap -or -not $ReportsOnly -or $RunCount -ne 1 -or $ReportPattern -ne $localAPIWorkerH5Pattern -or $env:TM_TEST_AI_H5_LOCAL_API_WORKER -ne 'local-fixture-only' -or $env:TM_TEST_AI_H5_LOCAL_DEPTH -notin @('light','deep'))) { throw '正式进程H5只允许独立单次轻深隔离浏览器验收' }
 if ($LocalReportBootstrap) { $LocalTaskBootstrap = $true }
 if ($LocalTaskBootstrap) { $LocalPlanBootstrap = $true; $LocalConversationBootstrap = $true }
 if ($LocalPlanBootstrap) { $LocalAPIBootstrap = $true }
@@ -550,6 +554,7 @@ GRANT SELECT ON $localDatabase.tm_ai_local_instance TO '$localUser'@'127.0.0.1';
         if ($LiveAgents) { $integrationTags = 'integration,liveagents' }
         if ($MaterialQABrowser -or $StreamReplayBrowser -or $TimeoutRecoveryTests) { $integrationTags = 'integration,browser' }
         if ($DeepH5Tests -and $ReportPattern -eq '^TestIntegrationAIReportH5Deep$') { $integrationTags = 'integration,browser' }
+        if ($LocalAPIWorkerBrowser) { $integrationTags = 'integration,browser' }
         $pointsTestArgs = @('test', '-p', '1', '-race', "-tags=$integrationTags", './integration/points', '-timeout', $suiteTimeout, '-count', [string]$RunCount, '-v')
         if ($TaskBudgetOnly) { $pointsTestArgs += @('-run', '^TestIntegrationAITaskBudget') }
         if ($TaskStagesOnly) { $pointsTestArgs += @('-run', '^TestIntegrationAITaskStage') }

@@ -30,6 +30,18 @@ func TestIntegrationAIReportLocalAPIWorker(t *testing.T) {
 	if os.Getenv("TM_TEST_DSN") == "" {
 		t.Skip("需要隔离MySQL")
 	}
+	api, worker, login := buildLocalReportBinaries(t)
+	for _, level := range []sql.IsolationLevel{sql.LevelReadCommitted, sql.LevelRepeatableRead} {
+		t.Run(level.String(), func(t *testing.T) {
+			for _, kind := range []int{1, 2} {
+				t.Run(strconv.Itoa(kind), func(t *testing.T) { verifyLocalAPIWorker(t, level, kind, api, worker, login) })
+			}
+		})
+	}
+}
+
+func buildLocalReportBinaries(t *testing.T) (api, worker, login string) {
+	t.Helper()
 	dir := t.TempDir()
 	build := func(name, root, target string, args ...string) string {
 		t.Helper()
@@ -49,16 +61,10 @@ func TestIntegrationAIReportLocalAPIWorker(t *testing.T) {
 		return binary
 	}
 	// 先编译，再开始每个隔离库的有效期。
-	api := build("api", filepath.Join("..", ".."), "./cmd/api", "build")
-	worker := build("worker", filepath.Join("..", ".."), "./cmd/ai-worker", "build")
-	login := build("member-login", filepath.Join("..", "..", "..", "backend", "server"), "./router/client", "test", "-c", "-tags=integration")
-	for _, level := range []sql.IsolationLevel{sql.LevelReadCommitted, sql.LevelRepeatableRead} {
-		t.Run(level.String(), func(t *testing.T) {
-			for _, kind := range []int{1, 2} {
-				t.Run(strconv.Itoa(kind), func(t *testing.T) { verifyLocalAPIWorker(t, level, kind, api, worker, login) })
-			}
-		})
-	}
+	api = build("api", filepath.Join("..", ".."), "./cmd/api", "build")
+	worker = build("worker", filepath.Join("..", ".."), "./cmd/ai-worker", "build")
+	login = build("member-login", filepath.Join("..", "..", "..", "backend", "server"), "./router/client", "test", "-c", "-tags=integration")
+	return
 }
 
 type localAPIData struct {

@@ -268,6 +268,12 @@ jobs:
           if [ "$LOCAL_API_WORKER_ROOT" -ne 1 ] || [ "$LOCAL_API_WORKER_LEVELS" -ne 2 ] || [ "$LOCAL_API_WORKER_CASES" -ne 4 ] || [ "$LOCAL_API_WORKER_SKIPS" -ne 0 ]; then
             echo "原密码登录与实际API、独立worker轻深报告结算验收未完整通过"; exit 1
           fi
+          LOCAL_H5_ROOTS=$(grep -Ec '^--- PASS: TestLocalAPIWorkerH5(Configuration|Gateway) ' /tmp/it.log || true)
+          LOCAL_H5_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestLocalAPIWorkerH5Configuration/' /tmp/it.log || true)
+          LOCAL_H5_SKIPS=$(grep -Ec '^[[:space:]]*--- SKIP: TestLocalAPIWorkerH5' /tmp/it.log || true)
+          if [ "$LOCAL_H5_ROOTS" -ne 2 ] || [ "$LOCAL_H5_CASES" -ne 8 ] || [ "$LOCAL_H5_SKIPS" -ne 0 ]; then
+            echo "正式进程H5入口配置和只转发网关用例漏跑"; exit 1
+          fi
           if [ "$LOCAL_WORKER_ROOT" -ne 1 ] || [ "$LOCAL_WORKER_LEVELS" -ne 2 ] || [ "$LOCAL_WORKER_CASES" -ne 12 ] || [ "$LOCAL_WORKER_SKIPS" -ne 0 ]; then
             echo "独立本地worker成功交付、未知停止及配置绑定验收未完整通过"; exit 1
           fi
@@ -582,7 +588,8 @@ jobs:
           fi
           # 保留原1073项，追加问答HTTP/结构45项及启动10项。
           # 原1128，新增实际API/独立worker的1根、2级别与4个轻深用例。
-          MIN=1135
+          # 再增加正式进程H5配置1根8子例和只转发网关1根。
+          MIN=1145
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项，低于下限 $MIN —— 要么没跑，要么有测试被删。"; exit 1
           fi

@@ -157,7 +157,7 @@ func newWorkflowEnv(t *testing.T, level sql.IsolationLevel, mode string) *workfl
 	reportDDL(t, x.pointsTestEnv, "20261015_create_tm_ai_agent_runs.sql")
 	x.mustExec(`CREATE TABLE test_only_check_audits(operation_key varchar(80),phase varchar(8),payload mediumblob,PRIMARY KEY(operation_key,phase)) ENGINE=InnoDB`)
 	selectionText := workflowSelectionJSON(t, x.snap.ID)
-	if mode == "local_deep" {
+	if mode == "local_deep" || mode == "local_deep_running" {
 		var picks finalreport.SelectionResponse
 		if err := json.Unmarshal([]byte(selectionText), &picks); err != nil {
 			t.Fatal(err)
@@ -214,7 +214,7 @@ func newWorkflowEnv(t *testing.T, level sql.IsolationLevel, mode string) *workfl
 		cfg.SelectionMaxTokens = 2048
 		cfg.CheckMaxTokens = 64
 	}
-	if mode == "local_deep" {
+	if mode == "local_deep" || mode == "local_deep_running" {
 		cfg.AnalysisType = 2
 	}
 	ent, err := finalreport.CheckPolicyVersion(finalreport.CheckEntailment, cfg)
@@ -229,7 +229,7 @@ func newWorkflowEnv(t *testing.T, level sql.IsolationLevel, mode string) *workfl
 	if local {
 		fc.Ref = "local-eval:policy"
 	}
-	if mode == "local_deep" {
+	if mode == "local_deep" || mode == "local_deep_running" {
 		fc.AnalysisType = 2
 		fc.MinQuotes = 6
 	}
@@ -253,7 +253,7 @@ func newWorkflowEnv(t *testing.T, level sql.IsolationLevel, mode string) *workfl
 			io.WriteString(w, `{"success":true,"data":{"task_id":"l1_test_remote","status":"queued"}}`)
 		case "/api/analysis/tasks/l1_test_remote/status":
 			e.agentPolls.Add(1)
-			if (mode == "agent_running" || mode == "local_running") && !e.agentComplete.Load() {
+			if (mode == "agent_running" || mode == "local_running" || mode == "local_deep_running") && !e.agentComplete.Load() {
 				io.WriteString(w, `{"success":true,"data":{"task_id":"l1_test_remote","status":"running"}}`)
 			} else if mode == "agent_failed" {
 				io.WriteString(w, `{"success":true,"data":{"task_id":"l1_test_remote","status":"failed"}}`)
