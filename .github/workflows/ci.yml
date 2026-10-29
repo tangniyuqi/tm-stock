@@ -245,6 +245,12 @@ jobs:
 
           QUEUE_LOOP_ROOT=$(grep -Ec '^--- PASS: TestIntegrationAIReportQueueLoop ' /tmp/it.log || true)
           QUEUE_LOOP_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportQueueLoop/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          QUEUE_PROCESS_ROOT=$(grep -Ec '^--- PASS: TestIntegrationAIReportQueueProcess ' /tmp/it.log || true)
+          QUEUE_PROCESS_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportQueueProcess/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          QUEUE_PROCESS_SKIPS=$(grep -Ec '^[[:space:]]*--- SKIP: TestIntegrationAIReportQueueProcess' /tmp/it.log || true)
+          if [ "$QUEUE_PROCESS_ROOT" -ne 1 ] || [ "$QUEUE_PROCESS_LEVELS" -ne 2 ] || [ "$QUEUE_PROCESS_SKIPS" -ne 0 ]; then
+            echo "双队列生命周期真库验收未完整通过"; exit 1
+          fi
           if [ "$QUEUE_LOOP_ROOT" -ne 1 ] || [ "$QUEUE_LOOP_LEVELS" -ne 2 ]; then
             echo '::error::常驻循环发现新任务、重扫与取消退出未完整验收'; exit 1
           fi

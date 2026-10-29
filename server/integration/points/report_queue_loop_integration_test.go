@@ -101,3 +101,83 @@ func TestIntegrationAIReportQueueLoop(t *testing.T) {
 		})
 	}
 }
+
+// 同一数据库和生命周期下同时扫描两种套餐；本例只创建轻度任务，深度循环不得抢占它。
+func TestIntegrationAIReportQueueProcess(t *testing.T) {
+	for _, level := range []sql.IsolationLevel{sql.LevelReadCommitted, sql.LevelRepeatableRead} {
+		t.Run(level.String(), func(t *testing.T) {
+			e := newSubmissionHTTPEnv(t, level, "success")
+			lightScan := &loopObservedScanner{MemberQueueScanner: e.repo, started: make(chan struct{}), ready: make(chan struct{})}
+			deepScan := &loopObservedScanner{MemberQueueScanner: e.repo, started: make(chan struct{}), ready: make(chan struct{})}
+			worker := admissionWorker(t, e)
+			light, err := service.NewAIL1ReportQueue(worker, lightScan, true)
+			if err != nil {
+				t.Fatal(err)
+			}
+			deep, err := service.NewAIL2ReportQueue(worker, deepScan, true)
+			if err != nil {
+				t.Fatal(err)
+			}
+			ctx, cancel := context.WithTimeout(e.ctx, 15*time.Second)
+			done := make(chan error, 1)
+			go func() { done <- service.RunAIReportQueues(ctx, light, deep, 10, time.Second) }()
+			joined := false
+			t.Cleanup(func() {
+				cancel()
+				if !joined {
+					select {
+					case <-done:
+					case <-time.After(5 * time.Second):
+						t.Error("双队列未退出")
+					}
+				}
+			})
+			for _, scan := range []*loopObservedScanner{lightScan, deepScan} {
+				select {
+				case <-scan.started:
+				case <-ctx.Done():
+					t.Fatal("两个扫描器未同时启动")
+				}
+			}
+			token := e.web.token(t, 1, "client")
+			created := decodeCreation(t, e.mustRequest(t, "POST", "/api/v1/ai/tasks", e.key, sqlSubmissionBody, token, 200))
+			e.bindNewTask(t, created.TaskID)
+			close(lightScan.ready)
+			close(deepScan.ready)
+			ticker := time.NewTicker(20 * time.Millisecond)
+			defer ticker.Stop()
+			for {
+				v, err := e.tasks.Inspect(ctx, 1, created.TaskID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if v.Status == task.Succeeded && lightScan.rounds.Load() >= 4 && deepScan.rounds.Load() >= 4 {
+					break
+				}
+				select {
+				case <-ticker.C:
+				case err := <-done:
+					joined = true
+					t.Fatal("双队列提前退出", err)
+				case <-ctx.Done():
+					t.Fatal("双队列未处理任务并持续重扫")
+				}
+			}
+			cancel()
+			select {
+			case err := <-done:
+				joined = true
+				if !errors.Is(err, context.Canceled) {
+					t.Fatal(err)
+				}
+			case <-time.After(5 * time.Second):
+				t.Fatal("取消未等待双队列退出")
+			}
+			if e.submits.Load() != 1 || e.server.Count() != 3 || e.queryInt("SELECT COUNT(*) FROM tm_points_txns WHERE kind='settle'") != 1 || e.queryInt("SELECT frozen FROM tm_points_accounts WHERE user_id=1") != 0 {
+				t.Fatal("双队列导致重复执行或扣费")
+			}
+			assertPublicReport(t, e.mustRequest(t, "GET", "/api/v1/ai/tasks/"+jsonNumber(created.TaskID)+"/report", "", "", token, 200), e.reportEnv)
+			requirePointAudit(t, e.pointsTestEnv, e.ledger)
+		})
+	}
+}
