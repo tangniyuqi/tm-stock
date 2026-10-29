@@ -174,7 +174,7 @@ func run() error {
 	if err := registerAITaskStreams(context.Background(), mux, db, readCfg, streamEnabled); err != nil {
 		return err
 	}
-	if err := registerAIConversations(context.Background(), mux, db, readCfg, conversationsEnabled); err != nil {
+	if err := registerAIConversationsWithLocal(context.Background(), mux, db, readCfg, conversationsEnabled, localRuntime); err != nil {
 		return err
 	}
 	if err := registerAIConversationTasks(context.Background(), mux, db, readCfg, creations, conversationTasksEnabled, createEnabled); err != nil {

@@ -8,6 +8,12 @@
 
 ### 本地装配启动预检（2026-10-29，首个增量）
 
+`-LocalConversationBootstrap -RunCount 1`显式开启任务读取和会话管理，复用同一随机签名配置：GVA原bcrypt登录路由签发JWT后，直接请求实际cmd/api。验证双会员会话创建/列表/详情/回执/消息空态、同键重放和冲突、改名版本冲突及归档、跨会员读写404、匿名/错误令牌/停用/软删除401；关闭任务创建（POST为405）及余额入口（404）。测试登录调用原路由夹具，AI请求走实际HTTP进程；本模式没有H5浏览器或常驻登录服务，不作为完整助手/真实多Agent链路的最新验收。
+
+会话运行账号仅获两张会话表的SELECT/INSERT/UPDATE/DELETE（删除和改消息权限用于原保护探针获得明确触发器拒绝，并非允许绕过保护），任务/意图只读及会员id/status/deleted_at列只读；不读密码、不改会员、不写任务或账本、不持TRIGGER/DDL权限。初始化所有者建立固定无参、READS SQL DATA、SQL SECURITY DEFINER过程`tm_ai_local_conversation_trigger_metadata`，仅返回本库两张会话表的触发器身份字段，运行账号仅获该过程EXECUTE；不暴露定义正文或动态SQL。MySQL的DEFINER视图实测不能继承information_schema.triggers可见性，因此不采用视图或静态快照伪装实时核验。启用本地核验器仍须先通过实例标记，全部原CHECK/索引/外键元数据及真实正反例探针保留；未配置本地文件的原核验路径不变。启动错误仅公开阶段编号。
+
+脚本在停止API后由初始化所有者制造两项结构反例：缺固定元数据过程须在阶段2拒绝；同名无实际保护的删除触发器须在阶段3拒绝。恢复原定义和EXECUTE授权后重新启动实际API成功，核对仅两条本轮测试会话/零消息/零任务/零积分流水，最后清理本轮实例。MySQL8/9日志分别为`%TEMP%/tm-stock-local-conversation-guards-mysql8-20261029.log`与`%TEMP%/tm-stock-local-conversation-guards-mysql9-20261029.log`。只证明本地会话管理装配，计划/资料许可/发布批准、任务提交/报告/问答工厂和常驻worker仍未接完；真实调用继续显式false。
+
 `-LocalMemberBootstrap -RunCount 1`在API初始化模式上加入原会员验证：构建GVA原路由测试程序，只有回环专属库名及唯一实例标记同时通过才允许原AutoMigrate初始化会员表；签名配置和本轮DSN从stdin传入，子程序不读取产品配置。复用原bcrypt登录/JWT/资料接口，检查错误密码、两账号身份和登录时点落库，再检查错误标记拒绝并恢复原标记。随机测试口令/JWT不输出。本模式仍属于隔离夹具初始化，不是生产账号或登录服务；尚未验证GVA令牌与实际API会话路由互通，AI入口仍404。会话启动探针还检查触发器元数据，不能为让探针通过就给运行账号TRIGGER/DDL权限；迁移/结构核验与运行权限须继续分离后再开放会话写入。
 
 `-LocalAPIBootstrap -RunCount 1`在原初始化模式上继续执行全部21项原迁移、创建受限只读API账号并实际启动cmd/api，验证healthz、空题材目录查询和默认关闭的AI任务/会话/余额404；最后核对零任务/零积分流水并关闭本轮进程。仍只在本脚本新建的MySQL/数据目录运行。上游两表复用verify-migrations.sh的最小测试DDL，不复制其中示例证券行，它们不是生产schema权威；迁移按StringComparer.Ordinal排序。只读API账号仅获实例标记、题材/股票/关联和两个日数据表的SELECT，拒绝INSERT、改标记、DROP和mysql.user查询，必须得到明确权限错误。此模式不含会员/收费任务、报告发布控制器或长期运行服务，不把健康检查通过当成完整AI助手可用。

@@ -14,10 +14,31 @@ import (
 	"github.com/tangniyuqi/tm-stock/server/internal/ai/conversation"
 )
 
-type AIConversationSchemaVerifier struct{ db *sql.DB }
+type AIConversationSchemaVerifier struct {
+	db         *sql.DB
+	local      bool
+	instanceID string
+}
+
+// 只公开失败阶段；SQL细节由受控诊断按错误类型读取，不能写入启动日志。
+type AIConversationSchemaError struct {
+	Stage int
+	cause error
+}
+
+func (e *AIConversationSchemaError) Error() string {
+	return fmt.Sprintf("会话保护检查阶段%d失败（详情已隐藏）", e.Stage)
+}
+func (e *AIConversationSchemaError) Unwrap() error { return e.cause }
 
 func NewAIConversationSchemaVerifier(db *sql.DB) *AIConversationSchemaVerifier {
-	return &AIConversationSchemaVerifier{db}
+	return &AIConversationSchemaVerifier{db: db}
+}
+
+// 本地装配用迁移所有者的固定只读过程查触发器名称，不要求运行账号持有TRIGGER权限。
+// 仍先核验专属实例标记，并执行全部真实约束探针；不能替代正式迁移审批。
+func NewAILocalConversationSchemaVerifier(db *sql.DB, instanceID string) *AIConversationSchemaVerifier {
+	return &AIConversationSchemaVerifier{db: db, local: true, instanceID: instanceID}
 }
 func (v *AIConversationSchemaVerifier) Verify(parent context.Context) error {
 	if v == nil || v.db == nil || parent == nil {
@@ -25,20 +46,37 @@ func (v *AIConversationSchemaVerifier) Verify(parent context.Context) error {
 	}
 	ctx, cancel := context.WithTimeout(parent, 10*time.Second)
 	defer cancel()
+	if v.local {
+		if err := NewAILocalInstanceVerifier(v.db).Verify(ctx, v.instanceID); err != nil {
+			return err
+		}
+	}
 	tx, err := v.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
 	if err != nil {
 		return fmt.Errorf("开启会话保护探针失败: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }() // 探针从不提交，不能创建真实会话或触碰账务。
-	for index, check := range []func(context.Context, *sql.Tx) error{verifyPointsSession, verifyConversationMetadata, probeConversations} {
+	metadata := verifyConversationMetadata
+	if v.local {
+		metadata = verifyLocalConversationMetadata
+	}
+	for index, check := range []func(context.Context, *sql.Tx) error{verifyPointsSession, metadata, probeConversations} {
 		if err := check(ctx, tx); err != nil {
-			return fmt.Errorf("会话保护检查阶段%d失败: %w", index+1, err)
+			return &AIConversationSchemaError{Stage: index + 1, cause: err}
 		}
 	}
 	return tx.Rollback()
 }
 
 func verifyConversationMetadata(ctx context.Context, tx *sql.Tx) error {
+	return verifyConversationMetadataFrom(ctx, tx, false)
+}
+
+func verifyLocalConversationMetadata(ctx context.Context, tx *sql.Tx) error {
+	return verifyConversationMetadataFrom(ctx, tx, true)
+}
+
+func verifyConversationMetadataFrom(ctx context.Context, tx *sql.Tx, local bool) error {
 	for _, table := range []struct{ name, check string }{
 		{"tm_ai_conversations", "chk_tm_ai_conversation"}, {"tm_ai_conversation_messages", "chk_tm_ai_conversation_message"},
 	} {
@@ -95,12 +133,42 @@ func verifyConversationMetadata(ctx context.Context, tx *sql.Tx) error {
 			return conversation.ErrInvariant
 		}
 	}
+	localTriggers := map[string]int{}
+	if local {
+		var schema string
+		if err := tx.QueryRowContext(ctx, "SELECT DATABASE()").Scan(&schema); err != nil {
+			return err
+		}
+		rows, err := tx.QueryContext(ctx, "CALL tm_ai_local_conversation_trigger_metadata()")
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var database, table, name, event, timing string
+			if err := rows.Scan(&database, &table, &name, &event, &timing); err != nil {
+				return err
+			}
+			if database != schema || (table != "tm_ai_conversations" && table != "tm_ai_conversation_messages") || timing != "BEFORE" {
+				return conversation.ErrInvariant
+			}
+			localTriggers[table+":"+name+":"+event]++
+		}
+		if err := rows.Err(); err != nil {
+			return err
+		}
+		if err := rows.Close(); err != nil {
+			return err
+		}
+	}
 	for _, trigger := range []struct{ table, name, event string }{
 		{"tm_ai_conversations", "tm_ai_conversation_insert", "INSERT"}, {"tm_ai_conversations", "tm_ai_conversation_update", "UPDATE"}, {"tm_ai_conversations", "tm_ai_conversation_no_delete", "DELETE"},
 		{"tm_ai_conversation_messages", "tm_ai_conversation_message_insert", "INSERT"}, {"tm_ai_conversation_messages", "tm_ai_conversation_message_no_update", "UPDATE"}, {"tm_ai_conversation_messages", "tm_ai_conversation_message_no_delete", "DELETE"},
 	} {
 		var n int
-		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM information_schema.triggers WHERE trigger_schema=DATABASE() AND event_object_table=? AND trigger_name=? AND event_manipulation=? AND action_timing='BEFORE'`, trigger.table, trigger.name, trigger.event).Scan(&n); err != nil {
+		if local {
+			n = localTriggers[trigger.table+":"+trigger.name+":"+trigger.event]
+		} else if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM information_schema.triggers WHERE trigger_schema=DATABASE() AND event_object_table=? AND trigger_name=? AND event_manipulation=? AND action_timing='BEFORE'`, trigger.table, trigger.name, trigger.event).Scan(&n); err != nil {
 			return err
 		}
 		if n != 1 {

@@ -32,6 +32,7 @@ type aiMemberLoginBridgeConfig struct {
 	DSN     string `json:"dsn"`
 	Signing string `json:"signing"`
 	Control string `json:"control"`
+	APIURL  string `json:"api_url,omitempty"`
 }
 
 func TestAIMemberLoginBridge(t *testing.T) {
@@ -258,6 +259,9 @@ func TestAIMemberLocalBootstrap(t *testing.T) {
 	}
 	if !rejected || verifyAIMemberLocalMarker(pool, dsn.DBName) != nil {
 		t.Fatal("错标记拒绝/恢复边界失败")
+	}
+	if cfg.APIURL != "" {
+		verifyAIMemberConversationAPI(t, cfg.APIURL, engine, db, password)
 	}
 	t.Log("LOCAL_MEMBER_BOOTSTRAP_VERIFIED：原bcrypt密码登录/JWT/两会员资料/错误密码拒绝及登录存证通过；仅本轮隔离会员")
 }

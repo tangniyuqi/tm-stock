@@ -26,6 +26,7 @@ param(
     [switch]$LocalBootstrapOnly,
     [switch]$LocalAPIBootstrap,
     [switch]$LocalMemberBootstrap,
+    [switch]$LocalConversationBootstrap,
     [ValidateLength(1, 256)][string]$ConversationPattern = '^TestIntegrationAIConversations',
     [ValidateLength(1, 256)][string]$ReportPattern = '^TestIntegrationAIReport'
 )
@@ -33,6 +34,7 @@ param(
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 $liveReportPatterns = @('^TestIntegrationAIReportLiveAgents$', '^TestIntegrationAIReportDeepLiveAgents$')
+if ($LocalConversationBootstrap) { $LocalMemberBootstrap = $true }
 if ($LocalMemberBootstrap) { $LocalAPIBootstrap = $true }
 if ($LocalAPIBootstrap) { $LocalBootstrapOnly = $true }
 if ($LocalBootstrapOnly -and ($RunCount -ne 1 -or $LiveAgents -or $MaterialQABrowser -or $StreamReplayBrowser -or $TimeoutRecoveryTests -or $DeepH5Tests -or $ReportPattern -ne '^TestIntegrationAIReport' -or $RepositoryCoveragePath -ne '' -or $ServiceCoveragePath -ne '' -or $APICoveragePath -ne '')) { throw '本地初始化只允许独立单次隔离执行，不混用其它专项或真实调用' }
@@ -210,6 +212,9 @@ GRANT SELECT ON $localDatabase.tm_ai_local_instance TO '$localUser'@'127.0.0.1';
                 $memberRunner = Join-Path $testRoot 'local-member-tests.exe'
                 Push-Location (Join-Path $PSScriptRoot '../../backend/server')
                 try { go test -c -tags=integration -o $memberRunner ./router/client; if ($LASTEXITCODE -ne 0) { throw '原会员测试程序构建失败' } } finally { Pop-Location }
+                $memberConfig = @{ dsn="root:$testPassword@tcp(127.0.0.1:$testPort)/$($localDatabase)?parseTime=true&charset=utf8mb4&loc=UTC"; signing=([guid]::NewGuid().ToString('N')+[guid]::NewGuid().ToString('N')); control=([guid]::NewGuid().ToString('N')) }
+                $invokeLocalMember = {
+                param([string]$apiURL = '')
                 $memberStart = [Diagnostics.ProcessStartInfo]::new()
                 $memberStart.FileName = $memberRunner; $memberStart.UseShellExecute = $false; $memberStart.CreateNoWindow = $true
                 $memberStart.RedirectStandardInput = $true; $memberStart.RedirectStandardOutput = $true; $memberStart.RedirectStandardError = $true
@@ -225,16 +230,21 @@ GRANT SELECT ON $localDatabase.tm_ai_local_instance TO '$localUser'@'127.0.0.1';
                 try {
                     if (-not $memberProcess.Start()) { throw '原会员测试程序未启动' }
                     $memberStarted = $true
-                    $memberConfig = @{ dsn="root:$testPassword@tcp(127.0.0.1:$testPort)/$($localDatabase)?parseTime=true&charset=utf8mb4&loc=UTC"; signing=([guid]::NewGuid().ToString('N')+[guid]::NewGuid().ToString('N')); control=([guid]::NewGuid().ToString('N')) }
+                    $memberConfig.api_url = $apiURL
                     $memberProcess.StandardInput.WriteLine(($memberConfig | ConvertTo-Json -Compress)); $memberProcess.StandardInput.Close()
                     if (-not $memberProcess.WaitForExit(30000)) { $memberProcess.Kill(); $memberProcess.WaitForExit(); throw '原会员初始化验收超时' }
                     $memberOutput = $memberProcess.StandardOutput.ReadToEnd(); $null = $memberProcess.StandardError.ReadToEnd()
                     if ($memberProcess.ExitCode -ne 0 -or $memberOutput -notmatch 'LOCAL_MEMBER_BOOTSTRAP_VERIFIED' -or $memberOutput -notmatch '(?m)^--- PASS: TestAIMemberLocalBootstrap ') { throw '原会员密码/JWT/资料链路未通过（内部输出已隐藏）' }
-                    Write-Output 'LOCAL_MEMBER_BOOTSTRAP_VERIFIED：原密码校验、原JWT、两账号资料及登录存证通过；测试口令未输出，不等于AI接口鉴权互通已验。'
+                    if ($apiURL -ne '') {
+                        if ($memberOutput -notmatch 'LOCAL_CONVERSATION_API_VERIFIED') { throw '实际API会话联调未执行，拒绝零用例通过' }
+                        Write-Output 'LOCAL_CONVERSATION_API_VERIFIED：原登录JWT与实际API会话创建/查询/幂等/改名归档/双会员隔离/停用及软删除拒绝均通过；无模型调用。'
+                    } else { Write-Output 'LOCAL_MEMBER_BOOTSTRAP_VERIFIED：原密码校验、原JWT、两账号资料及登录存证通过；测试口令未输出，实际API鉴权另行核验。' }
                 } finally {
                     if ($memberStarted -and -not $memberProcess.HasExited) { $memberProcess.Kill(); $memberProcess.WaitForExit() }
                     $memberProcess.Dispose()
                 }
+                }
+                & $invokeLocalMember
             }
             $apiUser = 'tm_ai_api_' + $localInstanceID.Substring(0, 16)
             $apiPassword = [guid]::NewGuid().ToString('N')
@@ -242,8 +252,33 @@ GRANT SELECT ON $localDatabase.tm_ai_local_instance TO '$localUser'@'127.0.0.1';
             foreach ($table in @('tm_ai_local_instance','addon_quant_theme','addon_quant_base_stock','addon_quant_theme_stock','theme_daily_item','theme_daily_quote')) {
                 $apiGrant += " GRANT SELECT ON $localDatabase.$table TO '$apiUser'@'127.0.0.1';"
             }
+            if ($LocalConversationBootstrap) {
+                # 只读DEFINER视图不能继承I_S.TRIGGERS可见性；固定无参过程在所有者上下文实时读取。
+                # 只投影本库两表的触发器身份，不暴露定义正文，也不执行动态SQL/DDL。
+                $conversationMetadataDDL = "CREATE PROCEDURE $localDatabase.tm_ai_local_conversation_trigger_metadata() SQL SECURITY DEFINER READS SQL DATA SELECT trigger_schema,event_object_table,trigger_name,event_manipulation,action_timing FROM information_schema.triggers WHERE trigger_schema='$localDatabase' AND event_object_table IN ('tm_ai_conversations','tm_ai_conversation_messages');"
+                $apiGrant += " $conversationMetadataDDL"
+                $apiGrant += " GRANT EXECUTE ON PROCEDURE $localDatabase.tm_ai_local_conversation_trigger_metadata TO '$apiUser'@'127.0.0.1';"
+                foreach ($table in @('tm_ai_conversations','tm_ai_conversation_messages')) {
+                    # DELETE/UPDATE仅供原保护探针实际触发1644拒绝，触发器仍禁止删除/改消息。
+                    $apiGrant += " GRANT SELECT,INSERT,UPDATE,DELETE ON $localDatabase.$table TO '$apiUser'@'127.0.0.1';"
+                }
+                foreach ($table in @('tm_ai_tasks','tm_ai_conversation_tasks')) { $apiGrant += " GRANT SELECT ON $localDatabase.$table TO '$apiUser'@'127.0.0.1';" }
+                $apiGrant += " GRANT SELECT(id,status,deleted_at) ON $localDatabase.addon_member TO '$apiUser'@'127.0.0.1';"
+            }
             $apiGrant | & $clientBinary @clientArgs
             if ($LASTEXITCODE -ne 0) { throw '只读API账号建立失败' }
+            if ($LocalConversationBootstrap) {
+                $env:MYSQL_PWD = $apiPassword
+                try {
+                    $metadataArgs = @($clientArgs | Where-Object { -not $_.StartsWith('--user=') }) + "--user=$apiUser"
+                    $triggerRows = & $clientBinary @metadataArgs "--database=$localDatabase" --batch --skip-column-names --execute='CALL tm_ai_local_conversation_trigger_metadata()'
+                    if ($LASTEXITCODE -ne 0 -or @($triggerRows).Count -ne 7) { throw '固定触发器元数据过程可见性未确认' }
+                    $metadataCounts = & $clientBinary @metadataArgs "--database=$localDatabase" --batch --skip-column-names --execute="SELECT (SELECT COUNT(*) FROM information_schema.triggers WHERE trigger_schema=DATABASE()),(SELECT COUNT(*) FROM information_schema.table_constraints WHERE constraint_schema=DATABASE() AND table_name IN ('tm_ai_conversations','tm_ai_conversation_messages') AND constraint_type='CHECK' AND enforced='YES')"
+                    $safeCounts = ($metadataCounts -join '').Trim()
+                    if ($LASTEXITCODE -ne 0 -or $safeCounts -notmatch '^\d+\s+\d+$') { throw '固定元数据过程可见性查询失败' }
+                    if ($safeCounts -ne "0`t2") { throw "元数据数量不符（直接触发器/CHECK）：$safeCounts" }
+                } finally { $env:MYSQL_PWD = $testPassword }
+            }
             $apiPath = Join-Path $testRoot 'api.exe'
             Push-Location (Join-Path $PSScriptRoot '../../server')
             try { go build -o $apiPath ./cmd/api; if ($LASTEXITCODE -ne 0) { throw '实际API构建失败' } } finally { Pop-Location }
@@ -256,6 +291,13 @@ GRANT SELECT ON $localDatabase.tm_ai_local_instance TO '$localUser'@'127.0.0.1';
             }
             $apiStart.Environment['TM_AI_LOCAL_CONFIG'] = $localConfigPath
             $apiStart.Environment['TM_DB_DSN'] = "$($apiUser):$($apiPassword)@tcp(127.0.0.1:$testPort)/$($localDatabase)?parseTime=true&charset=utf8mb4&loc=UTC"
+            if ($LocalConversationBootstrap) {
+                $apiStart.Environment['TM_AI_TASK_READ_ENABLED'] = 'true'
+                $apiStart.Environment['TM_AI_CONVERSATIONS_ENABLED'] = 'true'
+                $apiStart.Environment['TM_JWT_SIGNING_KEY'] = $memberConfig.signing
+                $apiStart.Environment['TM_JWT_ISSUER'] = 'GVA'
+                $apiStart.Environment['TM_JWT_AUDIENCE'] = 'GVA'
+            }
             $apiProcess = [Diagnostics.Process]::new(); $apiProcess.StartInfo = $apiStart
             $httpHandler = [Net.Http.HttpClientHandler]::new(); $httpHandler.UseProxy = $false; $httpHandler.AllowAutoRedirect = $false
             $http = [Net.Http.HttpClient]::new($httpHandler); $http.Timeout = [TimeSpan]::FromSeconds(2)
@@ -273,13 +315,19 @@ GRANT SELECT ON $localDatabase.tm_ai_local_instance TO '$localUser'@'127.0.0.1';
                 if (-not $apiReady) { throw '实际API未在期限内就绪' }
                 $search = $http.GetStringAsync("http://127.0.0.1:$apiPort/api/v1/theme/search?kw=local-fixture").GetAwaiter().GetResult() | ConvertFrom-Json
                 if ($search.code -ne 0 -or $search.data.Count -ne 0) { throw '空资料目录查询不符，不应生成或填充证券示例数据' }
-                foreach ($closedPath in @('/api/v1/ai/tasks','/api/v1/ai/conversations','/api/v1/ai/points/balance')) {
+                $closedPaths = @('/api/v1/ai/tasks','/api/v1/ai/conversations','/api/v1/ai/points/balance')
+                if ($LocalConversationBootstrap) { $closedPaths = @('/api/v1/ai/points/balance'); & $invokeLocalMember "http://127.0.0.1:$apiPort" }
+                foreach ($closedPath in $closedPaths) {
                     $response = $http.GetAsync("http://127.0.0.1:$apiPort$closedPath").GetAwaiter().GetResult()
                     try { if ([int]$response.StatusCode -ne 404) { throw '默认关闭的AI入口意外开放' } } finally { $response.Dispose() }
                 }
                 $env:MYSQL_PWD = $apiPassword
                 $apiArgs = @($clientArgs | Where-Object { -not $_.StartsWith('--user=') }) + "--user=$apiUser"
-                foreach ($deniedSQL in @("INSERT INTO $localDatabase.addon_quant_theme(name) VALUES('forbidden')", "UPDATE $localDatabase.tm_ai_local_instance SET contains_real_users=1", "DROP TABLE $localDatabase.addon_quant_theme", 'SELECT User FROM mysql.user')) {
+                $deniedQueries = @("INSERT INTO $localDatabase.addon_quant_theme(name) VALUES('forbidden')", "UPDATE $localDatabase.tm_ai_local_instance SET contains_real_users=1", "DROP TABLE $localDatabase.addon_quant_theme", 'SELECT User FROM mysql.user')
+                if ($LocalConversationBootstrap) {
+                    $deniedQueries += @("SELECT password FROM $localDatabase.addon_member", "UPDATE $localDatabase.addon_member SET status=0 WHERE id=1", "INSERT INTO $localDatabase.tm_ai_tasks(id) VALUES(1)", "INSERT INTO $localDatabase.tm_points_txns(id) VALUES(1)", "DROP TRIGGER $localDatabase.tm_ai_conversation_insert")
+                }
+                foreach ($deniedSQL in $deniedQueries) {
                     $deniedOutput = & $clientBinary @apiArgs --execute=$deniedSQL 2>&1
                     if ($LASTEXITCODE -eq 0 -or ($deniedOutput -join "`n") -notmatch '\b(1044|1142|1143)\b') { throw '只读API账号权限边界未确认' }
                 }
@@ -293,9 +341,59 @@ GRANT SELECT ON $localDatabase.tm_ai_local_instance TO '$localUser'@'127.0.0.1';
                 }
                 $apiProcess.Dispose()
             }
+            if ($LocalConversationBootstrap) {
+                # API已停止；仅由本轮迁移所有者制造结构反例，运行账号不获修复或DDL权限。
+                $invokeConversationStartup = {
+                    param([int]$expectedStage)
+                    $probeProcess = [Diagnostics.Process]::new(); $probeProcess.StartInfo = $apiStart
+                    $probeHandler = [Net.Http.HttpClientHandler]::new(); $probeHandler.UseProxy = $false; $probeHandler.AllowAutoRedirect = $false
+                    $probeHTTP = [Net.Http.HttpClient]::new($probeHandler); $probeHTTP.Timeout = [TimeSpan]::FromSeconds(2)
+                    $probeStarted = $false
+                    try {
+                        if (-not $probeProcess.Start()) { throw '会话启动反例进程未启动' }
+                        $probeStarted = $true
+                        if ($expectedStage -gt 0) {
+                            if (-not $probeProcess.WaitForExit(15000)) { throw '损坏会话结构未在期限内拒绝启动' }
+                            $probeOutput = $probeProcess.StandardOutput.ReadToEnd() + $probeProcess.StandardError.ReadToEnd()
+                            if ($probeProcess.ExitCode -eq 0 -or $probeOutput -notmatch "会话保护自检失败：阶段$expectedStage（内部详情已隐藏）") { throw '会话启动反例没有在预期保护阶段明确拒绝' }
+                        } else {
+                            $probeReady = $false
+                            for ($attempt = 0; $attempt -lt 40; $attempt++) {
+                                if ($probeProcess.HasExited) { throw '恢复后实际API提前退出' }
+                                try { $probeResponse = $probeHTTP.GetAsync("http://127.0.0.1:$apiPort/healthz").GetAwaiter().GetResult(); try { if ($probeResponse.StatusCode -eq 200) { $probeReady = $true; break } } finally { $probeResponse.Dispose() } } catch { if ($probeProcess.HasExited) { throw '恢复后实际API启动失败' } }
+                                Start-Sleep -Milliseconds 250
+                            }
+                            if (-not $probeReady) { throw '恢复后实际API未在期限内就绪' }
+                        }
+                    } finally {
+                        $probeHTTP.Dispose(); $probeHandler.Dispose()
+                        if ($probeStarted -and -not $probeProcess.HasExited) { $probeProcess.Kill(); $probeProcess.WaitForExit() }
+                        $probeProcess.Dispose()
+                    }
+                }
+                & $clientBinary @clientArgs "--database=$localDatabase" --execute='DROP PROCEDURE tm_ai_local_conversation_trigger_metadata'
+                if ($LASTEXITCODE -ne 0) { throw '元数据过程缺失反例建立失败' }
+                & $invokeConversationStartup 2
+                # 重建后重新授权，MySQL DROP ROUTINE会一并移除专属EXECUTE授权。
+                "$conversationMetadataDDL GRANT EXECUTE ON PROCEDURE $localDatabase.tm_ai_local_conversation_trigger_metadata TO '$apiUser'@'127.0.0.1';" | & $clientBinary @clientArgs "--database=$localDatabase"
+                if ($LASTEXITCODE -ne 0) { throw '固定元数据过程恢复失败' }
+                & $clientBinary @clientArgs "--database=$localDatabase" --execute='DROP TRIGGER tm_ai_conversation_no_delete; CREATE TRIGGER tm_ai_conversation_no_delete BEFORE DELETE ON tm_ai_conversations FOR EACH ROW SET @tm_ai_local_noop=1'
+                if ($LASTEXITCODE -ne 0) { throw '同名失效触发器反例建立失败' }
+                & $invokeConversationStartup 3
+                $conversationDDL = [IO.File]::ReadAllText((Join-Path $migrationDirectory '20261021_create_tm_ai_conversations.sql'))
+                $restoreTrigger = [regex]::Match($conversationDDL, '(?m)^CREATE TRIGGER tm_ai_conversation_no_delete .*;\r?$')
+                if (-not $restoreTrigger.Success) { throw '原不可删除触发器定义未匹配，禁止猜测恢复' }
+                ('DROP TRIGGER tm_ai_conversation_no_delete; ' + $restoreTrigger.Value) | & $clientBinary @clientArgs "--database=$localDatabase"
+                if ($LASTEXITCODE -ne 0) { throw '原不可删除触发器恢复失败' }
+                & $invokeConversationStartup 0
+                $conversationRows = & $clientBinary @clientArgs "--database=$localDatabase" --batch --skip-column-names --execute='SELECT (SELECT COUNT(*) FROM tm_ai_conversations),(SELECT COUNT(*) FROM tm_ai_conversation_messages)'
+                if ($LASTEXITCODE -ne 0 -or ($conversationRows -join '').Trim() -ne "2`t0") { throw '结构反例/恢复启动留下了探针数据或更改真实会话' }
+                Write-Output 'LOCAL_CONVERSATION_STARTUP_GUARDS_VERIFIED：缺元数据过程在阶段2拒绝/同名失效触发器在阶段3拒绝/恢复原定义后实际API重新就绪/探针零残留。'
+            }
             $uncharged = & $clientBinary @clientArgs "--database=$localDatabase" --batch --skip-column-names --execute='SELECT (SELECT COUNT(*) FROM tm_ai_tasks)+(SELECT COUNT(*) FROM tm_points_txns)'
             if ($LASTEXITCODE -ne 0 -or ($uncharged -join '').Trim() -ne '0') { throw '只读API启动生成了任务或积分流水' }
-            Write-Output "LOCAL_API_BOOTSTRAP_VERIFIED：$($migrations.Count)项原迁移/空测试目录/受限只读账号/实际API健康与目录查询/AI入口默认404/零任务零积分流水均通过。"
+            if ($LocalConversationBootstrap) { Write-Output 'LOCAL_CONVERSATION_PERMISSIONS_VERIFIED：会话专属写权限/固定只读元数据过程/无TRIGGER或DDL/不可读密码或改会员/不可写任务账本/零任务零积分流水均通过。' }
+            else { Write-Output "LOCAL_API_BOOTSTRAP_VERIFIED：$($migrations.Count)项原迁移/空测试目录/受限只读账号/实际API健康与目录查询/AI入口默认404/零任务零积分流水均通过。" }
         }
         Write-Output 'LOCAL_BOOTSTRAP_VERIFIED：新库/实例标记/仅SELECT核验账号/实际worker/重复初始化拒绝/四项越权拒绝均通过；其它能力以本轮专项结果为准，未启用任务执行。'
         $passed = $true

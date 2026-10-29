@@ -43,3 +43,5 @@
 ## 本地迁移脚本排序
 
 PowerShell执行迁移须明确使用`StringComparer.Ordinal`排序；`Sort-Object Name`的文化排序可能将`conversations_tasks.sql`放在`conversations.sql`前，引发外键目标不存在。不得靠重写迁移或关闭外键掩盖。新增启动路径须在空隔离库真实执行全部迁移，再验证运行账号的正例及明确权限错误码；脚本语法通过不代表顺序或权限正确。
+
+本地受限账号核验触发器元数据时，不得假定SQL SECURITY DEFINER视图能继承information_schema.triggers可见性；当前MySQL8/9实际验证视图结果为零。使用迁移所有者的固定无参只读过程时，运行账号仅获专属EXECUTE，过程只返回本库所需表的身份字段，不授TRIGGER/DDL、不用静态快照替代实时核验。必须实际验证元数据可见正例、缺过程拒绝、同名失效触发器拒绝及恢复后启动成功；名称元数据齐全不能替代真实约束探针。

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -15,13 +16,25 @@ import (
 )
 
 func registerAIConversations(ctx context.Context, mux *http.ServeMux, db *sql.DB, read config.AITaskReadConfig, enabled bool) error {
+	return registerAIConversationsWithLocal(ctx, mux, db, read, enabled, nil)
+}
+
+func registerAIConversationsWithLocal(ctx context.Context, mux *http.ServeMux, db *sql.DB, read config.AITaskReadConfig, enabled bool, local *config.AILocalRuntime) error {
 	if !enabled {
 		return nil
 	}
 	if ctx == nil || mux == nil || db == nil || !read.Enabled || read.Auth.Validate() != nil {
 		return memberauth.ErrInvalidConfig
 	}
-	if err := repository.NewAIConversationSchemaVerifier(db).Verify(ctx); err != nil {
+	verifier := repository.NewAIConversationSchemaVerifier(db)
+	if local != nil {
+		verifier = repository.NewAILocalConversationSchemaVerifier(db, local.InstanceID)
+	}
+	if err := verifier.Verify(ctx); err != nil {
+		var stage *repository.AIConversationSchemaError
+		if errors.As(err, &stage) {
+			return fmt.Errorf("会话保护自检失败：阶段%d（内部详情已隐藏）", stage.Stage)
+		}
 		return fmt.Errorf("会话保护自检失败（内部详情已隐藏）")
 	}
 	v, err := memberauth.NewVerifier(read.Auth)
