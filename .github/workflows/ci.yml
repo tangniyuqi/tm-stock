@@ -256,6 +256,13 @@ jobs:
           CALL_AUDIT_STARTUP_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportCallAuditStartup/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
           CALL_AUDIT_STARTUP_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportCallAuditStartup/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
           CALL_AUDIT_STARTUP_SKIPS=$(grep -Ec '^[[:space:]]*--- SKIP: TestIntegrationAIReportCallAuditStartup' /tmp/it.log || true)
+          LOCAL_WORKER_ROOT=$(grep -Ec '^--- PASS: TestIntegrationAIReportLocalWorkerProcess ' /tmp/it.log || true)
+          LOCAL_WORKER_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportLocalWorkerProcess/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          LOCAL_WORKER_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportLocalWorkerProcess/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          LOCAL_WORKER_SKIPS=$(grep -Ec '^[[:space:]]*--- SKIP: TestIntegrationAIReportLocalWorkerProcess' /tmp/it.log || true)
+          if [ "$LOCAL_WORKER_ROOT" -ne 1 ] || [ "$LOCAL_WORKER_LEVELS" -ne 2 ] || [ "$LOCAL_WORKER_CASES" -ne 12 ] || [ "$LOCAL_WORKER_SKIPS" -ne 0 ]; then
+            echo "独立本地worker成功交付、未知停止及配置绑定验收未完整通过"; exit 1
+          fi
           if [ "$CALL_AUDIT_STARTUP_ROOT" -ne 1 ] || [ "$CALL_AUDIT_STARTUP_LEVELS" -ne 2 ] || [ "$CALL_AUDIT_STARTUP_CASES" -ne 34 ] || [ "$CALL_AUDIT_STARTUP_SKIPS" -ne 0 ]; then
             echo "调用审计启动保护、受限worker及回滚验收未完整通过"; exit 1
           fi

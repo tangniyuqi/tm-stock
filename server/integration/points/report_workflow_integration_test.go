@@ -119,6 +119,7 @@ type workflowEnv struct {
 	submits       atomic.Int32
 	agentPolls    atomic.Int32
 	agentComplete atomic.Bool // 仅浏览器流续读夹具显式放行回环Agent；普通运行模式保持原行为。
+	agentConfig   tradingcn.Config
 }
 
 func workflowSelectionJSON(t *testing.T, id int64) string {
@@ -138,7 +139,7 @@ func newWorkflowEnv(t *testing.T, level sql.IsolationLevel, mode string) *workfl
 	budget := taskBudget()
 	budget.MaxCalls = 6
 	budget.MaxTokens = 5000
-	local := mode == "local" || mode == "local_deep"
+	local := strings.HasPrefix(mode, "local")
 	x := newReportEnvWithBudgetLocal(t, level, time.Minute, false, budget, local)
 	snapshots := []sources.Snapshot{x.snap}
 	if mode == "multi_source" {
@@ -193,7 +194,7 @@ func newWorkflowEnv(t *testing.T, level sql.IsolationLevel, mode string) *workfl
 	case "malformed":
 		steps = steps[:1]
 		steps[0] = providertest.Success(`{"selections":[]}`, provider.Usage{Prompt: 2, Completion: 1, Total: 3})
-	case "transport":
+	case "transport", "local_unknown":
 		steps = []providertest.Step{providertest.Abort()}
 	case "slow":
 		steps[0] = providertest.SlowHeader(1200*time.Millisecond, steps[0])
@@ -252,7 +253,7 @@ func newWorkflowEnv(t *testing.T, level sql.IsolationLevel, mode string) *workfl
 			io.WriteString(w, `{"success":true,"data":{"task_id":"l1_test_remote","status":"queued"}}`)
 		case "/api/analysis/tasks/l1_test_remote/status":
 			e.agentPolls.Add(1)
-			if mode == "agent_running" && !e.agentComplete.Load() {
+			if (mode == "agent_running" || mode == "local_running") && !e.agentComplete.Load() {
 				io.WriteString(w, `{"success":true,"data":{"task_id":"l1_test_remote","status":"running"}}`)
 			} else if mode == "agent_failed" {
 				io.WriteString(w, `{"success":true,"data":{"task_id":"l1_test_remote","status":"failed"}}`)
@@ -269,6 +270,11 @@ func newWorkflowEnv(t *testing.T, level sql.IsolationLevel, mode string) *workfl
 	}))
 	t.Cleanup(cn.Close)
 	cc := tradingcn.Config{Enabled: true, LocalEvaluation: true, BaseURL: cn.URL, ApprovedHost: "127.0.0.1", Bearer: bearer, ApprovalRef: "test-only:approval", LicenseRef: "test-only:license", QuickModel: "test-quick", DeepModel: "test-deep", Timeout: 3 * time.Second, MaxSubmissions: 10}
+	if local {
+		cc.ApprovalRef = "local-eval:agent-approval"
+		cc.LicenseRef = "local-eval:agent-license"
+	}
+	e.agentConfig = cc
 	client, err := tradingcn.New(cc)
 	if err != nil {
 		t.Fatal(err)

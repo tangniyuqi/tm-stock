@@ -1,4 +1,4 @@
-// ai-worker 提供已有隔离结果恢复和本地配置预检，尚不执行报告队列。
+// ai-worker 提供隔离恢复、启动核验和显式本地报告队列，不提供生产默认执行。
 package main
 
 import (
@@ -104,6 +104,9 @@ func failure(output io.Writer) int {
 	return 1
 }
 func runCommand(ctx context.Context, args []string, output io.Writer) int {
+	if len(args) > 0 && args[0] == "run-local" {
+		return runLocalReports(ctx, args[1:], os.Stdin, output)
+	}
 	if len(args) > 0 && args[0] == "check-local-audit" {
 		return checkLocalAudit(ctx, args[1:], output)
 	}
