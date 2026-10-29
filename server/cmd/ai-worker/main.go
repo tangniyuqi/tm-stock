@@ -104,8 +104,8 @@ func failure(output io.Writer) int {
 	return 1
 }
 func runCommand(ctx context.Context, args []string, output io.Writer) int {
-	if len(args) > 0 && args[0] == "check-local" {
-		return checkLocalConfig(ctx, args[1:], output)
+	if len(args) > 0 && (args[0] == "check-local" || args[0] == "check-local-db") {
+		return checkLocalConfig(ctx, args[1:], output, args[0] == "check-local-db")
 	}
 	opts, err := parseOptions(args)
 	if errors.Is(err, flag.ErrHelp) {
@@ -160,7 +160,7 @@ func runCommand(ctx context.Context, args []string, output io.Writer) int {
 }
 
 // 只验证隔离启动配置，不连接数据库、不构造模型，也不启动队列。
-func checkLocalConfig(ctx context.Context, args []string, output io.Writer) int {
+func checkLocalConfig(ctx context.Context, args []string, output io.Writer, verifyDatabase bool) int {
 	fail := func() int {
 		_, _ = io.WriteString(output, "本地启动配置预检未通过（详情已隐藏），未启动任务。\n")
 		return 1
@@ -177,6 +177,23 @@ func checkLocalConfig(ctx context.Context, args []string, output io.Writer) int 
 	c, err := config.ReadAILocalRuntime(*path)
 	if err != nil || c.CheckDSN(os.Getenv("TM_DB_DSN")) != nil {
 		return fail()
+	}
+	if verifyDatabase {
+		db, err := sql.Open("mysql", os.Getenv("TM_DB_DSN"))
+		if err != nil {
+			return fail()
+		}
+		defer db.Close()
+		if err := repository.NewAILocalInstanceVerifier(db).Verify(ctx, c.InstanceID); err != nil {
+			if ctx.Err() != nil {
+				return 130
+			}
+			return fail()
+		}
+		if _, err := io.WriteString(output, "本地数据库实例标记核验通过；尚未验证业务结构及批准，未启动任务。\n"); err != nil {
+			return 1
+		}
+		return 0
 	}
 	if _, err = io.WriteString(output, "本地启动配置预检通过；尚未验证数据库所有权、结构及批准，不启动任务或真实调用。\n"); err != nil {
 		return 1

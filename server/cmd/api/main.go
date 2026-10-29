@@ -106,6 +106,11 @@ func run() error {
 	if err := db.PingContext(pingCtx); err != nil {
 		return err
 	}
+	if localRuntime != nil {
+		if err := repository.NewAILocalInstanceVerifier(db).Verify(pingCtx, localRuntime.InstanceID); err != nil {
+			return err
+		}
+	}
 	log.Println("数据库连接正常")
 
 	repo := repository.NewThemeRepo(db)

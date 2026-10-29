@@ -246,6 +246,12 @@ jobs:
           QUEUE_LOOP_ROOT=$(grep -Ec '^--- PASS: TestIntegrationAIReportQueueLoop ' /tmp/it.log || true)
           QUEUE_LOOP_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportQueueLoop/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
           QUEUE_PROCESS_ROOT=$(grep -Ec '^--- PASS: TestIntegrationAIReportQueueProcess ' /tmp/it.log || true)
+          LOCAL_INSTANCE_ROOT=$(grep -Ec '^--- PASS: TestIntegrationAIReportLocalInstance ' /tmp/it.log || true)
+          LOCAL_INSTANCE_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportLocalInstance/' /tmp/it.log || true)
+          LOCAL_INSTANCE_SKIPS=$(grep -Ec '^[[:space:]]*--- SKIP: TestIntegrationAIReportLocalInstance' /tmp/it.log || true)
+          if [ "$LOCAL_INSTANCE_ROOT" -ne 1 ] || [ "$LOCAL_INSTANCE_CASES" -ne 7 ] || [ "$LOCAL_INSTANCE_SKIPS" -ne 0 ]; then
+            echo "本地实例与实际worker预检验收未完整通过"; exit 1
+          fi
           QUEUE_PROCESS_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportQueueProcess/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
           QUEUE_PROCESS_SKIPS=$(grep -Ec '^[[:space:]]*--- SKIP: TestIntegrationAIReportQueueProcess' /tmp/it.log || true)
           if [ "$QUEUE_PROCESS_ROOT" -ne 1 ] || [ "$QUEUE_PROCESS_LEVELS" -ne 2 ] || [ "$QUEUE_PROCESS_SKIPS" -ne 0 ]; then
