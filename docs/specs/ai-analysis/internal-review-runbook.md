@@ -8,6 +8,8 @@
 
 ### 本地装配启动预检（2026-10-29，首个增量）
 
+`-LocalMemberBootstrap -RunCount 1`在API初始化模式上加入原会员验证：构建GVA原路由测试程序，只有回环专属库名及唯一实例标记同时通过才允许原AutoMigrate初始化会员表；签名配置和本轮DSN从stdin传入，子程序不读取产品配置。复用原bcrypt登录/JWT/资料接口，检查错误密码、两账号身份和登录时点落库，再检查错误标记拒绝并恢复原标记。随机测试口令/JWT不输出。本模式仍属于隔离夹具初始化，不是生产账号或登录服务；尚未验证GVA令牌与实际API会话路由互通，AI入口仍404。会话启动探针还检查触发器元数据，不能为让探针通过就给运行账号TRIGGER/DDL权限；迁移/结构核验与运行权限须继续分离后再开放会话写入。
+
 `-LocalAPIBootstrap -RunCount 1`在原初始化模式上继续执行全部21项原迁移、创建受限只读API账号并实际启动cmd/api，验证healthz、空题材目录查询和默认关闭的AI任务/会话/余额404；最后核对零任务/零积分流水并关闭本轮进程。仍只在本脚本新建的MySQL/数据目录运行。上游两表复用verify-migrations.sh的最小测试DDL，不复制其中示例证券行，它们不是生产schema权威；迁移按StringComparer.Ordinal排序。只读API账号仅获实例标记、题材/股票/关联和两个日数据表的SELECT，拒绝INSERT、改标记、DROP和mysql.user查询，必须得到明确权限错误。此模式不含会员/收费任务、报告发布控制器或长期运行服务，不把健康检查通过当成完整AI助手可用。
 
 受控初始化验收入口：`pwsh -NoProfile -File scripts/dev/verify-ai-source-native.ps1 -MySqlBaseDir <本机MySQL目录> -BashPath <本机bash.exe> -LocalBootstrapOnly -RunCount 1`（Go须在PATH）。它只启动自己新建临时数据目录中的MySQL，随后新建随机专属库、实例标记及随机口令的核验账号；不接受外部DSN或已有数据目录，不执行`IF NOT EXISTS`接管旧库。核验账号仅获标记表SELECT权限，实际worker以最小子环境运行check-local-db；不继承root、MYSQL_PWD、TM_TEST_DSN或宿主模型凭据。正例后检查重复建库错误1007，以及删除/更新标记、建表、读取mysql.user的权限错误，再重复worker核验，禁止把SQL/连接错误当作权限测试通过。成功后关闭且清理本轮实例和配置；失败停止实例并保留诊断目录。这是初始化与权限验收模式，尚不提供持续运行的业务服务或业务账号权限。

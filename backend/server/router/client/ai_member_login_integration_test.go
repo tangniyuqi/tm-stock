@@ -4,6 +4,7 @@ package client_test
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -18,6 +19,7 @@ import (
 	"time"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/model/member"
+	"github.com/flipped-aurora/gin-vue-admin/server/model/system"
 	"github.com/flipped-aurora/gin-vue-admin/server/utils"
 	driver "github.com/go-sql-driver/mysql"
 	"gorm.io/driver/mysql"
@@ -45,7 +47,7 @@ func TestAIMemberLoginBridge(t *testing.T) {
 		t.Fatal("隔离会员登录DSN无效")
 	}
 	host, port, err := net.SplitHostPort(dsn.Addr)
-	if err != nil || host != "127.0.0.1" || port == "" || dsn.Net != "tcp" || !regexp.MustCompile(`^tm_points_it_[a-f0-9]{24}$`).MatchString(dsn.DBName) {
+	if err != nil || host != "127.0.0.1" || port == "" || dsn.Net != "tcp" || !aiMemberTestDatabaseName(dsn.DBName) {
 		t.Fatal("仅允许父测试本次创建的回环随机库")
 	}
 	dsn.Timeout, dsn.ReadTimeout, dsn.WriteTimeout = 5*time.Second, 10*time.Second, 10*time.Second
@@ -58,6 +60,9 @@ func TestAIMemberLoginBridge(t *testing.T) {
 		t.Fatal("取得隔离会员库连接失败")
 	}
 	defer pool.Close()
+	if err := verifyAIMemberLocalMarker(pool, dsn.DBName); err != nil {
+		t.Fatal("本地会员库实例标记未确认，未初始化会员")
+	}
 	engine, _, testOnlyMemberPassword := aiMemberLoginFixture(t, db, cfg.Signing)
 	var mu sync.Mutex
 	logins, profiles := map[uint]int{}, map[uint]int{}
@@ -139,5 +144,128 @@ func TestAIMemberLoginBridge(t *testing.T) {
 	case <-finished:
 	case <-ctx.Done():
 		t.Fatal("会员原登录跨层验收未结束")
+	}
+}
+
+func aiMemberTestDatabaseName(name string) bool {
+	return regexp.MustCompile(`^tm_points_it_[a-f0-9]{24}$`).MatchString(name) || regexp.MustCompile(`^tm_ai_local_[a-f0-9]{32}$`).MatchString(name)
+}
+
+// 仅测试桥支持新增本地装配库；必须在AutoMigrate和会员写入之前核验标记。
+func verifyAIMemberLocalMarker(db *sql.DB, name string) error {
+	if !strings.HasPrefix(name, "tm_ai_local_") {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	var total, matched int
+	err := db.QueryRowContext(ctx, `SELECT COUNT(*),COALESCE(SUM(instance_id=? AND database_name=DATABASE() AND server_uuid=@@server_uuid AND environment='local-isolated' AND contains_real_users=0),0) FROM tm_ai_local_instance`, strings.TrimPrefix(name, "tm_ai_local_")).Scan(&total, &matched)
+	if err != nil || total != 1 || matched != 1 {
+		return fmt.Errorf("本地会员库隔离标记无效")
+	}
+	return nil
+}
+
+// 受控初始化程序通过stdin注入本轮库/签名配置；不读取产品配置或输出凭据。
+func TestAIMemberLocalBootstrap(t *testing.T) {
+	if os.Getenv("TM_TEST_AI_LOGIN_CHILD") != "local-fixture-only" {
+		t.Skip("仅受控本地初始化运行")
+	}
+	var cfg aiMemberLoginBridgeConfig
+	if json.NewDecoder(io.LimitReader(os.Stdin, 16384)).Decode(&cfg) != nil || len(cfg.Signing) < 32 {
+		t.Fatal("隔离会员初始化配置无效")
+	}
+	dsn, err := driver.ParseDSN(cfg.DSN)
+	if err != nil || !regexp.MustCompile(`^tm_ai_local_[a-f0-9]{32}$`).MatchString(dsn.DBName) {
+		t.Fatal("本地库名无效")
+	}
+	host, port, err := net.SplitHostPort(dsn.Addr)
+	if err != nil || host != "127.0.0.1" || port == "" || dsn.Net != "tcp" {
+		t.Fatal("本地库目标无效")
+	}
+	dsn.Timeout, dsn.ReadTimeout, dsn.WriteTimeout = 5*time.Second, 10*time.Second, 10*time.Second
+	db, err := gorm.Open(mysql.Open(dsn.FormatDSN()), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	if err != nil {
+		t.Fatal("本地会员库连接失败")
+	}
+	pool, err := db.DB()
+	if err != nil {
+		t.Fatal("本地会员连接未就绪")
+	}
+	defer pool.Close()
+	if err := verifyAIMemberLocalMarker(pool, dsn.DBName); err != nil {
+		t.Fatal("实例标记未确认，未初始化会员")
+	}
+	engine, _, password := aiMemberLoginFixture(t, db, cfg.Signing)
+	call := func(method, path, body, token string) struct {
+		Code int `json:"code"`
+		Data struct {
+			Token string `json:"token"`
+		} `json:"data"`
+	} {
+		r := httptest.NewRequest(method, path, strings.NewReader(body))
+		r.Header.Set("Content-Type", "application/json")
+		if token != "" {
+			r.Header.Set("Authorization", "Bearer "+token)
+		}
+		w := httptest.NewRecorder()
+		engine.ServeHTTP(w, r)
+		var out struct {
+			Code int `json:"code"`
+			Data struct {
+				Token string `json:"token"`
+			} `json:"data"`
+		}
+		if json.Unmarshal(w.Body.Bytes(), &out) != nil {
+			t.Fatal("原会员响应无效")
+		}
+		return out
+	}
+	wrong, _ := json.Marshal(map[string]string{"mobile": "ai_member_one", "password": "wrong-local-only"})
+	if call("POST", "/client/auth/login", string(wrong), "").Code == 0 {
+		t.Fatal("错误密码未拒绝")
+	}
+	for i, name := range []string{"ai_member_one", "ai_member_two"} {
+		body, _ := json.Marshal(map[string]string{"mobile": name, "password": password})
+		login := call("POST", "/client/auth/login", string(body), "")
+		if login.Code != 0 || login.Data.Token == "" {
+			t.Fatal("原密码登录失败")
+		}
+		claims, err := utils.NewJWT().ParseToken(login.Data.Token)
+		if err != nil || claims.BaseClaims.ID != uint(i+1) || claims.UserType != system.UserTypeClient {
+			t.Fatal("原JWT身份不符")
+		}
+		if call("GET", "/client/member/profile", "", login.Data.Token).Code != 0 {
+			t.Fatal("原会员资料读取失败")
+		}
+	}
+	var count int64
+	if db.Model(&member.Member{}).Where("last_login_at IS NOT NULL").Count(&count).Error != nil || count != 2 {
+		t.Fatal("原登录记录未落库")
+	}
+	// 验证错标记拒绝后恢复原值，不能让后续实际API借用错误实例。
+	original := strings.TrimPrefix(dsn.DBName, "tm_ai_local_")
+	wrongID := strings.Repeat("0", 32)
+	if wrongID == original {
+		wrongID = strings.Repeat("f", 32)
+	}
+	if _, err := pool.Exec("UPDATE tm_ai_local_instance SET instance_id=?", wrongID); err != nil {
+		t.Fatal("错标记反例未建立")
+	}
+	rejected := verifyAIMemberLocalMarker(pool, dsn.DBName) != nil
+	if _, err := pool.Exec("UPDATE tm_ai_local_instance SET instance_id=?", original); err != nil {
+		t.Fatal("原实例标记未恢复")
+	}
+	if !rejected || verifyAIMemberLocalMarker(pool, dsn.DBName) != nil {
+		t.Fatal("错标记拒绝/恢复边界失败")
+	}
+	t.Log("LOCAL_MEMBER_BOOTSTRAP_VERIFIED：原bcrypt密码登录/JWT/两会员资料/错误密码拒绝及登录存证通过；仅本轮隔离会员")
+}
+
+func TestAIMemberLocalDatabaseNames(t *testing.T) {
+	for name, want := range map[string]bool{"tm_points_it_" + strings.Repeat("a", 24): true, "tm_ai_local_" + strings.Repeat("b", 32): true, "tm_ai_local_" + strings.Repeat("B", 32): false, "production": false, "tm_ai_local_": false, "tm_ai_local_" + strings.Repeat("a", 32) + ";": false} {
+		if aiMemberTestDatabaseName(name) != want {
+			t.Fatal("本地会员库名称边界不符")
+		}
 	}
 }

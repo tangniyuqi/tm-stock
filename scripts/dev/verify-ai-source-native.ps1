@@ -25,6 +25,7 @@ param(
     [switch]$DeepH5Tests,
     [switch]$LocalBootstrapOnly,
     [switch]$LocalAPIBootstrap,
+    [switch]$LocalMemberBootstrap,
     [ValidateLength(1, 256)][string]$ConversationPattern = '^TestIntegrationAIConversations',
     [ValidateLength(1, 256)][string]$ReportPattern = '^TestIntegrationAIReport'
 )
@@ -32,6 +33,7 @@ param(
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 $liveReportPatterns = @('^TestIntegrationAIReportLiveAgents$', '^TestIntegrationAIReportDeepLiveAgents$')
+if ($LocalMemberBootstrap) { $LocalAPIBootstrap = $true }
 if ($LocalAPIBootstrap) { $LocalBootstrapOnly = $true }
 if ($LocalBootstrapOnly -and ($RunCount -ne 1 -or $LiveAgents -or $MaterialQABrowser -or $StreamReplayBrowser -or $TimeoutRecoveryTests -or $DeepH5Tests -or $ReportPattern -ne '^TestIntegrationAIReport' -or $RepositoryCoveragePath -ne '' -or $ServiceCoveragePath -ne '' -or $APICoveragePath -ne '')) { throw '本地初始化只允许独立单次隔离执行，不混用其它专项或真实调用' }
 if ($ReportPattern -in $liveReportPatterns -and -not $LiveAgents) { throw '真实Agent根组需要显式编译专项标签，禁止零用例假通过' }
@@ -203,6 +205,36 @@ GRANT SELECT ON $localDatabase.tm_ai_local_instance TO '$localUser'@'127.0.0.1';
             foreach ($migration in $migrations) {
                 [IO.File]::ReadAllText($migration) | & $clientBinary @clientArgs "--database=$localDatabase"
                 if ($LASTEXITCODE -ne 0) { throw "本地业务迁移失败：$([IO.Path]::GetFileName($migration))" }
+            }
+            if ($LocalMemberBootstrap) {
+                $memberRunner = Join-Path $testRoot 'local-member-tests.exe'
+                Push-Location (Join-Path $PSScriptRoot '../../backend/server')
+                try { go test -c -tags=integration -o $memberRunner ./router/client; if ($LASTEXITCODE -ne 0) { throw '原会员测试程序构建失败' } } finally { Pop-Location }
+                $memberStart = [Diagnostics.ProcessStartInfo]::new()
+                $memberStart.FileName = $memberRunner; $memberStart.UseShellExecute = $false; $memberStart.CreateNoWindow = $true
+                $memberStart.RedirectStandardInput = $true; $memberStart.RedirectStandardOutput = $true; $memberStart.RedirectStandardError = $true
+                foreach ($argument in @('-test.run=^TestAIMemberLocalBootstrap$','-test.count=1','-test.v')) { $memberStart.ArgumentList.Add($argument) }
+                $memberStart.Environment.Clear()
+                foreach ($runtimeName in @('SystemRoot','WINDIR','PATH','PATHEXT','USERPROFILE','APPDATA','LOCALAPPDATA','TEMP','TMP')) {
+                    $runtimeValue = [Environment]::GetEnvironmentVariable($runtimeName, 'Process')
+                    if ($null -ne $runtimeValue) { $memberStart.Environment[$runtimeName] = $runtimeValue }
+                }
+                $memberStart.Environment['TM_TEST_AI_LOGIN_CHILD'] = 'local-fixture-only'
+                $memberProcess = [Diagnostics.Process]::new(); $memberProcess.StartInfo = $memberStart
+                $memberStarted = $false
+                try {
+                    if (-not $memberProcess.Start()) { throw '原会员测试程序未启动' }
+                    $memberStarted = $true
+                    $memberConfig = @{ dsn="root:$testPassword@tcp(127.0.0.1:$testPort)/$($localDatabase)?parseTime=true&charset=utf8mb4&loc=UTC"; signing=([guid]::NewGuid().ToString('N')+[guid]::NewGuid().ToString('N')); control=([guid]::NewGuid().ToString('N')) }
+                    $memberProcess.StandardInput.WriteLine(($memberConfig | ConvertTo-Json -Compress)); $memberProcess.StandardInput.Close()
+                    if (-not $memberProcess.WaitForExit(30000)) { $memberProcess.Kill(); $memberProcess.WaitForExit(); throw '原会员初始化验收超时' }
+                    $memberOutput = $memberProcess.StandardOutput.ReadToEnd(); $null = $memberProcess.StandardError.ReadToEnd()
+                    if ($memberProcess.ExitCode -ne 0 -or $memberOutput -notmatch 'LOCAL_MEMBER_BOOTSTRAP_VERIFIED' -or $memberOutput -notmatch '(?m)^--- PASS: TestAIMemberLocalBootstrap ') { throw '原会员密码/JWT/资料链路未通过（内部输出已隐藏）' }
+                    Write-Output 'LOCAL_MEMBER_BOOTSTRAP_VERIFIED：原密码校验、原JWT、两账号资料及登录存证通过；测试口令未输出，不等于AI接口鉴权互通已验。'
+                } finally {
+                    if ($memberStarted -and -not $memberProcess.HasExited) { $memberProcess.Kill(); $memberProcess.WaitForExit() }
+                    $memberProcess.Dispose()
+                }
             }
             $apiUser = 'tm_ai_api_' + $localInstanceID.Substring(0, 16)
             $apiPassword = [guid]::NewGuid().ToString('N')
