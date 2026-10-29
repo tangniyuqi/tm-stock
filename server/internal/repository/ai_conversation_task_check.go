@@ -6,22 +6,33 @@ import (
 	"database/sql"
 	"encoding/binary"
 	"encoding/hex"
-	"fmt"
 	"time"
 
 	"github.com/tangniyuqi/tm-stock/server/internal/ai/conversation"
 )
 
-type AIConversationTaskSchemaVerifier struct{ db *sql.DB }
+type AIConversationTaskSchemaVerifier struct {
+	db         *sql.DB
+	local      bool
+	instanceID string
+}
 
 func NewAIConversationTaskSchemaVerifier(db *sql.DB) *AIConversationTaskSchemaVerifier {
-	return &AIConversationTaskSchemaVerifier{db}
+	return &AIConversationTaskSchemaVerifier{db: db}
+}
+
+func NewAILocalConversationTaskSchemaVerifier(db *sql.DB, instanceID string) *AIConversationTaskSchemaVerifier {
+	return &AIConversationTaskSchemaVerifier{db: db, local: true, instanceID: instanceID}
 }
 func (v *AIConversationTaskSchemaVerifier) Verify(parent context.Context) error {
 	if v == nil || v.db == nil || parent == nil {
 		return conversation.ErrInvalid
 	}
-	if err := NewAIConversationSchemaVerifier(v.db).Verify(parent); err != nil {
+	base := NewAIConversationSchemaVerifier(v.db)
+	if v.local {
+		base = NewAILocalConversationSchemaVerifier(v.db, v.instanceID)
+	}
+	if err := base.Verify(parent); err != nil {
 		return err
 	}
 	ctx, cancel := context.WithTimeout(parent, 10*time.Second)
@@ -31,14 +42,24 @@ func (v *AIConversationTaskSchemaVerifier) Verify(parent context.Context) error 
 		return err
 	}
 	defer func() { _ = tx.Rollback() }() // 回滚探针不创建任务、不触碰账务；不能代替完整联调。
-	for n, fn := range []func(context.Context, *sql.Tx) error{verifyPointsSession, verifyIntentMetadata, probeIntents} {
+	metadata := verifyIntentMetadata
+	if v.local {
+		metadata = verifyLocalIntentMetadata
+	}
+	for n, fn := range []func(context.Context, *sql.Tx) error{verifyPointsSession, metadata, probeIntents} {
 		if err := fn(ctx, tx); err != nil {
-			return fmt.Errorf("会话任务保护检查阶段%d失败: %w", n+1, err)
+			return &AIConversationSchemaError{Stage: n + 1, cause: err}
 		}
 	}
 	return tx.Rollback()
 }
 func verifyIntentMetadata(ctx context.Context, tx *sql.Tx) error {
+	return verifyIntentMetadataFrom(ctx, tx, false)
+}
+func verifyLocalIntentMetadata(ctx context.Context, tx *sql.Tx) error {
+	return verifyIntentMetadataFrom(ctx, tx, true)
+}
+func verifyIntentMetadataFrom(ctx context.Context, tx *sql.Tx, local bool) error {
 	var n int
 	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM information_schema.tables t JOIN information_schema.table_constraints c ON c.constraint_schema=t.table_schema AND c.table_name=t.table_name WHERE t.table_schema=DATABASE() AND t.table_name='tm_ai_conversation_tasks' AND t.engine='InnoDB' AND c.constraint_name='chk_tm_ai_intent' AND c.constraint_type='CHECK' AND c.enforced='YES'`).Scan(&n); err != nil {
 		return err
@@ -85,8 +106,18 @@ func verifyIntentMetadata(ctx context.Context, tx *sql.Tx) error {
 			return conversation.ErrInvariant
 		}
 	}
+	localTriggers := map[string]int{}
+	if local {
+		var err error
+		localTriggers, err = readLocalConversationTriggers(ctx, tx, true)
+		if err != nil {
+			return err
+		}
+	}
 	for _, trigger := range []struct{ table, name, event string }{{"tm_ai_conversation_tasks", "tm_ai_intent_insert", "INSERT"}, {"tm_ai_conversation_tasks", "tm_ai_intent_update", "UPDATE"}, {"tm_ai_conversation_tasks", "tm_ai_intent_no_delete", "DELETE"}, {"tm_ai_conversations", "tm_ai_conversation_intent_archive_guard", "UPDATE"}} {
-		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM information_schema.triggers WHERE trigger_schema=DATABASE() AND event_object_table=? AND trigger_name=? AND event_manipulation=? AND action_timing='BEFORE'`, trigger.table, trigger.name, trigger.event).Scan(&n); err != nil {
+		if local {
+			n = localTriggers[trigger.table+":"+trigger.name+":"+trigger.event]
+		} else if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM information_schema.triggers WHERE trigger_schema=DATABASE() AND event_object_table=? AND trigger_name=? AND event_manipulation=? AND action_timing='BEFORE'`, trigger.table, trigger.name, trigger.event).Scan(&n); err != nil {
 			return err
 		}
 		if n != 1 {

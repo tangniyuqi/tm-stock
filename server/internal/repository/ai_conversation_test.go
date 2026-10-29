@@ -16,6 +16,11 @@ func TestAIConversationRepoMissingAndCanceled(t *testing.T) {
 	if NewAILocalConversationSchemaVerifier(nil, strings.Repeat("a", 32)).Verify(context.Background()) == nil {
 		t.Fatal("本地空探针")
 	}
+	for _, v := range []*AIConversationTaskSchemaVerifier{NewAIConversationTaskSchemaVerifier(nil), NewAILocalConversationTaskSchemaVerifier(nil, strings.Repeat("a", 32))} {
+		if v.Verify(context.Background()) == nil {
+			t.Fatal("空会话任务探针")
+		}
+	}
 	var absent *AIConversationRepo
 	if absent.Within(context.Background(), true, func(conversation.Tx) error { return nil }) == nil {
 		t.Fatal("空仓储")
@@ -38,6 +43,9 @@ func TestAIConversationRepoMissingAndCanceled(t *testing.T) {
 	}
 	if NewAILocalConversationSchemaVerifier(db, "").Verify(context.Background()) == nil || NewAILocalConversationSchemaVerifier(db, strings.Repeat("a", 32)).Verify(ctx) == nil {
 		t.Fatal("本地标记无效或取消仍成功")
+	}
+	if NewAILocalConversationTaskSchemaVerifier(db, "").Verify(context.Background()) == nil || NewAILocalConversationTaskSchemaVerifier(db, strings.Repeat("a", 32)).Verify(ctx) == nil || NewAILocalConversationTaskSchemaVerifier(db, strings.Repeat("a", 32)).Verify(nil) == nil {
+		t.Fatal("本地任务探针未拒绝缺标记/取消/空上下文")
 	}
 	if NewAIConversationRepoWithIsolation(db, sql.LevelSerializable).Within(ctx, false, func(conversation.Tx) error { return nil }) == nil {
 		t.Fatal("未验证隔离级别")

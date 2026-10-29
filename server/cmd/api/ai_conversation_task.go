@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -15,13 +16,24 @@ import (
 )
 
 func registerAIConversationTasks(ctx context.Context, mux *http.ServeMux, db *sql.DB, read config.AITaskReadConfig, creator *service.AITaskCreateService, enabled, writes bool) error {
+	return registerAIConversationTasksWithLocal(ctx, mux, db, read, creator, enabled, writes, nil)
+}
+func registerAIConversationTasksWithLocal(ctx context.Context, mux *http.ServeMux, db *sql.DB, read config.AITaskReadConfig, creator *service.AITaskCreateService, enabled, writes bool, local *config.AILocalRuntime) error {
 	if !enabled {
 		return nil
 	}
 	if ctx == nil || mux == nil || db == nil || creator == nil || !read.Enabled || read.Auth.Validate() != nil {
 		return memberauth.ErrInvalidConfig
 	}
-	if err := repository.NewAIConversationTaskSchemaVerifier(db).Verify(ctx); err != nil {
+	verifier := repository.NewAIConversationTaskSchemaVerifier(db)
+	if local != nil {
+		verifier = repository.NewAILocalConversationTaskSchemaVerifier(db, local.InstanceID)
+	}
+	if err := verifier.Verify(ctx); err != nil {
+		var stage *repository.AIConversationSchemaError
+		if errors.As(err, &stage) {
+			return fmt.Errorf("会话任务保护自检失败：阶段%d（内部详情已隐藏）", stage.Stage)
+		}
 		return fmt.Errorf("会话任务保护自检失败（内部详情已隐藏）")
 	}
 	v, err := memberauth.NewVerifier(read.Auth)

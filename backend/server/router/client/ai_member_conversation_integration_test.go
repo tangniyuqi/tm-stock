@@ -31,7 +31,7 @@ func localConversationAPIURL(raw string) bool {
 
 // 原密码路由真实签发的JWT直接请求父程序启动的cmd/api；令牌只留在内存。
 // 会员/资料表来自本轮专属库，无模型、无证券样例、无积分写入。
-func verifyAIMemberConversationAPI(t *testing.T, base string, engine *gin.Engine, db *gorm.DB, password string) {
+func verifyAIMemberConversationAPI(t *testing.T, base string, engine *gin.Engine, db *gorm.DB, password string, tasks bool) {
 	t.Helper()
 	if !localConversationAPIURL(base) {
 		t.Fatal("会话API只能使用明确回环HTTP地址")
@@ -183,8 +183,13 @@ func verifyAIMemberConversationAPI(t *testing.T, base string, engine *gin.Engine
 	}
 	call("GET", path, tokens[0], "", "", 200)
 	call("GET", "/api/v1/ai/tasks", tokens[0], "", "", 200)
-	call("POST", "/api/v1/ai/tasks", tokens[0], "", `{}`, 405)
-	call("GET", "/api/v1/ai/points/balance", tokens[0], "", "", 404)
+	if tasks {
+		call("POST", "/api/v1/ai/tasks", tokens[0], "", `{}`, 400)
+		call("GET", "/api/v1/ai/points/balance", tokens[0], "", "", 200)
+	} else {
+		call("POST", "/api/v1/ai/tasks", tokens[0], "", `{}`, 405)
+		call("GET", "/api/v1/ai/points/balance", tokens[0], "", "", 404)
+	}
 	var rows int64
 	if db.Raw("SELECT (SELECT COUNT(*) FROM tm_ai_conversations)+(SELECT COUNT(*) FROM tm_ai_conversation_messages)").Scan(&rows).Error != nil || rows != 2 {
 		t.Fatal("会话幂等或启动回滚探针存证不符")

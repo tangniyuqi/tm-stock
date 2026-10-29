@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tangniyuqi/tm-stock/server/internal/ai/finalreport"
 	"github.com/tangniyuqi/tm-stock/server/internal/ai/task"
 	"github.com/tangniyuqi/tm-stock/server/internal/config"
 	"github.com/tangniyuqi/tm-stock/server/internal/points"
@@ -23,6 +24,28 @@ func (v *localIdentityFixture) Verify(ctx context.Context, _ string) error {
 		return v.err
 	}
 	return ctx.Err()
+}
+
+type localEvidenceHook struct {
+	base  finalreport.Store
+	after func()
+}
+
+func (s localEvidenceHook) WithinReportTx(ctx context.Context, fn func(finalreport.Tx) error) error {
+	if err := s.base.WithinReportTx(ctx, fn); err != nil {
+		return err
+	}
+	s.after()
+	return nil
+}
+
+func TestAILocalAdmissionFileChangesDuringEvidenceRead(t *testing.T) {
+	c, st, _, path, file := localAdmissionFixture(t)
+	c.evidence = localEvidenceHook{base: st, after: func() { file.Revision = "withdrawn"; writeLocalAdmissionFile(t, path, file) }}
+	_, err := c.Plan(context.Background(), task.AdmissionScope{UserID: 1, AnalysisType: 1, SubjectType: task.Theme, SubjectID: st.v.SubjectID})
+	if !errors.Is(err, task.ErrAdmissionUnavailable) {
+		t.Fatal("证据读取期间变更计划没有按创建前拒绝处理", err)
+	}
 }
 
 func localAdmissionFixture(t *testing.T) (*AILocalAdmissionControl, *reportScript, *localIdentityFixture, string, config.AILocalPlans) {
@@ -168,6 +191,12 @@ func TestAILocalAdmissionRechecksWithdrawalAndReplacement(t *testing.T) {
 			}
 			if err := c.Ready(ctx); err == nil {
 				t.Fatal("撤回/变更边界未拒绝")
+			}
+			if mode == "文件价格" || mode == "文件撤销" {
+				_, err := c.Plan(ctx, task.AdmissionScope{UserID: 1, AnalysisType: 1, SubjectType: task.Theme, SubjectID: st.v.SubjectID})
+				if !errors.Is(err, task.ErrAdmissionUnavailable) {
+					t.Fatal("创建前文件拒绝被误分类为未知创建", err)
+				}
 			}
 		})
 	}

@@ -135,29 +135,9 @@ func verifyConversationMetadataFrom(ctx context.Context, tx *sql.Tx, local bool)
 	}
 	localTriggers := map[string]int{}
 	if local {
-		var schema string
-		if err := tx.QueryRowContext(ctx, "SELECT DATABASE()").Scan(&schema); err != nil {
-			return err
-		}
-		rows, err := tx.QueryContext(ctx, "CALL tm_ai_local_conversation_trigger_metadata()")
+		var err error
+		localTriggers, err = readLocalConversationTriggers(ctx, tx, false)
 		if err != nil {
-			return err
-		}
-		defer rows.Close()
-		for rows.Next() {
-			var database, table, name, event, timing string
-			if err := rows.Scan(&database, &table, &name, &event, &timing); err != nil {
-				return err
-			}
-			if database != schema || (table != "tm_ai_conversations" && table != "tm_ai_conversation_messages") || timing != "BEFORE" {
-				return conversation.ErrInvariant
-			}
-			localTriggers[table+":"+name+":"+event]++
-		}
-		if err := rows.Err(); err != nil {
-			return err
-		}
-		if err := rows.Close(); err != nil {
 			return err
 		}
 	}
@@ -176,6 +156,43 @@ func verifyConversationMetadataFrom(ctx context.Context, tx *sql.Tx, local bool)
 		}
 	}
 	return nil
+}
+
+// 过程名和表范围均为固定选择，不接受配置/会员传入SQL对象名。
+func readLocalConversationTriggers(ctx context.Context, tx *sql.Tx, intents bool) (map[string]int, error) {
+	var schema string
+	if err := tx.QueryRowContext(ctx, "SELECT DATABASE()").Scan(&schema); err != nil {
+		return nil, err
+	}
+	query := "CALL tm_ai_local_conversation_trigger_metadata()"
+	otherTable := "tm_ai_conversation_messages"
+	if intents {
+		query = "CALL tm_ai_local_intent_trigger_metadata()"
+		otherTable = "tm_ai_conversation_tasks"
+	}
+	rows, err := tx.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]int{}
+	for rows.Next() {
+		var database, table, name, event, timing string
+		if err := rows.Scan(&database, &table, &name, &event, &timing); err != nil {
+			return nil, err
+		}
+		if database != schema || table != "tm_ai_conversations" && table != otherTable || timing != "BEFORE" {
+			return nil, conversation.ErrInvariant
+		}
+		out[table+":"+name+":"+event]++
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func probeConversations(ctx context.Context, tx *sql.Tx) error {

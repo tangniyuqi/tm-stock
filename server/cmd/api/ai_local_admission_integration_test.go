@@ -20,6 +20,7 @@ import (
 	"github.com/tangniyuqi/tm-stock/server/internal/memberauth"
 	"github.com/tangniyuqi/tm-stock/server/internal/points"
 	"github.com/tangniyuqi/tm-stock/server/internal/repository"
+	"github.com/tangniyuqi/tm-stock/server/internal/service"
 	"github.com/tangniyuqi/tm-stock/server/internal/sources"
 )
 
@@ -32,6 +33,7 @@ func TestAILocalPlanBootstrap(t *testing.T) {
 		DSN     string `json:"dsn"`
 		Runtime string `json:"runtime"`
 		Plans   string `json:"plans"`
+		Fund    bool   `json:"fund"`
 	}
 	if json.NewDecoder(io.LimitReader(os.Stdin, 16384)).Decode(&input) != nil {
 		t.Fatal("隔离计划测试配置无效")
@@ -151,6 +153,25 @@ func TestAILocalPlanBootstrap(t *testing.T) {
 	}
 	if db.QueryRowContext(ctx, `SELECT (SELECT COUNT(*) FROM tm_ai_tasks)+(SELECT COUNT(*) FROM tm_points_accounts)+(SELECT COUNT(*) FROM tm_points_txns)`).Scan(&count) != nil || count != 0 {
 		t.Fatal("启动探针或拒绝路径留下任务/积分")
+	}
+	if input.Fund {
+		if err := repository.NewAIConversationTaskSchemaVerifier(db).Verify(ctx); err != nil {
+			t.Fatal("原非本地会话任务核验路径回归", err)
+		}
+		ledger, err := service.NewPointsService(repository.NewPointsRepo(db))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, uid := range []int64{1, 2} {
+			key := "local_task_grant_one"
+			if uid == 2 {
+				key = "local_task_grant_two"
+			}
+			if _, err := ledger.Grant(ctx, points.GrantRequest{UserID: uid, Key: key, BizID: key, Amount: 50, Source: points.Gift, EffectiveAt: now}); err != nil {
+				t.Fatal("仅本轮测试积分初始化失败")
+			}
+		}
+		t.Log("LOCAL_TASK_FUNDS_VERIFIED：两个隔离测试会员各50测试积分；无生产积分或原会员旧积分迁移")
 	}
 	t.Log("LOCAL_PLAN_BOOTSTRAP_VERIFIED：原创建服务装配、轻深报价、来源撤回/恢复、文件变价拒绝及零积分创建拒绝；无任务/账务或模型调用")
 }

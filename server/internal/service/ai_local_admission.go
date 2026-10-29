@@ -38,12 +38,25 @@ func (c *AILocalAdmissionControl) current(ctx context.Context) (*config.AILocalP
 	if c == nil || ctx == nil {
 		return nil, points.ErrInvalid
 	}
-	p, err := c.source.Current(ctx)
+	p, err := c.readCurrent(ctx)
 	if err != nil {
 		return nil, err
 	}
 	if err := c.identity.Verify(ctx, p.InstanceID); err != nil {
 		return nil, err
+	}
+	return p, nil
+}
+
+func (c *AILocalAdmissionControl) readCurrent(ctx context.Context) (*config.AILocalPlans, error) {
+	p, err := c.source.Current(ctx)
+	if err != nil {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		// 未取得计划就没有本次创建/调用的准入权；让意图按原键核查后明确未创建。
+		// 这不授予清理未知外部调用的权利，后者仍受原预留/阶段及结算保护约束。
+		return nil, fmt.Errorf("本地计划当前授权不可用: %w", task.ErrAdmissionUnavailable)
 	}
 	return p, nil
 }
@@ -63,7 +76,7 @@ func (c *AILocalAdmissionControl) Ready(ctx context.Context) error {
 			return err
 		}
 	}
-	_, err = c.source.Current(ctx)
+	_, err = c.readCurrent(ctx)
 	return err
 }
 
@@ -89,7 +102,7 @@ func (c *AILocalAdmissionControl) ReadyDeep(ctx context.Context) error {
 	if !found {
 		return task.ErrAdmissionUnavailable
 	}
-	_, err = c.source.Current(ctx)
+	_, err = c.readCurrent(ctx)
 	return err
 }
 
@@ -115,7 +128,7 @@ func (c *AILocalAdmissionControl) Plan(ctx context.Context, scope task.Admission
 			if err != nil {
 				return task.AdmissionPlan{}, err
 			}
-			if _, err := c.source.Current(ctx); err != nil {
+			if _, err := c.readCurrent(ctx); err != nil {
 				return task.AdmissionPlan{}, err
 			}
 			return out, nil
@@ -182,7 +195,7 @@ func (c *AILocalAdmissionControl) ExecutionPlan(ctx context.Context, v task.Task
 			if err := out.Agent.ValidateScope(v); err != nil {
 				return AIL1ReportPlan{}, err
 			}
-			if _, err := c.source.Current(ctx); err != nil {
+			if _, err := c.readCurrent(ctx); err != nil {
 				return AIL1ReportPlan{}, err
 			}
 			return out, nil
