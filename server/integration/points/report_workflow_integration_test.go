@@ -199,7 +199,7 @@ func newWorkflowEnv(t *testing.T, level sql.IsolationLevel, mode string) *workfl
 		steps[0] = providertest.SlowHeader(1200*time.Millisecond, steps[0])
 	}
 	srv := providertest.NewServer(t, steps...)
-	model, err := provider.NewDirect(provider.Config{Name: "test-only-l1", BaseURL: srv.URL(), Model: "测试模型", TimeoutMS: 3000}, true)
+	model, err := provider.NewDirect(workflowModelConfig(srv.URL()), true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -291,6 +291,9 @@ func newWorkflowEnv(t *testing.T, level sql.IsolationLevel, mode string) *workfl
 		e.control.theme = theme
 	}
 	return e
+}
+func workflowModelConfig(baseURL string) provider.Config {
+	return provider.Config{Name: "test-only-l1", BaseURL: baseURL, Model: "测试模型", TimeoutMS: 3000}
 }
 func (e *workflowEnv) worker(t *testing.T, enabled bool) *service.AIL1ReportWorker {
 	t.Helper()

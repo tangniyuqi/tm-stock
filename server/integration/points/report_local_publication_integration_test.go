@@ -3,6 +3,7 @@
 package points_test
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"net/http"
@@ -21,9 +22,55 @@ import (
 	"github.com/tangniyuqi/tm-stock/server/internal/handler"
 	"github.com/tangniyuqi/tm-stock/server/internal/memberauth"
 	"github.com/tangniyuqi/tm-stock/server/internal/middleware"
+	"github.com/tangniyuqi/tm-stock/server/internal/provider"
 	"github.com/tangniyuqi/tm-stock/server/internal/repository"
 	"github.com/tangniyuqi/tm-stock/server/internal/service"
 )
+
+// 先攻击实际控制器的调用前入口，再交付原请求；不替换其准入或审计判断。
+type localSelectionStartGuard struct {
+	*service.AILocalReportSelectionControl
+	e *workflowEnv
+}
+type localCheckStartGuard struct {
+	*service.AILocalReportCheckControl
+	e *workflowEnv
+}
+
+func verifyLocalModelStartGuard(e *workflowEnv, r task.StageRequest, req provider.Request, start func(task.StageRequest, provider.Request) error) error {
+	e.t.Helper()
+	before := e.queryInt(`SELECT COUNT(*) FROM test_only_check_audits`)
+	for _, mode := range []string{"提示", "模型", "追溯", "输入摘要"} {
+		changed, stage := req, r
+		switch mode {
+		case "提示":
+			changed.Prompt += "仅测试:额外输入"
+		case "模型":
+			changed.Model = "仅测试:其它模型"
+		case "追溯":
+			changed.TaskID = "other"
+		case "输入摘要":
+			stage.InputDigest = task.StageDigest([]byte("other"))
+		}
+		if err := start(stage, changed); err == nil {
+			e.t.Fatal("实际本地控制器放行被篡改请求", mode)
+		}
+		if e.queryInt(`SELECT COUNT(*) FROM test_only_check_audits`) != before {
+			e.t.Fatal("拒绝请求仍进入调用审计", mode)
+		}
+	}
+	return start(r, req)
+}
+func (g localSelectionStartGuard) Start(ctx context.Context, r task.StageRequest, req provider.Request) error {
+	return verifyLocalModelStartGuard(g.e, r, req, func(r task.StageRequest, req provider.Request) error {
+		return g.AILocalReportSelectionControl.Start(ctx, r, req)
+	})
+}
+func (g localCheckStartGuard) Start(ctx context.Context, r task.StageRequest, req provider.Request) error {
+	return verifyLocalModelStartGuard(g.e, r, req, func(r task.StageRequest, req provider.Request) error {
+		return g.AILocalReportCheckControl.Start(ctx, r, req)
+	})
+}
 
 // 真MySQL/原完整worker/原发布读取器；Agent和模型仅为明确回环协议替身。
 // 不声称真实多Agent/模型批准，不能把本测试的网络控制器装入正式服务。
@@ -111,7 +158,14 @@ func TestIntegrationAIReportLocalPublication(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				worker, err := service.NewAIL1ReportWorker(e.tasks, e.repo, e.ledger, e.agent, e.payloads, e.model, planner, workflowSelectionControl{e.control, e.planner}, e.control, owner, agenttask.Options{Enabled: true, Lease: task.RecoveryOptions{Lease: time.Minute, Heartbeat: 100 * time.Millisecond, Timeout: 30 * time.Second}, PollInterval: 50 * time.Millisecond})
+				selection, checks, model, err := service.NewAILocalReportModelControls(admission, e.ledger, e.payloads, workflowModelConfig(e.server.URL()), e.control)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !model.MatchesDirect(m.ProfileDigest, m.Model) {
+					t.Fatal("实际回环适配器身份未绑定本地计划")
+				}
+				worker, err := service.NewAIL1ReportWorker(e.tasks, e.repo, e.ledger, e.agent, e.payloads, model, planner, localSelectionStartGuard{selection, e}, localCheckStartGuard{checks, e}, owner, agenttask.Options{Enabled: true, Lease: task.RecoveryOptions{Lease: time.Minute, Heartbeat: 100 * time.Millisecond, Timeout: 30 * time.Second}, PollInterval: 50 * time.Millisecond})
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -122,7 +176,8 @@ func TestIntegrationAIReportLocalPublication(t *testing.T) {
 				beforeTxns := e.queryInt(`SELECT COUNT(*) FROM tm_points_txns`)
 				beforeModels := len(e.server.Requests())
 				beforeAgent := e.submits.Load()
-				if beforeModels != 3 || beforeAgent != 1 || result.Task.CurrentStep != 5 {
+				beforeAudits := e.queryInt(`SELECT COUNT(*) FROM test_only_check_audits`)
+				if beforeModels != 3 || beforeAgent != 1 || result.Task.CurrentStep != 5 || beforeAudits != 6 {
 					t.Fatal("未实际经过完整回环Agent/选句/两判定/终检五阶段")
 				}
 				base, err := service.NewAIReportService(e.repo, e.ledger, nil, false)
@@ -190,7 +245,7 @@ func TestIntegrationAIReportLocalPublication(t *testing.T) {
 					t.Fatal(err)
 				}
 				web.mustGet(t, url, token, 200)
-				if e.queryInt(`SELECT COUNT(*) FROM tm_points_txns`) != beforeTxns || len(e.server.Requests()) != beforeModels || e.submits.Load() != beforeAgent || e.queryInt(`SELECT COUNT(*) FROM tm_points_txns WHERE kind='settle'`) != 1 {
+				if e.queryInt(`SELECT COUNT(*) FROM tm_points_txns`) != beforeTxns || len(e.server.Requests()) != beforeModels || e.submits.Load() != beforeAgent || e.queryInt(`SELECT COUNT(*) FROM tm_points_txns WHERE kind='settle'`) != 1 || e.queryInt(`SELECT COUNT(*) FROM test_only_check_audits`) != beforeAudits {
 					t.Fatal("读取/撤回触发调用或重复结算")
 				}
 				requirePointAudit(t, e.pointsTestEnv, e.ledger)
