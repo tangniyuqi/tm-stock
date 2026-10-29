@@ -8,6 +8,8 @@
 
 ### 本地装配启动预检（2026-10-29，首个增量）
 
+`-LocalAPIBootstrap -RunCount 1`在原初始化模式上继续执行全部21项原迁移、创建受限只读API账号并实际启动cmd/api，验证healthz、空题材目录查询和默认关闭的AI任务/会话/余额404；最后核对零任务/零积分流水并关闭本轮进程。仍只在本脚本新建的MySQL/数据目录运行。上游两表复用verify-migrations.sh的最小测试DDL，不复制其中示例证券行，它们不是生产schema权威；迁移按StringComparer.Ordinal排序。只读API账号仅获实例标记、题材/股票/关联和两个日数据表的SELECT，拒绝INSERT、改标记、DROP和mysql.user查询，必须得到明确权限错误。此模式不含会员/收费任务、报告发布控制器或长期运行服务，不把健康检查通过当成完整AI助手可用。
+
 受控初始化验收入口：`pwsh -NoProfile -File scripts/dev/verify-ai-source-native.ps1 -MySqlBaseDir <本机MySQL目录> -BashPath <本机bash.exe> -LocalBootstrapOnly -RunCount 1`（Go须在PATH）。它只启动自己新建临时数据目录中的MySQL，随后新建随机专属库、实例标记及随机口令的核验账号；不接受外部DSN或已有数据目录，不执行`IF NOT EXISTS`接管旧库。核验账号仅获标记表SELECT权限，实际worker以最小子环境运行check-local-db；不继承root、MYSQL_PWD、TM_TEST_DSN或宿主模型凭据。正例后检查重复建库错误1007，以及删除/更新标记、建表、读取mysql.user的权限错误，再重复worker核验，禁止把SQL/连接错误当作权限测试通过。成功后关闭且清理本轮实例和配置；失败停止实例并保留诊断目录。这是初始化与权限验收模式，尚不提供持续运行的业务服务或业务账号权限。
 
 后续增量增加`check-local-db -config <绝对路径>`：使用环境DSN打开数据库，以5秒超时的只读RR事务检查`DATABASE()`与`@@server_uuid`，以及`tm_ai_local_instance`唯一标记。标记字段为instance_id、database_name、server_uuid、environment和contains_real_users，必须与当前文件/连接一致、local-isolated且真实用户标志为0；无表、空表、额外行、错库/实例/服务或取消均拒绝。API本地模式在注册业务路由之前执行同一核验。核验不自动建表、插行或修复，不将该标记当作许可/生产批准；持有数据库写权限的管理员仍能伪造标记，因此它只是受控本地初始化流程中的防误连检查，不是生产数据隔离的独立安全证明。初始化器、受限运行账号、业务结构及控制器装配继续待办。

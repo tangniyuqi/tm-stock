@@ -199,7 +199,7 @@ func run() error {
 
 	errCh := make(chan error, 1)
 	go func() {
-		log.Printf("tm-stock API 启动，监听 :%s", cfg.Port)
+		log.Printf("tm-stock API 启动，监听 %s", srv.Addr)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 		}

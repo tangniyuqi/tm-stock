@@ -24,6 +24,7 @@ param(
     [switch]$TimeoutRecoveryTests,
     [switch]$DeepH5Tests,
     [switch]$LocalBootstrapOnly,
+    [switch]$LocalAPIBootstrap,
     [ValidateLength(1, 256)][string]$ConversationPattern = '^TestIntegrationAIConversations',
     [ValidateLength(1, 256)][string]$ReportPattern = '^TestIntegrationAIReport'
 )
@@ -31,6 +32,7 @@ param(
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 $liveReportPatterns = @('^TestIntegrationAIReportLiveAgents$', '^TestIntegrationAIReportDeepLiveAgents$')
+if ($LocalAPIBootstrap) { $LocalBootstrapOnly = $true }
 if ($LocalBootstrapOnly -and ($RunCount -ne 1 -or $LiveAgents -or $MaterialQABrowser -or $StreamReplayBrowser -or $TimeoutRecoveryTests -or $DeepH5Tests -or $ReportPattern -ne '^TestIntegrationAIReport' -or $RepositoryCoveragePath -ne '' -or $ServiceCoveragePath -ne '' -or $APICoveragePath -ne '')) { throw '本地初始化只允许独立单次隔离执行，不混用其它专项或真实调用' }
 if ($ReportPattern -in $liveReportPatterns -and -not $LiveAgents) { throw '真实Agent根组需要显式编译专项标签，禁止零用例假通过' }
 if ($ReportPattern -eq '^TestIntegrationAIReportMaterialQAH5$' -and -not $MaterialQABrowser) { throw '资料问答浏览器根组需要显式编译专项标签，禁止零用例假通过' }
@@ -131,6 +133,11 @@ GRANT SELECT ON $localDatabase.tm_ai_local_instance TO '$localUser'@'127.0.0.1';
         if ($LASTEXITCODE -eq 0 -or ($duplicateOutput -join "`n") -notmatch '\b1007\b') { throw '重复初始化未按库已存在拒绝' }
         $localConfigPath = Join-Path $testRoot 'local-runtime.json'
         $localMetadata = [ordered]@{ version=1; environment='local-isolated'; instance_id=$localInstanceID; database=$localDatabase; listen='127.0.0.1:8099'; real_calls=$false; poll_interval_ms=1000; batch_size=10 }
+        if ($LocalAPIBootstrap) {
+            $apiListener = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, 0)
+            $apiListener.Start(); $apiPort = $apiListener.LocalEndpoint.Port; $apiListener.Stop()
+            $localMetadata.listen = "127.0.0.1:$apiPort"
+        }
         [IO.File]::WriteAllText($localConfigPath, ($localMetadata | ConvertTo-Json -Compress), [Text.UTF8Encoding]::new($false))
         $workerPath = Join-Path $testRoot 'ai-worker.exe'
         Push-Location (Join-Path $PSScriptRoot '../../server')
@@ -179,7 +186,86 @@ GRANT SELECT ON $localDatabase.tm_ai_local_instance TO '$localUser'@'127.0.0.1';
             $workerResult = & $invokeLocalWorker
             if ($workerResult.Code -ne 0) { throw '权限反例修改了原实例标记' }
         } finally { $env:TM_DB_DSN = $savedRuntimeDSN; $env:MYSQL_PWD = $testPassword }
-        Write-Output 'LOCAL_BOOTSTRAP_VERIFIED：新库/实例标记/仅SELECT核验账号/实际worker/重复初始化拒绝/四项越权拒绝均通过；未装配业务运行账号、业务表或任务执行。'
+        if ($LocalAPIBootstrap) {
+            # 复用既有迁移验收的两张上游测试表定义，只取DDL，不复制其示例证券数据。
+            $migrationVerifier = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'verify-migrations.sh'))
+            $upstream = [regex]::Match($migrationVerifier, '(?ms)^UPSTREAM_DDL="\r?\n(.*?)^"')
+            $upstreamTables = [regex]::Matches($upstream.Groups[1].Value, '(?ms)^CREATE TABLE .*?;')
+            if (-not $upstream.Success -or $upstreamTables.Count -ne 2) { throw '上游测试DDL范围变化，拒绝猜测初始化' }
+            ($upstreamTables.Value -join "`n") | & $clientBinary @clientArgs "--database=$localDatabase"
+            if ($LASTEXITCODE -ne 0) { throw '上游空测试表建立失败' }
+            # PowerShell文化排序忽略部分标点，会把conversations_tasks排在conversations.sql前。
+            # 使用明确序数顺序，与现有Bash迁移入口保持一致，不重写迁移或跳过外键。
+            $migrationDirectory = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '../../server/migrations')).Path
+            $migrations = [IO.Directory]::GetFiles($migrationDirectory, '*.sql')
+            [Array]::Sort($migrations, [StringComparer]::Ordinal)
+            if ($migrations.Count -eq 0) { throw '没有业务迁移，拒绝继续启动' }
+            foreach ($migration in $migrations) {
+                [IO.File]::ReadAllText($migration) | & $clientBinary @clientArgs "--database=$localDatabase"
+                if ($LASTEXITCODE -ne 0) { throw "本地业务迁移失败：$([IO.Path]::GetFileName($migration))" }
+            }
+            $apiUser = 'tm_ai_api_' + $localInstanceID.Substring(0, 16)
+            $apiPassword = [guid]::NewGuid().ToString('N')
+            $apiGrant = "CREATE USER '$apiUser'@'127.0.0.1' IDENTIFIED BY '$apiPassword';"
+            foreach ($table in @('tm_ai_local_instance','addon_quant_theme','addon_quant_base_stock','addon_quant_theme_stock','theme_daily_item','theme_daily_quote')) {
+                $apiGrant += " GRANT SELECT ON $localDatabase.$table TO '$apiUser'@'127.0.0.1';"
+            }
+            $apiGrant | & $clientBinary @clientArgs
+            if ($LASTEXITCODE -ne 0) { throw '只读API账号建立失败' }
+            $apiPath = Join-Path $testRoot 'api.exe'
+            Push-Location (Join-Path $PSScriptRoot '../../server')
+            try { go build -o $apiPath ./cmd/api; if ($LASTEXITCODE -ne 0) { throw '实际API构建失败' } } finally { Pop-Location }
+            $apiStart = [Diagnostics.ProcessStartInfo]::new()
+            $apiStart.FileName = $apiPath; $apiStart.UseShellExecute = $false; $apiStart.CreateNoWindow = $true
+            $apiStart.RedirectStandardOutput = $true; $apiStart.RedirectStandardError = $true; $apiStart.Environment.Clear()
+            foreach ($runtimeName in @('SystemRoot','WINDIR','PATH','PATHEXT','USERPROFILE','APPDATA','LOCALAPPDATA','TEMP','TMP')) {
+                $runtimeValue = [Environment]::GetEnvironmentVariable($runtimeName, 'Process')
+                if ($null -ne $runtimeValue) { $apiStart.Environment[$runtimeName] = $runtimeValue }
+            }
+            $apiStart.Environment['TM_AI_LOCAL_CONFIG'] = $localConfigPath
+            $apiStart.Environment['TM_DB_DSN'] = "$($apiUser):$($apiPassword)@tcp(127.0.0.1:$testPort)/$($localDatabase)?parseTime=true&charset=utf8mb4&loc=UTC"
+            $apiProcess = [Diagnostics.Process]::new(); $apiProcess.StartInfo = $apiStart
+            $httpHandler = [Net.Http.HttpClientHandler]::new(); $httpHandler.UseProxy = $false; $httpHandler.AllowAutoRedirect = $false
+            $http = [Net.Http.HttpClient]::new($httpHandler); $http.Timeout = [TimeSpan]::FromSeconds(2)
+            $apiStarted = $false
+            try {
+                if (-not $apiProcess.Start()) { throw '实际API未启动' }
+                $apiStarted = $true
+                $apiReady = $false
+                for ($attempt = 0; $attempt -lt 40; $attempt++) {
+                    if ($apiProcess.HasExited) { throw '实际API提前退出' }
+                    # 仅在有界启动等候中容许短暂连接失败，后续业务请求错误不吞掉。
+                    try { $response = $http.GetAsync("http://127.0.0.1:$apiPort/healthz").GetAwaiter().GetResult(); if ($response.StatusCode -eq 200) { $response.Dispose(); $apiReady = $true; break }; $response.Dispose() } catch { if ($apiProcess.HasExited) { throw '实际API启动失败' } }
+                    Start-Sleep -Milliseconds 250
+                }
+                if (-not $apiReady) { throw '实际API未在期限内就绪' }
+                $search = $http.GetStringAsync("http://127.0.0.1:$apiPort/api/v1/theme/search?kw=local-fixture").GetAwaiter().GetResult() | ConvertFrom-Json
+                if ($search.code -ne 0 -or $search.data.Count -ne 0) { throw '空资料目录查询不符，不应生成或填充证券示例数据' }
+                foreach ($closedPath in @('/api/v1/ai/tasks','/api/v1/ai/conversations','/api/v1/ai/points/balance')) {
+                    $response = $http.GetAsync("http://127.0.0.1:$apiPort$closedPath").GetAwaiter().GetResult()
+                    try { if ([int]$response.StatusCode -ne 404) { throw '默认关闭的AI入口意外开放' } } finally { $response.Dispose() }
+                }
+                $env:MYSQL_PWD = $apiPassword
+                $apiArgs = @($clientArgs | Where-Object { -not $_.StartsWith('--user=') }) + "--user=$apiUser"
+                foreach ($deniedSQL in @("INSERT INTO $localDatabase.addon_quant_theme(name) VALUES('forbidden')", "UPDATE $localDatabase.tm_ai_local_instance SET contains_real_users=1", "DROP TABLE $localDatabase.addon_quant_theme", 'SELECT User FROM mysql.user')) {
+                    $deniedOutput = & $clientBinary @apiArgs --execute=$deniedSQL 2>&1
+                    if ($LASTEXITCODE -eq 0 -or ($deniedOutput -join "`n") -notmatch '\b(1044|1142|1143)\b') { throw '只读API账号权限边界未确认' }
+                }
+                if ($apiProcess.HasExited) { throw '验收期间实际API意外退出' }
+            } finally {
+                $env:MYSQL_PWD = $testPassword
+                $http.Dispose(); $httpHandler.Dispose()
+                if ($apiStarted) {
+                    if (-not $apiProcess.HasExited) { $apiProcess.Kill(); $apiProcess.WaitForExit() }
+                    [IO.File]::WriteAllText((Join-Path $testRoot 'local-api.log'), ($apiProcess.StandardOutput.ReadToEnd() + $apiProcess.StandardError.ReadToEnd()))
+                }
+                $apiProcess.Dispose()
+            }
+            $uncharged = & $clientBinary @clientArgs "--database=$localDatabase" --batch --skip-column-names --execute='SELECT (SELECT COUNT(*) FROM tm_ai_tasks)+(SELECT COUNT(*) FROM tm_points_txns)'
+            if ($LASTEXITCODE -ne 0 -or ($uncharged -join '').Trim() -ne '0') { throw '只读API启动生成了任务或积分流水' }
+            Write-Output "LOCAL_API_BOOTSTRAP_VERIFIED：$($migrations.Count)项原迁移/空测试目录/受限只读账号/实际API健康与目录查询/AI入口默认404/零任务零积分流水均通过。"
+        }
+        Write-Output 'LOCAL_BOOTSTRAP_VERIFIED：新库/实例标记/仅SELECT核验账号/实际worker/重复初始化拒绝/四项越权拒绝均通过；其它能力以本轮专项结果为准，未启用任务执行。'
         $passed = $true
         return
     }
