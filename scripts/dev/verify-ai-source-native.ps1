@@ -23,6 +23,7 @@ param(
     [switch]$StreamReplayBrowser,
     [switch]$TimeoutRecoveryTests,
     [switch]$DeepH5Tests,
+    [switch]$LocalBootstrapOnly,
     [ValidateLength(1, 256)][string]$ConversationPattern = '^TestIntegrationAIConversations',
     [ValidateLength(1, 256)][string]$ReportPattern = '^TestIntegrationAIReport'
 )
@@ -30,6 +31,7 @@ param(
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 $liveReportPatterns = @('^TestIntegrationAIReportLiveAgents$', '^TestIntegrationAIReportDeepLiveAgents$')
+if ($LocalBootstrapOnly -and ($RunCount -ne 1 -or $LiveAgents -or $MaterialQABrowser -or $StreamReplayBrowser -or $TimeoutRecoveryTests -or $DeepH5Tests -or $ReportPattern -ne '^TestIntegrationAIReport' -or $RepositoryCoveragePath -ne '' -or $ServiceCoveragePath -ne '' -or $APICoveragePath -ne '')) { throw '本地初始化只允许独立单次隔离执行，不混用其它专项或真实调用' }
 if ($ReportPattern -in $liveReportPatterns -and -not $LiveAgents) { throw '真实Agent根组需要显式编译专项标签，禁止零用例假通过' }
 if ($ReportPattern -eq '^TestIntegrationAIReportMaterialQAH5$' -and -not $MaterialQABrowser) { throw '资料问答浏览器根组需要显式编译专项标签，禁止零用例假通过' }
 if ($ReportPattern -eq '^TestIntegrationAIReportH5StreamReplay$' -and -not $StreamReplayBrowser) { throw 'SSE浏览器根组需要显式编译专项标签，禁止零用例假通过' }
@@ -45,7 +47,7 @@ if ($ReportPattern -in $deepH5Patterns -and -not $DeepH5Tests) { throw '深度�
 if ($DeepH5Tests -and ($LiveAgents -or $MaterialQABrowser -or $StreamReplayBrowser -or $TimeoutRecoveryTests -or -not $ReportsOnly -or $RunCount -ne 1 -or $ReportPattern -notin $deepH5Patterns)) { throw '深度网关只允许独立单次精确专项' }
 if ($DeepH5Tests -and $ReportPattern -eq '^TestIntegrationAIReportH5Deep$' -and $env:TM_TEST_AI_H5_DEEP -ne 'local-fixture-only') { throw '深度实际H5需要显式隔离标志' }
 if ($RepositoryCoveragePath -ne '' -and $ServiceCoveragePath -ne '') { throw '一次只采集一个仓储或服务覆盖率文件' }
-if (@($AgentsOnly,$TaskBudgetOnly,$TaskStagesOnly,$TaskRecoveryOnly,$TaskCancelOnly,$TaskEventsOnly,$ConversationsOnly,$TaskExpiryOnly,$TaskAgentBridgeOnly,$ReportsOnly,$NonReportsOnly,$FeedbackConsoleOnly).Where({ [bool]$_ }).Count -gt 1) { throw '专项模式不能同时选择' }
+if (@($AgentsOnly,$TaskBudgetOnly,$TaskStagesOnly,$TaskRecoveryOnly,$TaskCancelOnly,$TaskEventsOnly,$ConversationsOnly,$TaskExpiryOnly,$TaskAgentBridgeOnly,$ReportsOnly,$NonReportsOnly,$FeedbackConsoleOnly,$LocalBootstrapOnly).Where({ [bool]$_ }).Count -gt 1) { throw '专项模式不能同时选择' }
 if ($ReportPattern -ne '^TestIntegrationAIReport' -and (-not $ReportsOnly -or (-not $ReportPattern.StartsWith('^TestIntegrationAIReport') -and -not ($DeepH5Tests -and $ReportPattern -eq '^TestIntegrationDeepH5GatewayHTTP$')))) { throw '自定义报告选择器只能用于显式报告专项，且必须保留报告用例前缀' }
 if ($ConversationPattern -ne '^TestIntegrationAIConversations' -and (-not $ConversationsOnly -or -not $ConversationPattern.StartsWith('^TestIntegrationAIConversations'))) { throw '自定义会话选择器只能用于显式会话专项，且必须保留会话用例前缀' }
 $PSNativeCommandUseErrorActionPreference = $false
@@ -104,6 +106,83 @@ try {
     $env:MYSQL_PWD = $testPassword
     $env:TM_TEST_DSN = "root:$testPassword@tcp(127.0.0.1:$testPort)/tm_ai_source_test?parseTime=true&multiStatements=true&charset=utf8mb4&loc=UTC"
     Write-Output "隔离实例已就绪：回环端口 $testPort；临时目录 $testRoot"
+    if ($LocalBootstrapOnly) {
+        # 仅在本脚本新建且仍持有句柄的MySQL内初始化；不接受外部DSN或已有数据目录。
+        if ($null -eq $serverProcess -or $serverProcess.HasExited) { throw '本轮隔离实例未运行' }
+        $localInstanceID = [guid]::NewGuid().ToString('N')
+        $localDatabase = 'tm_ai_local_' + $localInstanceID
+        $localUser = 'tm_ai_local_' + $localInstanceID.Substring(0, 16)
+        $localPassword = [guid]::NewGuid().ToString('N')
+        $localSQL = @"
+CREATE DATABASE $localDatabase CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+CREATE TABLE $localDatabase.tm_ai_local_instance (
+ instance_id char(32) NOT NULL PRIMARY KEY, database_name varchar(64) NOT NULL,
+ server_uuid char(36) NOT NULL, environment varchar(32) NOT NULL, contains_real_users tinyint NOT NULL,
+ CHECK (environment='local-isolated'), CHECK (contains_real_users=0)
+) ENGINE=InnoDB;
+INSERT INTO $localDatabase.tm_ai_local_instance VALUES ('$localInstanceID','$localDatabase',@@server_uuid,'local-isolated',0);
+CREATE USER '$localUser'@'127.0.0.1' IDENTIFIED BY '$localPassword';
+GRANT SELECT ON $localDatabase.tm_ai_local_instance TO '$localUser'@'127.0.0.1';
+"@
+        $localSQL | & $clientBinary @clientArgs
+        if ($LASTEXITCODE -ne 0) { throw '本地专属库/标记/核验账号初始化失败，禁止继续运行' }
+        # 不用IF NOT EXISTS接管旧库；第二次创建必须拒绝且保留原标记。
+        $duplicateOutput = & $clientBinary @clientArgs --execute="CREATE DATABASE $localDatabase" 2>&1
+        if ($LASTEXITCODE -eq 0 -or ($duplicateOutput -join "`n") -notmatch '\b1007\b') { throw '重复初始化未按库已存在拒绝' }
+        $localConfigPath = Join-Path $testRoot 'local-runtime.json'
+        $localMetadata = [ordered]@{ version=1; environment='local-isolated'; instance_id=$localInstanceID; database=$localDatabase; listen='127.0.0.1:8099'; real_calls=$false; poll_interval_ms=1000; batch_size=10 }
+        [IO.File]::WriteAllText($localConfigPath, ($localMetadata | ConvertTo-Json -Compress), [Text.UTF8Encoding]::new($false))
+        $workerPath = Join-Path $testRoot 'ai-worker.exe'
+        Push-Location (Join-Path $PSScriptRoot '../../server')
+        try { go build -o $workerPath ./cmd/ai-worker; if ($LASTEXITCODE -ne 0) { throw '本地worker构建失败' } } finally { Pop-Location }
+        $savedRuntimeDSN = $env:TM_DB_DSN
+        $invokeLocalWorker = {
+            $startInfo = [Diagnostics.ProcessStartInfo]::new()
+            $startInfo.FileName = $workerPath
+            $startInfo.UseShellExecute = $false
+            $startInfo.CreateNoWindow = $true
+            $startInfo.RedirectStandardOutput = $true
+            $startInfo.RedirectStandardError = $true
+            $startInfo.ArgumentList.Add('check-local-db')
+            $startInfo.ArgumentList.Add('-config')
+            $startInfo.ArgumentList.Add($localConfigPath)
+            $startInfo.Environment.Clear()
+            foreach ($runtimeName in @('SystemRoot','WINDIR','PATH','PATHEXT','USERPROFILE','APPDATA','LOCALAPPDATA','TEMP','TMP')) {
+                $runtimeValue = [Environment]::GetEnvironmentVariable($runtimeName, 'Process')
+                if ($null -ne $runtimeValue) { $startInfo.Environment[$runtimeName] = $runtimeValue }
+            }
+            # 不继承TM_TEST_DSN、MYSQL_PWD、宿主模型或产品凭据。
+            $startInfo.Environment['TM_DB_DSN'] = $env:TM_DB_DSN
+            $workerProcess = [Diagnostics.Process]::new()
+            $workerProcess.StartInfo = $startInfo
+            try {
+                if (-not $workerProcess.Start()) { throw '本地worker未启动' }
+                if (-not $workerProcess.WaitForExit(15000)) { $workerProcess.Kill(); $workerProcess.WaitForExit(); throw '本地worker预检超时' }
+                $workerOutput = $workerProcess.StandardOutput.ReadToEnd()
+                $null = $workerProcess.StandardError.ReadToEnd()
+                return [pscustomobject]@{ Code=$workerProcess.ExitCode; Text=$workerOutput }
+            } finally { $workerProcess.Dispose() }
+        }
+        try {
+            $env:MYSQL_PWD = $localPassword
+            $env:TM_DB_DSN = "$($localUser):$($localPassword)@tcp(127.0.0.1:$testPort)/$($localDatabase)?parseTime=true&charset=utf8mb4&loc=UTC"
+            $workerResult = & $invokeLocalWorker
+            if ($workerResult.Code -ne 0) { throw '核验账号未通过实际worker预检' }
+            Write-Output $workerResult.Text.Trim()
+            $localArgs = @($clientArgs | Where-Object { -not $_.StartsWith('--user=') }) + "--user=$localUser"
+            & $clientBinary @localArgs --execute="SELECT instance_id FROM $localDatabase.tm_ai_local_instance" 2>$null | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw '核验账号正例失败，不能将连接失败视为权限拒绝' }
+            foreach ($deniedSQL in @("DELETE FROM $localDatabase.tm_ai_local_instance", "UPDATE $localDatabase.tm_ai_local_instance SET environment='other'", "CREATE TABLE $localDatabase.forbidden_table(id int)", 'SELECT User FROM mysql.user')) {
+                $deniedOutput = & $clientBinary @localArgs --execute=$deniedSQL 2>&1
+                if ($LASTEXITCODE -eq 0 -or ($deniedOutput -join "`n") -notmatch '\b(1044|1142|1143)\b') { throw '核验账号未按权限错误拒绝；不把SQL或连接故障算通过' }
+            }
+            $workerResult = & $invokeLocalWorker
+            if ($workerResult.Code -ne 0) { throw '权限反例修改了原实例标记' }
+        } finally { $env:TM_DB_DSN = $savedRuntimeDSN; $env:MYSQL_PWD = $testPassword }
+        Write-Output 'LOCAL_BOOTSTRAP_VERIFIED：新库/实例标记/仅SELECT核验账号/实际worker/重复初始化拒绝/四项越权拒绝均通过；未装配业务运行账号、业务表或任务执行。'
+        $passed = $true
+        return
+    }
     if (-not $FeedbackConsoleOnly) {
     Push-Location (Join-Path $PSScriptRoot '../../server')
     try {
