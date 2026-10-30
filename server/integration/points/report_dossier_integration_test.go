@@ -190,6 +190,7 @@ func TestIntegrationAIReportDossierStore(t *testing.T) {
 			e.mustExec(`INSERT INTO tm_ai_dossier_grants SELECT 1,theme_id,version_no,digest,'test-fixture:member',0,UTC_TIMESTAMP(3)+INTERVAL 1 HOUR,UTC_TIMESTAMP(3),UTC_TIMESTAMP(3) FROM tm_ai_dossier_versions`)
 			t.Run("批准记录仍须启用", func(t *testing.T) { deny(t, 1, 2) })
 			e.mustExec(`UPDATE tm_ai_dossier_publications SET enabled=1;UPDATE tm_ai_dossier_grants SET enabled=1`)
+			t.Run("只读账号及逐表缺权拒绝", func(t *testing.T) { verifyDossierReader(t, e, level) })
 			t.Run("授权两版与跨会员拒读", func(t *testing.T) {
 				got, er := read(1, 2)
 				if er != nil || len(got) != 2 || got[0].Cards()[0].Statement != a.Body || got[1].Cards()[0].Statement != b.Body {
