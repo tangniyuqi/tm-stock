@@ -2,9 +2,42 @@ package dto
 
 // 专题响应只包含固定标签、获授权原文及定位；不序列化内部候选、许可或批准记录。
 type AIDossierView struct {
-	ThemeID  int64              `json:"themeId"`
-	Notice   string             `json:"notice"`
-	Versions []AIDossierVersion `json:"versions"`
+	ThemeID    int64                `json:"themeId"`
+	Notice     string               `json:"notice"`
+	Versions   []AIDossierVersion   `json:"versions"`
+	Comparison *AIDossierComparison `json:"comparison,omitempty"`
+}
+
+type AIDossierComparison struct {
+	Notice                     string                `json:"notice"`
+	Added                      []string              `json:"added"`
+	NotPresent                 []string              `json:"notPresent"`
+	Changed                    []AIDossierCardChange `json:"changed"`
+	Gaps                       []AIDossierGapChange  `json:"gaps"`
+	QuotedSentenceOrderChanged bool                  `json:"quotedSentenceOrderChanged"`
+}
+type AIDossierCardChange struct {
+	BeforeKey        string   `json:"beforeKey"`
+	AfterKey         string   `json:"afterKey"`
+	QuoteChanged     bool     `json:"quoteChanged"`
+	SourceChanged    bool     `json:"sourceChanged"`
+	ReferenceChanged bool     `json:"referenceChanged"`
+	SectionChanged   bool     `json:"sectionChanged"`
+	Fields           []string `json:"fields"`
+}
+type AIDossierGapChange struct {
+	BeforeKey string `json:"beforeKey"`
+	AfterKey  string `json:"afterKey"`
+}
+type AIDossierVersionItem struct {
+	Version    int64 `json:"version"`
+	CompiledAt int64 `json:"compiledAt"`
+}
+type AIDossierVersionList struct {
+	ThemeID           int64                  `json:"themeId"`
+	Items             []AIDossierVersionItem `json:"items"`
+	HasMore           bool                   `json:"hasMore"`
+	NextBeforeVersion int64                  `json:"nextBeforeVersion"`
 }
 type AIDossierVersion struct {
 	Version    int64           `json:"version"`

@@ -113,7 +113,7 @@ jobs:
           # 本地反馈管理配置与监听前保护2根15子例。
           # 本地问答文件、策略摘要、控制器及装配保护新增53项。
           # 专题比较/字段核98个节点，存储引用与非法读取2个根测试。
-          MIN=1467
+          MIN=1496
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项测试，低于下限 $MIN —— 要么测试没被执行，要么有测试被删。"
             exit 1
@@ -340,11 +340,11 @@ jobs:
           DOSSIER_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportDossierStore/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
           DOSSIER_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportDossierStore/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
           DOSSIER_SKIPS=$(grep -Ec '^[[:space:]]*--- SKIP: TestIntegrationAIReportDossierStore([ /]|$)' /tmp/it.log || true)
-          if [ "$DOSSIER_ROOT" -ne 1 ] || [ "$DOSSIER_LEVELS" -ne 2 ] || [ "$DOSSIER_CASES" -ne 40 ] || [ "$DOSSIER_SKIPS" -ne 0 ]; then
+          if [ "$DOSSIER_ROOT" -ne 1 ] || [ "$DOSSIER_LEVELS" -ne 2 ] || [ "$DOSSIER_CASES" -ne 42 ] || [ "$DOSSIER_SKIPS" -ne 0 ]; then
             echo "专题版本持久化/当前授权读取验收漏跑"; exit 1
           fi
           for level in Read_Committed Repeatable_Read; do
-            for phase in 候选幂等与并发 没有批准默认拒绝 批准记录仍须启用 只读账号及逐表缺权拒绝 授权两版与跨会员拒读 撤回旧版发布 撤回新版会员许可 停用来源 修改来源许可 停用会员 停用题材 发布批准过期 会员许可过期 快照复用不覆盖版本 不可变与外键 依据插入失败全部回滚 提交确认未知不返回结果且原版本可核查 当前来源共享锁与撤回互斥 事务末尾过期回滚与拒读 读取后身份失效清空正文; do
+            for phase in 候选幂等与并发 没有批准默认拒绝 批准记录仍须启用 只读账号及逐表缺权拒绝 授权两版与跨会员拒读 撤回旧版发布 撤回新版会员许可 停用来源 修改来源许可 停用会员 停用题材 发布批准过期 会员许可过期 快照复用不覆盖版本 不可变与外键 依据插入失败全部回滚 提交确认未知不返回结果且原版本可核查 当前来源共享锁与撤回互斥 事务末尾过期回滚与拒读 读取后身份失效清空正文 版本目录分页撤权与未知结果; do
               MATCHES=$(grep -Ec "^[[:space:]]+--- PASS: TestIntegrationAIReportDossierStore/$level/$phase " /tmp/it.log || true)
               if [ "$MATCHES" -ne 1 ]; then
                 echo "专题版本场景缺失或重复：$level/$phase"; exit 1
@@ -370,10 +370,10 @@ jobs:
           DOSSIER_API_ROOT=$(grep -Ec '^--- PASS: TestIntegrationAIReportDossierStartup ' /tmp/it.log || true)
           DOSSIER_API_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportDossierStartup/' /tmp/it.log || true)
           DOSSIER_API_SKIPS=$(grep -Ec '^[[:space:]]*--- SKIP: TestIntegrationAIReportDossierStartup([ /]|$)' /tmp/it.log || true)
-          if [ "$DOSSIER_API_ROOT" -ne 1 ] || [ "$DOSSIER_API_CASES" -ne 13 ] || [ "$DOSSIER_API_SKIPS" -ne 0 ]; then
+          if [ "$DOSSIER_API_ROOT" -ne 1 ] || [ "$DOSSIER_API_CASES" -ne 15 ] || [ "$DOSSIER_API_SKIPS" -ne 0 ]; then
             echo "专题读取接口与启动边界验收漏跑"; exit 1
           fi
-          for phase in 受限账号启动 本人双版原文与字段 跨会员 后台令牌 匿名 旧版撤权整组隐藏 来源撤回不返回旧正文 准备复用读取账号 准备连接不同端口 禁止真实调用配置 隔离标记失效 缺少正文读取权限 损坏结构不注册接口; do
+          for phase in 受限账号启动 本人双版原文与字段 当前会员版本列表 跨会员 后台令牌 匿名 旧版撤权整组隐藏 来源撤回不返回旧正文 旧快照回用与同文编制升级 准备复用读取账号 准备连接不同端口 禁止真实调用配置 隔离标记失效 缺少正文读取权限 损坏结构不注册接口; do
             MATCHES=$(grep -Ec "^[[:space:]]+--- PASS: TestIntegrationAIReportDossierStartup/$phase " /tmp/it.log || true)
             if [ "$MATCHES" -ne 1 ]; then
               echo "专题接口场景缺失或重复：$phase"; exit 1
@@ -700,7 +700,7 @@ jobs:
           # 实际强杀恢复新增1根、2级别、4轻深父组及16种阶段/排队场景。
           # 系统信号专项新增1根、2级别、4轻深父组及12种运行阶段场景。
           # 专题存储新增1根、2隔离级别及38个真实SQL场景。
-          MIN=1276
+          MIN=1280
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项，低于下限 $MIN —— 要么没跑，要么有测试被删。"; exit 1
           fi

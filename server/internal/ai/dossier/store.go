@@ -46,6 +46,7 @@ type Tx interface {
 	Theme(context.Context, int64) error
 	Version(context.Context, int64, int64) (StoredVersion, error)
 	Latest(context.Context, int64) (DraftIdentity, error)
+	Versions(context.Context, int64, int64, int64, int) ([]int64, error)
 	Insert(context.Context, StoredVersion) error
 	Publication(context.Context, int64, int64) (Approval, error)
 	Grant(context.Context, int64, int64, int64) (Approval, error)

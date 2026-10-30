@@ -9,10 +9,11 @@ import { AIQAApi } from '../../libs/ai-qa-api.uts'
 import { AIQAStatus, AIQAAnswer, AIQAQuote, AIPendingQA, isAIQAQuestion, qaPartition, readPendingQA, reserveQA, clearPendingQA, qaMatchesPending, aiQAStateLabel, aiSourceTypeLabel, aiQAError } from '../../libs/ai-qa.uts'
 import { copySafeExternalUrl } from '../../libs/external-link.uts'
 import AIQuestionComposer from './AIQuestionComposer.uvue'
+import AIDossierPanel from './AIDossierPanel.uvue'
 
-type QAProps = { sessionToken : string, conversationId : number, archived : boolean, questionSeq : number, dockInput? : boolean, dockLeft? : number, dockBottom? : number }
+type QAProps = { sessionToken : string, conversationId : number, archived : boolean, questionSeq : number, dockInput? : boolean, dockLeft? : number, dockBottom? : number, dossierEnabled? : boolean }
 defineOptions({name:'AIQuestionPanel'})
-const props = withDefaults(defineProps<QAProps>(), { dockInput: false, dockLeft: 16, dockBottom: 0 })
+const props = withDefaults(defineProps<QAProps>(), { dockInput: false, dockLeft: 16, dockBottom: 0, dossierEnabled: true })
 const emit = defineEmits<{saved: [], unauthorized: [], conversation: [id : number]}>()
 const pending = ref<AIPendingQA | null>(null)
 const status = ref<AIQAStatus | null>(null)
@@ -204,6 +205,7 @@ onBeforeUnmount(() => { active = false; generation++; status.value = null; answe
 		</view>
 		<x-button v-if="pending != null && pending!.conversationId == conversationId && status != null && qaMatchesPending(status!,pending!) && (status!.state == 'answered' || status!.state == 'refused' || status!.state == 'failed')" class="mt-12" height="44" :block="true" skin="outline" :disabled="busy" @click="finish">核实终态并清理本地原键</x-button>
 		<text v-if="message != ''" class="qa-copy mt-12">{{ message }}</text>
+		<AIDossierPanel v-if="subject != null" :key="subject!.id" :session-token="sessionToken" :theme-id="subject!.id" :theme-name="subject!.name" :enabled="dossierEnabled" @unauthorized="emit('unauthorized')"></AIDossierPanel>
 		<!-- 留白放在所有答案/错误/操作之后，保证它们可滚动到固定输入上方。 -->
 		<view v-if="dockInput && !archived && safeStorage && pending == null && subject != null" class="qa-composer-reserve"></view>
 	</x-sheet>

@@ -117,6 +117,14 @@ const requestApi = <T>(path : string, method : MemberRequestMethod, data : UTSJS
 }
 
 export class MemberApi {
+	public static aiDossier<T>(theme : number, version : number, compare : number, before : number) : Promise<MemberApiResult<T>> {
+		for (const n of [theme,version,compare,before]) { if (typeof n != 'number' || n < 0 || n > 9007199254740991 || Math.floor(n) != n) return Promise.resolve(failure<T>(40001,'档案参数无效')) }
+		if (theme == 0 || version == 0 && compare != 0 || version > 0 && (before != 0 || compare != 0 && compare <= version)) return Promise.resolve(failure<T>(40001,'档案范围无效'))
+		let path : string = '/api/v1/ai/themes/' + theme.toString() + '/dossiers'
+		if (version > 0) path += '/' + version.toString() + (compare > 0 ? '?compareVersion=' + compare.toString() : '')
+		else if (before > 0) path += '?beforeVersion=' + before.toString()
+		return requestWithToken<T>(path,'GET',{} as UTSJSONObject,true,currentAIMemberToken())
+	}
 	// 问答只开放四个固定端点；仅提交使用28秒，其余与既有接口保持10秒。
 	public static aiQuestion<T>(operation : string, cid : number, seq : number, body : UTSJSONObject, key : string) : Promise<MemberApiResult<T>> {
 		if (typeof cid != 'number' || cid <= 0 || cid > 9007199254740991 || Math.floor(cid) != cid || typeof seq != 'number' || seq < 0 || seq > 9007199254740991 || Math.floor(seq) != seq) return Promise.resolve(failure<T>(40001,'问题编号无效'))

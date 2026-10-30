@@ -39,6 +39,14 @@ func TestDossierInvalidRequestsDoNotReachStorage(t *testing.T) {
 			t.Fatal("非法版本查询未拒绝")
 		}
 	}
+	for _, before := range []int64{-1, 9007199254740992} {
+		if out, e := svc.ListVersions(context.Background(), "仅测试", 1, 7, before); !errors.Is(e, dossier.ErrInvalidDraft) || out.Items != nil {
+			t.Fatal("非法版本分页触达了依赖")
+		}
+	}
+	if out, e := svc.ListVersions(nil, "仅测试", 1, 7, 0); e == nil || out.Items != nil {
+		t.Fatal("列表空上下文未拒绝")
+	}
 	if out, e := svc.ReadVersions(nil, "仅测试", 1, 7, []int64{1}); e == nil || out != nil {
 		t.Fatal("空上下文未拒绝")
 	}
@@ -54,5 +62,30 @@ func TestDossierInvalidRequestsDoNotReachStorage(t *testing.T) {
 	}
 	if store.calls != 0 || auth.calls != 0 {
 		t.Fatal("非法请求触达了依赖")
+	}
+}
+
+type dossierBorrowedStub struct{ dossier.Tx }
+
+func TestDossierBorrowedReadRejectsWritesAndCancellation(t *testing.T) {
+	tx := borrowedDossierRead{dossierBorrowedStub{}}
+	calls := 0
+	fn := func(dossier.Tx) error { calls++; return dossier.ErrConflict }
+	if e := tx.Within(context.Background(), true, fn); !errors.Is(e, dossier.ErrInvalidDraft) {
+		t.Fatal("借用事务允许写入")
+	}
+	if e := tx.Within(nil, false, fn); !errors.Is(e, dossier.ErrInvalidDraft) {
+		t.Fatal("借用事务允许空上下文")
+	}
+	canceled, cancel := context.WithCancel(context.Background())
+	cancel()
+	if e := tx.Within(canceled, false, fn); !errors.Is(e, context.Canceled) {
+		t.Fatal("取消后继续借用事务")
+	}
+	if calls != 0 {
+		t.Fatal("无效借用执行了回调")
+	}
+	if e := tx.Within(context.Background(), false, fn); !errors.Is(e, dossier.ErrConflict) || calls != 1 {
+		t.Fatal("原读取错误未传递")
 	}
 }

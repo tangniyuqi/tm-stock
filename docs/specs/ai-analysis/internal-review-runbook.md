@@ -4,7 +4,11 @@
 
 本地专题读取入口：`TM_AI_LOCAL_DOSSIER_READ_ENABLED`缺省关闭。仅在已有`TM_AI_LOCAL_CONFIG`隔离配置、会员读取认证和真实调用关闭前提下，显式启用并安全注入`TM_AI_LOCAL_DOSSIER_PREPARE_DSN`；它与原业务DSN必须指向同一回环地址和专属库，使用不同数据库账号。准备账号执行隔离标记与结构回滚检查后连接关闭；业务读取账号须有隔离标记、会员/题材及专题/来源/快照/正文表的读取权限，不因此授予写入/TRIGGER。完整检查后才注册`GET /api/v1/ai/themes/{id}/dossiers/{version}`及可选compareVersion，失败无路由。不要在终端日志打印DSN；不开生产或候选写接口。当前无版本目录或会话页面，不将两版内容读取当作变化报告。
 
-原生ReportsOnly会额外执行`TestIntegrationAIReportDossierStartup`（13场景），可指定`-APICoveragePath`收集该启动窗口的API/handler/service跨层覆盖；这不代替完整HTTP进程、原密码登录或H5验收。
+原生ReportsOnly会额外执行`TestIntegrationAIReportDossierStartup`（当前15场景），可指定`-APICoveragePath`收集该启动窗口的API/handler/service跨层覆盖；这不代替完整HTTP进程、原密码登录或H5验收。
+
+版本目录为`GET /api/v1/ai/themes/{id}/dossiers`，可选`beforeVersion`；最多每页10个已重新核验版本，不返回不可读数量。扫描预算32候选未完成时应返回暂不可用，不能把它当真实空目录。会话中先选择问答题材，再点“查询可读档案版本”；可阅读单版、加入两个版本对照，复制任何出处时重新读取原单/双版。此选择只用于本次查阅，尚未持久化为会话版本消息，问答检索范围仍为题材。
+
+本机官方编译器已核实在`D:/workspace/services/tm-stock-hx-5.26/HBuilderX/plugins`；用其`node/node.exe`执行`uniapp-cli-vite/node_modules/@dcloudio/vite-plugin-uni/bin/uni.js build -p web`。一次性进程设置`UNI_INPUT_DIR`为当前仓库绝对路径、`UNI_OUTPUT_DIR`为新建仓库外临时目录、`UNI_CLI_CONTEXT`为上述plugins下uniapp-cli-vite目录、`UNI_HBUILDERX_PLUGINS`为plugins目录、`UNI_APP_X=true`及`UNI_PLATFORM=web`。必须检查退出码、日志末尾Build complete及输出index.html，不以退出0或旧产物替代；这是编译，不是浏览器/手机验收，也不发布站点。工具目录变动时先核实际路径，不扩大扫描到业务资料。
 
 在仓库根目录使用PowerShell 7串行运行两个版本，不与其他真库套件共用实例：
 
@@ -13,11 +17,11 @@
 ./scripts/dev/verify-ai-source-native.ps1 -MySqlBaseDir D:/mysql9/mysql-9.7.0-winx64 -BashPath D:/Git/bin/bash.exe -RunCount 1 -ReportsOnly -ReportPattern '^TestIntegrationAIReportDossierStore$'
 ```
 
-脚本只创建临时回环实例；专项使用随机隔离库、合成来源和测试批准。预期精确1根、2隔离级别、40具体场景通过，零跳过；父脚本还运行原启动/迁移检查，退出0且停止清理后才计通过。新增独立只读账号实际回取两版、逐表撤权/恢复及越权拒绝；读取权限预检不代表结构/触发器检查或正式启动装配已完成。测试身份替身不证明JWT/原密码登录；锁互斥以另一真实连接收到MySQL1205证明，时间跳变和提交确认丢失是故障注入，须与真实执行层分开记录。
+脚本只创建临时回环实例；专项使用随机隔离库、合成来源和测试批准。预期精确1根、2隔离级别、42具体场景通过，零跳过；父脚本还运行原启动/迁移检查，退出0且停止清理后才计通过。新增独立只读账号实际回取两版、逐表撤权/恢复及越权拒绝，以及版本目录分页/撤权/未知结果/扫描预算；读取权限预检不代表结构/触发器检查或正式进程验收已完成。测试身份替身不证明JWT/原密码登录；锁互斥以另一真实连接收到MySQL1205证明，时间跳变和提交确认丢失是故障注入，须与真实执行层分开记录。
 
 四张新表保存候选版本/依据及独立发布/会员读取许可；导入不自动发布，两种许可默认关闭。当前没有生产工厂、公开接口或批准管理入口，不将测试登记语句用于线上。后续开放前仍需受限账号、结构自检、批准变更审计、固定输出及实际H5验收。已有文本比较器不覆盖全部档案版本语义，A→B→A的独立版本存储通过不等于档案级比较页面完成。
 
-结构保护专项将上方选择器改为`^TestIntegrationAIReportDossier(Store|Schema)$`，仍串行运行两个MySQL版本。新增Schema根组精确12个场景通过，原Store仍40个；失败日志不得替换为成功证明。`AIDossierSchemaVerifier.Verify`由准备账号执行实际回滚探针，原读取账号只执行`VerifyReadAccess`，不为通过探针而给读取账号增加写入/TRIGGER权限。探针不保留测试行，但来源表自增序列可能消耗编号。当前尚未接正式启动入口，不能把专项成功或历史日志当作运行进程启动批准。
+结构保护专项将上方选择器改为`^TestIntegrationAIReportDossier(Store|Schema)$`，仍串行运行两个MySQL版本。Schema根组精确12个场景通过，Store当前42个；失败日志不得替换为成功证明。`AIDossierSchemaVerifier.Verify`由准备账号执行实际回滚探针，原读取账号只执行`VerifyReadAccess`，不为通过探针而给读取账号增加写入/TRIGGER权限。探针不保留测试行，但来源表自增序列可能消耗编号。本地启动装配已接线，仍不能把历史日志当作当前运行进程的启动批准。
 
 适用：内部授权资料登记、快照导入/采集、L0 抽取与人工核对。默认不调用模型；只有单独配置内部批准门禁后，`extract` 才可能调用付费 Provider。本工具不接积分收费、不开放公众 AI 报告；GVA 界面不参与审核写入。
 

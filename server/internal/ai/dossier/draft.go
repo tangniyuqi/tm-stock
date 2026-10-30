@@ -85,6 +85,7 @@ type BoundDraft struct {
 // Origin仅保存可回溯出处，不含来源许可和内部批准引用；本身不代表读取授权。
 type Origin struct {
 	SnapshotID          int64
+	SourceID            int64
 	Hash, Category, URL string
 	FetchedAt           int64
 }
@@ -272,7 +273,7 @@ func BindDraft(d Draft, snapshots []sources.Snapshot) (*BoundDraft, error) {
 	origins := make([]Origin, 0, len(bindings))
 	for _, s := range bindings {
 		refs = append(refs, EvidenceRef{s.ID, s.SourceID, s.Hash})
-		origins = append(origins, Origin{s.ID, s.Hash, s.Category, s.URL, s.FetchedAt})
+		origins = append(origins, Origin{s.ID, s.SourceID, s.Hash, s.Category, s.URL, s.FetchedAt})
 	}
 	return &BoundDraft{canonical: raw, digest: task.StageDigest(raw), cards: bound,
 		gaps: slices.Clone(d.Gaps), identity: DraftIdentity{d.ThemeID, d.Version, d.CreatedAt}, evidence: refs, origins: origins}, nil

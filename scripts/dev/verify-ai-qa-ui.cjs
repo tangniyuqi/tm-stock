@@ -628,6 +628,49 @@ async function isolation() {
   console.log('通过：401 清状态、切换登录丢弃迟到回包、归档只读、存储故障失败关闭、卸载后不写页面。');
 }
 
+function dossierFixture(version=1,compare=0) {
+  const q = {text:'仅测试：甲资料。',context:'仅测试：甲资料。',sourceType:'official_catalog',sourceUrl:'https://evidence.example.test/1',collectedAt:now,snapshotId:1,sentence:1,startByte:0,endByte:Buffer.byteLength('仅测试：甲资料。')};
+  const fields=['subject','publishedDate','effectiveDate','period','scope','stage','basis','unit'].map(key=>({key,state:key==='subject'?'known':'unknown',...(key==='subject'?{quote:{...q}}:{})}));
+  const row=v=>({version:v,compiledAt:now+v,cards:[{key:'a',section:'progress',quote:{...q},fields:JSON.parse(JSON.stringify(fields))}],gaps:[]});
+  return {themeId:7,notice:'以下为所选版本的资料摘录；引用存在不等于已核实表述，未知字段表示资料不足。',versions:compare?[row(version),row(compare)]:[row(version)],...(compare?{comparison:{notice:'仅比较档案中已引用的原句、字段和资料缺口；本版未出现不表示事实撤回，摘录调整不等于事实更正。',added:[],notPresent:[],changed:[],gaps:[],quotedSentenceOrderChanged:false}}:{})};
+}
+const dossierList=()=>({themeId:7,items:[{version:2,compiledAt:now+2},{version:1,compiledAt:now+1}],hasMore:false,nextBeforeVersion:0});
+async function dossierContracts() {
+  const env=environment(),types=env.load('pages/libs/ai-dossier.uts');
+  assert.equal(types.isDossierList(dossierList(),7,0),true);
+  assert.equal(types.isDossierView(dossierFixture(),7,1,0),true);
+  assert.equal(types.isDossierView(dossierFixture(1,2),7,1,2),true);
+  for(const mutate of [v=>v.themeId=8,v=>v.privateLicense='hidden',v=>v.versions[0].cards[0].quote.endByte++,v=>v.versions[0].cards[0].fields[1].quote=v.versions[0].cards[0].quote,v=>v.versions[0].cards[0].fields.reverse(),v=>v.versions[0].cards[0].quote.sourceUrl='javascript:alert(1)',v=>v.versions[0].compiledAt=0,v=>v.notice='模型生成的自由文本',v=>v.versions[0].cards[0].quote=null]) {
+    const value=dossierFixture();mutate(value);assert.equal(types.isDossierView(value,7,1,0),false);
+  }
+  const diff=dossierFixture(1,2);diff.comparison.added=['missing'];assert.equal(types.isDossierView(diff,7,1,2),false);
+  const duplicate=dossierList();duplicate.items[1].version=2;assert.equal(types.isDossierList(duplicate,7,0),false);
+  const cursor=dossierList();cursor.hasMore=true;cursor.nextBeforeVersion=1;assert.equal(types.isDossierList(cursor,7,0),false);
+  const api=env.load('pages/libs/ai-dossier-api.uts').AIDossierApi;env.storage.set('token',token);
+  const p=api.list(7,0);assert.equal(env.requests.length,1);assert.ok(env.requests[0].url.endsWith('/api/v1/ai/themes/7/dossiers'));env.reply(env.requests.shift(),dossierList());assert.equal((await p).code,0);
+  assert.equal((await api.view(7,2,1)).code,40001);assert.equal(env.requests.length,0);
+  const r=api.view(7,1,2);assert.ok(env.requests[0].url.endsWith('/dossiers/1?compareVersion=2'));env.reply(env.requests.shift(),dossierFixture(1,2));assert.equal((await r).code,0);
+  console.log('通过：专题列表/原文/字段/对照DTO白名单与固定请求边界。');
+}
+async function dossierPanel() {
+  const env=environment();env.storage.set('token',token);let copied=[];env.uni.setClipboardData=v=>copied.push(v.data);
+  const ui=mount(env.load('pages/ai/components/AIDossierPanel.uvue').default,{sessionToken:token,themeId:7,themeName:'仅测试题材',enabled:true});await flush();
+  assert.equal(env.requests.length,0,'收起状态不自动请求');
+  ui.click('查询可读档案版本');assert.equal(env.requests.length,1);env.reply(env.requests.shift(),dossierList());await flush();
+  assert.ok(ui.text().includes('版本 2'));ui.click('阅读此版本',1);env.reply(env.requests.shift(),dossierFixture());await flush();
+  assert.ok(ui.text().includes('仅测试：甲资料。'));assert.ok(ui.text().includes('未知，资料不足'));
+  ui.click('核对并复制原文链接');assert.equal(copied.length,0,'未重新核验前不能复制旧来源');env.reply(env.requests.shift(),null,404,40404);await flush();
+  assert.equal(copied.length,0);assert.ok(!ui.text().includes('仅测试：甲资料。'));
+  assert.ok(!ui.text().includes('阅读此版本'));ui.click('重新核对可读版本');env.reply(env.requests.shift(),dossierList());await flush();
+  ui.click('阅读此版本',1);env.reply(env.requests.shift(),dossierFixture());await flush();ui.click('核对并复制原文链接');env.reply(env.requests.shift(),dossierFixture());await flush();assert.equal(copied[0],'https://evidence.example.test/1');
+  ui.click('加入对照',0);await flush();ui.click('加入对照',0);await flush();ui.click('对照所选的两个版本（2/2）');env.reply(env.requests.shift(),dossierFixture(1,2));await flush();assert.ok(ui.text().includes('档案摘录变化'));
+  ui.click('重新核对可读版本');const late=env.requests.shift();ui.updateProps({enabled:false});await flush();env.reply(late,dossierList());await flush();assert.ok(!ui.text().includes('阅读此版本'));
+  ui.updateProps({enabled:true});await flush();ui.click('查询可读档案版本');env.reply(env.requests.shift(),dossierList());await flush();ui.click('阅读此版本',1);const stale=env.requests.shift();ui.updateProps({themeId:8});await flush();env.reply(stale,dossierFixture());await flush();assert.ok(!ui.text().includes('仅测试：甲资料。'));
+  ui.app.unmount();
+  const env2=environment();env2.storage.set('token',token);let unauthorized=0;const ui2=mount(env2.load('pages/ai/components/AIDossierPanel.uvue').default,{sessionToken:token,themeId:7,themeName:'测试题材',enabled:true,onUnauthorized:()=>unauthorized++});await flush();ui2.click('查询可读档案版本');env2.reply(env2.requests.shift(),null,401,40100);await flush();assert.equal(unauthorized,1);assert.ok(!ui2.text().includes('阅读此版本'));ui2.app.unmount();
+  console.log('通过：专题展开/单版/双版对照、出处复验、拒读清空、页签/题材切换迟到响应与401清理。');
+}
+
 let completed=false;
 process.once('beforeExit',()=>{if(!completed){console.error('问答源码验收尚未全部完成');process.exitCode=1;}});
 (async () => {
@@ -640,6 +683,8 @@ process.once('beforeExit',()=>{if(!completed){console.error('问答源码验收�
   await controlledComposer();
   await panelAnswer();
   await isolation();
+  await dossierContracts();
+  await dossierPanel();
   completed=true;
   console.log('本脚本不覆盖：真实 UTS/uni-app x 整体构建、真实模型质量、浏览器布局与生产开关；须另做实际 H5 与浏览器验收。');
 })().catch(error => { completed=true; console.error(error); process.exitCode=1; });

@@ -74,5 +74,19 @@ func dossierView(versions []*dossier.BoundDraft) (dto.AIDossierView, error) {
 		}
 		out.Versions = append(out.Versions, v)
 	}
+	if len(versions) == 2 {
+		diff, err := dossier.CompareVersions(versions[0], versions[1])
+		if err != nil {
+			return dto.AIDossierView{}, err
+		}
+		comparison := &dto.AIDossierComparison{Notice: "仅比较档案中已引用的原句、字段和资料缺口；本版未出现不表示事实撤回，摘录调整不等于事实更正。", Added: diff.Added, NotPresent: diff.NotPresent, Changed: []dto.AIDossierCardChange{}, Gaps: []dto.AIDossierGapChange{}, QuotedSentenceOrderChanged: diff.QuotedSentenceOrderChanged}
+		for _, c := range diff.Changed {
+			comparison.Changed = append(comparison.Changed, dto.AIDossierCardChange{BeforeKey: c.BeforeKey, AfterKey: c.AfterKey, QuoteChanged: c.QuoteChanged, SourceChanged: c.SourceChanged, ReferenceChanged: c.ReferenceChanged, SectionChanged: c.SectionChanged, Fields: c.Fields})
+		}
+		for _, g := range diff.Gaps {
+			comparison.Gaps = append(comparison.Gaps, dto.AIDossierGapChange{BeforeKey: g.BeforeKey, AfterKey: g.AfterKey})
+		}
+		out.Comparison = comparison
+	}
 	return out, nil
 }

@@ -137,6 +137,30 @@ func (t *aiDossierTx) Insert(ctx context.Context, v dossier.StoredVersion) error
 	}
 	return nil
 }
+
+// Versions只枚举本人当前启用且摘要匹配的批准，来源及规范记录仍由服务逐版复核。
+func (t *aiDossierTx) Versions(ctx context.Context, user, theme, before int64, limit int) ([]int64, error) {
+	if limit < 1 || limit > 8 {
+		return nil, dossier.ErrInvalidDraft
+	}
+	rows, err := t.tx.QueryContext(ctx, `SELECT g.version_no FROM tm_ai_dossier_grants g JOIN tm_ai_dossier_publications p ON p.theme_id=g.theme_id AND p.version_no=g.version_no AND p.digest=g.digest WHERE g.user_id=? AND g.theme_id=? AND (?=0 OR g.version_no<?) AND g.enabled=1 AND p.enabled=1 AND g.valid_until>UTC_TIMESTAMP(3) AND p.valid_until>UTC_TIMESTAMP(3) ORDER BY g.version_no DESC LIMIT ? FOR SHARE`, user, theme, before, before, limit)
+	if err != nil {
+		return nil, dossierDBError(err)
+	}
+	defer rows.Close()
+	out := []int64{}
+	for rows.Next() {
+		var id int64
+		if err = rows.Scan(&id); err != nil {
+			return nil, dossierDBError(err)
+		}
+		out = append(out, id)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, dossierDBError(err)
+	}
+	return out, nil
+}
 func (t *aiDossierTx) Publication(ctx context.Context, theme, version int64) (dossier.Approval, error) {
 	return scanDossierApproval(t.tx.QueryRowContext(ctx, `SELECT digest,approval_ref,CAST(valid_until AS CHAR),enabled FROM tm_ai_dossier_publications WHERE theme_id=? AND version_no=? FOR SHARE`, theme, version))
 }

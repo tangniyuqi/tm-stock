@@ -111,6 +111,7 @@ func TestIntegrationAIReportDossierStartup(t *testing.T) {
 	}
 	base := time.Now().UTC().Add(-time.Minute).Truncate(time.Millisecond)
 	var texts []string
+	var drafts []dossier.Draft
 	for v, body := range []string{"仅测试：测试主体甲处于送样阶段。", "仅测试：测试主体甲处于验证阶段。"} {
 		snap, e := sources.BuildSnapshot(src, "https://example.test/test-only", sources.MediaPlain, []byte(body), base.Add(time.Duration(v)*time.Second), 4096)
 		if e != nil {
@@ -128,6 +129,7 @@ func TestIntegrationAIReportDossierStartup(t *testing.T) {
 		subject.StartByte = strings.Index(snap.Body, "测试主体甲")
 		subject.EndByte = subject.StartByte + len("测试主体甲")
 		d := dossier.Draft{Protocol: dossier.DraftVersion, ThemeID: 7, Version: int64(v + 1), CreatedAt: base.Add(time.Duration(v+3) * time.Second).UnixMilli(), Cards: []dossier.FactCard{{Key: "progress_a", Section: "progress", Statement: ref, Subject: dossier.Field{State: "known", Ref: subject}, PublishedDate: u, EffectiveDate: u, Period: u, Scope: u, Stage: u, Basis: u, Unit: u}}, Gaps: []dossier.Gap{{Key: "time_gap", Section: "progress", Reason: "time_unverified"}}}
+		drafts = append(drafts, d)
 		if _, e = svc.StageInternal(ctx, d); e != nil {
 			t.Fatal(e)
 		}
@@ -190,6 +192,9 @@ func TestIntegrationAIReportDossierStartup(t *testing.T) {
 			t.Fatal("双版响应无效", w.Code)
 		}
 		c := envelope.Data.Versions[0].Cards[0]
+		if envelope.Data.Comparison == nil || len(envelope.Data.Comparison.Changed) != 1 || !envelope.Data.Comparison.Changed[0].QuoteChanged {
+			t.Fatal("双版摘录变化未接入")
+		}
 		if c.Fields[0].Quote == nil || c.Fields[0].Quote.Text != "测试主体甲" || c.Fields[1].State != "unknown" || c.Fields[1].Quote != nil || c.Quote.SourceURL != "https://example.test/test-only" || c.Quote.Text != texts[0] {
 			t.Fatal("字段或出处失真")
 		}
@@ -200,6 +205,27 @@ func TestIntegrationAIReportDossierStartup(t *testing.T) {
 		}
 		if w.Header().Get("Cache-Control") != "no-store" {
 			t.Fatal("响应可缓存")
+		}
+	})
+	listPath := "/api/v1/ai/themes/7/dossiers"
+	readList := func(uid int64) dto.AIDossierVersionList {
+		t.Helper()
+		w := request(token(uid, "client"), listPath)
+		var envelope struct {
+			Data dto.AIDossierVersionList `json:"data"`
+		}
+		if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &envelope) != nil {
+			t.Fatal("列表读取失败", w.Code)
+		}
+		return envelope.Data
+	}
+	t.Run("当前会员版本列表", func(t *testing.T) {
+		list := readList(1)
+		if len(list.Items) != 2 || list.Items[0].Version != 2 || list.Items[1].Version != 1 || list.HasMore {
+			t.Fatal("本人版本列表错误")
+		}
+		if other := readList(2); len(other.Items) != 0 || other.HasMore || other.NextBeforeVersion != 0 {
+			t.Fatal("跨会员列表泄露")
 		}
 	})
 	for _, tc := range []struct {
@@ -225,6 +251,9 @@ func TestIntegrationAIReportDossierStartup(t *testing.T) {
 		if w.Code != 404 || strings.Contains(w.Body.String(), "versions") {
 			t.Fatal("撤权泄露双版")
 		}
+		if list := readList(1); len(list.Items) != 1 || list.Items[0].Version != 2 {
+			t.Fatal("撤权版本未从目录隐藏")
+		}
 		exec(db, `UPDATE tm_ai_dossier_publications SET enabled=1 WHERE version_no=1`)
 	})
 	t.Run("来源撤回不返回旧正文", func(t *testing.T) {
@@ -235,8 +264,35 @@ func TestIntegrationAIReportDossierStartup(t *testing.T) {
 		if w.Code == 200 || strings.Contains(w.Body.String(), "送样") {
 			t.Fatal("来源撤回泄露")
 		}
+		if list := readList(1); len(list.Items) != 0 || list.HasMore || list.NextBeforeVersion != 0 {
+			t.Fatal("来源撤回后仍泄露版本元数据")
+		}
 		if e := sourceRepo.SetSourceEnabled(ctx, src.ID, true); e != nil {
 			t.Fatal(e)
+		}
+	})
+	t.Run("旧快照回用与同文编制升级", func(t *testing.T) {
+		for _, v := range []int64{3, 4} {
+			d := drafts[0]
+			d.Version = v
+			d.CreatedAt = base.Add(time.Duration(v+3) * time.Second).UnixMilli()
+			if _, err := svc.StageInternal(ctx, d); err != nil {
+				t.Fatal(err)
+			}
+			exec(db, `INSERT INTO tm_ai_dossier_publications SELECT theme_id,version_no,digest,'test-fixture:reused',1,UTC_TIMESTAMP(3)+INTERVAL 1 HOUR,UTC_TIMESTAMP(3),UTC_TIMESTAMP(3) FROM tm_ai_dossier_versions WHERE version_no=?`, v)
+			exec(db, `INSERT INTO tm_ai_dossier_grants SELECT 1,theme_id,version_no,digest,'test-fixture:reused',1,UTC_TIMESTAMP(3)+INTERVAL 1 HOUR,UTC_TIMESTAMP(3),UTC_TIMESTAMP(3) FROM tm_ai_dossier_versions WHERE version_no=?`, v)
+		}
+		for _, c := range []struct {
+			path    string
+			changed int
+		}{{"/api/v1/ai/themes/7/dossiers/2?compareVersion=3", 1}, {"/api/v1/ai/themes/7/dossiers/1?compareVersion=4", 0}} {
+			w := request(token(1, "client"), c.path)
+			var envelope struct {
+				Data dto.AIDossierView `json:"data"`
+			}
+			if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &envelope) != nil || envelope.Data.Comparison == nil || len(envelope.Data.Comparison.Changed) != c.changed {
+				t.Fatal("旧快照回用或同文升级对照错误", w.Code)
+			}
 		}
 	})
 	for _, mode := range []string{"准备复用读取账号", "准备连接不同端口", "禁止真实调用配置", "隔离标记失效", "缺少正文读取权限"} {

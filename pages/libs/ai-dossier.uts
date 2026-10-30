@@ -1,0 +1,62 @@
+import { isSafeAIId, isSafeAIInteger } from './ai.uts'
+import { isSafeExternalUrl } from './external-link.uts'
+
+export type AIDossierVersionItem = { version : number, compiledAt : number }
+export type AIDossierVersionList = { themeId : number, items : AIDossierVersionItem[], hasMore : boolean, nextBeforeVersion : number }
+export type AIDossierQuote = { text : string, context : string, sourceType : string, sourceUrl : string, collectedAt : number, snapshotId : number, sentence : number, startByte : number, endByte : number }
+export type AIDossierField = { key : string, state : string, quote? : AIDossierQuote }
+export type AIDossierCard = { key : string, section : string, quote : AIDossierQuote, fields : AIDossierField[] }
+export type AIDossierGap = { key : string, section : string, reason : string }
+export type AIDossierVersion = { version : number, compiledAt : number, cards : AIDossierCard[], gaps : AIDossierGap[] }
+export type AIDossierCardChange = { beforeKey : string, afterKey : string, quoteChanged : boolean, sourceChanged : boolean, referenceChanged : boolean, sectionChanged : boolean, fields : string[] }
+export type AIDossierGapChange = { beforeKey : string, afterKey : string }
+export type AIDossierComparison = { notice : string, added : string[], notPresent : string[], changed : AIDossierCardChange[], gaps : AIDossierGapChange[], quotedSentenceOrderChanged : boolean }
+export type AIDossierView = { themeId : number, notice : string, versions : AIDossierVersion[], comparison? : AIDossierComparison }
+
+export const dossierNotice = '以下为所选版本的资料摘录；引用存在不等于已核实表述，未知字段表示资料不足。'
+export const dossierComparisonNotice = '仅比较档案中已引用的原句、字段和资料缺口；本版未出现不表示事实撤回，摘录调整不等于事实更正。'
+export const dossierFieldKeys : string[] = ['subject','publishedDate','effectiveDate','period','scope','stage','basis','unit']
+const sections : string[] = ['definition','chain','policy','progress','membership']
+const reasons : string[] = ['source_missing','subject_unverified','time_unverified','basis_unverified','stage_unverified','unit_unverified','scope_unverified']
+const keys = (names : string[], expected : string[]) : boolean => names.length == expected.length && names.every((k : string) : boolean => expected.includes(k))
+const time = (n : number) : boolean => isSafeAIId(n) && n <= 8640000000000000
+const plain = (s : string, max : number) : boolean => typeof s == 'string' && s.trim().length > 0 && [...s].length <= max && !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f\ud800-\udfff]/u.test(s)
+const key = (s : string) : boolean => typeof s == 'string' && /^[a-z][a-z0-9_]{0,31}$/.test(s)
+const bytes = (s : string) : number => { let count : number = 0; for (const c of [...s]) count += c.length == 2 ? 4 : c.charCodeAt(0) <= 127 ? 1 : c.charCodeAt(0) <= 2047 ? 2 : 3; return count }
+export const isDossierQuote = (q : AIDossierQuote | null) : boolean => q != null && typeof q == 'object' && !Array.isArray(q) && keys(Object.keys(q),['text','context','sourceType','sourceUrl','collectedAt','snapshotId','sentence','startByte','endByte']) && plain(q.text,1000) && plain(q.context,1000) && q.context.includes(q.text) && ['announcement','annual_report','prospectus','official_catalog','interactive_qa'].includes(q.sourceType) && typeof q.sourceUrl == 'string' && isSafeExternalUrl(q.sourceUrl) && time(q.collectedAt) && isSafeAIId(q.snapshotId) && isSafeAIId(q.sentence) && q.sentence <= 4096 && isSafeAIInteger(q.startByte) && isSafeAIId(q.endByte) && q.endByte <= 1048576 && bytes(q.text) == q.endByte-q.startByte
+export const isDossierList = (v : AIDossierVersionList | null, theme : number, before : number) : boolean => {
+	if (v == null || typeof v != 'object' || Array.isArray(v) || !keys(Object.keys(v),['themeId','items','hasMore','nextBeforeVersion']) || v.themeId != theme || !Array.isArray(v.items) || v.items.length > 10 || typeof v.hasMore != 'boolean' || !isSafeAIInteger(v.nextBeforeVersion)) return false
+	let last : number = before
+	for (const item of v.items) { if (item == null || typeof item != 'object' || !keys(Object.keys(item),['version','compiledAt']) || !isSafeAIId(item.version) || !time(item.compiledAt) || last > 0 && item.version >= last) return false; last = item.version }
+	return v.hasMore ? v.items.length == 10 && v.nextBeforeVersion == last : v.nextBeforeVersion == 0
+}
+export const isDossierView = (v : AIDossierView | null, theme : number, version : number, compare : number) : boolean => {
+	if (v == null || typeof v != 'object' || Array.isArray(v) || !keys(Object.keys(v),compare > 0 ? ['themeId','notice','versions','comparison'] : ['themeId','notice','versions']) || v.themeId != theme || v.notice != dossierNotice || !Array.isArray(v.versions) || v.versions.length != (compare > 0 ? 2 : 1)) return false
+	for (let i = 0; i < v.versions.length; i++) {
+		const row = v.versions[i]
+		if (row == null || typeof row != 'object' || !keys(Object.keys(row),['version','compiledAt','cards','gaps']) || row.version != (i == 0 ? version : compare) || !time(row.compiledAt) || i > 0 && row.compiledAt <= v.versions[0].compiledAt || !Array.isArray(row.cards) || !Array.isArray(row.gaps) || row.cards.length > 64 || row.gaps.length > 64 || row.cards.length+row.gaps.length == 0) return false
+		let used : string[] = [] as string[]
+		for (const c of row.cards) {
+			if (c == null || typeof c != 'object' || !keys(Object.keys(c),['key','section','quote','fields']) || !key(c.key) || used.includes(c.key) || !sections.includes(c.section) || !isDossierQuote(c.quote) || c.quote.text != c.quote.context || c.quote.collectedAt > row.compiledAt || !Array.isArray(c.fields) || c.fields.length != 8) return false
+			used.push(c.key)
+			for (let n = 0; n < c.fields.length; n++) { const f = c.fields[n]; if (f == null || typeof f != 'object' || f.key != dossierFieldKeys[n] || !['known','unknown'].includes(f.state) || !keys(Object.keys(f), f.state == 'known' ? ['key','state','quote'] : ['key','state'])) return false; if (f.state == 'known' && (!isDossierQuote(f.quote) || f.quote!.collectedAt > row.compiledAt || [...f.quote!.text].length > 200)) return false }
+		}
+		for (const g of row.gaps) { if (g == null || typeof g != 'object' || !keys(Object.keys(g),['key','section','reason']) || !key(g.key) || used.includes(g.key) || !sections.includes(g.section) || !reasons.includes(g.reason)) return false; used.push(g.key) }
+	}
+	if (compare == 0) return true
+	const d = v.comparison
+	if (d == null || typeof d != 'object' || !keys(Object.keys(d),['notice','added','notPresent','changed','gaps','quotedSentenceOrderChanged']) || d.notice != dossierComparisonNotice || typeof d.quotedSentenceOrderChanged != 'boolean' || !Array.isArray(d.added) || !Array.isArray(d.notPresent) || !Array.isArray(d.changed) || !Array.isArray(d.gaps) || d.added.length > 64 || d.notPresent.length > 64 || d.changed.length > 64 || d.gaps.length > 128) return false
+	const oldKeys : string[] = v.versions[0].cards.map((c : AIDossierCard) : string => c.key); const newKeys : string[] = v.versions[1].cards.map((c : AIDossierCard) : string => c.key)
+	let oldUsed : string[] = [] as string[]; let newUsed : string[] = [] as string[]
+	for (const k of d.added) { if (!newKeys.includes(k) || newUsed.includes(k)) return false; newUsed.push(k) }
+	for (const k of d.notPresent) { if (!oldKeys.includes(k) || oldUsed.includes(k)) return false; oldUsed.push(k) }
+	for (const c of d.changed) { if (c == null || typeof c != 'object' || !keys(Object.keys(c),['beforeKey','afterKey','quoteChanged','sourceChanged','referenceChanged','sectionChanged','fields']) || !oldKeys.includes(c.beforeKey) || !newKeys.includes(c.afterKey) || oldUsed.includes(c.beforeKey) || newUsed.includes(c.afterKey) || typeof c.quoteChanged != 'boolean' || typeof c.sourceChanged != 'boolean' || typeof c.referenceChanged != 'boolean' || typeof c.sectionChanged != 'boolean' || !Array.isArray(c.fields) || c.fields.length > 8 || !c.fields.every((s : string) : boolean => dossierFieldKeys.includes(s))) return false; oldUsed.push(c.beforeKey); newUsed.push(c.afterKey) }
+	const oldGaps : string[] = v.versions[0].gaps.map((g : AIDossierGap) : string => g.key); const newGaps : string[] = v.versions[1].gaps.map((g : AIDossierGap) : string => g.key)
+	let oldGapUsed : string[] = [] as string[]; let newGapUsed : string[] = [] as string[]
+	for (const g of d.gaps) { if (g == null || typeof g != 'object' || !keys(Object.keys(g),['beforeKey','afterKey']) || g.beforeKey == '' && g.afterKey == '' || g.beforeKey != '' && (!oldGaps.includes(g.beforeKey) || oldGapUsed.includes(g.beforeKey)) || g.afterKey != '' && (!newGaps.includes(g.afterKey) || newGapUsed.includes(g.afterKey))) return false; if (g.beforeKey != '') oldGapUsed.push(g.beforeKey); if (g.afterKey != '') newGapUsed.push(g.afterKey) }
+	return true
+}
+export const dossierSectionLabel = (s : string) : string => { const n : number = sections.indexOf(s); return n >= 0 ? ['定义与范围','产业链环节','政策与标准','公开进展','归属依据'][n] : '资料' }
+export const dossierFieldLabel = (s : string) : string => { const n : number = dossierFieldKeys.indexOf(s); return n >= 0 ? ['主体','发布日期','生效日期','所属期间','适用范围','阶段','统计口径','单位'][n] : '字段' }
+export const dossierGapLabel = (s : string) : string => { const n : number = reasons.indexOf(s); return n >= 0 ? ['缺少资料来源','主体依据待核实','时间依据待核实','统计口径待核实','阶段依据待核实','单位依据待核实','适用范围待核实'][n] : '资料不足' }
+export const dossierError = (code : number) : string => code == 40100 || code == 40101 || code == 40301 ? '登录状态已失效，请重新登录' : code == 40404 ? '版本当前不可读，请重新查询可用版本' : code == 40001 ? '请选择同一题材的有效版本' : '专题档案尚未开放、资料暂不可用或检查未完成，请稍后重试'

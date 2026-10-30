@@ -18,6 +18,11 @@ type dossierReaderStub struct {
 	err   error
 }
 
+func (s *dossierReaderStub) ListVersions(_ context.Context, _ string, _, theme, _ int64) (dto.AIDossierVersionList, error) {
+	s.calls++
+	return dto.AIDossierVersionList{ThemeID: theme, Items: []dto.AIDossierVersionItem{}}, s.err
+}
+
 func (s *dossierReaderStub) ViewVersions(_ context.Context, token string, user, theme int64, versions []int64) (dto.AIDossierView, error) {
 	s.calls++
 	return dto.AIDossierView{ThemeID: theme, Notice: "仅测试私有原文", Versions: []dto.AIDossierVersion{}}, s.err
@@ -29,6 +34,11 @@ func TestDossierReadClosedProtocol(t *testing.T) {
 		status                   int
 	}{
 		{"单版", "GET", base, "", 200}, {"双版", "GET", base + "?compareVersion=2", "", 200},
+		{"版本列表", "GET", "/api/v1/ai/themes/7/dossiers", "", 200},
+		{"版本分页", "GET", "/api/v1/ai/themes/7/dossiers?beforeVersion=9", "", 200},
+		{"列表重复参数", "GET", "/api/v1/ai/themes/7/dossiers?beforeVersion=9&beforeVersion=8", "", 400},
+		{"列表越界参数", "GET", "/api/v1/ai/themes/7/dossiers?beforeVersion=9007199254740992", "", 400},
+		{"列表不接比较参数", "GET", "/api/v1/ai/themes/7/dossiers?compareVersion=2", "", 400},
 		{"重复版本", "GET", base + "?compareVersion=2&compareVersion=3", "", 400},
 		{"逆序", "GET", base + "?compareVersion=1", "", 400}, {"空值", "GET", base + "?compareVersion=", "", 400},
 		{"未知参数", "GET", base + "?userId=2", "", 400}, {"前导零", "GET", "/api/v1/ai/themes/07/dossiers/1", "", 400},

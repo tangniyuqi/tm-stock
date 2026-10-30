@@ -260,7 +260,7 @@ onBeforeUnmount(() => { active = false; generation++; summaryRefreshPending = fa
 		<slot name="result"></slot>
 		<view class="conversation-composer" :style="activeTab == 'conversation' ? '' : 'display: none;'">
 	<view v-if="selected != null" :style="activeSkill == 'material_qa' ? '' : 'display: none;'">
-		<AIQuestionPanel :key="selected!.id.toString() + '_' + questionRequest.toString()" :session-token="sessionToken" :conversation-id="selected!.id" :archived="selected!.archived" :question-seq="questionSeq" :dock-input="allowDock && activeTab == 'conversation' && activeSkill == 'material_qa' && !reportInputActive" :dock-left="wide ? 324 : 16" :dock-bottom="60" @saved="refreshLinkedHistory" @unauthorized="emit('unauthorized')" @conversation="open($event, false)"></AIQuestionPanel>
+		<AIQuestionPanel :key="selected!.id.toString() + '_' + questionRequest.toString()" :session-token="sessionToken" :conversation-id="selected!.id" :archived="selected!.archived" :question-seq="questionSeq" :dossier-enabled="activeTab == 'conversation'" :dock-input="allowDock && activeTab == 'conversation' && activeSkill == 'material_qa' && !reportInputActive" :dock-left="wide ? 324 : 16" :dock-bottom="60" @saved="refreshLinkedHistory" @unauthorized="emit('unauthorized')" @conversation="open($event, false)"></AIQuestionPanel>
 	</view>
 	<view v-if="selected != null && activeSkill == 'light'">
 		<AIConversationTaskPanel :key="selected!.id" :session-token="sessionToken" :conversation-id="selected!.id" :analysis-type="'light'" :archived="selected!.archived" @task="emit('task', $event)" @linked="refreshLinkedHistory" @unauthorized="emit('unauthorized')"></AIConversationTaskPanel>

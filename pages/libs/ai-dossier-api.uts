@@ -1,0 +1,16 @@
+import { MemberApi, MemberApiResult } from './member-api.uts'
+import { isSafeAIId, isSafeAIInteger } from './ai.uts'
+import { AIDossierVersionList, AIDossierView, isDossierList, isDossierView, dossierError } from './ai-dossier.uts'
+const failure = <T>(code : number) : MemberApiResult<T> => ({code:code,message:dossierError(code),data:null} as MemberApiResult<T>)
+export class AIDossierApi {
+	public static async list(theme : number, before : number) : Promise<MemberApiResult<AIDossierVersionList>> {
+		if (!isSafeAIId(theme) || !isSafeAIInteger(before)) return failure<AIDossierVersionList>(40001)
+		const r = await MemberApi.aiDossier<AIDossierVersionList>(theme,0,0,before)
+		return r.code != 0 ? failure<AIDossierVersionList>(r.code) : isDossierList(r.data,theme,before) ? r : failure<AIDossierVersionList>(50001)
+	}
+	public static async view(theme : number, version : number, compare : number) : Promise<MemberApiResult<AIDossierView>> {
+		if (!isSafeAIId(theme) || !isSafeAIId(version) || !isSafeAIInteger(compare) || compare != 0 && compare <= version) return failure<AIDossierView>(40001)
+		const r = await MemberApi.aiDossier<AIDossierView>(theme,version,compare,0)
+		return r.code != 0 ? failure<AIDossierView>(r.code) : isDossierView(r.data,theme,version,compare) ? r : failure<AIDossierView>(50001)
+	}
+}

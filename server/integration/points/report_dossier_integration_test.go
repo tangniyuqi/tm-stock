@@ -338,6 +338,7 @@ func TestIntegrationAIReportDossierStore(t *testing.T) {
 					t.Fatal("读取后身份复核未清空结果")
 				}
 			})
+			t.Run("版本目录分页撤权与未知结果", func(t *testing.T) { verifyDossierCatalog(t, e, db, repo, svc, src, a, draft, base) })
 			if e.queryInt(`SELECT COUNT(*) FROM tm_points_accounts`) != 0 {
 				t.Fatal("档案操作创建了积分账户")
 			}
