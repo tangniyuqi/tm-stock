@@ -13,8 +13,10 @@ import (
 	"strings"
 	"time"
 
+	mysqldrv "github.com/go-sql-driver/mysql"
 	"github.com/tangniyuqi/tm-stock/server/internal/agents/tradingcn"
 	"github.com/tangniyuqi/tm-stock/server/internal/ai/agenttask"
+	"github.com/tangniyuqi/tm-stock/server/internal/ai/finalreport"
 	"github.com/tangniyuqi/tm-stock/server/internal/ai/task"
 	"github.com/tangniyuqi/tm-stock/server/internal/config"
 	"github.com/tangniyuqi/tm-stock/server/internal/points"
@@ -251,5 +253,32 @@ func runLocalReports(parent context.Context, args []string, input io.ReadCloser,
 		}
 		return 0
 	}
+	// 只输出闭集类别或数据库数字码，不能输出可能含凭据/正文的原始错误。
+	if _, writeErr := fmt.Fprintf(output, "LOCAL_REPORT_WORKER_STOP_REASON:%s\n", localWorkerFailureCode(err)); writeErr != nil {
+		return 1
+	}
 	return fail()
+}
+
+func localWorkerFailureCode(err error) string {
+	var databaseError *mysqldrv.MySQLError
+	if errors.As(err, &databaseError) {
+		return fmt.Sprintf("mysql_%d", databaseError.Number)
+	}
+	for _, row := range []struct {
+		err  error
+		code string
+	}{
+		{context.DeadlineExceeded, "deadline"}, {context.Canceled, "cancelled"},
+		{task.ErrLease, "lease"}, {task.ErrUnconfirmed, "unconfirmed"}, {task.ErrNotReady, "pending"},
+		{task.ErrStagePolicy, "stage_policy"}, {task.ErrStageRejected, "stage_rejected"}, {task.ErrBudget, "budget"},
+		{points.ErrInvalid, "invalid"}, {points.ErrIdempotency, "idempotency"}, {points.ErrInvariant, "invariant"},
+		{finalreport.ErrRejected, "report_rejected"}, {finalreport.ErrUnavailable, "report_unavailable"},
+		{sql.ErrNoRows, "missing_row"},
+	} {
+		if errors.Is(err, row.err) {
+			return row.code
+		}
+	}
+	return "internal"
 }

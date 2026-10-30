@@ -207,11 +207,14 @@ func TestIntegrationAIReportLocalWorkerProcess(t *testing.T) {
 	}
 	for _, level := range []sql.IsolationLevel{sql.LevelReadCommitted, sql.LevelRepeatableRead} {
 		t.Run(level.String(), func(t *testing.T) {
-			for _, mode := range []string{"light", "deep", "unknown", "stop_running", "revoked", "mismatch", "session"} {
+			for _, mode := range []string{"light", "deep", "deep_short", "unknown", "stop_running", "revoked", "mismatch", "session"} {
 				t.Run(mode, func(t *testing.T) {
 					kind, workflow := 1, "local"
 					if mode == "deep" {
 						kind, workflow = 2, "local_deep"
+					}
+					if mode == "deep_short" {
+						kind, workflow = 2, "local_deep_short"
 					}
 					if mode == "session" {
 						workflow = "local_session"
@@ -282,7 +285,7 @@ func TestIntegrationAIReportLocalWorkerProcess(t *testing.T) {
 							if err != nil {
 								t.Fatal(err)
 							}
-							if mode == "stop_running" && e.agentPolls.Load() > 0 && e.queryInt(`SELECT COUNT(*) FROM tm_ai_agent_runs WHERE state='running' AND remote_id IS NOT NULL`) == 1 || mode != "stop_running" && v.Status == task.Succeeded {
+							if mode == "stop_running" && e.agentPolls.Load() > 0 && e.queryInt(`SELECT COUNT(*) FROM tm_ai_agent_runs WHERE state='running' AND remote_id IS NOT NULL`) == 1 || mode == "deep_short" && v.Status == task.Failed || mode != "stop_running" && mode != "deep_short" && v.Status == task.Succeeded {
 								break
 							}
 							select {
@@ -295,14 +298,14 @@ func TestIntegrationAIReportLocalWorkerProcess(t *testing.T) {
 							}
 						}
 						if mode != "stop_running" {
-							// 等待两个原扫描间隔；保持同一进程运行，检查重扫没有重复执行。
+							// 等待两个原扫描间隔；成功或已知拒绝终态都不能被重扫执行。
 							timer := time.NewTimer(2200 * time.Millisecond)
 							select {
 							case <-timer.C:
 							case err := <-child.done:
 								timer.Stop()
 								child.waited = true
-								t.Fatal("成功后循环提前退出", err)
+								t.Fatal("终态后循环提前退出", err)
 							}
 						}
 						if _, err := io.WriteString(child.input, "stop\n"); err != nil {
@@ -324,6 +327,10 @@ func TestIntegrationAIReportLocalWorkerProcess(t *testing.T) {
 						}
 						if e.queryInt(`SELECT COUNT(*) FROM tm_ai_report_call_audits`) != 2*models {
 							t.Fatal("未知或停止的审计记录不符")
+						}
+					} else if mode == "deep_short" {
+						if v.Status != task.Failed || v.ErrorCode != "guard_rejected" || v.CurrentStep >= 5 || len(e.server.Requests()) != 1 || e.submits.Load() != 1 || e.queryInt(`SELECT COUNT(*) FROM tm_ai_report_call_audits`) != 2 || e.queryInt(`SELECT COUNT(*) FROM tm_ai_report_commits`) != 0 || e.queryInt(`SELECT COUNT(*) FROM tm_points_txns WHERE kind='settle'`) != 0 || e.queryInt(`SELECT COUNT(*) FROM tm_points_txns WHERE kind='release'`) != 2 || e.queryInt(`SELECT avail FROM tm_points_accounts WHERE user_id=1`) != 60 || e.queryInt(`SELECT frozen FROM tm_points_accounts WHERE user_id=1`) != 0 {
+							t.Fatal("深度不足六条未拒绝/释放，或重扫产生了额外调用/账务")
 						}
 					} else {
 						if v.Status != task.Succeeded || v.CurrentStep != 5 || len(e.server.Requests()) != 3 || e.submits.Load() != 1 || e.queryInt(`SELECT COUNT(*) FROM tm_ai_report_call_audits`) != 6 || e.queryInt(`SELECT COUNT(*) FROM tm_points_txns WHERE kind='settle'`) != 1 || e.queryInt(`SELECT frozen FROM tm_points_accounts WHERE user_id=1`) != 0 {

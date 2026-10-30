@@ -14,9 +14,41 @@ import (
 	"github.com/tangniyuqi/tm-stock/server/internal/provider"
 )
 
-// 专用HTTP进程实跑；不将自动请求记为H5表单或真实浏览器证据。
+// 专用HTTP进程实跑；浏览器由独立根组验收。
 func TestIntegrationAIReportLocalAPIWorkerLive(t *testing.T) {
-	if os.Getenv("TM_TEST_AI_LIVE") != "local-fixture-only" || os.Getenv("TM_TEST_AI_LIVE_PROCESS") != "local-fixture-only" || os.Getenv("TM_TEST_DSN") == "" || flag.Lookup("test.count").Value.String() != "1" || flag.Lookup("test.run").Value.String() != "^TestIntegrationAIReportLocalAPIWorkerLive$" {
+	depth, scenario := liveLocalProcessCase(t, "^TestIntegrationAIReportLocalAPIWorkerLive$")
+	if os.Getenv("TM_TEST_AI_LIVE_PROCESS_H5") != "" {
+		t.Fatal("HTTP根组不接受浏览器范围标记")
+	}
+	api, worker, login := buildLocalReportBinaries(t)
+	kind := 1
+	if depth == "deep" {
+		kind = 2
+	}
+	verifyLocalAPIWorker(t, sql.LevelReadCommitted, kind, api, worker, login, scenario)
+	t.Log("TM_STOCK_LIVE_CONVERSATION_VERIFIED")
+	if depth == "deep" {
+		t.Log("TM_STOCK_LIVE_DEEP_VERIFIED")
+	}
+}
+func TestIntegrationAIReportLocalAPIWorkerLiveH5(t *testing.T) {
+	depth, scenario := liveLocalProcessCase(t, "^TestIntegrationAIReportLocalAPIWorkerLiveH5$")
+	if os.Getenv("TM_TEST_AI_LIVE_PROCESS_H5") != "local-fixture-only" {
+		t.Fatal("须显式真实进程浏览器模式")
+	}
+	origin := os.Getenv("TM_TEST_AI_H5_ORIGIN")
+	if _, err := h5TestOrigin(origin); err != nil {
+		t.Fatal("缺少完整H5回环源")
+	}
+	runLocalProcessH5(t, depth, origin, &scenario)
+	t.Log("TM_STOCK_LIVE_CONVERSATION_VERIFIED")
+	if depth == "deep" {
+		t.Log("TM_STOCK_LIVE_DEEP_VERIFIED")
+	}
+}
+func liveLocalProcessCase(t *testing.T, expectedRun string) (string, localProcessCase) {
+	t.Helper()
+	if os.Getenv("TM_TEST_AI_LIVE") != "local-fixture-only" || os.Getenv("TM_TEST_AI_LIVE_PROCESS") != "local-fixture-only" || os.Getenv("TM_TEST_DSN") == "" || flag.Lookup("test.count").Value.String() != "1" || flag.Lookup("test.run").Value.String() != expectedRun {
 		t.Fatal("真实进程仅允许显式隔离单任务精确入口")
 	}
 	depth := os.Getenv("TM_TEST_AI_H5_LOCAL_DEPTH")
@@ -41,17 +73,12 @@ func TestIntegrationAIReportLocalAPIWorkerLive(t *testing.T) {
 	if err != nil || session == "" {
 		t.Fatal("缺少本轮临时模型会话")
 	}
-	for _, key := range []string{"TM_TEST_AI_H5_LOCAL_API_WORKER", "TM_TEST_AI_H5_DEEP", "TM_TEST_AI_H5_STREAM_REPLAY", "TM_TEST_AI_H5_STREAM_FAULTS", "TM_TEST_AI_H5_ASSISTANT"} {
+	for _, key := range []string{"TM_TEST_AI_H5_LOCAL_API_WORKER", "TM_TEST_AI_H5_DEEP", "TM_TEST_AI_H5_STREAM_REPLAY", "TM_TEST_AI_H5_STREAM_FAULTS", "TM_TEST_AI_H5_ASSISTANT", "TM_TEST_AI_H5_TIMEOUT_RECOVERY", "TM_TEST_AI_H5_MATERIAL_QA", "TM_TEST_AI_H5_REPORT_QA"} {
 		if os.Getenv(key) != "" {
 			t.Fatal("不混用浏览器替身专项")
 		}
 	}
-	api, worker, login := buildLocalReportBinaries(t)
-	kind := 1
-	if depth == "deep" {
-		kind = 2
-	}
-	verifyLocalAPIWorker(t, sql.LevelReadCommitted, kind, api, worker, login, localProcessCase{external: true, configure: func(t *testing.T, f *localPublicationFixture, c *config.AILocalExecution) {
+	return depth, localProcessCase{external: true, configure: func(t *testing.T, f *localPublicationFixture, c *config.AILocalExecution) {
 		c.Model = config.AILocalExecutionModel{Name: "local-eval-real-json-bridge-v1", BaseURL: modelURL, Model: name, TimeoutMS: 30000}
 		c.Agent = config.AILocalExecutionAgent{BaseURL: os.Getenv("TM_TEST_AI_AGENT_URL"), ApprovalRef: "local-eval:user-approved", LicenseRef: "local-eval:community-51060a7", QuickModel: "deepseek-flash", DeepModel: "deepseek-flash", TimeoutMS: 3000, MaxSubmissions: 1}
 		f.env.agentConfig = c.AgentConfig(os.Getenv("TM_TEST_AI_AGENT_TOKEN"))
@@ -78,9 +105,5 @@ func TestIntegrationAIReportLocalAPIWorkerLive(t *testing.T) {
 		c.ExpiresAtMS = f.file.ExpiresAtMS
 		c.WorkerTimeoutMS = 900000
 		c.AgentPollMS = 1000
-	}})
-	t.Log("TM_STOCK_LIVE_CONVERSATION_VERIFIED")
-	if depth == "deep" {
-		t.Log("TM_STOCK_LIVE_DEEP_VERIFIED")
-	}
+	}}
 }

@@ -4,7 +4,17 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { createAsyncBridge, validSubmission, finishChainVerification, chainConversationOptions, hasConversationProof, hasDeepProof, hasProcessHTTPProof } from './tradingcn-local-chain.mjs'
+import { createAsyncBridge, validSubmission, finishChainVerification, chainConversationOptions, hasConversationProof, hasDeepProof, hasProcessHTTPProof, hasProcessH5Proof, startChainVerification } from './tradingcn-local-chain.mjs'
+
+test('实际H5进程证明独立于HTTP，入口在启动子进程前拒绝错误模式和外部源', () => {
+  assert.deepEqual(chainConversationOptions({processes:true,processBrowser:true,conversation:true}),{TM_TEST_AI_LIVE_PROCESS:'local-fixture-only',TM_TEST_AI_H5_LOCAL_DEPTH:'light',TM_TEST_AI_LIVE_PROCESS_H5:'local-fixture-only'})
+  for (const processBrowser of [true,'true',1]) assert.throws(()=>chainConversationOptions({processBrowser}))
+  assert.equal(hasProcessH5Proof('    runner.go:12: TM_STOCK_LIVE_PROCESS_H5_VERIFIED\r\n'),true)
+  for (const raw of ['TM_STOCK_LIVE_PROCESS_H5_VERIFIED','    runner.go:12: TM_STOCK_LIVE_PROCESS_HTTP_VERIFIED\n','    runner.go:12: TM_STOCK_LIVE_PROCESS_H5_VERIFIED','    runner.go:12: TM_STOCK_LIVE_PROCESS_H5_VERIFIED_extra\n']) assert.equal(hasProcessH5Proof(raw),false)
+  for (const origin of [undefined,'https://example.test','http://localhost:1234','http://127.0.0.1','http://127.0.0.1:1234/app','http://user:pass@127.0.0.1:1234','http://127.0.0.1:1234/?x=1','http://127.0.0.1:1234/#x']) {
+    assert.throws(()=>startChainVerification({evaluation:{child:'waiting'}},{processes:true,processBrowser:true,conversation:true,origin}))
+  }
+})
 
 test('正式进程模式单独声明HTTP证据，不能沿用旧会话证明冒充', async () => {
   assert.deepEqual(chainConversationOptions({processes:true,conversation:true,analysisType:'deep'}),{TM_TEST_AI_LIVE_PROCESS:'local-fixture-only',TM_TEST_AI_H5_LOCAL_DEPTH:'deep'})
@@ -20,6 +30,16 @@ test('正式进程模式单独声明HTTP证据，不能沿用旧会话证明冒�
     const receipt=await finishChainVerification(bridge,verification)
     assert.equal(receipt.verified,true);assert.equal(receipt.browser_verified,false);assert.equal(receipt.process_http_verified,true)
     assert.equal(receipt.scope,'local_http_process_conversation_async_real_v2_test_ledger')
+    verification.processBrowser=true
+    assert.equal((await finishChainVerification(bridge,verification)).verified,false)
+    verification.processH5Verified=true
+    verification.processHTTPVerified=false
+    const h5=await finishChainVerification(bridge,verification)
+    assert.equal(h5.verified,true);assert.equal(h5.browser_verified,true);assert.equal(h5.process_h5_verified,true);assert.equal(h5.process_http_verified,false)
+    assert.equal(h5.scope,'local_h5_process_conversation_async_real_v2_test_ledger')
+    verification.processes=false
+    assert.equal((await finishChainVerification(bridge,verification)).verified,false)
+    verification.processes=true
     verification.conversation=false
     assert.equal((await finishChainVerification(bridge,verification)).verified,false)
   }finally{assert.equal(path.dirname(output),os.tmpdir());assert.match(path.basename(output),/^tm-stock-tradingcn-live-[A-Za-z0-9]{6}$/);await fs.rm(output,{recursive:true})}

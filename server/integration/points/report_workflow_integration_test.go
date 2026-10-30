@@ -141,6 +141,7 @@ func newWorkflowEnv(t *testing.T, level sql.IsolationLevel, mode string) *workfl
 	budget.MaxCalls = 6
 	budget.MaxTokens = 5000
 	local := strings.HasPrefix(mode, "local")
+	deep := mode == "local_deep" || mode == "local_deep_running" || mode == "local_deep_short"
 	x := newReportEnvWithBudgetLocal(t, level, time.Minute, false, budget, local)
 	snapshots := []sources.Snapshot{x.snap}
 	if mode == "multi_source" {
@@ -163,8 +164,7 @@ func newWorkflowEnv(t *testing.T, level sql.IsolationLevel, mode string) *workfl
 		if err := json.Unmarshal([]byte(selectionText), &picks); err != nil {
 			t.Fatal(err)
 		}
-		picks.Selections[2].SentenceIDs = []int{3, 4}
-		picks.Selections[3].SentenceIDs = []int{5, 6}
+		picks.Selections = append(picks.Selections, finalreport.Selection{Section: "segment", SnapshotID: x.snap.ID, SentenceIDs: []int{5}}, finalreport.Selection{Section: "companies", SnapshotID: x.snap.ID, SentenceIDs: []int{6}})
 		raw, err := json.Marshal(picks)
 		if err != nil {
 			t.Fatal(err)
@@ -186,6 +186,9 @@ func newWorkflowEnv(t *testing.T, level sql.IsolationLevel, mode string) *workfl
 	}
 	selection := providertest.Success(selectionText, provider.Usage{Prompt: 2, Completion: 1, Total: 3})
 	steps := []providertest.Step{selection, checkModelReply("pass", "supported"), checkModelReply("pass", "factual")}
+	if mode == "local_deep_short" {
+		steps = steps[:1]
+	}
 	modelSession := ""
 	if mode == "local_session" {
 		modelSession = strings.Repeat("a1", 32)
@@ -222,7 +225,7 @@ func newWorkflowEnv(t *testing.T, level sql.IsolationLevel, mode string) *workfl
 		cfg.SelectionMaxTokens = 2048
 		cfg.CheckMaxTokens = 64
 	}
-	if mode == "local_deep" || mode == "local_deep_running" {
+	if deep {
 		cfg.AnalysisType = 2
 	}
 	ent, err := finalreport.CheckPolicyVersion(finalreport.CheckEntailment, cfg)
@@ -237,7 +240,7 @@ func newWorkflowEnv(t *testing.T, level sql.IsolationLevel, mode string) *workfl
 	if local {
 		fc.Ref = "local-eval:policy"
 	}
-	if mode == "local_deep" || mode == "local_deep_running" {
+	if deep {
 		fc.AnalysisType = 2
 		fc.MinQuotes = 6
 	}

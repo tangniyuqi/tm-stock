@@ -20,7 +20,7 @@ import (
 )
 
 // Version 绑定结构、最小形态与证据校验语义；语义变更必须递增，配置/词表另参与摘要。
-const Version = "closed-quote-report-v1"
+const Version = "closed-quote-report-v2"
 const MaxSnapshots = 32
 const MaxEvidenceBodyBytes = 1 << 20
 const MaxTotalEvidenceBytes = 4 << 20
@@ -190,7 +190,7 @@ func (p *Policy) Decode(raw string) (Proposal, error) {
 			seen[key] = true
 		}
 	}
-	if total > 64 || len(v.SnapshotIDs()) > MaxSnapshots {
+	if total < p.cfg.MinQuotes || total > 64 || len(v.SnapshotIDs()) > MaxSnapshots {
 		return Proposal{}, ErrRejected
 	}
 	return v, nil

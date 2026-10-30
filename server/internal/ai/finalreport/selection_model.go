@@ -71,7 +71,7 @@ func NewSelectionModelPlan(c CheckConfig, s *SelectionStage, v task.Task, hint *
 	zero := 0.0
 	system := selectionSystem
 	if s.policy != nil && s.policy.cfg.MinQuotes >= 6 {
-		system += fmt.Sprintf("\n深度报告至少需要 %d 条不重复引文；少于该数量会被系统拒绝。", s.policy.cfg.MinQuotes)
+		system += fmt.Sprintf("\n深度报告至少需要 %d 条不重复逐句引文，即所有selections合计选中至少%d个不同的sentence_id。四节各一条仍不满足；同一章节可选择多句。只选有证据的句子，不足则返回空selections，由系统拒绝；不得补写事实。", s.policy.cfg.MinQuotes, s.policy.cfg.MinQuotes)
 	}
 	req := provider.Request{System: system, Prompt: string(b), Model: c.Model, MaxTokens: c.SelectionTokens(), Format: provider.FormatJSONSchema, Schema: json.RawMessage(selectionSchema), Strict: true, Temperature: &zero, Attempt: 1}
 	if s.policy.companies != nil {

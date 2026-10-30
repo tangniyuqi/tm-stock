@@ -101,7 +101,7 @@ func newReportEnvWithBudgetLocal(t *testing.T, level sql.IsolationLevel, lease t
 	x.source.Enabled = true
 	body := "示例题材是本测试资料的主题。示例题材的事项发生于资料记载日期。示例题材包含资料所述环节。示例题材的公司信息见本段。"
 	if local {
-		body = "仅测试:合成题材是本测试资料的主题。仅测试:合成题材的事项发生于资料记载日期。仅测试:合成题材包含资料所述环节。仅测试:合成题材的公司信息见本段。仅测试:合成题材的第五项事实见本测试资料。仅测试:合成题材的第六项事实见本测试资料。"
+		body = "仅测试:合成题材是本测试资料的主题。仅测试:合成题材的事项发生于资料记载日期。仅测试:合成题材包含资料所述环节。仅测试:合成题材的公司信息见本段。仅测试:合成题材还包含资料所述的另一环节。仅测试:合成题材另有资料披露的公司信息。"
 	}
 	snap, err := sources.BuildSnapshot(x.source, "https://evidence.example.test/example", sources.MediaPlain, []byte(body), now, 1<<20)
 	if err != nil {

@@ -124,6 +124,21 @@ func TestLocalAPIWorkerH5Gateway(t *testing.T) {
 	if c := g.snapshot(); c.Conversations != 1 || c.Prepares != 1 || c.Confirms != 1 || c.Reports != 2 || c.Streams != 1 || completed != 1 {
 		t.Fatal("代理计数污染或遗漏")
 	}
+	// 真实范围不能借用替身完成开关；仍须原样转交API和公开SSE。
+	g = newLocalAPIWorkerH5Gateway(t, upstream.URL, upstream.URL, login, func() bool { completed++; return true }, true)
+	notice := call("GET", "/__test__/", "", 200)
+	if !strings.Contains(notice, "真实社区V2及付费模型") || strings.Contains(notice, `id="complete"`) || strings.Contains(notice, "无真实模型") {
+		t.Fatal("真实浏览器范围声明或完成按钮不符")
+	}
+	call("POST", "/__test__/complete", g.server.URL, 404)
+	if raw := call("GET", "/api/v1/ai/tasks/1/stream", "", 200); raw != "id: 1\nevent: progress\ndata: {\"seq\":1}\n\n" {
+		t.Fatal("真实范围代理改写原SSE")
+	}
+	call("POST", "/__test__/complete", g.server.URL, 404)
+	call("POST", "/__test__/finish", g.server.URL, 409)
+	if completed != 1 {
+		t.Fatal("真实范围调用了替身完成开关")
+	}
 }
 
 func mustLocalH5URL(t *testing.T, raw string) *url.URL {
@@ -136,8 +151,12 @@ func mustLocalH5URL(t *testing.T, raw string) *url.URL {
 }
 
 // 只代理正式API、原密码桥与完整静态H5；这里不调用任务服务，不改写业务响应。
-func newLocalAPIWorkerH5Gateway(t *testing.T, front, api string, login *h5MemberLoginBridge, complete func() bool) *localAPIWorkerH5Gateway {
+func newLocalAPIWorkerH5Gateway(t *testing.T, front, api string, login *h5MemberLoginBridge, complete func() bool, real ...bool) *localAPIWorkerH5Gateway {
 	t.Helper()
+	if len(real) > 1 {
+		t.Fatal("每轮只能声明一个真实范围")
+	}
+	live := len(real) == 1 && real[0]
 	g := &localAPIWorkerH5Gateway{finish: make(chan struct{})}
 	proxy := func(raw string) *httputil.ReverseProxy {
 		u, err := url.Parse(raw)
@@ -183,7 +202,13 @@ func newLocalAPIWorkerH5Gateway(t *testing.T, front, api string, login *h5Member
 			w.Header().Set("Cache-Control", "no-store")
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			w.Header().Set("Content-Security-Policy", "default-src 'none'; script-src 'nonce-local-api-worker'; connect-src 'self'")
-			fmt.Fprint(w, `<!doctype html><meta charset="utf-8"><title>仅测试：正式API与独立worker</title><h1>实际H5→API→独立worker</h1><p>仅本地隔离：随机会员、合成资料、测试积分及回环Agent/模型；无真实模型或生产数据。任务预算预先声明为五分钟；原网络调用时限不变。</p><a href="/__test__/login">查看本轮测试账号，使用原密码表单登录</a><p><button id="guest">清理登录态并进入AI助手</button><button id="complete">允许测试Agent完成</button><button id="finish">结束并核验</button></p><p id="result"></p><script nonce="local-api-worker">document.getElementById('guest').onclick=()=>{localStorage.removeItem('token');location.href='/#/pages/ai/index'};for(const id of ['complete','finish'])document.getElementById(id).onclick=async()=>{const r=await fetch('/__test__/'+id,{method:'POST'});document.getElementById('result').textContent=r.ok?'操作已确认':'尚未满足核验条件'};</script>`)
+			notice := "随机会员、合成资料、测试积分及回环Agent/模型，无真实模型或生产数据；任务预算五分钟。"
+			button := `<button id="complete">允许测试Agent完成</button>`
+			if live {
+				notice = "随机会员、合成资料与测试积分；本轮经独立父桥调用真实社区V2及付费模型，任务预算十五分钟；无生产数据，不代表生产批准。"
+				button = ""
+			}
+			fmt.Fprintf(w, `<!doctype html><meta charset="utf-8"><title>仅测试：正式API与独立worker</title><h1>实际H5→API→独立worker</h1><p>%s</p><a href="/__test__/login">查看本轮测试账号，使用原密码表单登录</a><p><button id="guest">清理登录态并进入AI助手</button>%s<button id="finish">结束并核验</button></p><p id="result"></p><script nonce="local-api-worker">document.getElementById('guest').onclick=()=>{localStorage.removeItem('token');location.href='/#/pages/ai/index'};for(const id of ['complete','finish']){const button=document.getElementById(id);if(button)button.onclick=async()=>{const r=await fetch('/__test__/'+id,{method:'POST'});document.getElementById('result').textContent=r.ok?'操作已确认':'尚未满足核验条件'}};</script>`, notice, button)
 			return
 		}
 		if r.URL.Path == "/__test__/login" && r.Method == "GET" {
@@ -197,6 +222,10 @@ func newLocalAPIWorkerH5Gateway(t *testing.T, front, api string, login *h5Member
 			}
 			switch r.URL.Path {
 			case "/__test__/complete":
+				if live {
+					http.NotFound(w, r)
+					return
+				}
 				if g.snapshot().Streams == 0 || !complete() {
 					http.Error(w, "尚未取得原任务运行及SSE证据", 409)
 					return

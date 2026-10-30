@@ -109,7 +109,8 @@ jobs:
           # 下限只增不减。新增测试后请同步上调；调低必须在 PR 说明理由。
           # 原下限1195；问答会话边界/HTTP/配置/装配与结构单测新增40项，TestEvalReport仍按设计跳过。
           # 再加临时模型会话配置1根10子例及认证工厂1根，共12项。
-          MIN=1247
+          # 本地worker退出类别诊断1根8子例，不得输出原始错误。
+          MIN=1256
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项测试，低于下限 $MIN —— 要么测试没被执行，要么有测试被删。"
             exit 1
@@ -261,6 +262,7 @@ jobs:
           LOCAL_WORKER_ROOT=$(grep -Ec '^--- PASS: TestIntegrationAIReportLocalWorkerProcess ' /tmp/it.log || true)
           LOCAL_WORKER_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportLocalWorkerProcess/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
           LOCAL_WORKER_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportLocalWorkerProcess/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          LOCAL_WORKER_SHORT_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportLocalWorkerProcess/(Read_Committed|Repeatable_Read)/deep_short ' /tmp/it.log || true)
           LOCAL_WORKER_SKIPS=$(grep -Ec '^[[:space:]]*--- SKIP: TestIntegrationAIReportLocalWorkerProcess' /tmp/it.log || true)
           LOCAL_API_WORKER_ROOT=$(grep -Ec '^--- PASS: TestIntegrationAIReportLocalAPIWorker ' /tmp/it.log || true)
           LOCAL_API_WORKER_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportLocalAPIWorker/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
@@ -275,8 +277,8 @@ jobs:
           if [ "$LOCAL_H5_ROOTS" -ne 2 ] || [ "$LOCAL_H5_CASES" -ne 8 ] || [ "$LOCAL_H5_SKIPS" -ne 0 ]; then
             echo "正式进程H5入口配置和只转发网关用例漏跑"; exit 1
           fi
-          if [ "$LOCAL_WORKER_ROOT" -ne 1 ] || [ "$LOCAL_WORKER_LEVELS" -ne 2 ] || [ "$LOCAL_WORKER_CASES" -ne 14 ] || [ "$LOCAL_WORKER_SKIPS" -ne 0 ]; then
-            echo "独立本地worker成功交付、未知停止及配置绑定验收未完整通过"; exit 1
+          if [ "$LOCAL_WORKER_ROOT" -ne 1 ] || [ "$LOCAL_WORKER_LEVELS" -ne 2 ] || [ "$LOCAL_WORKER_CASES" -ne 16 ] || [ "$LOCAL_WORKER_SHORT_CASES" -ne 2 ] || [ "$LOCAL_WORKER_SKIPS" -ne 0 ]; then
+            echo "独立本地worker成功交付、深度不足拒绝释放、未知停止及配置绑定验收未完整通过"; exit 1
           fi
           if [ "$CALL_AUDIT_STARTUP_ROOT" -ne 1 ] || [ "$CALL_AUDIT_STARTUP_LEVELS" -ne 2 ] || [ "$CALL_AUDIT_STARTUP_CASES" -ne 34 ] || [ "$CALL_AUDIT_STARTUP_SKIPS" -ne 0 ]; then
             echo "调用审计启动保护、受限worker及回滚验收未完整通过"; exit 1
@@ -591,7 +593,8 @@ jobs:
           # 原1128，新增实际API/独立worker的1根、2级别与4个轻深用例。
           # 再增加正式进程H5配置1根8子例和只转发网关1根。
           # 两隔离级别各增加一个实际worker临时会话认证成功场景。
-          MIN=1147
+          # 两隔离级别各增加深度不足六条引文的实际worker拒绝/释放场景。
+          MIN=1149
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项，低于下限 $MIN —— 要么没跑，要么有测试被删。"; exit 1
           fi

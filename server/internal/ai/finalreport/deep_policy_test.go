@@ -1,13 +1,15 @@
 package finalreport
 
 import (
+	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/tangniyuqi/tm-stock/server/internal/ai/task"
 )
 
 func TestDeepPolicyRequiresExplicitTypeAndSixQuotes(t *testing.T) {
-	p, _, _, a := admissionScopeFixture(t)
+	p, _, selection, a := admissionScopeFixture(t)
 	l2cfg := p.cfg
 	l2cfg.AnalysisType, l2cfg.MinQuotes = task.DeepAnalysisType, task.DeepMinQuotes
 	l2, err := NewPolicy(l2cfg, p.entailment, p.semantic)
@@ -25,6 +27,20 @@ func TestDeepPolicyRequiresExplicitTypeAndSixQuotes(t *testing.T) {
 	v := vFromScopeFixture(t)
 	if l2.MatchesAdmission(a, v) {
 		t.Fatal("四条引文错误通过深度最低交付")
+	}
+	raw, err := json.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := l2.Decode(string(raw)); err == nil {
+		t.Fatal("不足六条引文未在结构终检时拒绝")
+	}
+	deepSelection, err := NewSelectionStage(l2, v.TaskNo, v.ThemeID, v.ThemeName, selection.snapshots)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := deepSelection.Build(context.Background(), selectionJSON(t, selection.snapshots[0].ID)); err == nil {
+		t.Fatal("不足六条的模型选句推进了深度报告")
 	}
 	node := v.Report.Sections[0].Nodes[0]
 	v.Report.Sections[0].Nodes = append(v.Report.Sections[0].Nodes, node, node)

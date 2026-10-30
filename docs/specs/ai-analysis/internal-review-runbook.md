@@ -8,6 +8,10 @@
 
 ### 本地装配启动预检（2026-10-29，首个增量）
 
+真实实际H5专项复用下文完整HBuilderX构建与回环静态服务；在受控父Node的`startChainVerification`选项中设置`processes:true,processBrowser:true,conversation:true,analysisType:'light'`（或deep），并提供`origin:'http://127.0.0.1:<完整H5静态端口>'`和原工具路径。父进程固定选择精确`TestIntegrationAIReportLocalAPIWorkerLiveH5`，只传本轮临时桥会话；不得同时设置替身H5专项标记。每次单独新建隔离库，计划在任务创建前声明十五分钟预算，浏览器交互上下文十八分钟，模型单次网络时限仍三十秒；这不延长原队列RunBatch固定五分钟上下文，超出原执行窗口仍须失败保留证据。控制页明确提示真实社区V2及付费模型，没有“允许测试Agent完成”按钮，`/__test__/complete`返回404；不得用替身开关、修改数据库或重交任务催出结果。
+
+从Go日志的本轮`/__test__/`入口读取临时口令至内存，按原表单先验错误密码、再登录会员一，创建会话、选择轻深技能、查询合成题材、保存原报价意图并重新核对/确认冻结，等待弹窗实际隐藏后打开关联任务及公开SSE。真实报告须从页面读取两次，核对章节与引文；第二会员原表单登录后应无他人会话/任务，旧页私有态清空。最后在控制页结束，等待原Go根组/密码桥/worker全部成功及父脚本清理。`local-chain-receipt.json`须verified=true、go_exit=0、browser_verified=true、process_h5_verified=true及H5进程scope，并有独立`TM_STOCK_LIVE_PROCESS_H5_VERIFIED`；process_http_verified可以为false，因为它是另一个入口的证据。只有HTTP标记、页面成功提示或Go零用例均不构成此项通过。实际供应商/用量以同轮父桥回执为准，未知保留失败原记录，不自动重跑。仅合成资料和测试积分，不部署线上、不授予生产批准。
+
 本地受控模型桥可由环境`TM_AI_LOCAL_MODEL_SESSION`注入本轮随机64位小写十六进制临时会话；空值继续使用原无认证回环协议，非法值在数据库连接前拒绝。格式校验不证明会话来源，也不授予真实调用批准。真实供应商Key须仍由独立父桥保管，不交给Go进程；执行JSON不接受Key/会话字段，原无密钥工厂继续拒绝cfg.APIKey。临时会话不进入执行档案摘要，全部原准入、资料、预算、审计、发布复核继续生效。实际worker的session场景须验证三次带认证模型请求、六审计、一次结算和输出无会话明文；默认网络边界仍限字面回环。
 
 需要真实HTTP进程专项时，受控父Node通过`startLocalChain`构造一次性桥后，调用`startChainVerification(bridge,{powershell,mysql,bash,goBin,gccBin,processes:true,conversation:true,analysisType:'light'})`（或deep）。此模式自行编译原密码桥，不接收旧loginRunner；只运行精确`TestIntegrationAIReportLocalAPIWorkerLive`，不需要H5源。真实调用仍须独立liveagents标签和显式本地单任务标志。父进程只传临时模型/Agent会话，Go原密码HTTP路由签发会员JWT，实际API创建会话意图、独立worker扫描队列，原终检和测试账本结算；报告/意图重读、终态SSE及跨会员拒绝沿原接口验证。测试计划在创建前声明15分钟任务预算及较大的令牌上界，模型单次网络期限仍30秒，不因此改生产或旧用例时限。回执scope为local_http_process_conversation_async_real_v2_test_ledger、browser_verified明确false，必须另有TM_STOCK_LIVE_PROCESS_HTTP_VERIFIED证明，不能拿旧会话日志替代。模型失败或未知不换键重交，收尾仍须等待原进程、保留实际用量及失败回执。

@@ -37,7 +37,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
-$liveReportPatterns = @('^TestIntegrationAIReportLiveAgents$', '^TestIntegrationAIReportDeepLiveAgents$', '^TestIntegrationAIReportLocalAPIWorkerLive$')
+$liveReportPatterns = @('^TestIntegrationAIReportLiveAgents$', '^TestIntegrationAIReportDeepLiveAgents$', '^TestIntegrationAIReportLocalAPIWorkerLive$', '^TestIntegrationAIReportLocalAPIWorkerLiveH5$')
 $localAPIWorkerH5Pattern = '^TestIntegrationAIReportLocalAPIWorkerH5$'
 if ($ReportPattern -eq $localAPIWorkerH5Pattern -and -not $LocalAPIWorkerBrowser) { throw '正式进程H5根组需要显式浏览器入口，禁止零用例假通过' }
 if ($LocalAPIWorkerBrowser -and ($LiveAgents -or $MaterialQABrowser -or $StreamReplayBrowser -or $TimeoutRecoveryTests -or $DeepH5Tests -or $LocalBootstrapOnly -or $LocalAPIBootstrap -or $LocalMemberBootstrap -or $LocalConversationBootstrap -or $LocalPlanBootstrap -or $LocalTaskBootstrap -or $LocalReportBootstrap -or -not $ReportsOnly -or $RunCount -ne 1 -or $ReportPattern -ne $localAPIWorkerH5Pattern -or $env:TM_TEST_AI_H5_LOCAL_API_WORKER -ne 'local-fixture-only' -or $env:TM_TEST_AI_H5_LOCAL_DEPTH -notin @('light','deep'))) { throw '正式进程H5只允许独立单次轻深隔离浏览器验收' }
@@ -52,6 +52,7 @@ if ($ReportPattern -in $liveReportPatterns -and -not $LiveAgents) { throw '真�
 if ($ReportPattern -eq '^TestIntegrationAIReportMaterialQAH5$' -and -not $MaterialQABrowser) { throw '资料问答浏览器根组需要显式编译专项标签，禁止零用例假通过' }
 if ($ReportPattern -eq '^TestIntegrationAIReportH5StreamReplay$' -and -not $StreamReplayBrowser) { throw 'SSE浏览器根组需要显式编译专项标签，禁止零用例假通过' }
 if ($LiveAgents -and (-not $ReportsOnly -or $RunCount -ne 1 -or $ReportPattern -notin $liveReportPatterns -or $env:TM_TEST_AI_LIVE -ne 'local-fixture-only')) { throw '付费联调只允许显式本地单用例、单次执行' }
+if ($LiveAgents -and $ReportPattern -eq '^TestIntegrationAIReportLocalAPIWorkerLiveH5$' -and ($env:TM_TEST_AI_LIVE_PROCESS -ne 'local-fixture-only' -or $env:TM_TEST_AI_LIVE_PROCESS_H5 -ne 'local-fixture-only' -or $env:TM_TEST_AI_H5_LOCAL_DEPTH -notin @('light','deep'))) { throw '真实进程H5需要单独声明浏览器及轻深范围' }
 if ($MaterialQABrowser -and ($LiveAgents -or -not $ReportsOnly -or $RunCount -ne 1 -or $ReportPattern -ne '^TestIntegrationAIReportMaterialQAH5$' -or $env:TM_TEST_AI_H5_MATERIAL_QA -ne 'local-fixture-only')) { throw '资料问答浏览器只允许显式隔离单用例，不能混用真实Agent模式' }
 if ($StreamReplayBrowser -and ($LiveAgents -or $MaterialQABrowser -or -not $ReportsOnly -or $RunCount -ne 1 -or $ReportPattern -ne '^TestIntegrationAIReportH5StreamReplay$' -or $env:TM_TEST_AI_H5_STREAM_REPLAY -ne 'local-fixture-only')) { throw '原事件SSE浏览器只允许独立、显式隔离单用例' }
 $timeoutRecoveryPatterns = @('^TestIntegrationAIReportTimeoutRecovery$', '^TestIntegrationAIReportH5TimeoutRecovery$')
