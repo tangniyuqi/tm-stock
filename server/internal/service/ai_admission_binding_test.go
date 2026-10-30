@@ -61,7 +61,7 @@ func bindingFixture(t *testing.T) (*bindingTestStore, AIL1ReportPlan, task.Task)
 	return &bindingTestStore{scriptedTaskStore: store, record: r, marked: true}, p, v
 }
 func TestAIL1AdmissionBindingRejectsChangedExecution(t *testing.T) {
-	for _, name := range []string{"same", "actor", "symbol", "agent_profile", "units", "model", "quality", "hard_budget", "policy", "theme", "source", "body", "license", "material_count", "missing", "corrupt", "commit", "legacy", "task_price", "task_budget", "scope"} {
+	for _, name := range []string{"same", "actor", "symbol", "agent_profile", "units", "model", "quality", "hard_budget", "policy", "theme", "source", "body", "license", "material_count", "missing", "corrupt", "commit", "legacy", "task_price", "task_budget", "scope", "dossier_component"} {
 		t.Run(name, func(t *testing.T) {
 			s, p, v := bindingFixture(t)
 			switch name {
@@ -105,6 +105,9 @@ func TestAIL1AdmissionBindingRejectsChangedExecution(t *testing.T) {
 				s.v.Budget.MaxTokens++
 			case "scope":
 				s.v.SubjectID++
+			case "dossier_component":
+				s.record.Plan.DossierSupportDigest = strings.Repeat("d", 64)
+				_, s.record.Digest, _ = s.record.Plan.Encode()
 			}
 			err := checkAdmittedL1(context.Background(), s, v, p)
 			if name == "same" || name == "legacy" {

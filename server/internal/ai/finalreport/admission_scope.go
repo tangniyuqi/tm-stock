@@ -4,7 +4,7 @@ import "github.com/tangniyuqi/tm-stock/server/internal/ai/task"
 
 // 只比对首次已批准范围，不授予当前来源、质量、模型或发布许可。
 func (p *Policy) admittedIdentity(a task.AdmissionPlan, id int64, name string) bool {
-	if !p.Valid() {
+	if !p.Valid() || a.DossierSupportDigest != "" {
 		return false
 	}
 	wantType := 1

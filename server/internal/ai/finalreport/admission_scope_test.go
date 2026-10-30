@@ -26,7 +26,7 @@ func admissionScopeFixture(t *testing.T) (*Policy, Proposal, *SelectionStage, ta
 }
 
 func TestReportAdmissionScope(t *testing.T) {
-	for _, mode := range []string{"same", "subset", "subject", "name", "model", "filing", "scope", "budget", "snapshot", "hash", "url", "category", "collected"} {
+	for _, mode := range []string{"same", "subset", "subject", "name", "model", "filing", "scope", "budget", "snapshot", "hash", "url", "category", "collected", "dossier_component"} {
 		t.Run(mode, func(t *testing.T) {
 			p, v, s, a := admissionScopeFixture(t)
 			switch mode {
@@ -56,6 +56,8 @@ func TestReportAdmissionScope(t *testing.T) {
 				a.Materials[0].Category = sources.CategoryAnnouncement
 			case "collected":
 				a.Materials[0].CollectedAt = a.Materials[0].CollectedAt.Add(-time.Millisecond)
+			case "dossier_component":
+				a.DossierSupportDigest = strings.Repeat("d", 64)
 			}
 			want := mode == "same" || mode == "subset"
 			if p.MatchesAdmission(a, v) != want || s.MatchesAdmission(a) != want {

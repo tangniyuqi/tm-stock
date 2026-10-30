@@ -1,10 +1,21 @@
 # AI 内部操作手册（L0 审核与隔离 Agent 执行）
 
-## 专题逐字段原文支持核验（2026-10-30，仅内部内核）
+## 专题逐字段原文支持核验（2026-10-30，内部协议与单步执行）
 
-`dossier.NewSupportPlan`绑定原题材报告任务/会员、档案精确摘要、模型策略和1—4张已绑定卡片；未知字段不补值，完整相关正文不足容量即拒绝，不截断上下文。只构造Provider请求和原judge策略，不持有Provider、不执行网络或建立新任务。现阶段没有执行工厂、持久化/当前授权服务、公开接口或页面；不能把构造器或非空批准引用当真实调用授权，也不能从旧档案known直接展示支持标签。具体契约见design13.9及ADR-0028。
+`dossier.PrepareSupport`先绑定档案精确摘要、模型策略和1—4张卡片，首次准入用可选DossierSupportDigest存组件摘要；ExecutionDigest仍由控制器核整套执行方案。之后BindTask绑定原题材报告任务/会员，NewSupportPlan委托同一路径。未知字段不补值，完整相关正文不足容量即拒绝，不截断上下文。纯内核只构造Provider请求与judge策略；AIDossierSupportWorker通过包内封闭适配器复用原单次执行器、预算、不可变调用审计、捕获、检查点及恢复。ReviewStep只允许3/4，0为兼容默认3，步位纳入摘要，不能同一计划调用两步。具体契约见design13.9—13.10及ADR-0028。
 
-在server目录运行`go test -race -count=1 -v ./internal/ai/dossier -run '^TestDossierSupport'`，当前预期10根、103子例、零跳过。合成回执验证完整/部分/不支持/不确定的编号与理由绑定、九维字段、完整原始语境、未知/未选字段不补出、错身份回放拒绝、错模型/截断/估算或异常用量拒绝，以及原judge策略边界；这些是协议与回执测试，不是模型事实判定评测。真实回执须由原准入/预算/调用审计/阶段捕获路径取得，不手填响应或绕过当前来源许可。原始HTTP另行审计，受限捕获包不保存它，不在日志打印Request/正文/模型批准信息。
+在server目录运行`go test -race -count=1 -v ./internal/ai/dossier ./internal/ai/task ./internal/ai/finalreport ./internal/service -run '^TestDossierSupport'`，当前预期19根、177子例、零跳过。另回归TestReportAdmissionScope与TestAIL1AdmissionBindingRejectsChangedExecution，确认旧选择/发布及L1执行不能消费新组件准入。合成回执验证完整/部分/不支持/不确定的编号与理由绑定、九维字段、完整原始语境、未知/未选字段不补出、错身份回放拒绝、错模型/截断/估算或异常用量拒绝，以及原judge策略边界；新增执行测试覆盖原准入、整套方案与组件分别核验、默认关闭、指定步位和原键恢复。这些不是模型事实判定评测。真实回执须由原准入/预算/调用审计/阶段捕获路径取得，不手填响应或绕过当前来源许可。原始HTTP另行审计，受限捕获包不保存它，不在日志打印Request/正文/模型批准信息。
+
+真库专项在仓库根使用PowerShell7串行运行，不与其他真库或完整门禁并行：
+
+```powershell
+./scripts/dev/verify-ai-source-native.ps1 -MySqlBaseDir D:/mysql/mysql-8.0.46-winx64 -BashPath D:/Git/bin/bash.exe -RunCount 1 -ReportsOnly -ReportPattern '^TestIntegrationAIReportDossierSupport'
+./scripts/dev/verify-ai-source-native.ps1 -MySqlBaseDir D:/mysql9/mysql-9.7.0-winx64 -BashPath D:/Git/bin/bash.exe -RunCount 1 -ReportsOnly -ReportPattern '^TestIntegrationAIReportDossierSupport'
+```
+
+预期4根、64子节点，共68个唯一通过节点且零跳过；含RC/RR、第3/4步及四种合法语义状态，预算/start/finish/捕获/检查点确认丢失、非法回执、更高围栏接管、来源/发布/会员许可撤回与恢复及并发一次调用。断言实际调用次数、故障确已注入及原持久行，不能只根据返回错误判断故障点。父脚本还须启动检查、65项迁移断言及停止清理退出0。所有场景保持任务running、原测试冻结7分、账本无新增，不生成报告提交。
+
+该专项原HTTP创建使用测试签发JWT；前置阶段是显著合成预算/捕获/检查点，模型仅回环替身。当前资料和会员许可从真库重读；AI用途/模型/质量/硬预算批准仍为显式测试控制器，不代表生产批准管理、原密码登录、完整多Agent、实际H5或真实语义质量。单步worker默认关闭且没有运行工厂、队列、公开读取接口或页面；不能从内部回执直接公开支持标签。下一阶段仍需可信执行装配与当前用途控制、核验结果授权读取和页面接线；新完整编排须另行版本化验收。
 
 ## 会话保存档案引用专项（2026-10-30，仅本地）
 

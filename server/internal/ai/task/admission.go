@@ -55,6 +55,7 @@ type AdmissionPlan struct {
 	ApprovalRef, QualityRef, HardBudgetRef, PriceRef, SourceRef      string
 	Materials                                                        []AdmissionMaterial
 	CompanyDigest                                                    string `json:",omitempty"` // 非空时显式绑定完整审核公司集合，空值保留旧编码。
+	DossierSupportDigest                                             string `json:",omitempty"` // 新核验组件另行绑定，不解释为旧报告批准。
 }
 
 func (AdmissionPlan) String() string {
@@ -64,6 +65,9 @@ func (p AdmissionPlan) GoString() string { return p.String() }
 
 func (p AdmissionPlan) Validate(scope AdmissionScope) error {
 	if p.CompanyDigest != "" && !digestPattern.MatchString(p.CompanyDigest) {
+		return points.ErrInvalid
+	}
+	if p.DossierSupportDigest != "" && !digestPattern.MatchString(p.DossierSupportDigest) {
 		return points.ErrInvalid
 	}
 	if scope.Validate() != nil || p.Scope != scope || scope.SubjectType != Theme || p.Price.Validate() != nil || p.Budget.Validate() != nil || p.Budget.MaxCalls < 5 || !digestPattern.MatchString(p.ProfileDigest) || !digestPattern.MatchString(p.ExecutionDigest) {

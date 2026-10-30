@@ -116,7 +116,8 @@ jobs:
           # 会话档案引用增加16个普通测试节点（选择/隐私/服务/非法装配）。
           # 引用配置、HTTP闭集与默认关闭装配增加48个普通测试节点。
           # 逐字段核验内部计划/捕获/回放新增113节点，不代表真实模型准确率。
-          MIN=1673
+          # 准入准备、可选组件兼容、封闭适配和单步执行增加83项，旧执行拒绝新组件另增2项。
+          MIN=1758
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项测试，低于下限 $MIN —— 要么测试没被执行，要么有测试被删。"
             exit 1
@@ -126,7 +127,7 @@ jobs:
           SUPPORT_ROOTS=$(grep -Ec '^--- PASS: TestDossierSupport[^ /]+ ' /tmp/gotest.log || true)
           SUPPORT_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestDossierSupport[^ /]+/' /tmp/gotest.log || true)
           SUPPORT_SKIPS=$(grep -Ec '^[[:space:]]*--- SKIP: TestDossierSupport' /tmp/gotest.log || true)
-          if [ "$SUPPORT_ROOTS" -ne 10 ] || [ "$SUPPORT_CASES" -ne 103 ] || [ "$SUPPORT_SKIPS" -ne 0 ]; then
+          if [ "$SUPPORT_ROOTS" -ne 19 ] || [ "$SUPPORT_CASES" -ne 177 ] || [ "$SUPPORT_SKIPS" -ne 0 ]; then
             echo "专题字段核验协议/捕获/原阶段适配验收漏跑"; exit 1
           fi
           MATCHES=$(grep -Ec '^--- PASS: TestDossierSupportCapturedVerdicts ' /tmp/gotest.log || true)
@@ -201,6 +202,90 @@ jobs:
           fi
           for phase in '缺卡' '重复卡' '未知卡' '超四卡' '无档案' '无名称' '无任务' '超安全会员' '错误任务号' '专题未接' '跨题材' '未知深度'; do
             MATCHES=$(grep -Ec "^[[:space:]]+--- PASS: TestDossierSupportPlanRejectsUnboundInput/$phase " /tmp/gotest.log || true)
+            if [ "$MATCHES" -ne 1 ]; then
+              echo "字段核验场景缺失或重复：$phase"; exit 1
+            fi
+          done
+          MATCHES=$(grep -Ec '^--- PASS: TestDossierSupportPreparationBeforeTask ' /tmp/gotest.log || true)
+          if [ "$MATCHES" -ne 1 ]; then
+            echo "字段核验根组缺失或重复：TestDossierSupportPreparationBeforeTask"; exit 1
+          fi
+          MATCHES=$(grep -Ec '^--- PASS: TestDossierSupportAdmissionExactBinding ' /tmp/gotest.log || true)
+          if [ "$MATCHES" -ne 1 ]; then
+            echo "字段核验根组缺失或重复：TestDossierSupportAdmissionExactBinding"; exit 1
+          fi
+          for phase in '核验组件摘要' '旧记录缺核验组件' '跨会员' '跨题材' '跨轻深' '对象类别' '题材名称' '模型' '公示' '配置摘要' '预算不足' '缺资料' '资料编号' '资料哈希' '资料域名' '资料类别' '资料链接' '资料时点'; do
+            MATCHES=$(grep -Ec "^[[:space:]]+--- PASS: TestDossierSupportAdmissionExactBinding/$phase " /tmp/gotest.log || true)
+            if [ "$MATCHES" -ne 1 ]; then
+              echo "字段核验场景缺失或重复：$phase"; exit 1
+            fi
+          done
+          MATCHES=$(grep -Ec '^--- PASS: TestDossierSupportReviewStepBinding ' /tmp/gotest.log || true)
+          if [ "$MATCHES" -ne 1 ]; then
+            echo "字段核验根组缺失或重复：TestDossierSupportReviewStepBinding"; exit 1
+          fi
+          for phase in '0' '3' '4' '-1' '2' '5'; do
+            MATCHES=$(grep -Ec "^[[:space:]]+--- PASS: TestDossierSupportReviewStepBinding/$phase " /tmp/gotest.log || true)
+            if [ "$MATCHES" -ne 1 ]; then
+              echo "字段核验场景缺失或重复：$phase"; exit 1
+            fi
+          done
+          MATCHES=$(grep -Ec '^--- PASS: TestDossierSupportAdmissionEncoding ' /tmp/gotest.log || true)
+          if [ "$MATCHES" -ne 1 ]; then
+            echo "字段核验根组缺失或重复：TestDossierSupportAdmissionEncoding"; exit 1
+          fi
+          for phase in 'empty' 'length_64_100' 'length_5_119' 'length_64_68' 'length_63_100'; do
+            MATCHES=$(grep -Ec "^[[:space:]]+--- PASS: TestDossierSupportAdmissionEncoding/$phase " /tmp/gotest.log || true)
+            if [ "$MATCHES" -ne 1 ]; then
+              echo "字段核验场景缺失或重复：$phase"; exit 1
+            fi
+          done
+          MATCHES=$(grep -Ec '^--- PASS: TestDossierSupportSealedModelStep ' /tmp/gotest.log || true)
+          if [ "$MATCHES" -ne 1 ]; then
+            echo "字段核验根组缺失或重复：TestDossierSupportSealedModelStep"; exit 1
+          fi
+          for phase in '1' '2'; do
+            MATCHES=$(grep -Ec "^[[:space:]]+--- PASS: TestDossierSupportSealedModelStep/$phase " /tmp/gotest.log || true)
+            if [ "$MATCHES" -ne 1 ]; then
+              echo "字段核验场景缺失或重复：$phase"; exit 1
+            fi
+          done
+          MATCHES=$(grep -Ec '^--- PASS: TestDossierSupportOwnedLifecycle ' /tmp/gotest.log || true)
+          if [ "$MATCHES" -ne 1 ]; then
+            echo "字段核验根组缺失或重复：TestDossierSupportOwnedLifecycle"; exit 1
+          fi
+          for phase in '3' '3/supported' '3/partial' '3/unsupported' '3/uncertain' '4' '4/supported' '4/partial' '4/unsupported' '4/uncertain'; do
+            MATCHES=$(grep -Ec "^[[:space:]]+--- PASS: TestDossierSupportOwnedLifecycle/$phase " /tmp/gotest.log || true)
+            if [ "$MATCHES" -ne 1 ]; then
+              echo "字段核验场景缺失或重复：$phase"; exit 1
+            fi
+          done
+          MATCHES=$(grep -Ec '^--- PASS: TestDossierSupportOwnedUnknownAndRefusal ' /tmp/gotest.log || true)
+          if [ "$MATCHES" -ne 1 ]; then
+            echo "字段核验根组缺失或重复：TestDossierSupportOwnedUnknownAndRefusal"; exit 1
+          fi
+          for phase in 'budget_unknown' 'capture_unknown' 'checkpoint_unknown' 'start' 'finish' 'transport' 'estimated' 'malformed' 'revoked_after_call'; do
+            MATCHES=$(grep -Ec "^[[:space:]]+--- PASS: TestDossierSupportOwnedUnknownAndRefusal/$phase " /tmp/gotest.log || true)
+            if [ "$MATCHES" -ne 1 ]; then
+              echo "字段核验场景缺失或重复：$phase"; exit 1
+            fi
+          done
+          MATCHES=$(grep -Ec '^--- PASS: TestDossierSupportOwnedGates ' /tmp/gotest.log || true)
+          if [ "$MATCHES" -ne 1 ]; then
+            echo "字段核验根组缺失或重复：TestDossierSupportOwnedGates"; exit 1
+          fi
+          for phase in 'off' 'nil_plan' 'nil_context' 'cancelled' 'user' 'owner' 'fence' 'key' 'input' 'stage' 'step' 'missing_admission' 'wrong_component' 'wrong_execution' 'bad_record' 'precheck' 'before_call' 'after_load'; do
+            MATCHES=$(grep -Ec "^[[:space:]]+--- PASS: TestDossierSupportOwnedGates/$phase " /tmp/gotest.log || true)
+            if [ "$MATCHES" -ne 1 ]; then
+              echo "字段核验场景缺失或重复：$phase"; exit 1
+            fi
+          done
+          MATCHES=$(grep -Ec '^--- PASS: TestDossierSupportOwnedConstruction ' /tmp/gotest.log || true)
+          if [ "$MATCHES" -ne 1 ]; then
+            echo "字段核验根组缺失或重复：TestDossierSupportOwnedConstruction"; exit 1
+          fi
+          for phase in 'tasks' 'store' 'model' 'control' 'owner' 'lease'; do
+            MATCHES=$(grep -Ec "^[[:space:]]+--- PASS: TestDossierSupportOwnedConstruction/$phase " /tmp/gotest.log || true)
             if [ "$MATCHES" -ne 1 ]; then
               echo "字段核验场景缺失或重复：$phase"; exit 1
             fi
@@ -846,6 +931,55 @@ jobs:
           if [ "$QA_HTTP_ROOTS" -ne 3 ] || [ "$QA_HTTP_LEVELS" -ne 4 ] || [ "$QA_HTTP_BOUNDARIES" -ne 18 ] || [ "$QA_SCHEMA_CASES" -ne 20 ]; then
             echo '::error::问答实际JWT/HTTP/配额/当前撤权/原键未知/无模型读取或结构破坏用例漏跑'; exit 1
           fi
+          # 专题字段核验真库门禁开始
+          SUPPORT_SQL_ROOTS=$(grep -Ec '^--- PASS: TestIntegrationAIReportDossierSupport[^ /]+ ' /tmp/it.log || true)
+          SUPPORT_SQL_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportDossierSupport[^ /]+/' /tmp/it.log || true)
+          SUPPORT_SQL_SKIPS=$(grep -Ec '^[[:space:]]*--- SKIP: TestIntegrationAIReportDossierSupport' /tmp/it.log || true)
+          if [ "$SUPPORT_SQL_ROOTS" -ne 4 ] || [ "$SUPPORT_SQL_CASES" -ne 64 ] || [ "$SUPPORT_SQL_SKIPS" -ne 0 ]; then
+            echo "专题核验准入/原审计/恢复/撤权/并发真库验收漏跑"; exit 1
+          fi
+          MATCHES=$(grep -Ec '^--- PASS: TestIntegrationAIReportDossierSupportLifecycle ' /tmp/it.log || true)
+          if [ "$MATCHES" -ne 1 ]; then
+            echo "专题核验真库根组缺失或重复：TestIntegrationAIReportDossierSupportLifecycle"; exit 1
+          fi
+          for phase in 'Read_Committed' 'Read_Committed/3' 'Read_Committed/3/supported' 'Read_Committed/3/partial' 'Read_Committed/3/unsupported' 'Read_Committed/3/uncertain' 'Read_Committed/4' 'Read_Committed/4/supported' 'Read_Committed/4/partial' 'Read_Committed/4/unsupported' 'Read_Committed/4/uncertain' 'Repeatable_Read' 'Repeatable_Read/3' 'Repeatable_Read/3/supported' 'Repeatable_Read/3/partial' 'Repeatable_Read/3/unsupported' 'Repeatable_Read/3/uncertain' 'Repeatable_Read/4' 'Repeatable_Read/4/supported' 'Repeatable_Read/4/partial' 'Repeatable_Read/4/unsupported' 'Repeatable_Read/4/uncertain'; do
+            MATCHES=$(grep -Ec "^[[:space:]]+--- PASS: TestIntegrationAIReportDossierSupportLifecycle/$phase " /tmp/it.log || true)
+            if [ "$MATCHES" -ne 1 ]; then
+              echo "专题核验真库场景缺失或重复：$phase"; exit 1
+            fi
+          done
+          MATCHES=$(grep -Ec '^--- PASS: TestIntegrationAIReportDossierSupportRecovery ' /tmp/it.log || true)
+          if [ "$MATCHES" -ne 1 ]; then
+            echo "专题核验真库根组缺失或重复：TestIntegrationAIReportDossierSupportRecovery"; exit 1
+          fi
+          for phase in 'Read_Committed' 'Read_Committed/budget' 'Read_Committed/capture' 'Read_Committed/checkpoint' 'Read_Committed/start' 'Read_Committed/finish' 'Read_Committed/transport' 'Read_Committed/estimated' 'Read_Committed/malformed' 'Read_Committed/capture_new_fence' 'Read_Committed/checkpoint_new_fence' 'Repeatable_Read' 'Repeatable_Read/budget' 'Repeatable_Read/capture' 'Repeatable_Read/checkpoint' 'Repeatable_Read/start' 'Repeatable_Read/finish' 'Repeatable_Read/transport' 'Repeatable_Read/estimated' 'Repeatable_Read/malformed' 'Repeatable_Read/capture_new_fence' 'Repeatable_Read/checkpoint_new_fence'; do
+            MATCHES=$(grep -Ec "^[[:space:]]+--- PASS: TestIntegrationAIReportDossierSupportRecovery/$phase " /tmp/it.log || true)
+            if [ "$MATCHES" -ne 1 ]; then
+              echo "专题核验真库场景缺失或重复：$phase"; exit 1
+            fi
+          done
+          MATCHES=$(grep -Ec '^--- PASS: TestIntegrationAIReportDossierSupportRevocation ' /tmp/it.log || true)
+          if [ "$MATCHES" -ne 1 ]; then
+            echo "专题核验真库根组缺失或重复：TestIntegrationAIReportDossierSupportRevocation"; exit 1
+          fi
+          for phase in 'Read_Committed' 'Read_Committed/grant_before' 'Read_Committed/source_before' 'Read_Committed/ai_use_before' 'Read_Committed/profile_before' 'Read_Committed/source_after' 'Read_Committed/grant_after' 'Read_Committed/publication_after' 'Read_Committed/cached_grant' 'Repeatable_Read' 'Repeatable_Read/grant_before' 'Repeatable_Read/source_before' 'Repeatable_Read/ai_use_before' 'Repeatable_Read/profile_before' 'Repeatable_Read/source_after' 'Repeatable_Read/grant_after' 'Repeatable_Read/publication_after' 'Repeatable_Read/cached_grant'; do
+            MATCHES=$(grep -Ec "^[[:space:]]+--- PASS: TestIntegrationAIReportDossierSupportRevocation/$phase " /tmp/it.log || true)
+            if [ "$MATCHES" -ne 1 ]; then
+              echo "专题核验真库场景缺失或重复：$phase"; exit 1
+            fi
+          done
+          MATCHES=$(grep -Ec '^--- PASS: TestIntegrationAIReportDossierSupportConcurrent ' /tmp/it.log || true)
+          if [ "$MATCHES" -ne 1 ]; then
+            echo "专题核验真库根组缺失或重复：TestIntegrationAIReportDossierSupportConcurrent"; exit 1
+          fi
+          for phase in 'Read_Committed' 'Repeatable_Read'; do
+            MATCHES=$(grep -Ec "^[[:space:]]+--- PASS: TestIntegrationAIReportDossierSupportConcurrent/$phase " /tmp/it.log || true)
+            if [ "$MATCHES" -ne 1 ]; then
+              echo "专题核验真库场景缺失或重复：$phase"; exit 1
+            fi
+          done
+          # 专题字段核验真库门禁结束
+
           # 保留原1073项，追加问答HTTP/结构45项及启动10项。
           # 原1128，新增实际API/独立worker的1根、2级别与4个轻深用例。
           # 再增加正式进程H5配置1根8子例和只转发网关1根。
@@ -860,7 +994,8 @@ jobs:
           # 专题独立API进程新增1根5子例，只转发H5网关新增1根。
           # 会话档案引用新增1根、2隔离级别及32个具体场景。
           # 引用结构11叶、独立API6叶各含1根，H5只转发边界另增1根。
-          MIN=1342
+          # 专题字段单步执行：4根、8隔离父组、4步位父组及52具体场景，共68项。
+          MIN=1410
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项，低于下限 $MIN —— 要么没跑，要么有测试被删。"; exit 1
           fi

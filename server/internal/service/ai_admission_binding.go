@@ -131,7 +131,7 @@ func checkAdmittedL1(ctx context.Context, store task.AdmissionStore, v task.Task
 		return err
 	}
 	a := record.Plan
-	if a.ExecutionDigest != digest || a.CompanyDigest != p.Policy.CompanyDigest || a.SubjectName != p.ThemeName || a.ModelName != p.Model.Model || a.FilingNo != p.Model.FilingNo || a.ProfileDigest != p.Model.ProfileDigest || a.ApprovalRef != p.Model.ApprovalRef || a.QualityRef != p.Model.QualityRef || a.HardBudgetRef != p.Model.HardBudgetRef || len(a.Materials) != len(p.Snapshots) {
+	if a.DossierSupportDigest != "" || a.ExecutionDigest != digest || a.CompanyDigest != p.Policy.CompanyDigest || a.SubjectName != p.ThemeName || a.ModelName != p.Model.Model || a.FilingNo != p.Model.FilingNo || a.ProfileDigest != p.Model.ProfileDigest || a.ApprovalRef != p.Model.ApprovalRef || a.QualityRef != p.Model.QualityRef || a.HardBudgetRef != p.Model.HardBudgetRef || len(a.Materials) != len(p.Snapshots) {
 		return points.ErrIdempotency
 	}
 	snaps := slices.Clone(p.Snapshots)
