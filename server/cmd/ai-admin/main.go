@@ -34,6 +34,13 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	local, err := config.LoadAILocalRuntime(cfg.DSN)
+	if err != nil {
+		return err
+	}
+	if local != nil {
+		cfg.Addr = local.Listen
+	}
 	l0Config, err := config.LoadAIL0()
 	if err != nil {
 		return err
@@ -46,11 +53,18 @@ func run() error {
 	defer func() { _ = db.Close() }()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	return startAdmin(ctx, cfg, l0Config, db, serveAdmin)
+	return startAdminWithLocal(ctx, cfg, l0Config, db, serveAdmin, local)
 }
 
 // startAdmin 接受已打开的数据库，便于用隔离测试驱动验证启动与路由装配。
 func startAdmin(ctx context.Context, cfg *config.AIAdminConfig, l0Config *config.AIL0Config, db *sql.DB, serve func(context.Context, *http.Server) error) error {
+	return startAdminWithLocal(ctx, cfg, l0Config, db, serve, nil)
+}
+
+func startAdminWithLocal(ctx context.Context, cfg *config.AIAdminConfig, l0Config *config.AIL0Config, db *sql.DB, serve func(context.Context, *http.Server) error, local *config.AILocalRuntime) error {
+	if local != nil {
+		return startLocalFeedbackAdmin(ctx, cfg, l0Config, db, serve, local)
+	}
 	db.SetMaxOpenConns(10)
 	db.SetMaxIdleConns(5)
 	db.SetConnMaxLifetime(time.Hour)

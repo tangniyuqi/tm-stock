@@ -23,6 +23,8 @@ import (
 
 	"github.com/tangniyuqi/tm-stock/server/internal/config"
 	"github.com/tangniyuqi/tm-stock/server/internal/dto"
+	"github.com/tangniyuqi/tm-stock/server/internal/repository"
+	"github.com/tangniyuqi/tm-stock/server/internal/service"
 )
 
 // 实际二进制之间的HTTP证据；模型与Agent为回环协议替身，不计作浏览器或真实模型验收。
@@ -102,9 +104,16 @@ func localAPISchema(t *testing.T, e *workflowEnv) {
 	}
 }
 
-func localAPIDSN(t *testing.T, e *workflowEnv) string {
+func localAPIDSN(t *testing.T, e *workflowEnv, feedback ...bool) string {
 	t.Helper()
-	return localProcessDSN(t, e, []string{"tm_points_accounts", "tm_points_txns", "tm_points_lots", "tm_points_entries", "tm_points_holds", "tm_points_hold_allocs", "tm_points_debts", "tm_points_debt_allocs", "tm_ai_tasks", "tm_ai_task_events", "tm_ai_task_budgets", "tm_ai_task_reservations", "tm_ai_task_step_results", "tm_ai_task_steps", "tm_ai_task_admissions", "tm_ai_report_commits", "tm_ai_conversations", "tm_ai_conversation_messages", "tm_ai_conversation_tasks"}, true)
+	if len(feedback) > 1 {
+		t.Fatal("每轮只能声明一个反馈范围")
+	}
+	tables := []string{"tm_points_accounts", "tm_points_txns", "tm_points_lots", "tm_points_entries", "tm_points_holds", "tm_points_hold_allocs", "tm_points_debts", "tm_points_debt_allocs", "tm_ai_tasks", "tm_ai_task_events", "tm_ai_task_budgets", "tm_ai_task_reservations", "tm_ai_task_step_results", "tm_ai_task_steps", "tm_ai_task_admissions", "tm_ai_report_commits", "tm_ai_conversations", "tm_ai_conversation_messages", "tm_ai_conversation_tasks"}
+	if len(feedback) == 1 && feedback[0] {
+		tables = append(tables, "tm_ai_report_feedbacks", "tm_ai_report_feedback_events")
+	}
+	return localProcessDSN(t, e, tables, true)
 }
 
 func localPasswordTokens(t *testing.T, ctx context.Context, b *h5MemberLoginBridge, client *http.Client) (tokens []string, password string) {
@@ -166,7 +175,7 @@ func localPasswordTokens(t *testing.T, ctx context.Context, b *h5MemberLoginBrid
 	return
 }
 
-func startLocalAPI(t *testing.T, e *workflowEnv, binary, dsn, signing, runtimeFile, plansFile string, client *http.Client, base string, deep bool) {
+func startLocalAPI(t *testing.T, e *workflowEnv, binary, dsn, signing, runtimeFile, plansFile string, client *http.Client, base string, deep bool, feedback ...bool) {
 	t.Helper()
 	ctx, cancel := context.WithCancel(e.ctx)
 	cmd := exec.CommandContext(ctx, binary)
@@ -177,6 +186,12 @@ func startLocalAPI(t *testing.T, e *workflowEnv, binary, dsn, signing, runtimeFi
 		cmd.Env = append(cmd.Env, flag+"=true")
 	}
 	cmd.Env = append(cmd.Env, "TM_AI_DEEP_SUBMIT_ENABLED="+strconv.FormatBool(deep))
+	if len(feedback) > 1 {
+		t.Fatal("每轮只能声明一个反馈范围")
+	}
+	if len(feedback) == 1 && feedback[0] {
+		cmd.Env = append(cmd.Env, "TM_AI_FEEDBACK_ENABLED=true")
+	}
 	if err := cmd.Start(); err != nil {
 		cancel()
 		t.Fatal("启动实际API失败")
@@ -222,8 +237,10 @@ func startLocalAPI(t *testing.T, e *workflowEnv, binary, dsn, signing, runtimeFi
 }
 
 type localProcessCase struct {
-	configure func(*testing.T, *localPublicationFixture, *config.AILocalExecution)
-	external  bool
+	configure             func(*testing.T, *localPublicationFixture, *config.AILocalExecution)
+	external              bool
+	feedbackAdmin         string
+	feedbackBrowserRunner string
 }
 
 func verifyLocalAPIWorker(t *testing.T, level sql.IsolationLevel, kind int, api, worker, login string, cases ...localProcessCase) {
@@ -238,12 +255,16 @@ func verifyLocalAPIWorker(t *testing.T, level sql.IsolationLevel, kind int, api,
 		t.Fatal("每轮只允许一个进程配置")
 	}
 	external := len(cases) == 1 && cases[0].external
-	if external {
+	feedbackEnabled := len(cases) == 1 && cases[0].feedbackAdmin != ""
+	if external || len(cases) == 1 && cases[0].feedbackBrowserRunner != "" {
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 		t.Cleanup(cancel)
 		e.pointsTestEnv.ctx = ctx
 	}
 	localAPISchema(t, e)
+	if feedbackEnabled {
+		reportDDL(t, e.pointsTestEnv, "20261020_create_tm_ai_report_feedbacks.sql")
+	}
 	var seed [32]byte
 	if _, err := rand.Read(seed[:]); err != nil {
 		t.Fatal(err)
@@ -277,13 +298,17 @@ func verifyLocalAPIWorker(t *testing.T, level sql.IsolationLevel, kind int, api,
 	write(runtimeFile, f.runtime)
 	cc, mc := e.agentConfig, workflowModelConfig(e.server.URL())
 	execution := config.AILocalExecution{Version: 1, InstanceID: f.runtime.InstanceID, Revision: "v1", Scope: "synthetic-loopback-only", IssuedAtMS: time.Now().UnixMilli() - 1000, ExpiresAtMS: f.file.ExpiresAtMS, Model: config.AILocalExecutionModel{Name: mc.Name, BaseURL: mc.BaseURL, Model: mc.Model, TimeoutMS: mc.TimeoutMS}, Agent: config.AILocalExecutionAgent{BaseURL: cc.BaseURL, ApprovalRef: cc.ApprovalRef, LicenseRef: cc.LicenseRef, QuickModel: cc.QuickModel, DeepModel: cc.DeepModel, TimeoutMS: int(cc.Timeout / time.Millisecond), MaxSubmissions: cc.MaxSubmissions}, LeaseMS: 60000, HeartbeatMS: 1000, WorkerTimeoutMS: 30000, AgentPollMS: 50}
-	if len(cases) == 1 {
+	if len(cases) == 1 && cases[0].configure != nil {
 		cases[0].configure(t, f, &execution)
 		f.file.Plans = []config.AILocalPlan{f.spec}
 		write(f.path, f.file)
 	}
 	write(executionFile, execution)
-	startLocalAPI(t, e, api, localAPIDSN(t, e), signing, runtimeFile, f.path, client, base, kind == 2)
+	var feedbackPeer *localFeedbackPeer
+	if feedbackEnabled {
+		feedbackPeer = startLocalFeedbackPeer(t, f, cases[0].feedbackAdmin, client)
+	}
+	startLocalAPI(t, e, api, localAPIDSN(t, e, feedbackEnabled), signing, runtimeFile, f.path, client, base, kind == 2, feedbackEnabled)
 	hidden := func(raw []byte) {
 		t.Helper()
 		for _, s := range []string{password, tokens[0], tokens[1], "req_hash", "idem_key", "task_key", "lease_owner", "budget_json", "profile_digest", "local-eval:", "l1_test_remote"} {
@@ -487,6 +512,9 @@ func verifyLocalAPIWorker(t *testing.T, level sql.IsolationLevel, kind int, api,
 			}
 		}
 	}
+	if feedbackPeer != nil {
+		verifyLocalFeedbackProcess(t, f, feedbackPeer, client, base, taskPath, tokens)
+	}
 	// 重放与重读完成后，让两个队列再扫描两轮，检查原进程不会再提交或扣分。
 	timer := time.NewTimer(2200 * time.Millisecond)
 	defer timer.Stop()
@@ -509,6 +537,16 @@ func verifyLocalAPIWorker(t *testing.T, level sql.IsolationLevel, kind int, api,
 		t.Fatal("实际API和worker闭环重复调用、结算或污染其它会员")
 	}
 	requirePointAudit(t, e.pointsTestEnv, e.ledger)
+	if len(cases) == 1 && cases[0].feedbackBrowserRunner != "" {
+		if feedbackPeer == nil {
+			t.Fatal("缺少本轮实际管理进程")
+		}
+		s, err := service.NewAIFeedbackService(repository.NewAIFeedbackRepo(e.db))
+		if err != nil {
+			t.Fatal(err)
+		}
+		feedbackConsoleBrowser(t, e, s, feedbackPeer.base, feedbackPeer.credential, cases[0].feedbackBrowserRunner, linked.TaskID)
+	}
 	bridge.finishAs(t, e.ctx, false)
 	if external {
 		t.Log("TM_STOCK_LIVE_PROCESS_HTTP_VERIFIED")

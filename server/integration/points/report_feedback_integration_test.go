@@ -292,26 +292,31 @@ func TestIntegrationAIReportFeedbackHTTP(t *testing.T) {
 	}
 }
 
-func feedbackConsoleBrowser(t *testing.T, e *workflowEnv, s *service.AIFeedbackService, upstream, credential, runner string) {
+func feedbackConsoleBrowser(t *testing.T, e *workflowEnv, s *service.AIFeedbackService, upstream, credential, runner string, targetTask ...int64) {
 	t.Helper()
 	if !filepath.IsAbs(runner) || !strings.HasSuffix(strings.ToLower(runner), ".exe") {
 		t.Fatal("测试运行器必须为显式编译的绝对路径测试程序")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 9*time.Minute)
 	defer cancel()
+	previous := e.ctx
 	e.pointsTestEnv.ctx = ctx
-	r, err := s.Submit(ctx, e.v.UserID, e.v.ID, "source")
+	defer func() { e.pointsTestEnv.ctx = previous }()
+	id := e.v.ID
+	if len(targetTask) > 1 || len(targetTask) == 1 && targetTask[0] <= 0 {
+		t.Fatal("每轮只允许一个明确报告")
+	}
+	if len(targetTask) == 1 {
+		id = targetTask[0]
+	}
+	r, err := s.Submit(ctx, e.v.UserID, id, "source")
 	if err != nil {
 		t.Fatal(err)
 	}
 	before := e.queryInt("SELECT COUNT(*) FROM tm_points_txns")
 	cmd := exec.CommandContext(ctx, runner, "-test.run=^TestFeedbackConsoleBrowser$", "-test.v")
-	for _, entry := range os.Environ() {
-		if !strings.HasPrefix(entry, "TM_AI_") && !strings.HasPrefix(entry, "TM_TEST_DSN=") && !strings.HasPrefix(entry, "MYSQL_PWD=") {
-			cmd.Env = append(cmd.Env, entry)
-		}
-	}
-	cmd.Env = append(cmd.Env, "TM_TEST_FEEDBACK_UPSTREAM="+upstream, "TM_TEST_FEEDBACK_CREDENTIAL="+credential)
+	// 测试子进程只继承系统/编译环境，不继承宿主供应商密钥或生产配置。
+	cmd.Env = append(localWorkerEnvironment("", ""), "TM_TEST_FEEDBACK_UPSTREAM="+upstream, "TM_TEST_FEEDBACK_CREDENTIAL="+credential, "TM_TEST_FEEDBACK_UI_ORIGIN="+os.Getenv("TM_TEST_FEEDBACK_UI_ORIGIN"))
 	pipe, err := cmd.StdoutPipe()
 	if err != nil {
 		t.Fatal("测试运行器管道失败")

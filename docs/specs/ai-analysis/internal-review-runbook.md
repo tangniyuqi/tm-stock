@@ -72,6 +72,16 @@ API使用逐表受限写账号以保留所有原保护探针；会员仍只读�
 
 在server目录执行`go run ./cmd/ai-worker check-local -config <本地配置绝对路径>`可做无数据库连接的预检；成功输出明确说明尚未验证数据库所有权、结构和批准。实际命令正例及跨库反例已有验收，此子命令不启动队列、迁移、模型或任务，不能当作本地服务已运行。数据库隔离标记、计划/批准控制器及完整API/worker入口仍在开发；不要将配置示例或成功预检迁为生产批准。
 
+### 受控本地反馈管理进程
+
+`cmd/ai-admin`也接受上述`TM_AI_LOCAL_CONFIG`。本地模式只注册三个原反馈内部端点，不注册来源管理、审核、抽取或公开会员路由；必须显式设置`TM_AI_FEEDBACK_ADMIN_ENABLED=true`、保持`TM_AI_L0_ENABLED=false`。配置中的监听地址覆盖原管理监听，须为字面回环。环境变量`TM_DB_DSN`单独注入同一隔离库的管理运行账号，`TM_AI_ADMIN_REVIEWERS`仍按原内部身份绑定规则注入，不写入文件或前端变量。未设置本地文件时原管理装配不变。
+
+启动先核验同库唯一实例标记，再运行原反馈结构回滚探针，全部通过才监听；不自动迁移或补造实例标记。初始化所有者须事先执行反馈迁移。运行账号的逐表权限由探针与业务决定：18张账本/任务/准入/报告/反馈表具备原回滚探针所需DML，共用来源/实例标记等表仅SELECT，不授会员密码读取、Agent执行或DDL权限；具体表清单见`localFeedbackAdminDSN`与`localProcessDSN`。运行账号不能替代初始化所有者；标记只防误连，不能作为生产批准。实例核验在启动时完成，不声称运行期自动撤回批准。
+
+自动化复验在仓库根执行原生脚本，传本机MySQL及Git Bash目录，选择`-ReportsOnly -ReportPattern '^TestIntegrationAIReportLocalFeedbackProcess$' -RunCount 1`，分别验证8/9版。根组编译实际API、worker及管理程序，使用原会员密码HTTP登录，在RC/RR各生成轻深报告；再经实际会员API提交/重复提交，独立管理进程查询/处理/重放，会员读取原结果。检查错误身份、跨会员、跳级/竞争终态及多余正文拒绝、来源撤回后报告拒读而反馈可查、三条不可变事件及零额外模型/积分流水。Agent和模型仅回环协议替身，不是本轮真实推理或会员浏览器证据。
+
+后台浏览器复验须先按后文整套GVA隔离构建流程准备静态前端；仅一次性测试进程设置`TM_TEST_AI_LOCAL_FEEDBACK_CONSOLE=local-fixture-only`及`TM_TEST_FEEDBACK_UI_ORIGIN=<完整GVA的127.0.0.1 HTTP源>`，清除真实调用标志。原生入口选择`-ReportsOnly -LocalFeedbackConsoleBrowser -ReportPattern '^TestIntegrationAIReportLocalFeedbackConsoleH5$' -RunCount 1`。从日志控制页取得当轮账号，在原登录/角色界面保存菜单及三API权限，处理人由侧栏处理原MySQL受理单至版本3，核对三条历史；普通后台账号旧入口应被拒。最后控制页结束，还须检查根组PASS、父脚本迁移64/64及临时实例清理。原人工子程序仍8分钟；超时保留失败记录，不延长时限或重写终态。后台身份/目录使用既有隔离SQLite夹具，反馈/报告/账本在实际MySQL；生产GVA MySQL权限由另一专项覆盖，不能混为本轮浏览器证据。会员提交这一段是原HTTP路由，新装配下会员H5反馈仍待独立验收。
+
 ### 新账本余额只读接口
 
 `GET /api/v1/ai/points/balance`使用原Bearer会员鉴权，只返回本人`availablePoints`（当前有效批次可消费额）、`frozenPoints`和`checkedAt`（数据库毫秒时点）。不接受查询参数或请求体，成功响应禁止缓存。无账户返回零余额，不自动创建账户；查询失败返回503，客户端必须显示暂不可用，不能将错误当零余额或回退旧资产。
