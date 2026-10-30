@@ -605,7 +605,9 @@ GRANT SELECT ON $localDatabase.tm_ai_local_instance TO '$localUser'@'127.0.0.1';
         if ($LASTEXITCODE -ne 0) { throw '会员取消启动装配集成测试失败' }
         }
         if ($ReportsOnly -or (-not $AgentsOnly -and -not $TaskBudgetOnly -and -not $TaskStagesOnly -and -not $TaskRecoveryOnly -and -not $TaskCancelOnly -and -not $TaskEventsOnly -and -not $ConversationsOnly -and -not $TaskExpiryOnly -and -not $TaskAgentBridgeOnly)) {
-        go test -p 1 -race -tags=integration ./cmd/api -run '^TestIntegration(AIReportRead|AITaskCreate)Startup$' -count $RunCount -v
+        $reportStartupArgs = @('test', '-p', '1', '-race', '-tags=integration', './cmd/api', '-run', '^TestIntegration(AIReportRead|AIReportDossier|AITaskCreate)Startup$', '-count', [string]$RunCount, '-v')
+        if ($ReportsOnly -and $APICoveragePath -ne '') { $reportStartupArgs += @('-coverpkg=./cmd/api,./internal/service,./internal/handler', "-coverprofile=$APICoveragePath") }
+        go @reportStartupArgs
         if ($LASTEXITCODE -ne 0) { throw '会员创建/报告读取启动装配集成测试失败' }
         }
         if (-not $TaskBudgetOnly -and -not $TaskStagesOnly -and -not $TaskRecoveryOnly -and -not $TaskCancelOnly -and -not $TaskEventsOnly -and -not $ConversationsOnly -and -not $TaskExpiryOnly -and -not $TaskAgentBridgeOnly -and -not $ReportsOnly) {

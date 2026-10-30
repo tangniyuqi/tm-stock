@@ -79,6 +79,24 @@ type BoundDraft struct {
 	gaps      []Gap
 	identity  DraftIdentity
 	evidence  []EvidenceRef
+	origins   []Origin
+}
+
+// Origin仅保存可回溯出处，不含来源许可和内部批准引用；本身不代表读取授权。
+type Origin struct {
+	SnapshotID          int64
+	Hash, Category, URL string
+	FetchedAt           int64
+}
+
+func (Origin) String() string     { return "专题出处（内部定位已隐藏）" }
+func (o Origin) GoString() string { return o.String() }
+
+func (b *BoundDraft) Origins() []Origin {
+	if b == nil {
+		return nil
+	}
+	return slices.Clone(b.origins)
 }
 
 type DraftIdentity struct{ ThemeID, Version, CreatedAt int64 }
@@ -251,11 +269,13 @@ func BindDraft(d Draft, snapshots []sources.Snapshot) (*BoundDraft, error) {
 		return nil, ErrInvalidDraft
 	}
 	refs := make([]EvidenceRef, 0, len(bindings))
+	origins := make([]Origin, 0, len(bindings))
 	for _, s := range bindings {
 		refs = append(refs, EvidenceRef{s.ID, s.SourceID, s.Hash})
+		origins = append(origins, Origin{s.ID, s.Hash, s.Category, s.URL, s.FetchedAt})
 	}
 	return &BoundDraft{canonical: raw, digest: task.StageDigest(raw), cards: bound,
-		gaps: slices.Clone(d.Gaps), identity: DraftIdentity{d.ThemeID, d.Version, d.CreatedAt}, evidence: refs}, nil
+		gaps: slices.Clone(d.Gaps), identity: DraftIdentity{d.ThemeID, d.Version, d.CreatedAt}, evidence: refs, origins: origins}, nil
 }
 
 func compareKey(a, b string) int {

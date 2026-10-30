@@ -113,7 +113,7 @@ jobs:
           # 本地反馈管理配置与监听前保护2根15子例。
           # 本地问答文件、策略摘要、控制器及装配保护新增53项。
           # 专题比较/字段核98个节点，存储引用与非法读取2个根测试。
-          MIN=1449
+          MIN=1467
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项测试，低于下限 $MIN —— 要么测试没被执行，要么有测试被删。"
             exit 1
@@ -366,6 +366,20 @@ jobs:
             fi
           done
           # 专题结构门禁结束
+          # 专题读取接口门禁开始
+          DOSSIER_API_ROOT=$(grep -Ec '^--- PASS: TestIntegrationAIReportDossierStartup ' /tmp/it.log || true)
+          DOSSIER_API_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportDossierStartup/' /tmp/it.log || true)
+          DOSSIER_API_SKIPS=$(grep -Ec '^[[:space:]]*--- SKIP: TestIntegrationAIReportDossierStartup([ /]|$)' /tmp/it.log || true)
+          if [ "$DOSSIER_API_ROOT" -ne 1 ] || [ "$DOSSIER_API_CASES" -ne 13 ] || [ "$DOSSIER_API_SKIPS" -ne 0 ]; then
+            echo "专题读取接口与启动边界验收漏跑"; exit 1
+          fi
+          for phase in 受限账号启动 本人双版原文与字段 跨会员 后台令牌 匿名 旧版撤权整组隐藏 来源撤回不返回旧正文 准备复用读取账号 准备连接不同端口 禁止真实调用配置 隔离标记失效 缺少正文读取权限 损坏结构不注册接口; do
+            MATCHES=$(grep -Ec "^[[:space:]]+--- PASS: TestIntegrationAIReportDossierStartup/$phase " /tmp/it.log || true)
+            if [ "$MATCHES" -ne 1 ]; then
+              echo "专题接口场景缺失或重复：$phase"; exit 1
+            fi
+          done
+          # 专题读取接口门禁结束
           if [ "$CALL_AUDIT_STARTUP_ROOT" -ne 1 ] || [ "$CALL_AUDIT_STARTUP_LEVELS" -ne 2 ] || [ "$CALL_AUDIT_STARTUP_CASES" -ne 34 ] || [ "$CALL_AUDIT_STARTUP_SKIPS" -ne 0 ]; then
             echo "调用审计启动保护、受限worker及回滚验收未完整通过"; exit 1
           fi
@@ -686,7 +700,7 @@ jobs:
           # 实际强杀恢复新增1根、2级别、4轻深父组及16种阶段/排队场景。
           # 系统信号专项新增1根、2级别、4轻深父组及12种运行阶段场景。
           # 专题存储新增1根、2隔离级别及38个真实SQL场景。
-          MIN=1262
+          MIN=1276
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项，低于下限 $MIN —— 要么没跑，要么有测试被删。"; exit 1
           fi

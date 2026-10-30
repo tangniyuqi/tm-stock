@@ -2,6 +2,10 @@
 
 ## 专题档案存储专项（2026-10-30，仅本地）
 
+本地专题读取入口：`TM_AI_LOCAL_DOSSIER_READ_ENABLED`缺省关闭。仅在已有`TM_AI_LOCAL_CONFIG`隔离配置、会员读取认证和真实调用关闭前提下，显式启用并安全注入`TM_AI_LOCAL_DOSSIER_PREPARE_DSN`；它与原业务DSN必须指向同一回环地址和专属库，使用不同数据库账号。准备账号执行隔离标记与结构回滚检查后连接关闭；业务读取账号须有隔离标记、会员/题材及专题/来源/快照/正文表的读取权限，不因此授予写入/TRIGGER。完整检查后才注册`GET /api/v1/ai/themes/{id}/dossiers/{version}`及可选compareVersion，失败无路由。不要在终端日志打印DSN；不开生产或候选写接口。当前无版本目录或会话页面，不将两版内容读取当作变化报告。
+
+原生ReportsOnly会额外执行`TestIntegrationAIReportDossierStartup`（13场景），可指定`-APICoveragePath`收集该启动窗口的API/handler/service跨层覆盖；这不代替完整HTTP进程、原密码登录或H5验收。
+
 在仓库根目录使用PowerShell 7串行运行两个版本，不与其他真库套件共用实例：
 
 ```powershell

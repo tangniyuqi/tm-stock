@@ -196,6 +196,9 @@ func run() error {
 	if err := registerAIQAWithLocal(context.Background(), mux, db, readCfg, conversationsEnabled, qaConfig, localQA, reports); err != nil {
 		return err
 	}
+	if err := registerAILocalDossiers(context.Background(), mux, db, readCfg, localRuntime, cfg.DSN); err != nil {
+		return err
+	}
 
 	srv := &http.Server{
 		Addr:              listenAddress,

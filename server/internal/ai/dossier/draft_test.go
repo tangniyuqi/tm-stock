@@ -42,6 +42,14 @@ func TestBindDraftEvidenceAndUnknownFields(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	origins := bound.Origins()
+	if len(origins) != 1 || origins[0].SnapshotID != snaps[0].ID || origins[0].URL != snaps[0].URL || origins[0].Hash != snaps[0].Hash {
+		t.Fatal("出处绑定错误")
+	}
+	origins[0].URL = "https://changed.example.test"
+	if bound.Origins()[0].URL != snaps[0].URL || (*BoundDraft)(nil).Origins() != nil {
+		t.Fatal("出处副本或空值约定失效")
+	}
 	if len(bound.Digest()) != 64 || len(bound.Canonical()) == 0 {
 		t.Fatal("没有稳定存储依据")
 	}

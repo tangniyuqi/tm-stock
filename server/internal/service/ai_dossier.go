@@ -8,6 +8,7 @@ import (
 
 	"github.com/tangniyuqi/tm-stock/server/internal/ai/conversation"
 	"github.com/tangniyuqi/tm-stock/server/internal/ai/dossier"
+	"github.com/tangniyuqi/tm-stock/server/internal/memberauth"
 	"github.com/tangniyuqi/tm-stock/server/internal/sources"
 )
 
@@ -114,8 +115,10 @@ func (s *AIDossierService) ReadVersions(parent context.Context, token string, us
 	}
 	ctx, cancel := context.WithTimeout(parent, 10*time.Second)
 	defer cancel()
-	if actual, err := s.auth.Authenticate(ctx, token); err != nil || actual != user {
-		return nil, dossier.ErrNotFound
+	if actual, err := s.auth.Authenticate(ctx, token); err != nil {
+		return nil, err
+	} else if actual != user {
+		return nil, memberauth.ErrUnauthorized
 	}
 	var out []*dossier.BoundDraft
 	err := s.store.Within(ctx, false, func(tx dossier.Tx) error {
@@ -209,8 +212,10 @@ func (s *AIDossierService) ReadVersions(parent context.Context, token string, us
 	if err != nil {
 		return nil, err
 	}
-	if actual, err := s.auth.Authenticate(ctx, token); err != nil || actual != user {
-		return nil, dossier.ErrNotFound
+	if actual, err := s.auth.Authenticate(ctx, token); err != nil {
+		return nil, err
+	} else if actual != user {
+		return nil, memberauth.ErrUnauthorized
 	}
 	return out, nil
 }
