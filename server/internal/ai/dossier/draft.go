@@ -78,6 +78,7 @@ type BoundDraft struct {
 	cards     []BoundCard
 	gaps      []Gap
 	identity  DraftIdentity
+	evidence  []EvidenceRef
 }
 
 type DraftIdentity struct{ ThemeID, Version, CreatedAt int64 }
@@ -249,8 +250,12 @@ func BindDraft(d Draft, snapshots []sources.Snapshot) (*BoundDraft, error) {
 	if err != nil || len(raw) > MaxDraftRecordBytes {
 		return nil, ErrInvalidDraft
 	}
+	refs := make([]EvidenceRef, 0, len(bindings))
+	for _, s := range bindings {
+		refs = append(refs, EvidenceRef{s.ID, s.SourceID, s.Hash})
+	}
 	return &BoundDraft{canonical: raw, digest: task.StageDigest(raw), cards: bound,
-		gaps: slices.Clone(d.Gaps), identity: DraftIdentity{d.ThemeID, d.Version, d.CreatedAt}}, nil
+		gaps: slices.Clone(d.Gaps), identity: DraftIdentity{d.ThemeID, d.Version, d.CreatedAt}, evidence: refs}, nil
 }
 
 func compareKey(a, b string) int {

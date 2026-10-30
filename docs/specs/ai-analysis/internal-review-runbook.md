@@ -1,5 +1,18 @@
 # AI 内部操作手册（L0 审核与隔离 Agent 执行）
 
+## 专题档案存储专项（2026-10-30，仅本地）
+
+在仓库根目录使用PowerShell 7串行运行两个版本，不与其他真库套件共用实例：
+
+```powershell
+./scripts/dev/verify-ai-source-native.ps1 -MySqlBaseDir D:/mysql/mysql-8.0.46-winx64 -BashPath D:/Git/bin/bash.exe -RunCount 1 -ReportsOnly -ReportPattern '^TestIntegrationAIReportDossierStore$'
+./scripts/dev/verify-ai-source-native.ps1 -MySqlBaseDir D:/mysql9/mysql-9.7.0-winx64 -BashPath D:/Git/bin/bash.exe -RunCount 1 -ReportsOnly -ReportPattern '^TestIntegrationAIReportDossierStore$'
+```
+
+脚本只创建临时回环实例；专项使用随机隔离库、合成来源和测试批准。预期精确1根、2隔离级别、38具体场景通过，零跳过；父脚本还运行原启动/迁移检查，退出0且停止清理后才计通过。测试身份替身不证明JWT/原密码登录；锁互斥以另一真实连接收到MySQL1205证明，时间跳变和提交确认丢失是故障注入，须与真实执行层分开记录。
+
+四张新表保存候选版本/依据及独立发布/会员读取许可；导入不自动发布，两种许可默认关闭。当前没有生产工厂、公开接口或批准管理入口，不将测试登记语句用于线上。后续开放前仍需受限账号、结构自检、批准变更审计、固定输出及实际H5验收。已有文本比较器不覆盖全部档案版本语义，A→B→A的独立版本存储通过不等于档案级比较页面完成。
+
 适用：内部授权资料登记、快照导入/采集、L0 抽取与人工核对。默认不调用模型；只有单独配置内部批准门禁后，`extract` 才可能调用付费 Provider。本工具不接积分收费、不开放公众 AI 报告；GVA 界面不参与审核写入。
 
 外部 Agent 使用独立的 `cmd/ai-agent`，不复用 `extract` 的无工具契约；要求与限制见末节。未配置、未批准时不运行真实模型。
