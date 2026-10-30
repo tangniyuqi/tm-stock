@@ -158,6 +158,7 @@ type supportSQLEnv struct {
 	control *supportSQLControl
 	worker  *service.AIDossierSupportWorker
 	server  *providertest.Server
+	model   *provider.OpenAICompat
 	plan    *dossier.SupportPlan
 	request task.StageRequest
 	txns    int
@@ -258,7 +259,7 @@ INSERT INTO tm_ai_dossier_grants SELECT 1,theme_id,version_no,digest,'test-fixtu
 		t.Fatal(err)
 	}
 	r := task.StageRequest{TaskID: e.v.ID, UserID: 1, Owner: e.owner, Fence: e.v.Fence, StepNo: step, Stage: "judge", OperationKey: p.OperationKey(e.v, step), InputDigest: p.InputDigest()}
-	return &supportSQLEnv{submissionHTTPEnv: e, store: store, control: ctl, worker: w, server: srv, plan: p, request: r, txns: e.queryInt(`SELECT COUNT(*) FROM tm_points_txns`)}
+	return &supportSQLEnv{submissionHTTPEnv: e, store: store, control: ctl, worker: w, server: srv, model: model, plan: p, request: r, txns: e.queryInt(`SELECT COUNT(*) FROM tm_points_txns`)}
 }
 
 func (e *supportSQLEnv) count(t *testing.T, query string, args ...any) int {

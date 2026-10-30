@@ -1,5 +1,24 @@
 # AI 内部操作手册（L0 审核与隔离 Agent 执行）
 
+## 核验清单登记与当前AI用途重建（2026-10-30，仅内部服务）
+
+`SupportPreparation.Manifest`形成16KiB以内的规范清单，只含精确档案/卡片定位、轻深类型、模型策略及组件摘要；没有正文、会员/任务号或模型回执。`AIDossierSupportRegistryService.RegisterInternal`显式开启内部登记后才可保存，默认只读；不会创建用途批准、任务、报告或积分流水。迁移`20261030_register_tm_ai_dossier_support_plans.sql`按序排在原档案迁移后，新清单表不可修改/删除，AI用途表独立且enabled默认0。不能将测试批准登记语句用于生产。
+
+`AIDossierSupportExecutionControl`先核原任务/不可变首次准入和完整控制面，再读取登记、当前AI用途及原会员/档案/来源许可，取得真实完整正文重建原输入摘要与原键。来源、用途及读取许可用同一事务共享锁和末尾数据库时钟核验，调用后撤回先存原调用审计再拒绝交付。原会员读取入口继续前后认证，后台任务身份来自原准入，不制造会员令牌。没有RPC/HTTP写入口、公众结果读取或新运行队列；完整编排工厂、用途管理审计与页面仍待接，真实调用保持关闭。
+
+在server目录运行`go test -race -count=1 -v ./internal/ai/dossier ./internal/service -run '^TestDossier(Manifest|Registry)'`，预期6根55子例共61个唯一通过节点且零跳过。清单规范/身份/策略/完整正文及原键重建、登记列元数据和构造前置拒绝分别验证；不据此声称模型语义准确率。
+
+在仓库根用PowerShell7串行运行两个版本，不与其他真库或完整门禁并行：
+
+```powershell
+./scripts/dev/verify-ai-source-native.ps1 -MySqlBaseDir D:/mysql/mysql-8.0.46-winx64 -BashPath D:/Git/bin/bash.exe -RunCount 1 -ReportsOnly -ReportPattern '^TestIntegrationAIReportDossier(Registry|Store|Process)'
+./scripts/dev/verify-ai-source-native.ps1 -MySqlBaseDir D:/mysql9/mysql-9.7.0-winx64 -BashPath D:/Git/bin/bash.exe -RunCount 1 -ReportsOnly -ReportPattern '^TestIntegrationAIReportDossier(Registry|Store|Process)'
+```
+
+核验登记当前预期5根114子节点共119个唯一通过节点，包括主登记90节点与资料只读账号29节点；另检查原Store及原密码API Process回归。实际记录可分批执行，合并守卫只合并不同测试根，不能把汇集日志当一次总进程。父启动、全部迁移及65项断言、停止清理都须退出0。HTTP创建使用测试签发JWT、前置步骤合成、模型为回环替身；原密码API证据独立记录，不代表浏览器操作或真实多Agent。
+
+资料连接只授会员、题材、档案/依据/两种读取许可、来源/快照/正文及清单/AI用途共11张表SELECT。受限账号必须实际重建，并逐表撤权后取得明确权限错误、恢复后重建；尤其不能漏掉正文关联表。该账号不能DDL、修改来源/用途、插入清单或读取任务/账务。原任务数据库与完整准入/审计仍为独立测试夹具，此证据不等于整个worker只有只读权限或生产定价/质量批准已经实现。登记写入使用单独内部维护能力，不能给资料读取账号扩权来通过测试。
+
 ## 专题逐字段原文支持核验（2026-10-30，内部协议与单步执行）
 
 `dossier.PrepareSupport`先绑定档案精确摘要、模型策略和1—4张卡片，首次准入用可选DossierSupportDigest存组件摘要；ExecutionDigest仍由控制器核整套执行方案。之后BindTask绑定原题材报告任务/会员，NewSupportPlan委托同一路径。未知字段不补值，完整相关正文不足容量即拒绝，不截断上下文。纯内核只构造Provider请求与judge策略；AIDossierSupportWorker通过包内封闭适配器复用原单次执行器、预算、不可变调用审计、捕获、检查点及恢复。ReviewStep只允许3/4，0为兼容默认3，步位纳入摘要，不能同一计划调用两步。具体契约见design13.9—13.10及ADR-0028。

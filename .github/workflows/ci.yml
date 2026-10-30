@@ -117,7 +117,8 @@ jobs:
           # 引用配置、HTTP闭集与默认关闭装配增加48个普通测试节点。
           # 逐字段核验内部计划/捕获/回放新增113节点，不代表真实模型准确率。
           # 准入准备、可选组件兼容、封闭适配和单步执行增加83项，旧执行拒绝新组件另增2项。
-          MIN=1758
+          # 核验清单规范与登记控制增加61个普通节点。
+          MIN=1819
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项测试，低于下限 $MIN —— 要么测试没被执行，要么有测试被删。"
             exit 1
@@ -291,6 +292,70 @@ jobs:
             fi
           done
           # 专题字段核验协议门禁结束
+
+          # 专题核验清单门禁开始
+          MANIFEST_ROOTS=$(grep -Ec '^--- PASS: TestDossier(Manifest|Registry)[^ /]+ ' /tmp/gotest.log || true)
+          MANIFEST_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestDossier(Manifest|Registry)[^ /]+/' /tmp/gotest.log || true)
+          MANIFEST_SKIPS=$(grep -Ec '^[[:space:]]*--- SKIP: TestDossier(Manifest|Registry)' /tmp/gotest.log || true)
+          if [ "$MANIFEST_ROOTS" -ne 6 ] || [ "$MANIFEST_CASES" -ne 55 ] || [ "$MANIFEST_SKIPS" -ne 0 ]; then
+            echo "核验清单规范/重建/原准入与关闭保护验收漏跑"; exit 1
+          fi
+          MATCHES=$(grep -Ec '^--- PASS: TestDossierManifestRoundTrip ' /tmp/gotest.log || true)
+          if [ "$MATCHES" -ne 1 ]; then
+            echo "核验清单根组缺失或重复：TestDossierManifestRoundTrip"; exit 1
+          fi
+          MATCHES=$(grep -Ec '^--- PASS: TestDossierManifestRejectsMalformed ' /tmp/gotest.log || true)
+          if [ "$MATCHES" -ne 1 ]; then
+            echo "核验清单根组缺失或重复：TestDossierManifestRejectsMalformed"; exit 1
+          fi
+          for phase in '协议' '类型' '摘要' '档案摘要' '题材名' '无键' '多键' '重键' '逆序' '坏键' '无配置' '跨安全题材' '零版本' '零时点' '超时点' '未知字段' 'raw_0' 'raw_1' 'raw_2' 'raw_3' 'raw_4' 'raw_5'; do
+            MATCHES=$(grep -Ec "^[[:space:]]+--- PASS: TestDossierManifestRejectsMalformed/$phase " /tmp/gotest.log || true)
+            if [ "$MATCHES" -ne 1 ]; then
+              echo "核验清单场景缺失或重复：$phase"; exit 1
+            fi
+          done
+          MATCHES=$(grep -Ec '^--- PASS: TestDossierManifestRebuildRejectsChangedScope ' /tmp/gotest.log || true)
+          if [ "$MATCHES" -ne 1 ]; then
+            echo "核验清单根组缺失或重复：TestDossierManifestRebuildRejectsChangedScope"; exit 1
+          fi
+          for phase in 'field_set' 'model_strategy' 'component' 'identity' 'draft_digest' 'missing_source' 'changed_body' 'nil_draft'; do
+            MATCHES=$(grep -Ec "^[[:space:]]+--- PASS: TestDossierManifestRebuildRejectsChangedScope/$phase " /tmp/gotest.log || true)
+            if [ "$MATCHES" -ne 1 ]; then
+              echo "核验清单场景缺失或重复：$phase"; exit 1
+            fi
+          done
+          MATCHES=$(grep -Ec '^--- PASS: TestDossierManifestRegistration ' /tmp/gotest.log || true)
+          if [ "$MATCHES" -ne 1 ]; then
+            echo "核验清单根组缺失或重复：TestDossierManifestRegistration"; exit 1
+          fi
+          for phase in 'before_draft' 'precision' 'future_year' 'manifest_digest' 'identity' 'analysis_type' 'canonical'; do
+            MATCHES=$(grep -Ec "^[[:space:]]+--- PASS: TestDossierManifestRegistration/$phase " /tmp/gotest.log || true)
+            if [ "$MATCHES" -ne 1 ]; then
+              echo "核验清单场景缺失或重复：$phase"; exit 1
+            fi
+          done
+          MATCHES=$(grep -Ec '^--- PASS: TestDossierRegistryConstructionAndGates ' /tmp/gotest.log || true)
+          if [ "$MATCHES" -ne 1 ]; then
+            echo "核验清单根组缺失或重复：TestDossierRegistryConstructionAndGates"; exit 1
+          fi
+          for phase in 'registry' 'zero_registry' 'tasks' 'full' 'audit' 'zero_audit'; do
+            MATCHES=$(grep -Ec "^[[:space:]]+--- PASS: TestDossierRegistryConstructionAndGates/$phase " /tmp/gotest.log || true)
+            if [ "$MATCHES" -ne 1 ]; then
+              echo "核验清单场景缺失或重复：$phase"; exit 1
+            fi
+          done
+          MATCHES=$(grep -Ec '^--- PASS: TestDossierRegistryExecutionRefusal ' /tmp/gotest.log || true)
+          if [ "$MATCHES" -ne 1 ]; then
+            echo "核验清单根组缺失或重复：TestDossierRegistryExecutionRefusal"; exit 1
+          fi
+          for phase in 'nil_context' 'cancelled' 'user' 'task' 'cross_member' 'missing_admission' 'bad_record' 'legacy' 'full_denied' 'registry_unavailable' 'nil_plan' 'wrong_plan'; do
+            MATCHES=$(grep -Ec "^[[:space:]]+--- PASS: TestDossierRegistryExecutionRefusal/$phase " /tmp/gotest.log || true)
+            if [ "$MATCHES" -ne 1 ]; then
+              echo "核验清单场景缺失或重复：$phase"; exit 1
+            fi
+          done
+          # 专题核验清单门禁结束
+
 
       - name: 受限问答执行核必跑（不调用真实模型）
         run: |
@@ -980,6 +1045,66 @@ jobs:
           done
           # 专题字段核验真库门禁结束
 
+          # 专题核验登记真库门禁开始
+          REGISTRY_ROOTS=$(grep -Ec '^--- PASS: TestIntegrationAIReportDossierRegistry[^ /]+ ' /tmp/it.log || true)
+          REGISTRY_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportDossierRegistry[^ /]+/' /tmp/it.log || true)
+          REGISTRY_SKIPS=$(grep -Ec '^[[:space:]]*--- SKIP: TestIntegrationAIReportDossierRegistry' /tmp/it.log || true)
+          if [ "$REGISTRY_ROOTS" -ne 5 ] || [ "$REGISTRY_CASES" -ne 114 ] || [ "$REGISTRY_SKIPS" -ne 0 ]; then
+            echo "核验登记/独立AI用途/原键重建/撤权与结构反例真库验收漏跑"; exit 1
+          fi
+          MATCHES=$(grep -Ec '^--- PASS: TestIntegrationAIReportDossierRegistryLifecycle ' /tmp/it.log || true)
+          if [ "$MATCHES" -ne 1 ]; then
+            echo "核验登记真库根组缺失或重复：TestIntegrationAIReportDossierRegistryLifecycle"; exit 1
+          fi
+          for phase in 'Read_Committed' 'Read_Committed/并发同体登记' 'Read_Committed/没有AI用途拒绝' 'Read_Committed/用途默认关闭' 'Read_Committed/原任务重建并存证' 'Read_Committed/丢弃内存后只读重建回放' 'Read_Committed/撤回用途拒绝缓存恢复' 'Repeatable_Read' 'Repeatable_Read/并发同体登记' 'Repeatable_Read/没有AI用途拒绝' 'Repeatable_Read/用途默认关闭' 'Repeatable_Read/原任务重建并存证' 'Repeatable_Read/丢弃内存后只读重建回放' 'Repeatable_Read/撤回用途拒绝缓存恢复'; do
+            MATCHES=$(grep -Ec "^[[:space:]]+--- PASS: TestIntegrationAIReportDossierRegistryLifecycle/$phase " /tmp/it.log || true)
+            if [ "$MATCHES" -ne 1 ]; then
+              echo "核验登记真库场景缺失或重复：$phase"; exit 1
+            fi
+          done
+          MATCHES=$(grep -Ec '^--- PASS: TestIntegrationAIReportDossierRegistryBoundaries ' /tmp/it.log || true)
+          if [ "$MATCHES" -ne 1 ]; then
+            echo "核验登记真库根组缺失或重复：TestIntegrationAIReportDossierRegistryBoundaries"; exit 1
+          fi
+          for phase in 'Read_Committed' 'Read_Committed/missing_manifest' 'Read_Committed/expired_use' 'Read_Committed/source' 'Read_Committed/license' 'Read_Committed/grant' 'Read_Committed/publication' 'Read_Committed/member' 'Read_Committed/theme' 'Read_Committed/full_profile' 'Read_Committed/cross_member' 'Read_Committed/metadata' 'Read_Committed/strategy' 'Read_Committed/after_call' 'Repeatable_Read' 'Repeatable_Read/missing_manifest' 'Repeatable_Read/expired_use' 'Repeatable_Read/source' 'Repeatable_Read/license' 'Repeatable_Read/grant' 'Repeatable_Read/publication' 'Repeatable_Read/member' 'Repeatable_Read/theme' 'Repeatable_Read/full_profile' 'Repeatable_Read/cross_member' 'Repeatable_Read/metadata' 'Repeatable_Read/strategy' 'Repeatable_Read/after_call'; do
+            MATCHES=$(grep -Ec "^[[:space:]]+--- PASS: TestIntegrationAIReportDossierRegistryBoundaries/$phase " /tmp/it.log || true)
+            if [ "$MATCHES" -ne 1 ]; then
+              echo "核验登记真库场景缺失或重复：$phase"; exit 1
+            fi
+          done
+          MATCHES=$(grep -Ec '^--- PASS: TestIntegrationAIReportDossierRegistryStorage ' /tmp/it.log || true)
+          if [ "$MATCHES" -ne 1 ]; then
+            echo "核验登记真库根组缺失或重复：TestIntegrationAIReportDossierRegistryStorage"; exit 1
+          fi
+          for phase in 'Read_Committed' 'Read_Committed/unknown_registration' 'Read_Committed/readonly' 'Read_Committed/immutable' 'Read_Committed/shared_use_lock' 'Read_Committed/end_clock_expiry' 'Repeatable_Read' 'Repeatable_Read/unknown_registration' 'Repeatable_Read/readonly' 'Repeatable_Read/immutable' 'Repeatable_Read/shared_use_lock' 'Repeatable_Read/end_clock_expiry'; do
+            MATCHES=$(grep -Ec "^[[:space:]]+--- PASS: TestIntegrationAIReportDossierRegistryStorage/$phase " /tmp/it.log || true)
+            if [ "$MATCHES" -ne 1 ]; then
+              echo "核验登记真库场景缺失或重复：$phase"; exit 1
+            fi
+          done
+          MATCHES=$(grep -Ec '^--- PASS: TestIntegrationAIReportDossierRegistrySchema ' /tmp/it.log || true)
+          if [ "$MATCHES" -ne 1 ]; then
+            echo "核验登记真库根组缺失或重复：TestIntegrationAIReportDossierRegistrySchema"; exit 1
+          fi
+          for phase in 'Read_Committed' 'Read_Committed/null_protocol' 'Read_Committed/null_component' 'Read_Committed/null_draft_digest' 'Read_Committed/null_config' 'Read_Committed/null_keys' 'Read_Committed/null_draft' 'Read_Committed/empty_keys' 'Read_Committed/wrong_key_case' 'Read_Committed/wrong_analysis' 'Read_Committed/bad_component' 'Read_Committed/bad_manifest_hash' 'Read_Committed/wrong_version_hash' 'Read_Committed/not_object' 'Read_Committed/oversize' 'Read_Committed/future_compiled' 'Repeatable_Read' 'Repeatable_Read/null_protocol' 'Repeatable_Read/null_component' 'Repeatable_Read/null_draft_digest' 'Repeatable_Read/null_config' 'Repeatable_Read/null_keys' 'Repeatable_Read/null_draft' 'Repeatable_Read/empty_keys' 'Repeatable_Read/wrong_key_case' 'Repeatable_Read/wrong_analysis' 'Repeatable_Read/bad_component' 'Repeatable_Read/bad_manifest_hash' 'Repeatable_Read/wrong_version_hash' 'Repeatable_Read/not_object' 'Repeatable_Read/oversize' 'Repeatable_Read/future_compiled'; do
+            MATCHES=$(grep -Ec "^[[:space:]]+--- PASS: TestIntegrationAIReportDossierRegistrySchema/$phase " /tmp/it.log || true)
+            if [ "$MATCHES" -ne 1 ]; then
+              echo "核验登记真库场景缺失或重复：$phase"; exit 1
+            fi
+          done
+          MATCHES=$(grep -Ec '^--- PASS: TestIntegrationAIReportDossierRegistryReader ' /tmp/it.log || true)
+          if [ "$MATCHES" -ne 1 ]; then
+            echo "核验登记真库根组缺失或重复：TestIntegrationAIReportDossierRegistryReader"; exit 1
+          fi
+          for phase in 'Read_Committed' 'Read_Committed/只读连接实际重建' 'Read_Committed/写入和账务明确拒绝' 'Read_Committed/addon_member' 'Read_Committed/addon_quant_theme' 'Read_Committed/tm_ai_dossier_versions' 'Read_Committed/tm_ai_dossier_evidence' 'Read_Committed/tm_ai_dossier_publications' 'Read_Committed/tm_ai_dossier_grants' 'Read_Committed/tm_ai_sources' 'Read_Committed/tm_ai_source_snapshots' 'Read_Committed/tm_ai_source_bodies' 'Read_Committed/tm_ai_dossier_support_plans' 'Read_Committed/tm_ai_dossier_support_uses' 'Repeatable_Read' 'Repeatable_Read/只读连接实际重建' 'Repeatable_Read/写入和账务明确拒绝' 'Repeatable_Read/addon_member' 'Repeatable_Read/addon_quant_theme' 'Repeatable_Read/tm_ai_dossier_versions' 'Repeatable_Read/tm_ai_dossier_evidence' 'Repeatable_Read/tm_ai_dossier_publications' 'Repeatable_Read/tm_ai_dossier_grants' 'Repeatable_Read/tm_ai_sources' 'Repeatable_Read/tm_ai_source_snapshots' 'Repeatable_Read/tm_ai_source_bodies' 'Repeatable_Read/tm_ai_dossier_support_plans' 'Repeatable_Read/tm_ai_dossier_support_uses'; do
+            MATCHES=$(grep -Ec "^[[:space:]]+--- PASS: TestIntegrationAIReportDossierRegistryReader/$phase " /tmp/it.log || true)
+            if [ "$MATCHES" -ne 1 ]; then
+              echo "核验登记只读场景缺失或重复：$phase"; exit 1
+            fi
+          done
+          # 专题核验登记真库门禁结束
+
+
           # 保留原1073项，追加问答HTTP/结构45项及启动10项。
           # 原1128，新增实际API/独立worker的1根、2级别与4个轻深用例。
           # 再增加正式进程H5配置1根8子例和只转发网关1根。
@@ -995,7 +1120,8 @@ jobs:
           # 会话档案引用新增1根、2隔离级别及32个具体场景。
           # 引用结构11叶、独立API6叶各含1根，H5只转发边界另增1根。
           # 专题字段单步执行：4根、8隔离父组、4步位父组及52具体场景，共68项。
-          MIN=1410
+          # 核验登记与资料只读权限增加5根、10隔离父组及104具体场景，共119项。
+          MIN=1529
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项，低于下限 $MIN —— 要么没跑，要么有测试被删。"; exit 1
           fi

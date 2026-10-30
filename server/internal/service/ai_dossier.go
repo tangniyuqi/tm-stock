@@ -122,92 +122,9 @@ func (s *AIDossierService) ReadVersions(parent context.Context, token string, us
 	}
 	var out []*dossier.BoundDraft
 	err := s.store.Within(ctx, false, func(tx dossier.Tx) error {
-		if e := tx.Member(ctx, user); e != nil {
-			return e
-		}
-		started, e := tx.Now(ctx)
-		if e != nil {
-			return e
-		}
-		rows := []dossier.StoredVersion{}
-		approvals := []dossier.Approval{}
-		allIDs := []int64{}
-		for _, version := range versions {
-			pub, e := tx.Publication(ctx, theme, version)
-			if e != nil {
-				return e
-			}
-			grant, e := tx.Grant(ctx, user, theme, version)
-			if e != nil {
-				return e
-			}
-			for _, a := range []dossier.Approval{pub, grant} {
-				if !a.Enabled || !conversation.Text(a.Reference, 128) || !a.Until.After(started) {
-					return dossier.ErrNotFound
-				}
-			}
-			row, e := tx.Version(ctx, theme, version)
-			if e != nil {
-				return e
-			}
-			if row.Identity.ThemeID != theme || row.Identity.Version != version || len(row.Evidence) > dossier.MaxDraftSnapshots || pub.Digest != row.Digest || grant.Digest != row.Digest {
-				return dossier.ErrNotFound
-			}
-			for i, ref := range row.Evidence {
-				if !conversation.ID(ref.ID) || i > 0 && ref.ID <= row.Evidence[i-1].ID {
-					return dossier.ErrNotFound
-				}
-				allIDs = append(allIDs, ref.ID)
-			}
-			rows = append(rows, row)
-			approvals = append(approvals, pub, grant)
-		}
-		slices.Sort(allIDs)
-		allIDs = slices.Compact(allIDs)
-		snaps, e := dossierSnapshots(ctx, tx, allIDs)
-		if e != nil {
-			return e
-		}
-		registered, e := dossierSources(ctx, tx, snaps)
-		if e != nil {
-			return e
-		}
-		if e = tx.Theme(ctx, theme); e != nil {
-			return e
-		}
-		byID := map[int64]sources.Snapshot{}
-		for _, snap := range snaps {
-			byID[snap.ID] = snap
-		}
-		for _, row := range rows {
-			selected := make([]sources.Snapshot, 0, len(row.Evidence))
-			for _, ref := range row.Evidence {
-				selected = append(selected, byID[ref.ID])
-			}
-			bound, e := dossier.RestoreDraft(row.Canonical, row.Digest, selected)
-			if e != nil || bound.Identity() != row.Identity || !slices.Equal(bound.Stored().Evidence, row.Evidence) {
-				return dossier.ErrNotFound
-			}
-			out = append(out, bound)
-		}
-		now, e := tx.Now(ctx)
-		if e != nil {
-			return e
-		}
-		for _, a := range approvals {
-			if !a.Enabled || !conversation.Text(a.Reference, 128) || !a.Until.After(now) {
-				return dossier.ErrNotFound
-			}
-		}
-		for i, row := range rows {
-			if row.Identity.CreatedAt > now.UnixMilli() || i > 0 && row.Identity.CreatedAt <= rows[i-1].Identity.CreatedAt {
-				return dossier.ErrNotFound
-			}
-		}
-		if !dossierSourcesValid(registered, snaps, now) {
-			return dossier.ErrNotFound
-		}
-		return ctx.Err()
+		var e error
+		out, e = readDossierVersions(ctx, tx, user, theme, versions)
+		return e
 	})
 	if err != nil {
 		return nil, err
@@ -216,6 +133,100 @@ func (s *AIDossierService) ReadVersions(parent context.Context, token string, us
 		return nil, err
 	} else if actual != user {
 		return nil, memberauth.ErrUnauthorized
+	}
+	return out, nil
+}
+
+// readDossierVersions复用当前会员/发布/读取许可及原文校验；后台执行身份先由原任务准入核定。
+func readDossierVersions(ctx context.Context, tx dossier.Tx, user, theme int64, versions []int64) ([]*dossier.BoundDraft, error) {
+	var out []*dossier.BoundDraft
+	if e := tx.Member(ctx, user); e != nil {
+		return nil, e
+	}
+	started, e := tx.Now(ctx)
+	if e != nil {
+		return nil, e
+	}
+	rows := []dossier.StoredVersion{}
+	approvals := []dossier.Approval{}
+	allIDs := []int64{}
+	for _, version := range versions {
+		pub, e := tx.Publication(ctx, theme, version)
+		if e != nil {
+			return nil, e
+		}
+		grant, e := tx.Grant(ctx, user, theme, version)
+		if e != nil {
+			return nil, e
+		}
+		for _, a := range []dossier.Approval{pub, grant} {
+			if !a.Enabled || !conversation.Text(a.Reference, 128) || !a.Until.After(started) {
+				return nil, dossier.ErrNotFound
+			}
+		}
+		row, e := tx.Version(ctx, theme, version)
+		if e != nil {
+			return nil, e
+		}
+		if row.Identity.ThemeID != theme || row.Identity.Version != version || len(row.Evidence) > dossier.MaxDraftSnapshots || pub.Digest != row.Digest || grant.Digest != row.Digest {
+			return nil, dossier.ErrNotFound
+		}
+		for i, ref := range row.Evidence {
+			if !conversation.ID(ref.ID) || i > 0 && ref.ID <= row.Evidence[i-1].ID {
+				return nil, dossier.ErrNotFound
+			}
+			allIDs = append(allIDs, ref.ID)
+		}
+		rows = append(rows, row)
+		approvals = append(approvals, pub, grant)
+	}
+	slices.Sort(allIDs)
+	allIDs = slices.Compact(allIDs)
+	snaps, e := dossierSnapshots(ctx, tx, allIDs)
+	if e != nil {
+		return nil, e
+	}
+	registered, e := dossierSources(ctx, tx, snaps)
+	if e != nil {
+		return nil, e
+	}
+	if e = tx.Theme(ctx, theme); e != nil {
+		return nil, e
+	}
+	byID := map[int64]sources.Snapshot{}
+	for _, snap := range snaps {
+		byID[snap.ID] = snap
+	}
+	for _, row := range rows {
+		selected := make([]sources.Snapshot, 0, len(row.Evidence))
+		for _, ref := range row.Evidence {
+			selected = append(selected, byID[ref.ID])
+		}
+		bound, e := dossier.RestoreDraft(row.Canonical, row.Digest, selected)
+		if e != nil || bound.Identity() != row.Identity || !slices.Equal(bound.Stored().Evidence, row.Evidence) {
+			return nil, dossier.ErrNotFound
+		}
+		out = append(out, bound)
+	}
+	now, e := tx.Now(ctx)
+	if e != nil {
+		return nil, e
+	}
+	for _, a := range approvals {
+		if !a.Enabled || !conversation.Text(a.Reference, 128) || !a.Until.After(now) {
+			return nil, dossier.ErrNotFound
+		}
+	}
+	for i, row := range rows {
+		if row.Identity.CreatedAt > now.UnixMilli() || i > 0 && row.Identity.CreatedAt <= rows[i-1].Identity.CreatedAt {
+			return nil, dossier.ErrNotFound
+		}
+	}
+	if !dossierSourcesValid(registered, snaps, now) {
+		return nil, dossier.ErrNotFound
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 	return out, nil
 }
