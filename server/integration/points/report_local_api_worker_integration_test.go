@@ -176,6 +176,9 @@ func localPasswordTokens(t *testing.T, ctx context.Context, b *h5MemberLoginBrid
 }
 
 func startLocalAPI(t *testing.T, e *workflowEnv, binary, dsn, signing, runtimeFile, plansFile string, client *http.Client, base string, deep bool, feedback ...bool) {
+	startLocalAPIWithQA(t, e, binary, dsn, signing, runtimeFile, plansFile, client, base, deep, "", feedback...)
+}
+func startLocalAPIWithQA(t *testing.T, e *workflowEnv, binary, dsn, signing, runtimeFile, plansFile string, client *http.Client, base string, deep bool, qaFile string, feedback ...bool) {
 	t.Helper()
 	ctx, cancel := context.WithCancel(e.ctx)
 	cmd := exec.CommandContext(ctx, binary)
@@ -186,6 +189,9 @@ func startLocalAPI(t *testing.T, e *workflowEnv, binary, dsn, signing, runtimeFi
 		cmd.Env = append(cmd.Env, flag+"=true")
 	}
 	cmd.Env = append(cmd.Env, "TM_AI_DEEP_SUBMIT_ENABLED="+strconv.FormatBool(deep))
+	if qaFile != "" {
+		cmd.Env = append(cmd.Env, "TM_AI_LOCAL_QA="+qaFile, "TM_AI_QA_READ_ENABLED=true", "TM_AI_QA_SUBMIT_ENABLED=true", "TM_AI_REPORT_QA_SUBMIT_ENABLED=true")
+	}
 	if len(feedback) > 1 {
 		t.Fatal("每轮只能声明一个反馈范围")
 	}
@@ -241,6 +247,7 @@ type localProcessCase struct {
 	external              bool
 	feedbackAdmin         string
 	feedbackBrowserRunner string
+	qa                    bool
 }
 
 func verifyLocalAPIWorker(t *testing.T, level sql.IsolationLevel, kind int, api, worker, login string, cases ...localProcessCase) {
@@ -308,7 +315,16 @@ func verifyLocalAPIWorker(t *testing.T, level sql.IsolationLevel, kind int, api,
 	if feedbackEnabled {
 		feedbackPeer = startLocalFeedbackPeer(t, f, cases[0].feedbackAdmin, client)
 	}
-	startLocalAPI(t, e, api, localAPIDSN(t, e, feedbackEnabled), signing, runtimeFile, f.path, client, base, kind == 2, feedbackEnabled)
+	dsn := localAPIDSN(t, e, feedbackEnabled)
+	var qaFixture *localProcessQA
+	if len(cases) == 1 && cases[0].qa {
+		qaFixture = prepareLocalProcessQA(t, f, dsn)
+	}
+	qaPath := ""
+	if qaFixture != nil {
+		qaPath = qaFixture.path
+	}
+	startLocalAPIWithQA(t, e, api, dsn, signing, runtimeFile, f.path, client, base, kind == 2, qaPath, feedbackEnabled)
 	hidden := func(raw []byte) {
 		t.Helper()
 		for _, s := range []string{password, tokens[0], tokens[1], "req_hash", "idem_key", "task_key", "lease_owner", "budget_json", "profile_digest", "local-eval:", "l1_test_remote"} {
@@ -537,6 +553,9 @@ func verifyLocalAPIWorker(t *testing.T, level sql.IsolationLevel, kind int, api,
 		t.Fatal("实际API和worker闭环重复调用、结算或污染其它会员")
 	}
 	requirePointAudit(t, e.pointsTestEnv, e.ledger)
+	if qaFixture != nil {
+		verifyLocalProcessQA(t, f, qaFixture, client, base, root, linked.TaskID, tokens)
+	}
 	if len(cases) == 1 && cases[0].feedbackBrowserRunner != "" {
 		if feedbackPeer == nil {
 			t.Fatal("缺少本轮实际管理进程")

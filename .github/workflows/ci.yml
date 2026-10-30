@@ -111,7 +111,8 @@ jobs:
           # 再加临时模型会话配置1根10子例及认证工厂1根，共12项。
           # 本地worker退出类别诊断1根8子例，不得输出原始错误。
           # 本地反馈管理配置与监听前保护2根15子例。
-          MIN=1273
+          # 本地问答文件、策略摘要、控制器及装配保护新增53项。
+          MIN=1326
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项测试，低于下限 $MIN —— 要么测试没被执行，要么有测试被删。"
             exit 1
@@ -273,6 +274,13 @@ jobs:
           LOCAL_FEEDBACK_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportLocalFeedbackProcess/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
           LOCAL_FEEDBACK_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportLocalFeedbackProcess/(Read_Committed|Repeatable_Read)/(1|2) ' /tmp/it.log || true)
           LOCAL_FEEDBACK_SKIPS=$(grep -Ec '^[[:space:]]*--- SKIP: TestIntegrationAIReportLocalFeedbackProcess' /tmp/it.log || true)
+          LOCAL_QA_ROOT=$(grep -Ec '^--- PASS: TestIntegrationAIReportLocalQAProcess ' /tmp/it.log || true)
+          LOCAL_QA_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportLocalQAProcess/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          LOCAL_QA_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportLocalQAProcess/(Read_Committed|Repeatable_Read)/(1|2) ' /tmp/it.log || true)
+          LOCAL_QA_SKIPS=$(grep -Ec '^[[:space:]]*--- SKIP: TestIntegrationAIReportLocalQAProcess' /tmp/it.log || true)
+          if [ "$LOCAL_QA_ROOT" -ne 1 ] || [ "$LOCAL_QA_LEVELS" -ne 2 ] || [ "$LOCAL_QA_CASES" -ne 4 ] || [ "$LOCAL_QA_SKIPS" -ne 0 ]; then
+            echo "实际API/worker轻深报告后的资料问答及报告追问验收漏跑"; exit 1
+          fi
           if [ "$LOCAL_FEEDBACK_ROOT" -ne 1 ] || [ "$LOCAL_FEEDBACK_LEVELS" -ne 2 ] || [ "$LOCAL_FEEDBACK_CASES" -ne 4 ] || [ "$LOCAL_FEEDBACK_SKIPS" -ne 0 ]; then
             echo "实际API/worker及独立管理进程的轻深反馈提交/处理/查询用例漏跑"; exit 1
           fi
@@ -603,7 +611,8 @@ jobs:
           # 两隔离级别各增加一个实际worker临时会话认证成功场景。
           # 两隔离级别各增加深度不足六条引文的实际worker拒绝/释放场景。
           # 实际反馈独立进程新增1根、2级别和4个轻深用例。
-          MIN=1156
+          # 本地问答实际进程新增1根、2级别和4个轻深用例。
+          MIN=1163
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项，低于下限 $MIN —— 要么没跑，要么有测试被删。"; exit 1
           fi

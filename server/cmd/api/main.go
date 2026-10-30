@@ -189,7 +189,11 @@ func run() error {
 	if err := registerAIConversationTasksWithLocal(context.Background(), mux, db, readCfg, creations, conversationTasksEnabled, createEnabled, localRuntime); err != nil {
 		return err
 	}
-	if err := registerAIQA(context.Background(), mux, db, readCfg, conversationsEnabled, qaConfig); err != nil {
+	localQA, err := prepareAILocalQA(context.Background(), db, localRuntime, qaConfig)
+	if err != nil {
+		return err
+	}
+	if err := registerAIQAWithLocal(context.Background(), mux, db, readCfg, conversationsEnabled, qaConfig, localQA, reports); err != nil {
 		return err
 	}
 

@@ -82,6 +82,18 @@ API使用逐表受限写账号以保留所有原保护探针；会员仍只读�
 
 后台浏览器复验须先按后文整套GVA隔离构建流程准备静态前端；仅一次性测试进程设置`TM_TEST_AI_LOCAL_FEEDBACK_CONSOLE=local-fixture-only`及`TM_TEST_FEEDBACK_UI_ORIGIN=<完整GVA的127.0.0.1 HTTP源>`，清除真实调用标志。原生入口选择`-ReportsOnly -LocalFeedbackConsoleBrowser -ReportPattern '^TestIntegrationAIReportLocalFeedbackConsoleH5$' -RunCount 1`。从日志控制页取得当轮账号，在原登录/角色界面保存菜单及三API权限，处理人由侧栏处理原MySQL受理单至版本3，核对三条历史；普通后台账号旧入口应被拒。最后控制页结束，还须检查根组PASS、父脚本迁移64/64及临时实例清理。原人工子程序仍8分钟；超时保留失败记录，不延长时限或重写终态。后台身份/目录使用既有隔离SQLite夹具，反馈/报告/账本在实际MySQL；生产GVA MySQL权限由另一专项覆盖，不能混为本轮浏览器证据。会员提交这一段是原HTTP路由，新装配下会员H5反馈仍待独立验收。
 
+### 受控本地资料问答与报告追问
+
+实际`cmd/api`新增可选`TM_AI_LOCAL_QA=<仓库外普通文件绝对路径>`，必须同时配置版本1隔离运行文件及原问答Read开关；未配置时生产三个可信工厂仍为空，误开提交继续拒启动。文件上限32KiB，复用原严格文件读取及JSON重复/精确键检查，拒相对路径、符号链接、未知/缺少/null字段及读取期间身份变化。版本1字段以`config.AILocalQA`为准：`version=1`、同一`instance_id`、`revision`、`scope=synthetic-loopback-only`、毫秒`issued_at_ms/expires_at_ms`（不超过24小时）、升序唯一`members/subjects`（各1至16项）、三个固定顺序模型、`allowed_domains`及`limits`。三模型依次用于选句、蕴含、语义判定；元数据审批引用均须`local-eval:`前缀，配置不提供密钥字段。
+
+每个模型的`endpoint`只含`name/base_url/model/timeout_ms`，地址必须为无凭据、参数、转义路径的字面127.0.0.1 HTTP数字端口1024至65535，路径只允许空、`/`或`/v1`；不读取宿主供应商Key，不经过外部代理、重定向或自动重试。`profile_digest`须匹配原Direct配置身份；构造校验不发网络请求，不代表远端服务获生产批准。限额字段为来源数、句数、证据/提示字节、输入/输出/总token及毫秒时限，沿用原问答核边界，时限1至20000毫秒，先限幅再做Duration换算。资料范围用`QAConfig().PolicyDigest()`登记到原`tm_ai_qa_scopes`，仍需原快照/许可/范围证据和`tm_ai_qa_limits`显式启用；文件本身不创建或更新这些批准表，也不迁移积分。
+
+运行账号除既有API权限外，还需五张问答表的原回滚探针/业务所需逐表DML，以及固定无参`tm_ai_local_qa_trigger_metadata`的EXECUTE。由初始化所有者建立SQL SECURITY DEFINER、READS SQL DATA过程，固定筛选当前专属库这五张QA表的触发器，按顺序仅返回`trigger_name,event_object_table,event_manipulation,action_timing,action_statement`。QA自检仍比对所有触发器的完整规范定义及实际回滚反例；会话触发器复用原只读元数据过程。不能用返回常量的过程、同名空触发器或放宽TRIGGER权限绕过。删除重建过程后须重新授予EXECUTE，不能将权限错误误计为定义拒绝。无此过程、定义伪造或实例不符拒启动，原非本地验证路径不变。
+
+`TM_AI_QA_READ_ENABLED`、`TM_AI_QA_SUBMIT_ENABLED`及`TM_AI_REPORT_QA_SUBMIT_ENABLED`仍分别控制读取、资料提交、报告提交。本地文件变更/过期或实例撤回后历史答案也失败关闭，不自动补交未知问题；只读装配不给控制器ForPlan权限。报告追问只从当前本人报告读引文，不扩检资料库、公司事实行或网络。新报告仍走原报价确认/任务/终检/结算，问答没有积分扣费路径。
+
+原生复验：分别指定MySQL8/9程序和Git Bash路径，运行`verify-ai-source-native.ps1 -ReportsOnly -ReportPattern '^TestIntegrationAIReportLocalQAProcess$' -RunCount 1`。原密码HTTP登录、实际API与worker先生成轻深报告，再在同一会话提交资料问答与报告追问、复读和原键重放，核对受限账号的完整元数据正反例、逐次调用存证、来源/文件撤回拒读、跨会员拒绝及零额外账务。模型只用回环替身；须父脚本成功、RC/RR×轻深四叶通过、迁移64/64及临时实例清理，不能用该HTTP专项替代新装配的实际H5或真实模型证据。
+
 ### 新账本余额只读接口
 
 `GET /api/v1/ai/points/balance`使用原Bearer会员鉴权，只返回本人`availablePoints`（当前有效批次可消费额）、`frozenPoints`和`checkedAt`（数据库毫秒时点）。不接受查询参数或请求体，成功响应禁止缓存。无账户返回零余额，不自动创建账户；查询失败返回503，客户端必须显示暂不可用，不能将错误当零余额或回退旧资产。

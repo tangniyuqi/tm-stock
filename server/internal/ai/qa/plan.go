@@ -124,6 +124,31 @@ func (m Model) valid() bool {
 	return meta(m.Name) && meta(m.FilingNo) && meta(m.ApprovalRef) && meta(m.QualityRef) && meta(m.BudgetRef) && digest(m.ProfileDigest)
 }
 
+// PolicyDigest 为受控配置登记提供与执行计划完全相同的规范摘要，不创建身份或资料。
+func (c Config) PolicyDigest() (string, error) {
+	_, policy, err := normalizeConfig(c)
+	return policy, err
+}
+
+func normalizeConfig(c Config) (Config, string, error) {
+	if !c.Limits.validMax(ReportMaxQuotes) || !c.Selector.valid() || !c.Entailment.valid() || !c.Semantic.valid() || len(c.AllowedDomains) < 1 || len(c.AllowedDomains) > 16 {
+		return Config{}, "", ErrInvalid
+	}
+	c.AllowedDomains = slices.Clone(c.AllowedDomains)
+	slices.Sort(c.AllowedDomains)
+	for n, d := range c.AllowedDomains {
+		canonical, err := sources.ValidateURL(d, "https://"+d+"/")
+		if err != nil || canonical != "https://"+d+"/" || n > 0 && d == c.AllowedDomains[n-1] {
+			return Config{}, "", ErrInvalid
+		}
+	}
+	policy, err := json.Marshal([]any{Version, guard.PolicyDigest(), c, selectSystem, selectSchema, entailSystem, semanticSystem, checkSchema})
+	if err != nil {
+		return Config{}, "", ErrInvalid
+	}
+	return c, task.StageDigest(policy), nil
+}
+
 func NewPlan(id Identity, in conversation.MessageInput, scope Scope, c Config, now time.Time) (*Plan, error) {
 	return newPlan(id, in, scope, c, now, "material_qa", 8)
 }
@@ -133,13 +158,9 @@ func newPlan(id Identity, in conversation.MessageInput, scope Scope, c Config, n
 	if !id.Valid() || !in.Valid() || in.Kind != "question" || in.Skill != skill || in.SubjectID != scope.SubjectID || in.SubjectType != scope.SubjectType || !meta(scope.SubjectName) || !meta(scope.ApprovalRef) || !conversation.Time(now) || !conversation.Time(scope.ValidUntil) || !scope.ValidUntil.After(now) || !c.Limits.validMax(maxSources) || !c.Selector.valid() || !c.Entailment.valid() || !c.Semantic.valid() || len(c.AllowedDomains) < 1 || len(c.AllowedDomains) > 16 || len(scope.Snapshots) > maxSources {
 		return nil, ErrInvalid
 	}
-	c.AllowedDomains = slices.Clone(c.AllowedDomains)
-	slices.Sort(c.AllowedDomains)
-	for n, d := range c.AllowedDomains {
-		canonical, err := sources.ValidateURL(d, "https://"+d+"/")
-		if err != nil || canonical != "https://"+d+"/" || n > 0 && d == c.AllowedDomains[n-1] {
-			return nil, ErrInvalid
-		}
+	c, policy, err := normalizeConfig(c)
+	if err != nil {
+		return nil, err
 	}
 	scope.Snapshots = slices.Clone(scope.Snapshots)
 	slices.SortFunc(scope.Snapshots, func(a, b sources.Snapshot) int {
@@ -173,11 +194,7 @@ func newPlan(id Identity, in conversation.MessageInput, scope Scope, c Config, n
 			s.LicenseExpires = &v
 		}
 	}
-	policy, err := json.Marshal([]any{Version, guard.PolicyDigest(), c, selectSystem, selectSchema, entailSystem, semanticSystem, checkSchema})
-	if err != nil {
-		return nil, ErrInvalid
-	}
-	p := &Plan{identity: id, input: in, scope: scope, cfg: c, policy: task.StageDigest(policy)}
+	p := &Plan{identity: id, input: in, scope: scope, cfg: c, policy: policy}
 	raw, err := json.Marshal([]any{Version, id, in, scope, p.policy})
 	if err != nil {
 		return nil, ErrInvalid

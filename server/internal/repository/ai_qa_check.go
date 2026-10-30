@@ -20,9 +20,18 @@ import (
 	"github.com/tangniyuqi/tm-stock/server/migrations"
 )
 
-type AIQASchemaVerifier struct{ db *sql.DB }
+type AIQASchemaVerifier struct {
+	db         *sql.DB
+	instanceID string
+	local      bool
+}
 
-func NewAIQASchemaVerifier(db *sql.DB) *AIQASchemaVerifier         { return &AIQASchemaVerifier{db} }
+func NewAIQASchemaVerifier(db *sql.DB) *AIQASchemaVerifier { return &AIQASchemaVerifier{db: db} }
+
+// 固定只读过程仍返回原触发器定义，逐字规范化比对与真实回滚探针不减少。
+func NewAILocalQASchemaVerifier(db *sql.DB, id string) *AIQASchemaVerifier {
+	return &AIQASchemaVerifier{db: db, instanceID: id, local: true}
+}
 func (v *AIQASchemaVerifier) Verify(ctx context.Context) error     { return v.verify(ctx, false) }
 func (v *AIQASchemaVerifier) VerifyRead(ctx context.Context) error { return v.verify(ctx, true) }
 func (v *AIQASchemaVerifier) verify(parent context.Context, read bool) error {
@@ -31,12 +40,23 @@ func (v *AIQASchemaVerifier) verify(parent context.Context, read bool) error {
 	}
 	ctx, cancel := context.WithTimeout(parent, 10*time.Second)
 	defer cancel()
+	if v.local {
+		if err := NewAILocalInstanceVerifier(v.db).Verify(ctx, v.instanceID); err != nil {
+			return err
+		}
+	}
 	tx, err := v.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: read, Isolation: sql.LevelReadCommitted})
 	if err != nil {
 		return fmt.Errorf("开启问答保护检查失败: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }() // 只回滚，不运行模型或修改账户/收费任务。
-	for _, check := range []func(context.Context, *sql.Tx) error{verifyPointsSession, verifyConversationMetadata, verifyQAMetadata} {
+	conversationMetadata := verifyConversationMetadata
+	qaMetadata := verifyQAMetadata
+	if v.local {
+		conversationMetadata = verifyLocalConversationMetadata
+		qaMetadata = func(ctx context.Context, tx *sql.Tx) error { return verifyQAMetadataFrom(ctx, tx, true) }
+	}
+	for _, check := range []func(context.Context, *sql.Tx) error{verifyPointsSession, conversationMetadata, qaMetadata} {
 		if err := check(ctx, tx); err != nil {
 			return fmt.Errorf("问答保护检查失败: %w", err)
 		}
@@ -49,6 +69,9 @@ func (v *AIQASchemaVerifier) verify(parent context.Context, read bool) error {
 	return tx.Rollback()
 }
 func verifyQAMetadata(ctx context.Context, tx *sql.Tx) error {
+	return verifyQAMetadataFrom(ctx, tx, false)
+}
+func verifyQAMetadataFrom(ctx context.Context, tx *sql.Tx, local bool) error {
 	for _, v := range []struct{ table, check string }{
 		{"tm_ai_qa_scopes", "chk_tm_ai_qa_scope"}, {"tm_ai_qa_limits", "chk_tm_ai_qa_limits"}, {"tm_ai_qa_quotas", "chk_tm_ai_qa_quota"}, {"tm_ai_qa_requests", "chk_tm_ai_qa_request"}, {"tm_ai_qa_calls", "chk_tm_ai_qa_call"},
 	} {
@@ -118,9 +141,22 @@ func verifyQAMetadata(ctx context.Context, tx *sql.Tx) error {
 	if err != nil {
 		return err
 	}
+	var localDefinitions map[string]qaTriggerDefinition
+	if local {
+		localDefinitions, err = localQATriggerDefinitions(ctx, tx)
+		if err != nil || len(localDefinitions) != len(defs) {
+			return qa.ErrProtocol
+		}
+	}
 	for _, d := range defs {
 		var table, event, timing, body string
-		if err := tx.QueryRowContext(ctx, `SELECT event_object_table,event_manipulation,action_timing,action_statement FROM information_schema.triggers WHERE trigger_schema=DATABASE() AND trigger_name=?`, d.name).Scan(&table, &event, &timing, &body); err != nil {
+		if local {
+			found, ok := localDefinitions[d.name]
+			if !ok {
+				return qa.ErrProtocol
+			}
+			table, event, timing, body = found.table, found.event, "BEFORE", found.body
+		} else if err := tx.QueryRowContext(ctx, `SELECT event_object_table,event_manipulation,action_timing,action_statement FROM information_schema.triggers WHERE trigger_schema=DATABASE() AND trigger_name=?`, d.name).Scan(&table, &event, &timing, &body); err != nil {
 			return err
 		}
 		if table != d.table || event != d.event || timing != "BEFORE" || qaCompactSQL(body) != qaCompactSQL(d.body) {
@@ -128,6 +164,33 @@ func verifyQAMetadata(ctx context.Context, tx *sql.Tx) error {
 		}
 	}
 	return nil
+}
+
+func localQATriggerDefinitions(ctx context.Context, tx *sql.Tx) (map[string]qaTriggerDefinition, error) {
+	rows, err := tx.QueryContext(ctx, `CALL tm_ai_local_qa_trigger_metadata()`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	defs := map[string]qaTriggerDefinition{}
+	for rows.Next() {
+		var d qaTriggerDefinition
+		var timing string
+		if err := rows.Scan(&d.name, &d.table, &d.event, &timing, &d.body); err != nil {
+			return nil, err
+		}
+		if timing != "BEFORE" || len(defs) >= 32 {
+			return nil, qa.ErrProtocol
+		}
+		if _, ok := defs[d.name]; ok {
+			return nil, qa.ErrProtocol
+		}
+		defs[d.name] = d
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return defs, rows.Close()
 }
 
 type qaTriggerDefinition struct{ name, table, event, body string }
