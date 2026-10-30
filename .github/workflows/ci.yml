@@ -113,7 +113,8 @@ jobs:
           # 本地反馈管理配置与监听前保护2根15子例。
           # 本地问答文件、策略摘要、控制器及装配保护新增53项。
           # 专题比较/字段核98个节点，存储引用与非法读取2个根测试。
-          MIN=1496
+          # 会话档案引用增加16个普通测试节点（选择/隐私/服务/非法装配）。
+          MIN=1512
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项测试，低于下限 $MIN —— 要么测试没被执行，要么有测试被删。"
             exit 1
@@ -401,6 +402,23 @@ jobs:
             echo "专题H5只转发网关边界验收漏跑"; exit 1
           fi
           # 专题H5转发边界门禁结束
+          # 会话档案引用门禁开始
+          CONVERSATION_DOSSIER_ROOT=$(grep -Ec '^--- PASS: TestIntegrationAIReportConversationDossiers ' /tmp/it.log || true)
+          CONVERSATION_DOSSIER_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportConversationDossiers/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          CONVERSATION_DOSSIER_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportConversationDossiers/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
+          CONVERSATION_DOSSIER_SKIPS=$(grep -Ec '^[[:space:]]*--- SKIP: TestIntegrationAIReportConversationDossiers([ /]|$)' /tmp/it.log || true)
+          if [ "$CONVERSATION_DOSSIER_ROOT" -ne 1 ] || [ "$CONVERSATION_DOSSIER_LEVELS" -ne 2 ] || [ "$CONVERSATION_DOSSIER_CASES" -ne 32 ] || [ "$CONVERSATION_DOSSIER_SKIPS" -ne 0 ]; then
+            echo "会话档案引用真库验收漏跑"; exit 1
+          fi
+          for level in Read_Committed Repeatable_Read; do
+            for phase in 单版双版与空值幂等 缺版本明确拒绝且不落引用 并发原组合仅一条 本人原文与跨会员隔离 撤权回滚新保存但保留原收据 旧版本拒绝与已提交未知找回 插入失败整组回滚 末尾自然过期回滚 提交后身份失效不交付元数据 归档只读且原组合可核查 本人引用分页与数量上限 外键约束与不可变保护 不同会话并发不互相错绑 归档先提交时等待保存拒绝 只读借用不能写引用或资料 原消息任务账务均不增加; do
+              MATCHES=$(grep -Ec "^[[:space:]]+--- PASS: TestIntegrationAIReportConversationDossiers/$level/$phase " /tmp/it.log || true)
+              if [ "$MATCHES" -ne 1 ]; then
+                echo "会话档案引用场景缺失或重复：$level/$phase"; exit 1
+              fi
+            done
+          done
+          # 会话档案引用门禁结束
           if [ "$CALL_AUDIT_STARTUP_ROOT" -ne 1 ] || [ "$CALL_AUDIT_STARTUP_LEVELS" -ne 2 ] || [ "$CALL_AUDIT_STARTUP_CASES" -ne 34 ] || [ "$CALL_AUDIT_STARTUP_SKIPS" -ne 0 ]; then
             echo "调用审计启动保护、受限worker及回滚验收未完整通过"; exit 1
           fi
@@ -722,7 +740,8 @@ jobs:
           # 系统信号专项新增1根、2级别、4轻深父组及12种运行阶段场景。
           # 专题存储新增1根、2隔离级别及38个真实SQL场景。
           # 专题独立API进程新增1根5子例，只转发H5网关新增1根。
-          MIN=1287
+          # 会话档案引用新增1根、2隔离级别及32个具体场景。
+          MIN=1322
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项，低于下限 $MIN —— 要么没跑，要么有测试被删。"; exit 1
           fi

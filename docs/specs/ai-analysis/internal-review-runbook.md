@@ -1,5 +1,20 @@
 # AI 内部操作手册（L0 审核与隔离 Agent 执行）
 
+## 会话保存档案引用专项（2026-10-30，仅服务与真库）
+
+当前引用能力仅有内核、服务和存储，未接公开API、启动结构/运行账号保护及会话保存/恢复页面；原档案读取入口保持原边界，不能把本节当作开启新能力的操作说明。
+
+在仓库根目录用PowerShell7串行运行，不与其他真库或完整门禁并行：
+
+```powershell
+./scripts/dev/verify-ai-source-native.ps1 -MySqlBaseDir D:/mysql/mysql-8.0.46-winx64 -BashPath D:/Git/bin/bash.exe -RunCount 1 -ReportsOnly -ReportPattern '^TestIntegrationAIReportConversationDossiers$'
+./scripts/dev/verify-ai-source-native.ps1 -MySqlBaseDir D:/mysql9/mysql-9.7.0-winx64 -BashPath D:/Git/bin/bash.exe -RunCount 1 -ReportsOnly -ReportPattern '^TestIntegrationAIReportConversationDossiers$'
+```
+
+预期精确1根、2隔离级别及32叶通过，零跳过；父脚本还须启动检查、65项迁移断言及停止清理成功。SQL使用显著合成版本/测试批准，身份为服务替身；夹具原密码HTTP与独立旧档案API不代表引用接口或H5已接。提交确认丢失、数据库末尾时钟跳变和末尾身份失效须标为故障注入。引用表与原会话/消息/任务/账本隔离，检查无新执行或账务；归档与撤权后的原组合仅恢复本人保存收据，正文仍重验当前全部权限。
+
+原迁移目录已改逐表读取，禁止用GROUP_CONCAT结果判断尾部表存在性；自测超过1024字符仍保留尾表，同名前缀与非表标记不得冒充。新表加入全迁移顺序，旧断言不移除；首轮62/64的失败不能算通过。设计/API契约见design13.8，实际证据与剩余事项见tasks的DR-4。
+
 ## 专题档案存储专项（2026-10-30，仅本地）
 
 本地专题读取入口：`TM_AI_LOCAL_DOSSIER_READ_ENABLED`缺省关闭。仅在已有`TM_AI_LOCAL_CONFIG`隔离配置、会员读取认证和真实调用关闭前提下，显式启用并安全注入`TM_AI_LOCAL_DOSSIER_PREPARE_DSN`；它与原业务DSN必须指向同一回环地址和专属库，使用不同数据库账号。准备账号执行隔离标记与结构回滚检查后连接关闭；业务读取账号须有隔离标记、会员/题材及专题/来源/快照/正文表的读取权限，不因此授予写入/TRIGGER。完整检查后才注册版本目录及`GET /api/v1/ai/themes/{id}/dossiers/{version}`和可选compareVersion，失败无路由。不要在终端日志打印DSN；不开生产或候选写接口。摘录对照不代表语义核验或事实更正。

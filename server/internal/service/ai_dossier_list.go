@@ -12,7 +12,7 @@ import (
 )
 
 // borrowedDossierRead在外层只读事务中复用原单版读取校验，不开启/提交嵌套事务。
-// 仅ListVersions内部使用，外层提交未知时仍返回空响应。
+// 仅版本目录及会话档案引用服务内部使用，外层提交未知时仍返回空响应。
 type borrowedDossierRead struct{ tx dossier.Tx }
 
 func (s borrowedDossierRead) Within(ctx context.Context, write bool, fn func(dossier.Tx) error) error {

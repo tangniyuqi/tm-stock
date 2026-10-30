@@ -38,6 +38,11 @@
 # =============================================================================
 set -uo pipefail
 
+# 元数据逐表返回，避免GROUP_CONCAT默认长度截断后误报尾部账本表缺失。
+migration_table_list() {
+  awk -F'\t' '$1=="TABLE" && NF==2 {printf "%s%s",sep,$2; sep=","} END {print ""}'
+}
+
 CONTAINER="tm-stock-verify-db"
 DB="tm_stock_verify"
 ROOT_PW="fake-local-verify-only"    # 一次性容器，不映射端口，不含真实数据
@@ -176,6 +181,18 @@ if [ "${1:-}" = "--self-test-probe" ]; then
   check_version client_error 1
   check_version pipe_error 1
   check_version large 0
+  TABLE_TEST="$(awk 'BEGIN {for(i=0;i<100;i++) printf "TABLE\ttest_only_long_table_%03d\n",i; print "TABLE\ttm_points_txns"}' | migration_table_list)"
+  if [ "${#TABLE_TEST}" -gt 1024 ] && [[ ",$TABLE_TEST," == *",tm_points_txns,"* ]]; then
+    echo "  [OK] 逐表元数据超过1024字符仍保留末尾表"; PROBE_PASS=$((PROBE_PASS+1))
+  else echo "  [X] 长表目录被截断"; PROBE_FAIL=$((PROBE_FAIL+1)); fi
+  TABLE_TEST="$(printf 'TABLE\ttm_points_txns_backup\n' | migration_table_list)"
+  if [[ ",$TABLE_TEST," != *",tm_points_txns,"* ]]; then
+    echo "  [OK] 元数据表名精确匹配，不接受同名前缀"; PROBE_PASS=$((PROBE_PASS+1))
+  else echo "  [X] 元数据前缀误判"; PROBE_FAIL=$((PROBE_FAIL+1)); fi
+  TABLE_TEST="$(printf 'TABLES\ttm_points_txns\n其他标记\ttm_points_txns\n' | migration_table_list)"
+  if [ -z "$TABLE_TEST" ]; then
+    echo "  [OK] 非逐表标记不冒充表目录"; PROBE_PASS=$((PROBE_PASS+1))
+  else echo "  [X] 非表标记污染目录"; PROBE_FAIL=$((PROBE_FAIL+1)); fi
   echo "仅测试客户端探测函数，不替代真实迁移/约束断言。"
   echo "  通过 $PROBE_PASS 项 / 失败 $PROBE_FAIL 项"
   [ "$PROBE_FAIL" -eq 0 ] || exit 1
@@ -342,8 +359,8 @@ INSERT INTO addon_quant_theme_stock
  (theme_id,stock_id,ts_code,source_type,source_excerpt,source_url,collected_at,created_at)
  VALUES (100010,1,'688502.SH',1,'另一段摘录','https://e.com/r2',NOW(3),NOW(3));
 
-SELECT 'TABLES', GROUP_CONCAT(table_name ORDER BY table_name)
-  FROM information_schema.tables WHERE table_schema=DATABASE();
+SELECT 'TABLE', table_name
+  FROM information_schema.tables WHERE table_schema=DATABASE() ORDER BY table_name;
 SELECT 'ROWS', IFNULL(GROUP_CONCAT(CONCAT(theme_id,'/',audit_status) ORDER BY theme_id),'NONE')
   FROM addon_quant_theme_stock WHERE deleted_at IS NULL;
 SELECT 'COUNT', COUNT(*) FROM addon_quant_theme_stock;
@@ -418,14 +435,14 @@ SELECT 'POINTS_ROLLBACK', COUNT(*) FROM tm_points_accounts;
 
 OUT="$( { printf '%s\n' "$UPSTREAM_DDL"; cat "${MIGS[@]}"; printf '%s\n' "$ASSERT_SQL"; } | MYSQL_RUN )"
 
-if ! printf '%s\n' "$OUT" | grep -q '^TABLES'; then
+if ! printf '%s\n' "$OUT" | grep -q $'^TABLE\t'; then
   echo "[X] SQL 执行未返回结果，中止。原始输出前 20 行："
   printf '%s\n' "$OUT" | head -20
   exit 1
 fi
 
 f() { printf '%s\n' "$OUT" | awk -F'\t' -v k="$1" '$1==k{print $2}'; }
-TABLES="$(f TABLES)"; ROWS="$(f ROWS)"; COUNT="$(f COUNT)"
+TABLES="$(printf '%s\n' "$OUT" | migration_table_list)"; ROWS="$(f ROWS)"; COUNT="$(f COUNT)"
 AFTER_READD="$(f AFTER_READD)"; C_BEFORE="$(f CSIDE_BEFORE_AUDIT)"; C_AFTER="$(f CSIDE_AFTER_AUDIT)"
 CONVERGE_STATE="$(f converge_addon_quant_theme_stock)"
 
@@ -438,7 +455,7 @@ done
 for t in tm_points_accounts tm_points_txns tm_points_lots tm_points_entries tm_points_holds tm_points_hold_allocs tm_points_debts tm_points_debt_allocs; do
   case ",$TABLES," in *",$t,"*) ok "表 $t 存在" ;; *) bad "账本表 $t 缺失" ;; esac
 done
-for t in tm_ai_tasks tm_ai_task_events tm_ai_task_budgets tm_ai_task_reservations tm_ai_task_step_results tm_ai_task_steps tm_ai_report_commits tm_ai_task_admissions tm_ai_report_feedbacks tm_ai_report_feedback_events tm_ai_conversation_tasks tm_ai_conversations tm_ai_conversation_messages; do
+for t in tm_ai_tasks tm_ai_task_events tm_ai_task_budgets tm_ai_task_reservations tm_ai_task_step_results tm_ai_task_steps tm_ai_report_commits tm_ai_task_admissions tm_ai_report_feedbacks tm_ai_report_feedback_events tm_ai_conversation_tasks tm_ai_conversations tm_ai_conversation_messages tm_ai_conversation_dossiers; do
   case ",$TABLES," in *",$t,"*) ok "表 $t 存在" ;; *) bad "任务表 $t 缺失" ;; esac
 done
 [ "$(f TASK_CHECKS)" = "3" ] && ok "任务 3 个 CHECK 强制执行" || bad "任务 CHECK 缺失或未强制执行"
