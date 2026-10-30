@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -90,7 +91,39 @@ func (g *localExecutionGuard) Finish(ctx context.Context, r task.StageRequest, o
 
 var errLocalWorkerStop = errors.New("本地worker已收到显式停止")
 
+type localReportTarget struct{ userID, taskID int64 }
+
+// resume-local 只接受一个已有任务，不扫描队列，不接收补发或结算开关。
+func resumeLocalReport(ctx context.Context, args []string, output io.Writer) int {
+	target, err := parseLocalReportTarget(args)
+	if err != nil {
+		_, _ = io.WriteString(output, "本地报告恢复参数无效；仅接受显式配置及已有会员、任务编号。\n")
+		return 1
+	}
+	return runLocalReportMode(ctx, args[:6], nil, output, &target)
+}
+
+func parseLocalReportTarget(args []string) (localReportTarget, error) {
+	var out localReportTarget
+	if len(args) != 10 || args[0] != "-config" || args[2] != "-plans" || args[4] != "-execution" || args[6] != "-user" || args[8] != "-task" {
+		return out, points.ErrInvalid
+	}
+	ids := []*int64{&out.userID, &out.taskID}
+	for i, raw := range []string{args[7], args[9]} {
+		v, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil || v <= 0 || v > 9007199254740991 || strconv.FormatInt(v, 10) != raw {
+			return localReportTarget{}, points.ErrInvalid
+		}
+		*ids[i] = v
+	}
+	return out, nil
+}
+
 func runLocalReports(parent context.Context, args []string, input io.ReadCloser, output io.Writer) int {
+	return runLocalReportMode(parent, args, input, output, nil)
+}
+
+func runLocalReportMode(parent context.Context, args []string, input io.ReadCloser, output io.Writer, target *localReportTarget) int {
 	stage := 1
 	fail := func() int {
 		_, _ = fmt.Fprintf(output, "本地报告worker未完成（阶段%d，详情已隐藏）；未知调用保留原键，不自动重发或释放。\n", stage)
@@ -214,6 +247,27 @@ func runLocalReports(parent context.Context, args []string, input io.ReadCloser,
 	if err != nil {
 		return fail()
 	}
+	if target != nil {
+		p, err := plans.Current(startCtx)
+		if err != nil {
+			return fail()
+		}
+		allowed := false
+		for _, id := range p.Members {
+			allowed = allowed || id == target.userID
+		}
+		if !allowed {
+			return fail()
+		}
+		v, err := tasks.Inspect(startCtx, target.userID, target.taskID)
+		if err != nil || v.Status != task.Running && !v.Terminal() {
+			return fail()
+		}
+		startCancel()
+		stage = 5
+		out, err := worker.Run(parent, target.userID, target.taskID)
+		return localResumeReceipt(parent, out, err, output)
+	}
 	light, err := service.NewAIL1ReportQueue(worker, guard, true)
 	if err != nil {
 		return fail()
@@ -258,6 +312,21 @@ func runLocalReports(parent context.Context, args []string, input io.ReadCloser,
 		return 1
 	}
 	return fail()
+}
+
+func localResumeReceipt(ctx context.Context, out service.AIL1ReportReceipt, err error, output io.Writer) int {
+	code, receipt := 2, "LOCAL_REPORT_RESUME_UNKNOWN：原任务尚未确认终态；保留原键与冻结，不自动重发或释放。\n"
+	if ctx.Err() != nil {
+		code, receipt = 130, "LOCAL_REPORT_RESUME_STOPPED：本地恢复已停止；不代表远端停止，原记录继续保留。\n"
+	} else if err != nil || out.Task.TaskID <= 0 || out.Task.CurrentStep < 0 || out.Task.CurrentStep > task.MaxSteps || out.Task.TaskStatus < task.Running || out.Task.TaskStatus > task.Expired {
+		code, receipt = 1, "LOCAL_REPORT_RESUME_REFUSED：恢复未完成，内部详情已隐藏；不自动重发或释放。\n"
+	} else if out.Task.Outcome == "terminal" && out.Task.TaskStatus >= task.Succeeded && out.Task.TaskStatus <= task.Expired {
+		code, receipt = 0, "LOCAL_REPORT_RESUME_TERMINAL：原任务已确认终态；报告仍须通过原读取核验。\n"
+	}
+	if _, err := io.WriteString(output, receipt); err != nil {
+		return 1
+	}
+	return code
 }
 
 func localWorkerFailureCode(err error) string {

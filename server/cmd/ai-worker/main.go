@@ -104,6 +104,9 @@ func failure(output io.Writer) int {
 	return 1
 }
 func runCommand(ctx context.Context, args []string, output io.Writer) int {
+	if len(args) > 0 && args[0] == "resume-local" {
+		return resumeLocalReport(ctx, args[1:], output)
+	}
 	if len(args) > 0 && args[0] == "run-local" {
 		return runLocalReports(ctx, args[1:], os.Stdin, output)
 	}
@@ -118,7 +121,7 @@ func runCommand(ctx context.Context, args []string, output io.Writer) int {
 	}
 	opts, err := parseOptions(args)
 	if errors.Is(err, flag.ErrHelp) {
-		_, err := io.WriteString(output, "用法：ai-worker recover -user <编号> -task <编号> -plan <可信本地JSON文件>\n仅恢复已有隔离响应；不发起模型/Agent、不新增预留、不生成报告或成功结算。连接只读环境变量 TM_DB_DSN。0=恢复完成但待报告/已有终态，2=响应未知，1=未完成，130=中断。\n")
+		_, err := io.WriteString(output, "用法：ai-worker recover -user <编号> -task <编号> -plan <可信本地JSON文件>\nrecover仅恢复已有隔离响应；不发起模型/Agent、不新增预留、不生成报告或成功结算。连接只读环境变量 TM_DB_DSN。0=恢复完成但待报告/已有终态，2=响应未知，1=未完成，130=中断。\n本地报告核查：ai-worker resume-local -config <启动文件> -plans <计划文件> -execution <执行文件> -user <编号> -task <编号>\n仅限同实例受控配置的已有运行/终态任务，沿原记录与原租约核查；可驱动已知前缀后的剩余阶段，未知回执不补发。0=已有终态（含失败/取消/超期），2=仍未知，1=拒绝/未完成，130=中断；不授予真实调用或生产批准。\n")
 		if err != nil {
 			return 1
 		}

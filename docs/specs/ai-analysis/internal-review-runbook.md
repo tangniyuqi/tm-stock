@@ -24,7 +24,13 @@
 
 本地常驻队列入口在server目录运行`go run ./cmd/ai-worker run-local -config <启动文件绝对路径> -plans <计划文件绝对路径> -execution <执行文件绝对路径>`。必须显式提供三份文件、回环隔离DSN和环境TM_AI_LOCAL_AGENT_BEARER；没有默认档案或真实模型密钥回退。执行文件字段/限制见design.md 12.5，仅synthetic-loopback-only；监听/批量/扫描间隔仍用版本1启动文件。先执行原报告深度、调用审计、Agent存储保护自检，核实际模型/Agent摘要与每条计划，再进入两原队列。就绪标记不代表报告成功；错误/未知结果退出后按原键核查，不能自动换键重提或释放。
 
-显式追加`-stop-on-stdin`才启用管道停止，写入stop行或关闭标准输入请求收尾；正常管道停止退出0，父上下文取消按130，执行/配置错误按1，均不代表会员任务已取消或远端已停止。不开此标志时使用原系统信号上下文；操作系统信号、强杀及重启恢复尚需独立验收。执行账号仅需8账本、任务/事件、预算/预留、阶段结果/检查点、准入、调用审计、报告提交及Agent档案/任务/事件等20表逐表DML；实例标记、题材、来源/快照/正文等5表只读，不授DDL/TRIGGER，禁止修改来源或标记。程序不创建账号、迁移或修复结构。
+显式追加`-stop-on-stdin`才启用管道停止，写入stop行或关闭标准输入请求收尾；正常管道停止退出0，父上下文取消按130，执行/配置错误按1，均不代表会员任务已取消或远端已停止。不开此标志时使用原系统信号上下文；操作系统信号需独立验收，强杀/自然租约专项见下。执行账号仅需8账本、任务/事件、预算/预留、阶段结果/检查点、准入、调用审计、报告提交及Agent档案/任务/事件等20表逐表DML；实例标记、题材、来源/快照/正文等5表只读，不授DDL/TRIGGER，禁止修改来源或标记。程序不创建账号、迁移或修复结构。
+
+人工核查本轮已有任务，在server目录使用`go run ./cmd/ai-worker resume-local -config <同实例启动文件绝对路径> -plans <同源计划绝对路径> -execution <同源执行文件绝对路径> -user <内部会员编号> -task <已有任务编号>`；继续使用相同回环受限DSN及环境Bearer，不提供stdin停止标志。它先做与常驻命令相同的自检，拒绝当前排队/不存在/非本人/计划外目标，原运行租约未到期仍拒绝，不能改库时间、改围栏、缩短旧租约或换键催跑。0仅表示原任务已确认终态（含失败/取消/超期），仍通过原报告API核可读；2为仍未知，1为拒绝/未完成，130为本地中断。未知保留原预留及冻结，不能据退出码自动退款或重提。
+
+强杀复现入口：`scripts/dev/verify-ai-source-native.ps1 -MySqlBaseDir <已有MySQL程序目录> -BashPath <bash绝对路径> -ReportsOnly -RunCount 1 -ReportPattern '^TestIntegrationAIReportLocalWorkerRecovery$'`。根组直接构建实际worker，按RC/RR×轻深×final/agent/model/queued串行新库验收；final只用本轮SQL空区间锁阻塞最终报告事务，并从performance_schema核真实锁等待后强杀；回滚测试锁后确认旧事务无报告/结算，再等原一分钟租约自然到期，用实际resume-local回放完整回执并核一次报告/结算及旧围栏拒写。agent/model在原远端running或模型调用前审计已保存时强杀，恢复只沿原键核查，不补造原围栏缺失的Capture；queued验证恢复命令不领取排队任务，另核原取消终态。该专项需测试初始化账号可读取本轮performance_schema锁信息，实际worker账号仍无此权限；网络只用回环替身，不代表真实多Agent、OS信号或浏览器恢复验收。
+
+上列RC/RR指准备、创建及验收仓储的隔离级别；实际worker进程沿自己的默认事务设置，最终提交测试锁固定使用RR以阻塞空索引区间。父Go测试带-race，子进程按实际命令普通构建；不能把这组标签解释成实际worker分别强制采用了两种隔离级别或带竞态插桩。
 
 独立进程专项为`-ReportsOnly -ReportPattern '^TestIntegrationAIReport(LocalWorkerProcess|LocalPublication|WorkflowLifecycle)$' -RunCount 1`，显式指定本机MySQL程序及Git Bash目录，逐版运行。LocalWorkerProcess必须1根/2级别/12叶场景/0跳过：轻度、深度、未知模型响应、远端已记录running时管道停止、空队列配置撤回、启动摘要错绑。父测试编译并直接启动实际worker二进制，使用随机受限账号和最小白名单环境；先等就绪再由原创建服务提交任务，子进程通过原数据库扫描发现，不能把指定任务调用worker当常驻进程。RC/RR指创建/验收仓储，子进程使用实际程序默认RC。网络仍为回环替身，没有H5或真实模型。
 

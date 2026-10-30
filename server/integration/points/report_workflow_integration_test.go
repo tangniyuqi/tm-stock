@@ -141,7 +141,7 @@ func newWorkflowEnv(t *testing.T, level sql.IsolationLevel, mode string) *workfl
 	budget.MaxCalls = 6
 	budget.MaxTokens = 5000
 	local := strings.HasPrefix(mode, "local")
-	deep := mode == "local_deep" || mode == "local_deep_running" || mode == "local_deep_short"
+	deep := mode == "local_deep" || mode == "local_deep_running" || mode == "local_deep_short" || mode == "local_deep_model_wait"
 	x := newReportEnvWithBudgetLocal(t, level, time.Minute, false, budget, local)
 	snapshots := []sources.Snapshot{x.snap}
 	if mode == "multi_source" {
@@ -159,7 +159,7 @@ func newWorkflowEnv(t *testing.T, level sql.IsolationLevel, mode string) *workfl
 	reportDDL(t, x.pointsTestEnv, "20261015_create_tm_ai_agent_runs.sql")
 	x.mustExec(`CREATE TABLE test_only_check_audits(operation_key varchar(80),phase varchar(8),payload mediumblob,PRIMARY KEY(operation_key,phase)) ENGINE=InnoDB`)
 	selectionText := workflowSelectionJSON(t, x.snap.ID)
-	if mode == "local_deep" || mode == "local_deep_running" {
+	if mode == "local_deep" || mode == "local_deep_running" || mode == "local_deep_model_wait" {
 		var picks finalreport.SelectionResponse
 		if err := json.Unmarshal([]byte(selectionText), &picks); err != nil {
 			t.Fatal(err)
@@ -207,6 +207,8 @@ func newWorkflowEnv(t *testing.T, level sql.IsolationLevel, mode string) *workfl
 		steps[0] = providertest.Success(`{"selections":[]}`, provider.Usage{Prompt: 2, Completion: 1, Total: 3})
 	case "transport", "local_unknown":
 		steps = []providertest.Step{providertest.Abort()}
+	case "local_model_wait", "local_deep_model_wait":
+		steps = []providertest.Step{providertest.Hang()}
 	case "slow":
 		steps[0] = providertest.SlowHeader(1200*time.Millisecond, steps[0])
 	}

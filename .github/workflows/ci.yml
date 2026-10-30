@@ -112,7 +112,7 @@ jobs:
           # 本地worker退出类别诊断1根8子例，不得输出原始错误。
           # 本地反馈管理配置与监听前保护2根15子例。
           # 本地问答文件、策略摘要、控制器及装配保护新增53项。
-          MIN=1326
+          MIN=1347
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项测试，低于下限 $MIN —— 要么测试没被执行，要么有测试被删。"
             exit 1
@@ -230,7 +230,9 @@ jobs:
           TM_TEST_DSN: "root:fake-ci-only-not-a-secret@tcp(127.0.0.1:3306)/tm_stock_it?parseTime=true&multiStatements=true&charset=utf8mb4&loc=Local"
         run: |
           set -o pipefail
-          go test -p 1 -race -tags=integration ./internal/repository/... ./integration/points/... ./integration/agents/... ./cmd/api/... -timeout=20m -count=1 -v 2>&1 | tee /tmp/it.log | tail -40
+          go test -p 1 -race -tags=integration ./internal/repository/... ./integration/points/... ./integration/agents/... ./cmd/api/... -skip '^TestIntegrationAIReportLocalWorkerRecovery$' -timeout=20m -count=1 -v 2>&1 | tee /tmp/it.log | tail -40
+          # 原一分钟租约必须自然到期；独立串行计时，不压缩租约或挤占原套件期限。
+          go test -p 1 -race -tags=integration ./integration/points -run '^TestIntegrationAIReportLocalWorkerRecovery$' -timeout=20m -count=1 -v 2>&1 | tee -a /tmp/it.log | tail -40
           # 原自然30秒执行期限与一分钟租约不缩短；独立精准运行，不挤占原套件看门狗。
           go test -p 1 -race -tags=integration,browser ./integration/points -run '^TestIntegrationAIReportTimeoutRecovery$' -timeout=5m -count=1 -v 2>&1 | tee /tmp/timeout-recovery.log
           TIMEOUT_ROOT=$(grep -Ec '^--- PASS: TestIntegrationAIReportTimeoutRecovery ' /tmp/timeout-recovery.log || true)
@@ -266,6 +268,11 @@ jobs:
           LOCAL_WORKER_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportLocalWorkerProcess/(Read_Committed|Repeatable_Read)/' /tmp/it.log || true)
           LOCAL_WORKER_SHORT_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportLocalWorkerProcess/(Read_Committed|Repeatable_Read)/deep_short ' /tmp/it.log || true)
           LOCAL_WORKER_SKIPS=$(grep -Ec '^[[:space:]]*--- SKIP: TestIntegrationAIReportLocalWorkerProcess' /tmp/it.log || true)
+          LOCAL_RECOVERY_ROOT=$(grep -Ec '^--- PASS: TestIntegrationAIReportLocalWorkerRecovery ' /tmp/it.log || true)
+          LOCAL_RECOVERY_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportLocalWorkerRecovery/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          LOCAL_RECOVERY_DEPTHS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportLocalWorkerRecovery/(Read_Committed|Repeatable_Read)/(1|2) ' /tmp/it.log || true)
+          LOCAL_RECOVERY_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportLocalWorkerRecovery/(Read_Committed|Repeatable_Read)/(1|2)/(final|agent|model|queued) ' /tmp/it.log || true)
+          LOCAL_RECOVERY_SKIPS=$(grep -Ec '^[[:space:]]*--- SKIP: TestIntegrationAIReportLocalWorkerRecovery' /tmp/it.log || true)
           LOCAL_API_WORKER_ROOT=$(grep -Ec '^--- PASS: TestIntegrationAIReportLocalAPIWorker ' /tmp/it.log || true)
           LOCAL_API_WORKER_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportLocalAPIWorker/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
           LOCAL_API_WORKER_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportLocalAPIWorker/(Read_Committed|Repeatable_Read)/(1|2) ' /tmp/it.log || true)
@@ -296,6 +303,19 @@ jobs:
           if [ "$LOCAL_WORKER_ROOT" -ne 1 ] || [ "$LOCAL_WORKER_LEVELS" -ne 2 ] || [ "$LOCAL_WORKER_CASES" -ne 16 ] || [ "$LOCAL_WORKER_SHORT_CASES" -ne 2 ] || [ "$LOCAL_WORKER_SKIPS" -ne 0 ]; then
             echo "独立本地worker成功交付、深度不足拒绝释放、未知停止及配置绑定验收未完整通过"; exit 1
           fi
+          if [ "$LOCAL_RECOVERY_ROOT" -ne 1 ] || [ "$LOCAL_RECOVERY_LEVELS" -ne 2 ] || [ "$LOCAL_RECOVERY_DEPTHS" -ne 4 ] || [ "$LOCAL_RECOVERY_CASES" -ne 16 ] || [ "$LOCAL_RECOVERY_SKIPS" -ne 0 ]; then
+            echo "实际worker强杀、自然租约、原回执恢复结算或缺回执保留验收漏跑"; exit 1
+          fi
+          for level in Read_Committed Repeatable_Read; do
+            for depth in 1 2; do
+              for phase in final agent model queued; do
+                MATCHES=$(grep -Ec "^[[:space:]]+--- PASS: TestIntegrationAIReportLocalWorkerRecovery/$level/$depth/$phase " /tmp/it.log || true)
+                if [ "$MATCHES" -ne 1 ]; then
+                  echo "实际worker恢复场景缺失或重复：$level/$depth/$phase"; exit 1
+                fi
+              done
+            done
+          done
           if [ "$CALL_AUDIT_STARTUP_ROOT" -ne 1 ] || [ "$CALL_AUDIT_STARTUP_LEVELS" -ne 2 ] || [ "$CALL_AUDIT_STARTUP_CASES" -ne 34 ] || [ "$CALL_AUDIT_STARTUP_SKIPS" -ne 0 ]; then
             echo "调用审计启动保护、受限worker及回滚验收未完整通过"; exit 1
           fi
@@ -613,7 +633,8 @@ jobs:
           # 实际反馈独立进程新增1根、2级别和4个轻深用例。
           # 本地问答实际进程新增1根、2级别和4个轻深用例。
           # 组合H5网关前置条件及最终收尾核验新增1项。
-          MIN=1164
+          # 实际强杀恢复新增1根、2级别、4轻深父组及16种阶段/排队场景。
+          MIN=1187
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项，低于下限 $MIN —— 要么没跑，要么有测试被删。"; exit 1
           fi
