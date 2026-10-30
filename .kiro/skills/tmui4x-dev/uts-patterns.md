@@ -654,3 +654,22 @@ setDarkModel(value: 'dark' | 'auto' | 'light')
 getDarkModel(): 'dark' | 'auto' | 'light'
 getI18n(): Tmui4xI18nTml
 ```
+
+## UTSJSONObject 与请求业务类型（HBuilderX 5.26 实测）
+
+编译诊断：`Conversion of type 'UTSJSONObject' to type 'MemberDossierInput' may be a mistake because neither type sufficiently overlaps with the other.`
+
+❌ 将原始字典整体断言成必填字段业务类型，或再用`as unknown as`隐藏诊断：
+
+```uts
+const input = body as MemberDossierInput
+```
+
+✅ 对封装层内部构造的数字请求，先检查字段名，再逐字段读取并检查真实运行类型、整数和边界，之后才用于URL或提交。字段断言本身不证明数据合法：
+
+```uts
+const theme : number = body['themeId'] as number
+if (typeof theme != 'number' || theme <= 0 || theme > 9007199254740991 || Math.floor(theme) != theme) return
+```
+
+外部响应仍使用独立闭集DTO校验，不能凭类型断言取得正文展示或会员权限。源码模拟宿主与官方编译分别验证，不为消除模拟宿主差异添加生产类型绕过。

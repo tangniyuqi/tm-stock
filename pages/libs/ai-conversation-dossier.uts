@@ -1,0 +1,44 @@
+import { MemberApi, MemberApiResult } from './member-api.uts'
+import { isSafeAIId, isSafeAIInteger } from './ai.uts'
+import { AIDossierView, isDossierView } from './ai-dossier.uts'
+
+export type AIDossierSelection = { themeId : number, version : number, compareVersion : number }
+export type AISavedDossier = { id : number, conversationId : number, themeId : number, version : number, compareVersion : number, createdAt : number }
+export type AISavedDossierPage = { conversationId : number, notice : string, items : AISavedDossier[], hasMore : boolean, nextBeforeId : number }
+export type AISavedDossierView = { reference : AISavedDossier, dossier : AIDossierView }
+export const savedDossierNotice = '以下仅为本人保存的版本引用；保存记录不代表资料当前可读，打开时重新核验权限。'
+const keys = (names : string[], expected : string[]) : boolean => names.length == expected.length && names.every((k : string) : boolean => expected.includes(k))
+export const isDossierSelection = (s : AIDossierSelection | null) : boolean => s != null && typeof s == 'object' && !Array.isArray(s) && keys(Object.keys(s),['themeId','version','compareVersion']) && isSafeAIId(s.themeId) && isSafeAIId(s.version) && isSafeAIInteger(s.compareVersion) && (s.compareVersion == 0 || s.compareVersion > s.version)
+export const isSavedDossier = (r : AISavedDossier | null, cid : number) : boolean => r != null && typeof r == 'object' && !Array.isArray(r) && keys(Object.keys(r),['id','conversationId','themeId','version','compareVersion','createdAt']) && isSafeAIId(r.id) && r.conversationId == cid && isSafeAIId(cid) && isSafeAIId(r.themeId) && isSafeAIId(r.version) && isSafeAIInteger(r.compareVersion) && (r.compareVersion == 0 || r.compareVersion > r.version) && isSafeAIId(r.createdAt) && r.createdAt <= 8640000000000000
+export const savedDossierMatches = (r : AISavedDossier, s : AIDossierSelection) : boolean => r.themeId == s.themeId && r.version == s.version && r.compareVersion == s.compareVersion
+export const isSavedDossierPage = (p : AISavedDossierPage | null, cid : number, before : number) : boolean => {
+	if (p == null || typeof p != 'object' || Array.isArray(p) || !keys(Object.keys(p),['conversationId','notice','items','hasMore','nextBeforeId']) || p.conversationId != cid || p.notice != savedDossierNotice || !Array.isArray(p.items) || p.items.length > 10 || typeof p.hasMore != 'boolean' || !isSafeAIInteger(p.nextBeforeId)) return false
+	let last : number = before
+	for (const item of p.items) { if (!isSavedDossier(item,cid) || last > 0 && item.id >= last) return false; last = item.id }
+	return p.hasMore ? p.items.length == 10 && p.nextBeforeId == last : p.nextBeforeId == 0
+}
+export const isSavedDossierView = (v : AISavedDossierView | null, expected : AISavedDossier) : boolean => v != null && typeof v == 'object' && !Array.isArray(v) && keys(Object.keys(v),['reference','dossier']) && isSavedDossier(v.reference,expected.conversationId) && v.reference.id == expected.id && v.reference.createdAt == expected.createdAt && savedDossierMatches(v.reference, {themeId:expected.themeId,version:expected.version,compareVersion:expected.compareVersion} as AIDossierSelection) && isDossierView(v.dossier,expected.themeId,expected.version,expected.compareVersion)
+export const savedDossierError = (code : number) : string => code == 40100 || code == 40101 || code == 40301 ? '登录状态已失效，请重新登录' : code == 40907 ? '本会话已达到100条档案引用上限，可另建会话继续保存' : code == 40903 ? '会话已变化或已归档，请重新核对当前会话' : code == 40406 || code == 40404 || code == 40403 ? '会话、引用或资料当前不可读，请重新核对' : '档案引用暂不可用；保存结果未确认时可查询原组合收据'
+const failure = <T>(code : number) : MemberApiResult<T> => ({code:code,message:savedDossierError(code),data:null} as MemberApiResult<T>)
+export class AIConversationDossierApi {
+	public static async list(cid : number, before : number) : Promise<MemberApiResult<AISavedDossierPage>> {
+		if (!isSafeAIId(cid) || !isSafeAIInteger(before)) return failure<AISavedDossierPage>(40001)
+		const r = await MemberApi.aiConversationDossier<AISavedDossierPage>('list',cid,0,before,{} as UTSJSONObject)
+		return r.code != 0 ? failure<AISavedDossierPage>(r.code) : isSavedDossierPage(r.data,cid,before) ? r : failure<AISavedDossierPage>(50001)
+	}
+	public static async save(cid : number, expected : number, selected : AIDossierSelection) : Promise<MemberApiResult<AISavedDossier>> {
+		if (!isSafeAIId(cid) || !isSafeAIId(expected) || !isDossierSelection(selected)) return failure<AISavedDossier>(40001)
+		const r = await MemberApi.aiConversationDossier<AISavedDossier>('save',cid,0,0,{themeId:selected.themeId,version:selected.version,compareVersion:selected.compareVersion,expectedVersion:expected} as UTSJSONObject)
+		return r.code != 0 ? failure<AISavedDossier>(r.code) : isSavedDossier(r.data,cid) && savedDossierMatches(r.data!,selected) ? r : failure<AISavedDossier>(50001)
+	}
+	public static async receipt(cid : number, selected : AIDossierSelection) : Promise<MemberApiResult<AISavedDossier>> {
+		if (!isSafeAIId(cid) || !isDossierSelection(selected)) return failure<AISavedDossier>(40001)
+		const r = await MemberApi.aiConversationDossier<AISavedDossier>('receipt',cid,0,0,{themeId:selected.themeId,version:selected.version,compareVersion:selected.compareVersion} as UTSJSONObject)
+		return r.code != 0 ? failure<AISavedDossier>(r.code) : isSavedDossier(r.data,cid) && savedDossierMatches(r.data!,selected) ? r : failure<AISavedDossier>(50001)
+	}
+	public static async read(cid : number, expected : AISavedDossier) : Promise<MemberApiResult<AISavedDossierView>> {
+		if (!isSavedDossier(expected,cid)) return failure<AISavedDossierView>(40001)
+		const r = await MemberApi.aiConversationDossier<AISavedDossierView>('read',cid,expected.id,0,{} as UTSJSONObject)
+		return r.code != 0 ? failure<AISavedDossierView>(r.code) : isSavedDossierView(r.data,expected) ? r : failure<AISavedDossierView>(50001)
+	}
+}

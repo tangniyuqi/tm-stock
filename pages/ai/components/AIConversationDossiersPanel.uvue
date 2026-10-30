@@ -1,0 +1,88 @@
+<script lang="ts" setup>
+import { ref, watch, onBeforeUnmount } from 'vue'
+import { AIConversationDossierApi, AISavedDossier, AISavedDossierView, savedDossierNotice, savedDossierError } from '../../libs/ai-conversation-dossier.uts'
+import { dossierQuoteFor, AIDossierQuote } from '../../libs/ai-dossier.uts'
+import { currentAIMemberToken } from '../../libs/ai-session.uts'
+import { formatMillis } from '../../libs/theme.uts'
+import { copySafeExternalUrl } from '../../libs/external-link.uts'
+import AIDossierContent from './AIDossierContent.uvue'
+type SavedDossiersProps = { sessionToken : string, conversationId : number, enabled? : boolean, refreshKey? : number }
+defineOptions({name:'AIConversationDossiersPanel'})
+const props = withDefaults(defineProps<SavedDossiersProps>(), {enabled:true,refreshKey:0})
+const emit = defineEmits<{unauthorized: [], expanded: [value : boolean]}>()
+const expanded = ref<boolean>(false)
+const busy = ref<boolean>(false)
+const ready = ref<boolean>(false)
+const rows = ref<AISavedDossier[]>([] as AISavedDossier[])
+const nextBefore = ref<number>(0)
+const hasMore = ref<boolean>(false)
+const view = ref<AISavedDossierView | null>(null)
+const chosen = ref<AISavedDossier | null>(null)
+const message = ref<string>('')
+let alive : boolean = true
+let generation : number = 0
+let refreshPending : boolean = false
+const current = (round : number, token : string) : boolean => alive && props.enabled && expanded.value && props.conversationId > 0 && round == generation && token.length > 0 && token == props.sessionToken && token == currentAIMemberToken()
+const reset = () : void => { generation++; refreshPending = false; expanded.value = false; busy.value = false; ready.value = false; rows.value = [] as AISavedDossier[]; view.value = null; chosen.value = null; message.value = ''; nextBefore.value = 0; hasMore.value = false; emit('expanded',false) }
+const accept = (code : number) : boolean => { if (code == 40100 || code == 40101 || code == 40301) { reset(); emit('unauthorized'); return false }; return true }
+const load = async (more : boolean) : Promise<void> => {
+	if (busy.value || !current(generation,props.sessionToken) || more && !hasMore.value) return
+	const round : number = ++generation; const token : string = props.sessionToken; const before : number = more ? nextBefore.value : 0
+	if (!more) { refreshPending = false; rows.value = [] as AISavedDossier[]; ready.value = false; nextBefore.value = 0; hasMore.value = false }
+	busy.value = true; view.value = null; chosen.value = null; message.value = ''
+	try {
+		const r = await AIConversationDossierApi.list(props.conversationId,before)
+		if (!current(round,token) || !accept(r.code)) return
+		busy.value = false
+		if (r.code != 0 || r.data == null) { rows.value = [] as AISavedDossier[]; ready.value = false; hasMore.value = false; message.value = savedDossierError(r.code); return }
+		rows.value = more ? rows.value.concat(r.data!.items) : r.data!.items; ready.value = true; hasMore.value = r.data!.hasMore; nextBefore.value = r.data!.nextBeforeId
+	} catch (_) { if (current(round,token)) { busy.value = false; rows.value = [] as AISavedDossier[]; ready.value = false; hasMore.value = false; message.value = savedDossierError(50001) } }
+}
+const toggle = () : void => { if (expanded.value) { reset(); return }; if (!props.enabled || props.sessionToken != currentAIMemberToken()) return; expanded.value = true; emit('expanded',true); load(false) }
+const read = async (item : AISavedDossier, copyVersion : number, key : string, field : string) : Promise<void> => {
+	if (busy.value || !current(generation,props.sessionToken)) return
+	const round : number = ++generation; const token : string = props.sessionToken
+	busy.value = true; view.value = null; chosen.value = null; message.value = ''
+	try {
+		const r = await AIConversationDossierApi.read(props.conversationId,item)
+		if (!current(round,token) || !accept(r.code)) return
+		busy.value = false
+		if (r.code != 0 || r.data == null) { message.value = savedDossierError(r.code); return }
+		view.value = r.data!; chosen.value = item
+		if (copyVersion > 0) { const quote : AIDossierQuote | null = dossierQuoteFor(r.data!.dossier,copyVersion,key,field); if (quote != null) copySafeExternalUrl(quote!.sourceUrl) }
+	} catch (_) { if (current(round,token)) { busy.value = false; message.value = savedDossierError(50001) } }
+}
+const copySource = (version : number, key : string, field : string) : void => { if (chosen.value != null) read(chosen.value!,version,key,field) }
+watch(() : number => props.refreshKey, () => { if (!props.enabled || props.sessionToken != currentAIMemberToken()) return; refreshPending = true; if (!expanded.value) { expanded.value = true; emit('expanded',true) }; load(false) })
+watch(() : boolean => busy.value, (value : boolean) => { if (!value && refreshPending && current(generation,props.sessionToken)) load(false) })
+watch(() : string => props.sessionToken, () => { reset() })
+watch(() : number => props.conversationId, () => { reset() })
+watch(() : boolean => props.enabled, () => { reset() })
+onBeforeUnmount(() => { alive = false; reset() })
+</script>
+<template>
+	<view class="saved-dossiers mt-12">
+		<text class="saved-title text-weight-b">本会话已保存档案</text>
+		<text class="saved-copy mt-4">仅保存版本入口，不存原文、不调用模型、不扣积分；打开时核对当前资料权限。</text>
+		<x-button class="mt-8" height="44" :block="true" skin="outline" @click="toggle">{{ expanded ? '收起已保存档案' : '查询本会话保存的档案' }}</x-button>
+		<view v-if="expanded" class="mt-8">
+			<text class="saved-copy">{{ savedDossierNotice }}</text>
+			<text v-if="busy" class="saved-copy mt-8">正在核对本人引用或当前原文权限…</text>
+			<text v-if="ready && rows.length == 0" class="saved-copy mt-8">本会话尚未保存档案，可选择题材并打开版本后保存。</text>
+			<view v-for="item in rows" :key="item.id" class="mt-12">
+				<text class="saved-title">题材 #{{ item.themeId }} · {{ item.compareVersion == 0 ? '版本 ' + item.version.toString() : '版本 ' + item.version.toString() + ' 与 ' + item.compareVersion.toString() }}</text>
+				<text class="saved-copy mt-4">保存于 {{ formatMillis(item.createdAt) }}</text>
+				<x-button class="mt-8" height="44" :block="true" skin="outline" :disabled="busy" @click="read(item,0,'','')">核对并打开档案引用 #{{ item.id }}</x-button>
+			</view>
+			<x-button v-if="hasMore" class="mt-8" height="44" :block="true" skin="outline" :disabled="busy" @click="load(true)">读取更早保存的档案</x-button>
+			<x-button class="mt-8" height="44" :block="true" skin="outline" :disabled="busy" @click="load(false)">刷新本会话保存记录</x-button>
+			<text v-if="message != ''" class="saved-copy mt-12">{{ message }}</text>
+			<AIDossierContent v-if="view != null" :value="view!.dossier" :busy="busy" @copy="copySource"></AIDossierContent>
+		</view>
+	</view>
+</template>
+<style scoped>
+.saved-dossiers { padding: 12px; background-color: #f6f8fc; border-radius: 10px; min-width: 0; }
+.saved-title { color: #30343c; font-size: 15px; line-height: 24px; }
+.saved-copy { color: #586174; font-size: 14px; line-height: 23px; }
+</style>

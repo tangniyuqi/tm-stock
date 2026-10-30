@@ -33,8 +33,12 @@ type dossierProcessFixture struct {
 	baselineTasks, baselineTxns int
 }
 
-func newDossierProcessFixture(t *testing.T, lifetime time.Duration) *dossierProcessFixture {
+func newDossierProcessFixture(t *testing.T, lifetime time.Duration, references ...bool) *dossierProcessFixture {
 	t.Helper()
+	if len(references) > 1 {
+		t.Fatal("引用夹具配置重复")
+	}
+	saved := len(references) == 1 && references[0]
 	api, _, login := buildLocalReportBinaries(t)
 	f := newLocalPublicationFixture(t, sql.LevelReadCommitted, 1, "local")
 	e := f.env
@@ -44,6 +48,9 @@ func newDossierProcessFixture(t *testing.T, lifetime time.Duration) *dossierProc
 	localAPISchema(t, e)
 	e.mustExec(`ALTER TABLE addon_quant_theme ADD code varchar(32) NULL, ADD level tinyint NOT NULL DEFAULT 1, ADD parent_id bigint NOT NULL DEFAULT 0, ADD description text, ADD sort int NOT NULL DEFAULT 0, ADD updated_at datetime(3) NULL, ADD created_at datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)`)
 	reportDDL(t, e.pointsTestEnv, "20261030_create_tm_ai_dossiers.sql")
+	if saved {
+		reportDDL(t, e.pointsTestEnv, "20261030_link_tm_ai_conversation_dossiers.sql")
+	}
 	var seed [32]byte
 	if _, err := rand.Read(seed[:]); err != nil {
 		t.Fatal(err)
@@ -96,6 +103,9 @@ func newDossierProcessFixture(t *testing.T, lifetime time.Duration) *dossierProc
 	for _, table := range []string{"tm_ai_dossier_versions", "tm_ai_dossier_evidence", "tm_ai_dossier_publications", "tm_ai_dossier_grants"} {
 		e.mustExec("GRANT SELECT ON " + e.database + "." + table + " TO '" + cfg.User + "'@'127.0.0.1'")
 	}
+	if saved {
+		e.mustExec("GRANT SELECT,INSERT ON " + e.database + ".tm_ai_conversation_dossiers TO '" + cfg.User + "'@'127.0.0.1'")
+	}
 	prepare, err := mysql.ParseDSN(os.Getenv("TM_TEST_DSN"))
 	if err != nil {
 		t.Fatal("准备配置无效")
@@ -120,7 +130,7 @@ func newDossierProcessFixture(t *testing.T, lifetime time.Duration) *dossierProc
 	client := &http.Client{Transport: &http.Transport{Proxy: nil}, Timeout: 5 * time.Second}
 	t.Cleanup(client.CloseIdleConnections)
 	base := "http://" + f.runtime.Listen
-	startLocalAPIConfigured(t, e, api, dsn, signing, runtimeFile, f.path, client, base, false, "", false, prepare.FormatDSN())
+	startLocalAPIConfigured(t, e, api, dsn, signing, runtimeFile, f.path, client, base, false, "", false, prepare.FormatDSN(), saved)
 	return &dossierProcessFixture{f: f, login: bridge, client: client, base: base, baselineTasks: e.queryInt(`SELECT COUNT(*) FROM tm_ai_tasks`), baselineTxns: e.queryInt(`SELECT COUNT(*) FROM tm_points_txns`)}
 }
 func (p *dossierProcessFixture) verifyNoGeneration(t *testing.T) {

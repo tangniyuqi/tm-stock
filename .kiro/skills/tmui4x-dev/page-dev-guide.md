@@ -875,3 +875,11 @@ position 取值：`bl`（底左）、`bc`（底中）、`br`（底右）、`tl`�
 - [ ] API 请求通过 `pages/libs/api.uts` 封装调用
 - [ ] 全局状态通过 `pages/libs/useUseStore.uts` 管理
 - [ ] 底部留白防止内容被遮挡
+
+## 7. 独立调用 HBuilderX 官方 H5 编译器（5.26 实测）
+
+本仓库根没有npm项目的`package.json`。独立执行官方CLI时，工作目录应为`HBuilderX/plugins/uniapp-cli-vite`，`UNI_INPUT_DIR`另设为仓库绝对路径，`UNI_OUTPUT_DIR`设为新建的仓库外目录；用官方`plugins/node/node.exe`执行`node_modules/@dcloudio/vite-plugin-uni/bin/uni.js build -p h5`。
+
+❌ 在仓库根只设置`UNI_CLI_CONTEXT`就运行CLI。5.26初始化会按实际工作目录/IDE检测结果重新设置它，可能仅启动普通Vite；实测报错：`Rollup failed to resolve import "/main"`。强行指定官方vite配置但仍处于仓库根，随后会报`Cannot find module '.../tm-stock/package.json'`。
+
+✅ 切换到官方插件目录执行，输入和输出显式指向项目与隔离产物。官方CLI通过相邻`../about/package.json`识别HBuilderX环境并装载其配置；无需给本项目添加占位package.json、修改`/main`入口或将其外置。Windows环境路径统一正斜杠便于复现；成功必须同时检查退出码、`Build complete`和本轮新产物入口，编译不替代实际浏览器或真机验收。

@@ -679,6 +679,39 @@ async function dossierPanel() {
   console.log('通过：专题展开/单版/双版对照、出处复验、拒读清空、页签/题材切换迟到响应与401清理。');
 }
 
+const savedReference=(id=11)=>({id,conversationId:3,themeId:7,version:1,compareVersion:0,createdAt:now+10});
+const savedPage=(items=[savedReference()])=>({conversationId:3,notice:'以下仅为本人保存的版本引用；保存记录不代表资料当前可读，打开时重新核验权限。',items,hasMore:false,nextBeforeId:0});
+async function savedDossierContracts(){
+  const env=environment();env.storage.set('token',token);const mod=env.load('pages/libs/ai-conversation-dossier.uts');
+  const ref=savedReference(),selection={themeId:7,version:1,compareVersion:0};
+  assert.equal(mod.isSavedDossier(ref,3),true);assert.equal(mod.isSavedDossierPage(savedPage(),3,0),true);
+  for(const bad of [null,[],{...ref,conversationId:4},{...ref,id:'11'},{...ref,extra:'private'},{...ref,compareVersion:1},{...ref,createdAt:0}])assert.equal(mod.isSavedDossier(bad,3),false);
+  assert.equal(mod.isSavedDossierPage(savedPage([savedReference(11),savedReference(12)]),3,0),false);
+  assert.equal(mod.isSavedDossierView({reference:ref,dossier:dossierFixture()},ref),true);
+  assert.equal(mod.isSavedDossierView({reference:{...ref,createdAt:now+11},dossier:dossierFixture()},ref),false);
+  const api=mod.AIConversationDossierApi;
+  const saving=api.save(3,5,selection);assert.equal(env.requests.length,1);let request=env.requests.shift();assert.ok(request.url.endsWith('/api/v1/ai/conversations/3/dossiers'));assert.equal(request.method,'POST');assert.deepEqual(JSON.parse(JSON.stringify(request.data)),{themeId:7,version:1,compareVersion:0,expectedVersion:5});env.reply(request,ref);assert.equal((await saving).code,0);
+  const checking=api.receipt(3,selection);request=env.requests.shift();assert.equal(request.method,'GET');assert.ok(request.url.endsWith('/dossier-receipt?themeId=7&version=1&compareVersion=0'));env.reply(request,ref);assert.equal((await checking).code,0);
+  const reading=api.read(3,ref);request=env.requests.shift();assert.ok(request.url.endsWith('/conversations/3/dossiers/11'));env.reply(request,{reference:ref,dossier:dossierFixture()});assert.equal((await reading).code,0);
+  assert.notEqual((await api.save(3,5,{...selection,compareVersion:1})).code,0);assert.equal(env.requests.length,0);
+  console.log('通过：会话档案引用闭集DTO、归属/版本绑定、四固定端点与原组合收据。');
+}
+async function savedDossierPanels(){
+  const env=environment();env.storage.set('token',token);let saved=0;
+  const ui=mount(env.load('pages/ai/components/AIDossierPanel.uvue').default,{sessionToken:token,conversationId:3,archived:false,themeId:7,themeName:'仅测试题材',enabled:true,onSaved:()=>saved++});
+  ui.click('查询可读档案版本');env.reply(env.requests.shift(),dossierList());await flush();ui.click('阅读此版本',1);env.reply(env.requests.shift(),dossierFixture());await flush();
+  ui.click('保存当前档案到本会话（不扣积分）');assert.ok(env.requests[0].url.endsWith('/conversations/3'));env.reply(env.requests.shift(),conversation());await flush();
+  let request=env.requests.shift();assert.equal(request.method,'POST');assert.ok(request.url.endsWith('/conversations/3/dossiers'));env.reply(request,null,503,50311);await flush();assert.equal(env.requests.length,0,'未知保存不得自动重发');assert.ok(!ui.text().includes('仅测试：甲资料。'));
+  ui.click('查询原组合保存收据');request=env.requests.shift();assert.equal(request.method,'GET');env.reply(request,savedReference());await flush();assert.equal(saved,1);assert.equal(ui.state.pendingSelection,null);assert.equal(env.requests.length,0);
+  ui.updateProps({archived:true});await flush();assert.ok(!ui.text().includes('保存当前档案到本会话'));ui.app.unmount();
+  const env2=environment();env2.storage.set('token',token);const panel=mount(env2.load('pages/ai/components/AIConversationDossiersPanel.uvue').default,{sessionToken:token,conversationId:3,enabled:true,refreshKey:0});
+  assert.equal(env2.requests.length,0);panel.click('查询本会话保存的档案');let first=env2.requests.shift();panel.updateProps({refreshKey:1});await flush();assert.equal(env2.requests.length,0,'忙态合并保存通知');env2.reply(first,savedPage());await flush();assert.equal(env2.requests.length,1,'忙态结束后补一次目录刷新');env2.reply(env2.requests.shift(),savedPage());await flush();
+  panel.click('核对并打开档案引用 #11');env2.reply(env2.requests.shift(),{reference:savedReference(),dossier:dossierFixture()});await flush();assert.ok(panel.text().includes('仅测试：甲资料。'));
+  panel.click('核对并复制原文链接');await flush();assert.ok(!panel.text().includes('仅测试：甲资料。'));request=env2.requests.shift();assert.ok(request.url.endsWith('/conversations/3/dossiers/11'));env2.reply(request,null,404,40406);await flush();assert.ok(!panel.text().includes('仅测试：甲资料。'));assert.ok(panel.text().includes('核对并打开档案引用 #11'),'撤权后仅保留本人历史入口，不声称当前可读');
+  panel.click('核对并打开档案引用 #11');request=env2.requests.shift();panel.updateProps({conversationId:4});await flush();env2.reply(request,{reference:savedReference(),dossier:dossierFixture()});await flush();assert.ok(!panel.text().includes('仅测试：甲资料。'));assert.ok(!panel.text().includes('档案引用 #11'));panel.app.unmount();
+  console.log('通过：档案保存前核当前会话、未知仅查询原组合；保存通知合并、引用重读/复制复验、撤权清正文及切会话迟到隔离。');
+}
+
 let completed=false;
 process.once('beforeExit',()=>{if(!completed){console.error('问答源码验收尚未全部完成');process.exitCode=1;}});
 (async () => {
@@ -693,6 +726,8 @@ process.once('beforeExit',()=>{if(!completed){console.error('问答源码验收�
   await isolation();
   await dossierContracts();
   await dossierPanel();
+  await savedDossierContracts();
+  await savedDossierPanels();
   completed=true;
   console.log('本脚本不覆盖：真实 UTS/uni-app x 整体构建、真实模型质量、浏览器布局与生产开关；须另做实际 H5 与浏览器验收。');
 })().catch(error => { completed=true; console.error(error); process.exitCode=1; });

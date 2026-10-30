@@ -1,0 +1,48 @@
+<script lang="ts" setup>
+import { computed } from 'vue'
+import { AIDossierView, AIDossierCardChange, dossierSectionLabel, dossierFieldLabel, dossierGapLabel } from '../../libs/ai-dossier.uts'
+import { formatMillis } from '../../libs/theme.uts'
+import { aiSourceTypeLabel } from '../../libs/ai-qa.uts'
+type DossierContentProps = { value : AIDossierView, busy? : boolean }
+defineOptions({name:'AIDossierContent'})
+const props = withDefaults(defineProps<DossierContentProps>(), {busy:false})
+const emit = defineEmits<{copy: [version : number, key : string, field : string]}>()
+const view = computed<AIDossierView>(() : AIDossierView => props.value)
+const copySource = (version : number, key : string, field : string) : void => { emit('copy',version,key,field) }
+const changeLabel = (c : AIDossierCardChange) : string => { let parts : string[] = [] as string[]; if (c.quoteChanged) parts.push('摘录文字调整'); if (c.sourceChanged) parts.push('原文出处调整'); if (c.referenceChanged) parts.push('引用位置或采集版本调整'); if (c.sectionChanged) parts.push('资料栏目调整'); if (c.beforeKey != c.afterKey) parts.push('资料卡标识调整'); if (c.fields.length > 0) parts.push('字段值或引用调整：' + c.fields.map((s : string) : string => dossierFieldLabel(s)).join('、')); return parts.join('；') }
+const changeQuote = (key : string, newer : boolean) : string => { if (view.value == null) return ''; const rows = view.value!.versions; const row = rows[newer && rows.length == 2 ? 1 : 0]; for (const card of row.cards) if (card.key == key) return card.quote.text; return '' }
+</script>
+<template>
+			<view v-if="view != null" class="mt-12">
+				<text class="dossier-copy">{{ view!.notice }}</text>
+				<view v-if="view!.comparison != null" class="dossier-version mt-12">
+					<text class="dossier-title text-weight-b">档案摘录变化</text><text class="dossier-copy mt-4">{{ view!.comparison!.notice }}</text>
+					<text v-if="view!.comparison!.quotedSentenceOrderChanged" class="dossier-copy mt-8">已引用原句的相对顺序发生变化。</text>
+					<text v-if="view!.comparison!.added.length == 0 && view!.comparison!.notPresent.length == 0 && view!.comparison!.changed.length == 0 && view!.comparison!.gaps.length == 0 && !view!.comparison!.quotedSentenceOrderChanged" class="dossier-copy mt-8">所选档案中的摘录、字段和缺口未检出变化；编制版本与全文更新情况需分别核对。</text>
+					<view v-for="key in view!.comparison!.added" :key="key" class="mt-8"><text class="dossier-title">新增摘录</text><text class="dossier-quote">{{ changeQuote(key,true) }}</text></view>
+					<view v-for="key in view!.comparison!.notPresent" :key="key" class="mt-8"><text class="dossier-title">本版未出现的摘录</text><text class="dossier-quote">{{ changeQuote(key,false) }}</text></view>
+					<view v-for="(c,index) in view!.comparison!.changed" :key="index" class="mt-8"><text class="dossier-title">{{ changeLabel(c) }}</text><text class="dossier-copy mt-4">较早版本</text><text class="dossier-quote">{{ changeQuote(c.beforeKey,false) }}</text><text class="dossier-copy mt-4">较新版本</text><text class="dossier-quote">{{ changeQuote(c.afterKey,true) }}</text></view>
+					<text v-if="view!.comparison!.gaps.length > 0" class="dossier-copy mt-8">资料缺口记录已调整，请核对下方各版本的缺口；记录未出现不表示问题已解决。</text>
+				</view>
+				<view v-for="row in view!.versions" :key="row.version" class="mt-16">
+					<text class="dossier-title text-weight-b">版本 {{ row.version }} · {{ formatMillis(row.compiledAt) }}</text>
+					<view v-for="(card,index) in row.cards" :key="card.key" class="dossier-version mt-8">
+						<text class="dossier-title">{{ dossierSectionLabel(card.section) }} · 资料卡 {{ index + 1 }}</text><text class="dossier-quote mt-8">{{ card.quote.text }}</text>
+						<text class="dossier-copy mt-4">{{ aiSourceTypeLabel(card.quote.sourceType) }} · 采集于 {{ formatMillis(card.quote.collectedAt) }} · 原文第 {{ card.quote.sentence }} 句</text>
+						<x-button class="mt-8" height="44" :block="true" skin="outline" :disabled="busy" @click="copySource(row.version,card.key,'')">核对并复制原文链接</x-button>
+						<view v-for="field in card.fields" :key="field.key" class="mt-8">
+							<text class="dossier-copy">{{ dossierFieldLabel(field.key) }}：{{ field.state == 'unknown' ? '未知，资料不足' : field.quote!.text }}</text>
+							<view v-if="field.state == 'known'"><text class="dossier-quote mt-4">字段原句：{{ field.quote!.context }}</text><x-button class="mt-4" height="44" :block="true" skin="outline" :disabled="busy" @click="copySource(row.version,card.key,field.key)">核对{{ dossierFieldLabel(field.key) }}的原文链接</x-button></view>
+						</view>
+					</view>
+					<text v-if="row.gaps.length == 0" class="dossier-copy mt-8">此版本未登记额外缺口，不表示资料已经完备。</text>
+					<text v-for="gap in row.gaps" :key="gap.key" class="dossier-copy mt-8">{{ dossierSectionLabel(gap.section) }} · {{ dossierGapLabel(gap.reason) }}</text>
+				</view>
+			</view>
+</template>
+<style scoped>
+.dossier-version { padding: 12px; background-color: #ffffff; border-radius: 8px; min-width: 0; }
+.dossier-title { color: #30343c; font-size: 15px; line-height: 24px; }
+.dossier-copy { color: #586174; font-size: 14px; line-height: 23px; }
+.dossier-quote { color: #30343c; font-size: 14px; line-height: 25px; white-space: pre-wrap; }
+</style>

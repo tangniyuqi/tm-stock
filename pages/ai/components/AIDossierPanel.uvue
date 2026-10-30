@@ -1,16 +1,18 @@
 <script lang="ts" setup>
 import { ref, watch, onBeforeUnmount } from 'vue'
 import { AIDossierApi } from '../../libs/ai-dossier-api.uts'
-import { AIDossierVersionItem, AIDossierView, AIDossierQuote, AIDossierCardChange, dossierSectionLabel, dossierFieldLabel, dossierGapLabel, dossierError } from '../../libs/ai-dossier.uts'
+import { AIDossierVersionItem, AIDossierView, AIDossierQuote, dossierQuoteFor, dossierError } from '../../libs/ai-dossier.uts'
 import { currentAIMemberToken } from '../../libs/ai-session.uts'
 import { formatMillis } from '../../libs/theme.uts'
-import { aiSourceTypeLabel } from '../../libs/ai-qa.uts'
 import { copySafeExternalUrl } from '../../libs/external-link.uts'
+import AIDossierContent from './AIDossierContent.uvue'
+import { AIConversationApi } from '../../libs/ai-conversation-api.uts'
+import { AIConversationDossierApi, AIDossierSelection, savedDossierError } from '../../libs/ai-conversation-dossier.uts'
 
-type DossierProps = { sessionToken : string, themeId : number, themeName : string, enabled? : boolean }
+type DossierProps = { sessionToken : string, themeId : number, themeName : string, enabled? : boolean, conversationId? : number, archived? : boolean }
 defineOptions({name:'AIDossierPanel'})
-const props = withDefaults(defineProps<DossierProps>(), {enabled:true})
-const emit = defineEmits<{unauthorized: [], expanded: [value : boolean]}>()
+const props = withDefaults(defineProps<DossierProps>(), {enabled:true,conversationId:0,archived:false})
+const emit = defineEmits<{unauthorized: [], expanded: [value : boolean], saved: []}>()
 const expanded = ref<boolean>(false)
 const busy = ref<boolean>(false)
 const ready = ref<boolean>(false)
@@ -20,10 +22,11 @@ const hasMore = ref<boolean>(false)
 const nextBefore = ref<number>(0)
 const view = ref<AIDossierView | null>(null)
 const message = ref<string>('')
+const pendingSelection = ref<AIDossierSelection | null>(null)
 let alive : boolean = true
 let generation : number = 0
 const current = (round : number, token : string) : boolean => alive && props.enabled && expanded.value && generation == round && token.length > 0 && token == props.sessionToken && token == currentAIMemberToken()
-const reset = () : void => { generation++; expanded.value = false; busy.value = false; ready.value = false; versions.value = [] as AIDossierVersionItem[]; picked.value = [] as number[]; hasMore.value = false; nextBefore.value = 0; view.value = null; message.value = ''; emit('expanded',false) }
+const reset = () : void => { generation++; expanded.value = false; busy.value = false; ready.value = false; versions.value = [] as AIDossierVersionItem[]; picked.value = [] as number[]; hasMore.value = false; nextBefore.value = 0; view.value = null; pendingSelection.value = null; message.value = ''; emit('expanded',false) }
 const discardResults = () : void => { view.value = null; versions.value = [] as AIDossierVersionItem[]; picked.value = [] as number[]; ready.value = false; hasMore.value = false; nextBefore.value = 0 }
 const accept = (code : number) : boolean => { if (code == 40100 || code == 40101 || code == 40301) { reset(); emit('unauthorized'); return false }; return true }
 const loadVersions = async (more : boolean) : Promise<void> => {
@@ -49,17 +52,41 @@ const read = async (version : number, compare : number) : Promise<void> => {
 	catch (_) { if (current(round,token)) { busy.value = false; discardResults(); message.value = dossierError(50001) } }
 }
 const comparePicked = () : void => { if (picked.value.length != 2) return; read(Math.min(picked.value[0],picked.value[1]),Math.max(picked.value[0],picked.value[1])) }
-const quoted = (version : number, key : string, field : string) : AIDossierQuote | null => { if (view.value == null) return null; for (const row of view.value!.versions) { if (row.version != version) continue; for (const card of row.cards) { if (card.key != key) continue; if (field == '') return card.quote; for (const item of card.fields) if (item.key == field && item.state == 'known') return item.quote ?? null } }; return null }
 const copySource = async (version : number, key : string, field : string) : Promise<void> => {
 	if (busy.value || view.value == null || !current(generation,props.sessionToken)) return
 	const first : number = view.value!.versions[0].version; const second : number = view.value!.versions.length == 2 ? view.value!.versions[1].version : 0
 	const round : number = ++generation; const token : string = props.sessionToken; busy.value = true; view.value = null; message.value = ''
-	try { const r = await AIDossierApi.view(props.themeId,first,second); if (!current(round,token) || !accept(r.code)) return; busy.value = false; if (r.code != 0 || r.data == null) { discardResults(); message.value = dossierError(r.code); return }; view.value = r.data!; const q : AIDossierQuote | null = quoted(version,key,field); if (q != null) copySafeExternalUrl(q!.sourceUrl) }
+	try { const r = await AIDossierApi.view(props.themeId,first,second); if (!current(round,token) || !accept(r.code)) return; busy.value = false; if (r.code != 0 || r.data == null) { discardResults(); message.value = dossierError(r.code); return }; view.value = r.data!; const q : AIDossierQuote | null = dossierQuoteFor(view.value!,version,key,field); if (q != null) copySafeExternalUrl(q!.sourceUrl) }
 	catch (_) { if (current(round,token)) { busy.value = false; discardResults(); message.value = dossierError(50001) } }
 }
-const changeLabel = (c : AIDossierCardChange) : string => { let parts : string[] = [] as string[]; if (c.quoteChanged) parts.push('摘录文字调整'); if (c.sourceChanged) parts.push('原文出处调整'); if (c.referenceChanged) parts.push('引用位置或采集版本调整'); if (c.sectionChanged) parts.push('资料栏目调整'); if (c.beforeKey != c.afterKey) parts.push('资料卡标识调整'); if (c.fields.length > 0) parts.push('字段值或引用调整：' + c.fields.map((s : string) : string => dossierFieldLabel(s)).join('、')); return parts.join('；') }
-const changeQuote = (key : string, newer : boolean) : string => { if (view.value == null) return ''; const rows = view.value!.versions; const row = rows[newer && rows.length == 2 ? 1 : 0]; for (const card of row.cards) if (card.key == key) return card.quote.text; return '' }
+const save = async () : Promise<void> => {
+	if (busy.value || view.value == null || props.conversationId <= 0 || props.archived || pendingSelection.value != null || !current(generation,props.sessionToken)) return
+	const selected : AIDossierSelection = {themeId:props.themeId,version:view.value!.versions[0].version,compareVersion:view.value!.versions.length == 2 ? view.value!.versions[1].version : 0}
+	const round : number = ++generation; const token : string = props.sessionToken; const cid : number = props.conversationId
+	busy.value = true; view.value = null; message.value = ''; pendingSelection.value = selected
+	let posted : boolean = false
+	try {
+		const detail = await AIConversationApi.detail(cid)
+		if (!current(round,token) || !accept(detail.code)) return
+		if (detail.code != 0 || detail.data == null || detail.data!.archived) { busy.value = false; pendingSelection.value = null; message.value = '当前会话未能通过核对，未发送保存请求'; return }
+		posted = true
+		const r = await AIConversationDossierApi.save(cid,detail.data!.version,selected)
+		if (!current(round,token) || !accept(r.code)) return
+		busy.value = false
+		if (r.code != 0 || r.data == null) { if (r.code < 50000) pendingSelection.value = null; message.value = savedDossierError(r.code); return }
+		pendingSelection.value = null; message.value = '档案引用已保存，可从本会话已保存档案重新核对并打开'; emit('saved')
+	} catch (_) { if (current(round,token)) { busy.value = false; if (!posted) pendingSelection.value = null; message.value = posted ? '保存结果未确认，请查询原组合收据；不会自动重发' : '当前会话未能通过核对，未发送保存请求' } }
+}
+const checkSaved = async () : Promise<void> => {
+	if (busy.value || pendingSelection.value == null || !current(generation,props.sessionToken)) return
+	const round : number = ++generation; const token : string = props.sessionToken; const selected : AIDossierSelection = pendingSelection.value!
+	busy.value = true; view.value = null
+	try { const r = await AIConversationDossierApi.receipt(props.conversationId,selected); if (!current(round,token) || !accept(r.code)) return; busy.value = false; if (r.code != 0 || r.data == null) { message.value = savedDossierError(r.code); return }; pendingSelection.value = null; message.value = '已找到原组合保存记录，请从本会话已保存档案重新打开'; emit('saved') }
+	catch (_) { if (current(round,token)) { busy.value = false; message.value = '保存收据暂未核实，可再次查询原组合；不会自动重发' } }
+}
 watch(() : string => props.sessionToken, () => { reset() })
+watch(() : number => props.conversationId, () => { reset() })
+watch(() : boolean => props.archived, () => { reset() })
 watch(() : number => props.themeId, () => { reset() })
 watch(() : boolean => props.enabled, () => { reset() })
 onBeforeUnmount(() => { alive = false; reset() })
@@ -85,32 +112,9 @@ onBeforeUnmount(() => { alive = false; reset() })
 			<x-button v-if="versions.length > 0" class="mt-8" height="44" :block="true" :disabled="busy || picked.length != 2" @click="comparePicked">对照所选的两个版本（{{ picked.length }}/2）</x-button>
 			<x-button class="mt-8" height="44" :block="true" skin="outline" :disabled="busy" @click="loadVersions(false)">重新核对可读版本</x-button>
 			<text v-if="message != ''" class="dossier-copy mt-12">{{ message }}</text>
-			<view v-if="view != null" class="mt-12">
-				<text class="dossier-copy">{{ view!.notice }}</text>
-				<view v-if="view!.comparison != null" class="dossier-version mt-12">
-					<text class="dossier-title text-weight-b">档案摘录变化</text><text class="dossier-copy mt-4">{{ view!.comparison!.notice }}</text>
-					<text v-if="view!.comparison!.quotedSentenceOrderChanged" class="dossier-copy mt-8">已引用原句的相对顺序发生变化。</text>
-					<text v-if="view!.comparison!.added.length == 0 && view!.comparison!.notPresent.length == 0 && view!.comparison!.changed.length == 0 && view!.comparison!.gaps.length == 0 && !view!.comparison!.quotedSentenceOrderChanged" class="dossier-copy mt-8">所选档案中的摘录、字段和缺口未检出变化；编制版本与全文更新情况需分别核对。</text>
-					<view v-for="key in view!.comparison!.added" :key="key" class="mt-8"><text class="dossier-title">新增摘录</text><text class="dossier-quote">{{ changeQuote(key,true) }}</text></view>
-					<view v-for="key in view!.comparison!.notPresent" :key="key" class="mt-8"><text class="dossier-title">本版未出现的摘录</text><text class="dossier-quote">{{ changeQuote(key,false) }}</text></view>
-					<view v-for="(c,index) in view!.comparison!.changed" :key="index" class="mt-8"><text class="dossier-title">{{ changeLabel(c) }}</text><text class="dossier-copy mt-4">较早版本</text><text class="dossier-quote">{{ changeQuote(c.beforeKey,false) }}</text><text class="dossier-copy mt-4">较新版本</text><text class="dossier-quote">{{ changeQuote(c.afterKey,true) }}</text></view>
-					<text v-if="view!.comparison!.gaps.length > 0" class="dossier-copy mt-8">资料缺口记录已调整，请核对下方各版本的缺口；记录未出现不表示问题已解决。</text>
-				</view>
-				<view v-for="row in view!.versions" :key="row.version" class="mt-16">
-					<text class="dossier-title text-weight-b">版本 {{ row.version }} · {{ formatMillis(row.compiledAt) }}</text>
-					<view v-for="(card,index) in row.cards" :key="card.key" class="dossier-version mt-8">
-						<text class="dossier-title">{{ dossierSectionLabel(card.section) }} · 资料卡 {{ index + 1 }}</text><text class="dossier-quote mt-8">{{ card.quote.text }}</text>
-						<text class="dossier-copy mt-4">{{ aiSourceTypeLabel(card.quote.sourceType) }} · 采集于 {{ formatMillis(card.quote.collectedAt) }} · 原文第 {{ card.quote.sentence }} 句</text>
-						<x-button class="mt-8" height="44" :block="true" skin="outline" :disabled="busy" @click="copySource(row.version,card.key,'')">核对并复制原文链接</x-button>
-						<view v-for="field in card.fields" :key="field.key" class="mt-8">
-							<text class="dossier-copy">{{ dossierFieldLabel(field.key) }}：{{ field.state == 'unknown' ? '未知，资料不足' : field.quote!.text }}</text>
-							<view v-if="field.state == 'known'"><text class="dossier-quote mt-4">字段原句：{{ field.quote!.context }}</text><x-button class="mt-4" height="44" :block="true" skin="outline" :disabled="busy" @click="copySource(row.version,card.key,field.key)">核对{{ dossierFieldLabel(field.key) }}的原文链接</x-button></view>
-						</view>
-					</view>
-					<text v-if="row.gaps.length == 0" class="dossier-copy mt-8">此版本未登记额外缺口，不表示资料已经完备。</text>
-					<text v-for="gap in row.gaps" :key="gap.key" class="dossier-copy mt-8">{{ dossierSectionLabel(gap.section) }} · {{ dossierGapLabel(gap.reason) }}</text>
-				</view>
-			</view>
+			<x-button v-if="pendingSelection != null" class="mt-8" height="44" :block="true" skin="outline" :disabled="busy" @click="checkSaved">查询原组合保存收据</x-button>
+			<x-button v-if="view != null && conversationId > 0 && !archived" class="mt-8" height="44" :block="true" skin="outline" :disabled="busy || pendingSelection != null" @click="save">保存当前档案到本会话（不扣积分）</x-button>
+			<AIDossierContent v-if="view != null" :value="view!" :busy="busy" @copy="copySource"></AIDossierContent>
 		</view>
 	</view>
 </template>

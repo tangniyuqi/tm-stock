@@ -6,6 +6,7 @@ import { currentAIMemberToken } from '../../libs/ai-session.uts'
 import { formatMillis } from '../../libs/theme.uts'
 import AIConversationTaskPanel from './AIConversationTaskPanel.uvue'
 import AIQuestionPanel from './AIQuestionPanel.uvue'
+import AIConversationDossiersPanel from './AIConversationDossiersPanel.uvue'
 import AISkillPanel from './AISkillPanel.uvue'
 import AIConversationHistory from './AIConversationHistory.uvue'
 import { isAISkillKey } from '../../libs/ai-skills.uts'
@@ -30,6 +31,8 @@ const busy = ref<boolean>(false)
 const ready = ref<boolean>(false)
 const message = ref<string>('')
 const pending = ref<AIPendingConversation | null>(null)
+const dossierRefresh = ref<number>(0)
+const savedDossierExpanded = ref<boolean>(false)
 const wide = ref<boolean>(false)
 const historyVisible = ref<boolean>(false)
 const skillsVisible = ref<boolean>(false)
@@ -61,7 +64,7 @@ const activeSkill = ref<string>('material_qa')
 const selectSkill = (key : string) : void => { if (isAISkillKey(key)) { activeSkill.value = key; skillsVisible.value = false; emit('skillSelected') } }
 const questionSeq = ref<number>(0)
 const questionRequest = ref<number>(0)
-const resetDetail = () : void => { detailGeneration++; refreshPending = false; selected.value = null; messages.value = [] as AIConversationMessage[]; nextAfter.value = 0; moreMessages.value = false; loadingMessages.value = false; renameTitle.value = ''; questionSeq.value = 0; questionRequest.value = 0 }
+const resetDetail = () : void => { detailGeneration++; refreshPending = false; selected.value = null; messages.value = [] as AIConversationMessage[]; nextAfter.value = 0; moreMessages.value = false; loadingMessages.value = false; renameTitle.value = ''; questionSeq.value = 0; questionRequest.value = 0; dossierRefresh.value = 0; savedDossierExpanded.value = false }
 const clearDetail = () : void => { resetScroll(); skillsVisible.value = false; resetDetail(); activeSkill.value = 'material_qa'; emit('selected'); emit('context', 0); emit('archived', false) }
 const accept = (code : number) : boolean => {
 	if (code == 40100 || code == 40101 || code == 40301) { generation++; historyVisible.value = false; clearDetail(); rows.value = [] as AIConversationSummary[]; title.value = ''; pending.value = null; ready.value = false; busy.value = false; loading.value = false; emit('unauthorized'); return false }
@@ -241,6 +244,7 @@ onBeforeUnmount(() => { active = false; generation++; summaryRefreshPending = fa
 				<x-button class="mt-8" height="44" :block="true" skin="outline" :disabled="busy || loadingMessages || !isAIConversationTitle(renameTitle)" @click="rename">保存会话标题</x-button>
 				<x-button class="mt-8" height="44" :block="true" skin="outline" :disabled="busy || loadingMessages" @click="archive">归档当前会话</x-button>
 			</view>
+			<AIConversationDossiersPanel :key="selected!.id" :session-token="sessionToken" :conversation-id="selected!.id" :enabled="activeTab == 'conversation'" :refresh-key="dossierRefresh" @expanded="savedDossierExpanded = $event" @unauthorized="emit('unauthorized')"></AIConversationDossiersPanel>
 			<text v-if="messages.length == 0 && !loadingMessages" class="conversation-copy mt-12">当前会话暂无消息。此处不展示模拟回答。</text>
 			<view v-for="item in messages" :key="item.seq" class="mt-12">
 				<text class="conversation-copy">消息 #{{ item.seq }} · {{ formatMillis(item.createdAt) }}</text>
@@ -260,7 +264,7 @@ onBeforeUnmount(() => { active = false; generation++; summaryRefreshPending = fa
 		<slot name="result"></slot>
 		<view class="conversation-composer" :style="activeTab == 'conversation' ? '' : 'display: none;'">
 	<view v-if="selected != null" :style="activeSkill == 'material_qa' ? '' : 'display: none;'">
-		<AIQuestionPanel :key="selected!.id.toString() + '_' + questionRequest.toString()" :session-token="sessionToken" :conversation-id="selected!.id" :archived="selected!.archived" :question-seq="questionSeq" :dossier-enabled="activeTab == 'conversation'" :dock-input="allowDock && activeTab == 'conversation' && activeSkill == 'material_qa' && !reportInputActive" :dock-left="wide ? 324 : 16" :dock-bottom="60" @saved="refreshLinkedHistory" @unauthorized="emit('unauthorized')" @conversation="open($event, false)"></AIQuestionPanel>
+		<AIQuestionPanel :key="selected!.id.toString() + '_' + questionRequest.toString()" :session-token="sessionToken" :conversation-id="selected!.id" :archived="selected!.archived" :question-seq="questionSeq" :dossier-enabled="activeTab == 'conversation'" :dock-input="allowDock && activeTab == 'conversation' && activeSkill == 'material_qa' && !reportInputActive && !savedDossierExpanded" :dock-left="wide ? 324 : 16" :dock-bottom="60" @saved="refreshLinkedHistory" @dossier-saved="dossierRefresh++" @unauthorized="emit('unauthorized')" @conversation="open($event, false)"></AIQuestionPanel>
 	</view>
 	<view v-if="selected != null && activeSkill == 'light'">
 		<AIConversationTaskPanel :key="selected!.id" :session-token="sessionToken" :conversation-id="selected!.id" :analysis-type="'light'" :archived="selected!.archived" @task="emit('task', $event)" @linked="refreshLinkedHistory" @unauthorized="emit('unauthorized')"></AIConversationTaskPanel>

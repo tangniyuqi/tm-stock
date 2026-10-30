@@ -13,6 +13,8 @@ export type AIDossierGapChange = { beforeKey : string, afterKey : string }
 export type AIDossierComparison = { notice : string, added : string[], notPresent : string[], changed : AIDossierCardChange[], gaps : AIDossierGapChange[], quotedSentenceOrderChanged : boolean }
 export type AIDossierView = { themeId : number, notice : string, versions : AIDossierVersion[], comparison? : AIDossierComparison }
 
+export const dossierQuoteFor = (v : AIDossierView, version : number, key : string, field : string) : AIDossierQuote | null => { for (const row of v.versions) { if (row.version != version) continue; for (const card of row.cards) { if (card.key != key) continue; if (field == '') return card.quote; for (const item of card.fields) if (item.key == field && item.state == 'known') return item.quote ?? null } }; return null }
+
 export const dossierNotice = '以下为所选版本的资料摘录；引用存在不等于已核实表述，未知字段表示资料不足。'
 export const dossierComparisonNotice = '仅比较档案中已引用的原句、字段和资料缺口；本版未出现不表示事实撤回，摘录调整不等于事实更正。'
 export const dossierFieldKeys : string[] = ['subject','publishedDate','effectiveDate','period','scope','stage','basis','unit']

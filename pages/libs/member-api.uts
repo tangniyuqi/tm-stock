@@ -117,6 +117,23 @@ const requestApi = <T>(path : string, method : MemberRequestMethod, data : UTSJS
 }
 
 export class MemberApi {
+	public static aiConversationDossier<T>(operation : string, cid : number, id : number, before : number, body : UTSJSONObject) : Promise<MemberApiResult<T>> {
+		for (const n of [cid,id,before]) if (typeof n != 'number' || n < 0 || n > 9007199254740991 || Math.floor(n) != n) return Promise.resolve(failure<T>(40001,'档案引用编号无效'))
+		if (cid == 0 || body == null) return Promise.resolve(failure<T>(40001,'档案引用范围无效'))
+		const base : string = '/api/v1/ai/conversations/' + cid.toString()
+		const names : string[] = Object.keys(body)
+		if (operation == 'list' && id == 0 && names.length == 0) return requestWithToken<T>(base+'/dossiers'+(before > 0 ? '?beforeId='+before.toString() : ''),'GET',{} as UTSJSONObject,true,currentAIMemberToken())
+		if (operation == 'read' && id > 0 && before == 0 && names.length == 0) return requestWithToken<T>(base+'/dossiers/'+id.toString(),'GET',{} as UTSJSONObject,true,currentAIMemberToken())
+		if ((operation != 'save' && operation != 'receipt') || id != 0 || before != 0) return Promise.resolve(failure<T>(40001,'档案引用操作无效'))
+		const expectedNames : string[] = operation == 'save' ? ['themeId','version','compareVersion','expectedVersion'] : ['themeId','version','compareVersion']
+		if (names.length != expectedNames.length || !names.every((k : string) : boolean => expectedNames.includes(k))) return Promise.resolve(failure<T>(40001,'档案引用字段无效'))
+		// 字段断言不代表校验；下方先验证实际运行类型与整数边界，再构造请求。
+		const theme : number = body['themeId'] as number; const version : number = body['version'] as number; const compare : number = body['compareVersion'] as number; const expected : number = operation == 'save' ? body['expectedVersion'] as number : 0
+		for (const n of [theme,version,compare,expected]) if (typeof n != 'number' || n < 0 || n > 9007199254740991 || Math.floor(n) != n) return Promise.resolve(failure<T>(40001,'档案引用字段无效'))
+		if (theme == 0 || version == 0 || compare != 0 && compare <= version || operation == 'save' && expected == 0) return Promise.resolve(failure<T>(40001,'档案引用版本无效'))
+		if (operation == 'save') return requestWithToken<T>(base+'/dossiers','POST',body,true,currentAIMemberToken())
+		return requestWithToken<T>(base+'/dossier-receipt?themeId='+theme.toString()+'&version='+version.toString()+'&compareVersion='+compare.toString(),'GET',{} as UTSJSONObject,true,currentAIMemberToken())
+	}
 	public static aiDossier<T>(theme : number, version : number, compare : number, before : number) : Promise<MemberApiResult<T>> {
 		for (const n of [theme,version,compare,before]) { if (typeof n != 'number' || n < 0 || n > 9007199254740991 || Math.floor(n) != n) return Promise.resolve(failure<T>(40001,'档案参数无效')) }
 		if (theme == 0 || version == 0 && compare != 0 || version > 0 && (before != 0 || compare != 0 && compare <= version)) return Promise.resolve(failure<T>(40001,'档案范围无效'))

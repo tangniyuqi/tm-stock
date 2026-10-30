@@ -187,8 +187,11 @@ func startLocalAPIWithQA(t *testing.T, e *workflowEnv, binary, dsn, signing, run
 	startLocalAPIConfigured(t, e, binary, dsn, signing, runtimeFile, plansFile, client, base, deep, qaFile, enabled, "")
 }
 
-func startLocalAPIConfigured(t *testing.T, e *workflowEnv, binary, dsn, signing, runtimeFile, plansFile string, client *http.Client, base string, deep bool, qaFile string, feedback bool, dossierPrepareDSN string) {
+func startLocalAPIConfigured(t *testing.T, e *workflowEnv, binary, dsn, signing, runtimeFile, plansFile string, client *http.Client, base string, deep bool, qaFile string, feedback bool, dossierPrepareDSN string, references ...bool) {
 	t.Helper()
+	if len(references) > 1 || len(references) == 1 && references[0] && dossierPrepareDSN == "" {
+		t.Fatal("引用进程配置不完整")
+	}
 	ctx, cancel := context.WithCancel(e.ctx)
 	cmd := exec.CommandContext(ctx, binary)
 	// 与worker分别注入账号；不继承任意生产开关或供应商密钥。
@@ -206,6 +209,9 @@ func startLocalAPIConfigured(t *testing.T, e *workflowEnv, binary, dsn, signing,
 	}
 	if dossierPrepareDSN != "" {
 		cmd.Env = append(cmd.Env, "TM_AI_LOCAL_DOSSIER_READ_ENABLED=true", "TM_AI_LOCAL_DOSSIER_PREPARE_DSN="+dossierPrepareDSN)
+	}
+	if len(references) == 1 && references[0] {
+		cmd.Env = append(cmd.Env, "TM_AI_LOCAL_CONVERSATION_DOSSIER_ENABLED=true")
 	}
 	if err := cmd.Start(); err != nil {
 		cancel()

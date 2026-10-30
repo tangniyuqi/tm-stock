@@ -42,6 +42,7 @@ $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 $liveReportPatterns = @('^TestIntegrationAIReportLiveAgents$', '^TestIntegrationAIReportDeepLiveAgents$', '^TestIntegrationAIReportLocalAPIWorkerLive$', '^TestIntegrationAIReportLocalAPIWorkerLiveH5$')
 $dossierH5Pattern = '^TestIntegrationAIReportDossierH5$'
+if (-not [string]::IsNullOrEmpty($env:TM_TEST_AI_H5_DOSSIER_REFERENCES) -and (-not $DossierBrowser -or $env:TM_TEST_AI_H5_DOSSIER_REFERENCES -ne 'local-fixture-only')) { throw '会话引用H5需要专题档案浏览器单次入口与显式范围' }
 if ($ReportPattern -eq $dossierH5Pattern -and -not $DossierBrowser) { throw '专题档案H5需要显式浏览器入口，禁止零用例通过' }
 if ($DossierBrowser -and ($LiveAgents -or $MaterialQABrowser -or $StreamReplayBrowser -or $TimeoutRecoveryTests -or $DeepH5Tests -or $LocalAPIWorkerBrowser -or $LocalAssistantBrowser -or $LocalFeedbackConsoleBrowser -or $LocalBootstrapOnly -or $LocalAPIBootstrap -or $LocalMemberBootstrap -or $LocalConversationBootstrap -or $LocalPlanBootstrap -or $LocalTaskBootstrap -or $LocalReportBootstrap -or -not $ReportsOnly -or $RunCount -ne 1 -or $ReportPattern -ne $dossierH5Pattern -or $env:TM_TEST_AI_H5_DOSSIER -ne 'local-fixture-only' -or -not [string]::IsNullOrEmpty($env:TM_TEST_AI_LIVE))) { throw '专题档案H5只允许独立、单次、本地隔离验收' }
 $localAssistantPattern = '^TestIntegrationAIReportLocalAssistantH5$'

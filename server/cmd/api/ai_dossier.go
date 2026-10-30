@@ -20,12 +20,17 @@ import (
 // 仅隔离本地显式启用。结构准备连接独立且及时关闭，不赋予读取连接探针写权限。
 func registerAILocalDossiers(ctx context.Context, mux *http.ServeMux, db *sql.DB, read config.AITaskReadConfig, runtime *config.AILocalRuntime, readerDSN string) error {
 	raw := os.Getenv("TM_AI_LOCAL_DOSSIER_READ_ENABLED")
-	if raw == "" {
-		return nil
+	var enabled bool
+	var err error
+	if raw != "" {
+		enabled, err = strconv.ParseBool(raw)
+		if err != nil {
+			return memberauth.ErrInvalidConfig
+		}
 	}
-	enabled, err := strconv.ParseBool(raw)
+	referencesEnabled, err := config.LoadAILocalConversationDossiers(enabled, read)
 	if err != nil {
-		return memberauth.ErrInvalidConfig
+		return err
 	}
 	if !enabled {
 		return nil
@@ -59,11 +64,18 @@ func registerAILocalDossiers(ctx context.Context, mux *http.ServeMux, db *sql.DB
 	if repository.NewAIDossierSchemaVerifier(prepare).Verify(checkCtx) != nil {
 		return memberauth.ErrUnavailable
 	}
+	if referencesEnabled && repository.NewAIConversationDossierSchemaVerifier(prepare).Verify(checkCtx) != nil {
+		return memberauth.ErrUnavailable
+	}
 	if err = prepare.Close(); err != nil {
 		return memberauth.ErrUnavailable
 	}
 	repo := repository.NewAIDossierRepo(db, sql.LevelReadCommitted)
 	if repo.VerifyReadAccess(checkCtx) != nil {
+		return memberauth.ErrUnavailable
+	}
+	references := repository.NewAIConversationDossierRepo(db, sql.LevelReadCommitted)
+	if referencesEnabled && references.VerifyAccess(checkCtx) != nil {
 		return memberauth.ErrUnavailable
 	}
 	verifier, err := memberauth.NewVerifier(read.Auth)
@@ -85,6 +97,16 @@ func registerAILocalDossiers(ctx context.Context, mux *http.ServeMux, db *sql.DB
 	if err = checkCtx.Err(); err != nil {
 		return memberauth.ErrUnavailable
 	}
+	var saved *service.AIConversationDossierService
+	if referencesEnabled {
+		saved, err = service.NewAIConversationDossierService(references, sessions)
+		if err != nil {
+			return err
+		}
+	}
 	handler.NewAIDossierHandler(svc).Register(mux, auth)
+	if saved != nil {
+		handler.NewAIConversationDossierHandler(saved).Register(mux, auth)
+	}
 	return nil
 }

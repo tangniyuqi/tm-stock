@@ -11,11 +11,12 @@ import (
 	"net/http/httputil"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
 
-type dossierH5Counts struct{ Lists, Reads, Comparisons, Denied, Conversations, Revokes, Restores int }
+type dossierH5Counts struct{ Lists, Reads, Comparisons, Denied, Conversations, Revokes, Restores, Saved, ReferenceLists, ReferenceReads int }
 type dossierH5Gateway struct {
 	server *httptest.Server
 	mu     sync.Mutex
@@ -31,8 +32,12 @@ func (g *dossierH5Gateway) snapshot() dossierH5Counts {
 }
 
 // 网关只转发原进程响应，不创建会话、不拼装目录/档案、不签发会员令牌。
-func newDossierH5Gateway(t *testing.T, front, api string, login *h5MemberLoginBridge, publication func(bool) error) *dossierH5Gateway {
+func newDossierH5Gateway(t *testing.T, front, api string, login *h5MemberLoginBridge, publication func(bool) error, references ...bool) *dossierH5Gateway {
 	t.Helper()
+	if len(references) > 1 {
+		t.Fatal("引用浏览器范围重复")
+	}
+	withReferences := len(references) == 1 && references[0]
 	g := &dossierH5Gateway{finish: make(chan struct{})}
 	proxy := func(raw string) *httputil.ReverseProxy {
 		u := mustLocalH5URL(t, raw)
@@ -49,6 +54,25 @@ func newDossierH5Gateway(t *testing.T, front, api string, login *h5MemberLoginBr
 		defer g.mu.Unlock()
 		if method == "POST" && path == "/api/v1/ai/conversations" && r.StatusCode == 200 {
 			g.counts.Conversations++
+		}
+		if strings.HasPrefix(path, "/api/v1/ai/conversations/") && strings.Contains(path, "/dossiers") {
+			if r.StatusCode == 404 || r.StatusCode == 401 {
+				g.counts.Denied++
+				return nil
+			}
+			if r.StatusCode != 200 {
+				return nil
+			}
+			if strings.HasSuffix(path, "/dossiers") {
+				if method == "POST" {
+					g.counts.Saved++
+				} else if method == "GET" {
+					g.counts.ReferenceLists++
+				}
+			} else if method == "GET" {
+				g.counts.ReferenceReads++
+			}
+			return nil
 		}
 		if method != "GET" || !strings.HasPrefix(path, "/api/v1/ai/themes/") || !strings.Contains(path, "/dossiers") {
 			return nil
@@ -111,7 +135,11 @@ func newDossierH5Gateway(t *testing.T, front, api string, login *h5MemberLoginBr
 				g.counts.Restores++
 				g.mu.Unlock()
 			case "/__test__/finish":
-				if c.Conversations != 1 || c.Lists < 3 || c.Reads < 4 || c.Comparisons < 2 || c.Denied < 1 || c.Revokes != 1 || c.Restores != 1 {
+				complete := c.Conversations == 1 && c.Lists >= 3 && c.Reads >= 4 && c.Comparisons >= 2 && c.Denied >= 1 && c.Revokes == 1 && c.Restores == 1
+				if withReferences {
+					complete = c.Conversations == 1 && c.Lists >= 1 && c.Reads >= 2 && c.Comparisons >= 1 && c.Denied >= 1 && c.Revokes == 1 && c.Restores == 1 && c.Saved == 1 && c.ReferenceLists >= 2 && c.ReferenceReads >= 3
+				}
+				if !complete {
 					http.Error(w, "原会话、目录、原文对照与撤权恢复尚未完成", 409)
 					return
 				}
@@ -143,6 +171,68 @@ func newDossierH5Gateway(t *testing.T, front, api string, login *h5MemberLoginBr
 	g.server.Start()
 	t.Cleanup(g.server.Close)
 	return g
+}
+
+func TestDossierH5ReferenceGatewayBoundary(t *testing.T) {
+	var live atomic.Bool
+	live.Store(true)
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if strings.HasPrefix(r.URL.Path, "/api/v1/ai/conversations/") && strings.Contains(r.URL.Path, "/dossiers/") && !live.Load() {
+			w.WriteHeader(404)
+			io.WriteString(w, `{"code":40406}`)
+			return
+		}
+		io.WriteString(w, `{"code":0,"data":{"testOnly":true}}`)
+	}))
+	defer upstream.Close()
+	login := &h5MemberLoginBridge{proxy: httputil.NewSingleHostReverseProxy(mustLocalH5URL(t, upstream.URL))}
+	g := newDossierH5Gateway(t, upstream.URL, upstream.URL, login, func(enabled bool) error { live.Store(enabled); return nil }, true)
+	client := &http.Client{Transport: &http.Transport{Proxy: nil}, Timeout: time.Second}
+	defer client.CloseIdleConnections()
+	call := func(method, path string, want int) {
+		t.Helper()
+		r, err := http.NewRequest(method, g.server.URL+path, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if method == "POST" {
+			r.Header.Set("Origin", g.server.URL)
+		}
+		res, err := client.Do(r)
+		if err != nil {
+			t.Fatal(err)
+		}
+		io.Copy(io.Discard, res.Body)
+		res.Body.Close()
+		if res.StatusCode != want {
+			t.Fatal("引用网关前置条件不符", path, res.StatusCode, want)
+		}
+	}
+	call("POST", "/api/v1/ai/conversations", 200)
+	call("GET", "/api/v1/ai/themes/1/dossiers", 200)
+	call("GET", "/api/v1/ai/themes/1/dossiers/1", 200)
+	call("GET", "/api/v1/ai/themes/1/dossiers/1?compareVersion=2", 200)
+	call("POST", "/api/v1/ai/conversations/3/dossiers", 200)
+	call("GET", "/api/v1/ai/conversations/3/dossiers", 200)
+	call("GET", "/api/v1/ai/conversations/3/dossiers/11", 200)
+	call("POST", "/__test__/finish", 409)
+	call("GET", "/api/v1/ai/conversations/3/dossiers", 200)
+	call("GET", "/api/v1/ai/conversations/3/dossiers/11", 200)
+	call("POST", "/__test__/revoke", 204)
+	call("GET", "/api/v1/ai/conversations/3/dossiers/11", 404)
+	call("POST", "/__test__/restore", 204)
+	call("GET", "/api/v1/ai/conversations/3/dossiers/11", 200)
+	call("POST", "/__test__/finish", 204)
+	select {
+	case <-g.finish:
+	default:
+		t.Fatal("引用网关未结束")
+	}
+	c := g.snapshot()
+	if c.Saved != 1 || c.ReferenceLists != 2 || c.ReferenceReads != 3 || c.Denied != 1 {
+		t.Fatal("引用网关没有如实统计")
+	}
 }
 
 func TestDossierH5GatewayBoundary(t *testing.T) {
