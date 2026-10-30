@@ -380,6 +380,27 @@ jobs:
             fi
           done
           # 专题读取接口门禁结束
+          # 专题进程门禁开始
+          DOSSIER_PROCESS_ROOT=$(grep -Ec '^--- PASS: TestIntegrationAIReportDossierProcess ' /tmp/it.log || true)
+          DOSSIER_PROCESS_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportDossierProcess/' /tmp/it.log || true)
+          DOSSIER_PROCESS_SKIPS=$(grep -Ec '^[[:space:]]*--- SKIP: TestIntegrationAIReportDossierProcess([ /]|$)' /tmp/it.log || true)
+          if [ "$DOSSIER_PROCESS_ROOT" -ne 1 ] || [ "$DOSSIER_PROCESS_CASES" -ne 5 ] || [ "$DOSSIER_PROCESS_SKIPS" -ne 0 ]; then
+            echo "专题独立进程与原密码登录验收漏跑"; exit 1
+          fi
+          for phase in 原登录与版本目录 单版与原文出处 双版摘录对照 跨会员与匿名拒绝 撤权后不返回旧原文; do
+            MATCHES=$(grep -Ec "^[[:space:]]+--- PASS: TestIntegrationAIReportDossierProcess/$phase " /tmp/it.log || true)
+            if [ "$MATCHES" -ne 1 ]; then
+              echo "专题独立进程场景缺失或重复：$phase"; exit 1
+            fi
+          done
+          # 专题进程门禁结束
+          # 专题H5转发边界门禁开始
+          DOSSIER_GATEWAY_ROOT=$(grep -Ec '^--- PASS: TestDossierH5GatewayBoundary ' /tmp/it.log || true)
+          DOSSIER_GATEWAY_SKIPS=$(grep -Ec '^[[:space:]]*--- SKIP: TestDossierH5GatewayBoundary([ /]|$)' /tmp/it.log || true)
+          if [ "$DOSSIER_GATEWAY_ROOT" -ne 1 ] || [ "$DOSSIER_GATEWAY_SKIPS" -ne 0 ]; then
+            echo "专题H5只转发网关边界验收漏跑"; exit 1
+          fi
+          # 专题H5转发边界门禁结束
           if [ "$CALL_AUDIT_STARTUP_ROOT" -ne 1 ] || [ "$CALL_AUDIT_STARTUP_LEVELS" -ne 2 ] || [ "$CALL_AUDIT_STARTUP_CASES" -ne 34 ] || [ "$CALL_AUDIT_STARTUP_SKIPS" -ne 0 ]; then
             echo "调用审计启动保护、受限worker及回滚验收未完整通过"; exit 1
           fi
@@ -700,7 +721,8 @@ jobs:
           # 实际强杀恢复新增1根、2级别、4轻深父组及16种阶段/排队场景。
           # 系统信号专项新增1根、2级别、4轻深父组及12种运行阶段场景。
           # 专题存储新增1根、2隔离级别及38个真实SQL场景。
-          MIN=1280
+          # 专题独立API进程新增1根5子例，只转发H5网关新增1根。
+          MIN=1287
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项，低于下限 $MIN —— 要么没跑，要么有测试被删。"; exit 1
           fi

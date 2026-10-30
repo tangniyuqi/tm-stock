@@ -10,7 +10,7 @@ import { copySafeExternalUrl } from '../../libs/external-link.uts'
 type DossierProps = { sessionToken : string, themeId : number, themeName : string, enabled? : boolean }
 defineOptions({name:'AIDossierPanel'})
 const props = withDefaults(defineProps<DossierProps>(), {enabled:true})
-const emit = defineEmits<{unauthorized: []}>()
+const emit = defineEmits<{unauthorized: [], expanded: [value : boolean]}>()
 const expanded = ref<boolean>(false)
 const busy = ref<boolean>(false)
 const ready = ref<boolean>(false)
@@ -23,7 +23,7 @@ const message = ref<string>('')
 let alive : boolean = true
 let generation : number = 0
 const current = (round : number, token : string) : boolean => alive && props.enabled && expanded.value && generation == round && token.length > 0 && token == props.sessionToken && token == currentAIMemberToken()
-const reset = () : void => { generation++; expanded.value = false; busy.value = false; ready.value = false; versions.value = [] as AIDossierVersionItem[]; picked.value = [] as number[]; hasMore.value = false; nextBefore.value = 0; view.value = null; message.value = '' }
+const reset = () : void => { generation++; expanded.value = false; busy.value = false; ready.value = false; versions.value = [] as AIDossierVersionItem[]; picked.value = [] as number[]; hasMore.value = false; nextBefore.value = 0; view.value = null; message.value = ''; emit('expanded',false) }
 const discardResults = () : void => { view.value = null; versions.value = [] as AIDossierVersionItem[]; picked.value = [] as number[]; ready.value = false; hasMore.value = false; nextBefore.value = 0 }
 const accept = (code : number) : boolean => { if (code == 40100 || code == 40101 || code == 40301) { reset(); emit('unauthorized'); return false }; return true }
 const loadVersions = async (more : boolean) : Promise<void> => {
@@ -39,7 +39,7 @@ const loadVersions = async (more : boolean) : Promise<void> => {
 		versions.value = more ? versions.value.concat(r.data!.items) : r.data!.items; ready.value = true; hasMore.value = r.data!.hasMore; nextBefore.value = r.data!.nextBeforeVersion
 	} catch (_) { if (current(round,token)) { busy.value = false; discardResults(); message.value = dossierError(50001) } }
 }
-const toggle = () : void => { if (expanded.value) { reset(); return }; if (!props.enabled || props.sessionToken != currentAIMemberToken()) return; expanded.value = true; loadVersions(false) }
+const toggle = () : void => { if (expanded.value) { reset(); return }; if (!props.enabled || props.sessionToken != currentAIMemberToken()) return; expanded.value = true; emit('expanded',true); loadVersions(false) }
 const choose = (version : number) : void => { if (busy.value || !current(generation,props.sessionToken)) return; view.value = null; if (picked.value.includes(version)) picked.value = picked.value.filter((v : number) : boolean => v != version); else if (picked.value.length < 2) picked.value = picked.value.concat([version]); else message.value = '已选择两个版本，请先取消其中一个' }
 const read = async (version : number, compare : number) : Promise<void> => {
 	if (busy.value || !current(generation,props.sessionToken)) return

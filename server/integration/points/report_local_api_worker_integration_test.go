@@ -180,6 +180,15 @@ func startLocalAPI(t *testing.T, e *workflowEnv, binary, dsn, signing, runtimeFi
 }
 func startLocalAPIWithQA(t *testing.T, e *workflowEnv, binary, dsn, signing, runtimeFile, plansFile string, client *http.Client, base string, deep bool, qaFile string, feedback ...bool) {
 	t.Helper()
+	if len(feedback) > 1 {
+		t.Fatal("每轮只能声明一个反馈范围")
+	}
+	enabled := len(feedback) == 1 && feedback[0]
+	startLocalAPIConfigured(t, e, binary, dsn, signing, runtimeFile, plansFile, client, base, deep, qaFile, enabled, "")
+}
+
+func startLocalAPIConfigured(t *testing.T, e *workflowEnv, binary, dsn, signing, runtimeFile, plansFile string, client *http.Client, base string, deep bool, qaFile string, feedback bool, dossierPrepareDSN string) {
+	t.Helper()
 	ctx, cancel := context.WithCancel(e.ctx)
 	cmd := exec.CommandContext(ctx, binary)
 	// 与worker分别注入账号；不继承任意生产开关或供应商密钥。
@@ -192,11 +201,11 @@ func startLocalAPIWithQA(t *testing.T, e *workflowEnv, binary, dsn, signing, run
 	if qaFile != "" {
 		cmd.Env = append(cmd.Env, "TM_AI_LOCAL_QA="+qaFile, "TM_AI_QA_READ_ENABLED=true", "TM_AI_QA_SUBMIT_ENABLED=true", "TM_AI_REPORT_QA_SUBMIT_ENABLED=true")
 	}
-	if len(feedback) > 1 {
-		t.Fatal("每轮只能声明一个反馈范围")
-	}
-	if len(feedback) == 1 && feedback[0] {
+	if feedback {
 		cmd.Env = append(cmd.Env, "TM_AI_FEEDBACK_ENABLED=true")
+	}
+	if dossierPrepareDSN != "" {
+		cmd.Env = append(cmd.Env, "TM_AI_LOCAL_DOSSIER_READ_ENABLED=true", "TM_AI_LOCAL_DOSSIER_PREPARE_DSN="+dossierPrepareDSN)
 	}
 	if err := cmd.Start(); err != nil {
 		cancel()

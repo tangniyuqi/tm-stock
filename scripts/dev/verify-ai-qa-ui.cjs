@@ -497,6 +497,14 @@ async function controlledComposer() {
     assert.equal(panel.state.question,question); assert.equal(textarea().props['model-value'],question);
     assert.equal(env.requests.length,0); assert.equal(env.storage.size,1,'布局变化不得持久化新原键');
   }
+  panel.click('查询可读档案版本');env.reply(env.requests.shift(),dossierList());await flush();
+  assert.equal(textarea().props.fixed,false,'档案展开时固定输入不得遮挡查阅区');
+  assert.equal(panel.state.question,question,'展开档案不能丢失问答草稿');
+  assert.ok(!panel.nodes().some(n=>n.props.class==='qa-composer-reserve'),'查阅时不保留固定输入的额外留白');
+  panel.click('收起专题档案');await flush();
+  assert.equal(textarea().props.fixed,true,'收起档案后恢复底部输入');
+  assert.equal(textarea().props['model-value'],question,'恢复底部输入保留原草稿');
+  assert.equal(env.requests.length,0,'切换查阅布局不得自动提交问题');
   panel.click('提交本次资料问题（不扣积分）'); await flush();
   assert.equal(textarea().props.disabled,true);
   env.reply(env.requests.shift(),null,503,50301); await flush();

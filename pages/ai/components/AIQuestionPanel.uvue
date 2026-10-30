@@ -21,6 +21,7 @@ const answer = ref<AIQAAnswer | null>(null)
 const keyword = ref<string>('')
 const themes = ref<ThemeBrief[]>([] as ThemeBrief[])
 const subject = ref<ThemeBrief | null>(null)
+const dossierExpanded = ref<boolean>(false)
 const question = ref<string>('')
 const busy = ref<boolean>(false)
 const safeStorage = ref<boolean>(false)
@@ -176,7 +177,7 @@ onBeforeUnmount(() => { active = false; generation++; status.value = null; answe
 				<x-button class="mt-4" height="44" :block="true" skin="outline" :disabled="busy" @click="choose(item.id)">选择问答题材 #{{ item.id }}</x-button>
 			</view>
 			<view v-if="subject != null" class="mt-12">
-				<AIQuestionComposer :question="question" :scope-label="'当前所选题材：' + subject!.name" placeholder="输入所选资料的事实问题，最多1000字" submit-label="提交本次资料问题（不扣积分）" :busy="busy" :docked="dockInput" :dock-left="dockLeft" :dock-bottom="dockBottom" @change="question = $event" @submit="submit"></AIQuestionComposer>
+				<AIQuestionComposer :question="question" :scope-label="'当前所选题材：' + subject!.name" placeholder="输入所选资料的事实问题，最多1000字" submit-label="提交本次资料问题（不扣积分）" :busy="busy" :docked="dockInput && !dossierExpanded" :dock-left="dockLeft" :dock-bottom="dockBottom" @change="question = $event" @submit="submit"></AIQuestionComposer>
 			</view>
 		</view>
 		<view v-if="pending != null" class="mt-12">
@@ -205,9 +206,9 @@ onBeforeUnmount(() => { active = false; generation++; status.value = null; answe
 		</view>
 		<x-button v-if="pending != null && pending!.conversationId == conversationId && status != null && qaMatchesPending(status!,pending!) && (status!.state == 'answered' || status!.state == 'refused' || status!.state == 'failed')" class="mt-12" height="44" :block="true" skin="outline" :disabled="busy" @click="finish">核实终态并清理本地原键</x-button>
 		<text v-if="message != ''" class="qa-copy mt-12">{{ message }}</text>
-		<AIDossierPanel v-if="subject != null" :key="subject!.id" :session-token="sessionToken" :theme-id="subject!.id" :theme-name="subject!.name" :enabled="dossierEnabled" @unauthorized="emit('unauthorized')"></AIDossierPanel>
+		<AIDossierPanel v-if="subject != null" :key="subject!.id" :session-token="sessionToken" :theme-id="subject!.id" :theme-name="subject!.name" :enabled="dossierEnabled" @expanded="dossierExpanded = $event" @unauthorized="emit('unauthorized')"></AIDossierPanel>
 		<!-- 留白放在所有答案/错误/操作之后，保证它们可滚动到固定输入上方。 -->
-		<view v-if="dockInput && !archived && safeStorage && pending == null && subject != null" class="qa-composer-reserve"></view>
+		<view v-if="dockInput && !dossierExpanded && !archived && safeStorage && pending == null && subject != null" class="qa-composer-reserve"></view>
 	</x-sheet>
 </template>
 
