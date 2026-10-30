@@ -34,6 +34,8 @@
 
 系统信号复现使用相同脚本及显式参数，将ReportPattern改为`^TestIntegrationAIReportLocalWorkerSignal$`；该根组按RC/RR准备与验收仓储×轻深×idle/agent/model共12场景启动实际worker，不启用-stop-on-stdin停止参数。Windows使用本轮新建隐藏控制台，发送器核该控制台只包含自身及worker，再对worker的新进程组发送Ctrl+Break；实际worker退出130后宿主才转交130和固定退出证明，父进程还核原worker阶段5停止路径。Unix直接向本轮子PID发SIGTERM；只完成跨平台编译不能写成该平台已运行。所有场景核无额外外呼、报告/settle、释放或会员取消，保留原冻结及远端running，完成原账本对账；不把本地退出说成远端已取消。
 
+小屏复验继续使用上方正式进程H5入口，已有页改尺寸后必须从DOM核innerWidth/innerHeight，不能只信工具set返回成功。本轮IAB仅在新页初建时应用普通尺寸覆写，已有页通过受支持CDP开发能力设置精确视口；结束清除单页指标覆写并reset浏览器尺寸。先保存未提交草稿，再改尺寸核原文、输入/提交按钮及工具栏实际位置；滚动只从实际阅读区域操作，读取可滚动且有内容的原scroll-view，不能把隐藏页签的零scrollTop当作当前阅读位置。抽屉关闭须等标题实际消失，再核前后位置。截图受浏览器宿主画布裁切时只认完整可见范围，DOM尺寸证据另列；桌面尺寸覆写不等于软键盘、字体缩放、安全区或物理手机验收。最新版小屏记录及限制见tasks.md顶部。
+
 Windows另以`^TestIntegrationAIReportLocalWorkerSignalControl$`验证控制管道收到stop时拒绝发送信号，清理并Wait自己启动的实际worker，退出1且无signal/实际130证明；不把管道指令当成OS信号测试。`TestLocalWorkerSignalTarget`只验零和自身PID在接触控制台前拒绝，绝不发送广播事件。两项均不接用户控制台、不传真实模型凭据；控制台关闭/注销/关机、Linux运行及真机键盘分别保留其验收边界。实际矩阵结果以tasks.md同轮日志为准。
 
 独立进程专项为`-ReportsOnly -ReportPattern '^TestIntegrationAIReport(LocalWorkerProcess|LocalPublication|WorkflowLifecycle)$' -RunCount 1`，显式指定本机MySQL程序及Git Bash目录，逐版运行。LocalWorkerProcess必须1根/2级别/12叶场景/0跳过：轻度、深度、未知模型响应、远端已记录running时管道停止、空队列配置撤回、启动摘要错绑。父测试编译并直接启动实际worker二进制，使用随机受限账号和最小白名单环境；先等就绪再由原创建服务提交任务，子进程通过原数据库扫描发现，不能把指定任务调用worker当常驻进程。RC/RR指创建/验收仓储，子进程使用实际程序默认RC。网络仍为回环替身，没有H5或真实模型。

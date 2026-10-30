@@ -1,5 +1,11 @@
 # AI 分析模块 · 任务拆解与路线
 
+**低高度实际H5复验（2026-10-30）**：使用LocalAPIWorkerH5深度专项、原密码表单及实际API/worker；375×480视口由DOM核实后完成错误密码拒绝、会员一登录、新建会话、底部技能抽屉选深度、正式题材目录及30测试积分报价/原二次确认、公开SSE、五阶段交付与四节六引文报告两次读取。长报告中途开关技能抽屉，原滚动1901→1901px；历史入口位于内容顶部，本次仅核顶部0→0px，不扩展为非零位置的历史恢复证据。报告追问只编辑未提交草稿，从667×375切回375×480后草稿原文保留，输入矩形top263/bottom359，提交按钮及底部技能工具栏均可见。第二会员原密码登录后无他人会话，旧标签回游客态且报告/草稿清空。
+
+本轮375×480截图`%TEMP%/tm-stock-low-height-report-20261030.png`；320×480及667×375由当前页CDP尺寸覆写后分别核innerWidth/innerHeight和零横向溢出，横屏阅读区215px、工具栏top323/bottom375。IAB普通viewport.set对已有页未实时生效，改用同页开发能力后才计尺寸证据；横屏截图受原375宽画布裁切，仅保留DOM尺寸证据，不冒充完整横屏视觉截图。报告页检查warn/error为空，后续两会员登录/清理取原DOM及父SQL证明。根组591.19秒通过，父脚本0、迁移64/64并清理，日志`%TEMP%/tm-stock-low-height-layout-h5-20261030.log`；唯一准入/任务消息/报告/settle、Agent1/报告模型3/审计6、avail30/frozen0及原积分对账均通过。复用7f01025后前端无差异的完整官方HBuilderX产物，本轮未改产品源码或重新构建，不运行真实模型。
+
+Android边界：原调试设备在复核时已退出（设备列表为空且无模拟器进程），随后仅启动既有mlr_test_api35的read-only/no-snapshot-save隔离实例；ADB打开Chrome及调试映射的组合操作被自动审批拒绝，返回原因仅blocked by policy，没有继续该操作。已停止本轮明确进程并核无port5564/read-only匹配残留；另有未带本轮标记的模拟器进程，未触碰，静态服务及临时浏览器页关闭，浏览器尺寸恢复。没有取得Android软键盘、物理手机、字体缩放或安全区新证据；这次桌面小屏测试不替代它们。系统信号提交29abc23已在远端main核实，完整助手目标继续进行中。
+
 **实际worker系统信号（2026-10-30）**：新增LocalWorkerSignal，直接启动实际worker且不传-stop-on-stdin，保留原main的NotifyContext行为；空队列、远端已保存running、模型start审计后分别触发真实信号。Windows发送器与worker置于本轮独立隐藏控制台，核该控制台只有两者后才向worker新进程组发送Ctrl+Break，等待实际worker退出130并转交原码，父测试同时核原阶段5停止路径，不用管道停止或宿主成功冒充信号。停止后无额外外呼、报告/settle、释放或会员取消，原冻结、远端running和积分对账均保持。
 
 **本轮信号证据**：MySQL8/9各RC/RR准备与验收仓储×轻深×idle/agent/model十二场景通过，根组65.66/51.19秒；WindowsControl反例收到stop不发送信号，实际worker清理/Wait后退出1，且无信号或130证明，两版6.97/6.33秒通过。两版同时回归原LocalWorkerProcess十六场景，共29个相关场景，父脚本均0、迁移64/64并清理；日志`%TEMP%/tm-stock-local-worker-signal-mysql8-20261030.log`、`tm-stock-local-worker-signal-mysql9-20261030.log`。无效目标单测验证零（广播）/自身PID在接触控制台前拒绝，父Go测试-race；实际worker普通构建。Linux分支已交叉编译通过，实际SIGTERM仍待Linux/CI取证，不等同于Windows关窗口/注销/关机事件。CI普通下限仍1347、集成升至1206，新增精确1根/2级别/4父组/12叶/零跳过及逐场景唯一守卫；两版当前信号和既有强杀实际日志的一正四反检查、YAML及十七Shell语法均通过。完整harness退出0（`%TEMP%/tm-stock-local-worker-signal-harness-20261030.log`），Go编译/vet/竞态、GVA关键包/配置、合规/密钥及其自测、架构和前端静态守卫通过，未降级race；可选lint/覆盖率未启用，远端CI未核验；真实调用关闭，本轮无浏览器/真实模型操作。已定位Android15、1080×2400的ranchu模拟器及Chrome，尚未据此认定键盘或真机已验，后续移动体验继续推进。
