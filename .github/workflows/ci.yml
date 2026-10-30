@@ -287,10 +287,10 @@ jobs:
           if [ "$LOCAL_API_WORKER_ROOT" -ne 1 ] || [ "$LOCAL_API_WORKER_LEVELS" -ne 2 ] || [ "$LOCAL_API_WORKER_CASES" -ne 4 ] || [ "$LOCAL_API_WORKER_SKIPS" -ne 0 ]; then
             echo "原密码登录与实际API、独立worker轻深报告结算验收未完整通过"; exit 1
           fi
-          LOCAL_H5_ROOTS=$(grep -Ec '^--- PASS: TestLocalAPIWorkerH5(Configuration|Gateway) ' /tmp/it.log || true)
+          LOCAL_H5_ROOTS=$(grep -Ec '^--- PASS: TestLocalAPIWorkerH5(Configuration|Gateway|AssistantGateway) ' /tmp/it.log || true)
           LOCAL_H5_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestLocalAPIWorkerH5Configuration/' /tmp/it.log || true)
           LOCAL_H5_SKIPS=$(grep -Ec '^[[:space:]]*--- SKIP: TestLocalAPIWorkerH5' /tmp/it.log || true)
-          if [ "$LOCAL_H5_ROOTS" -ne 2 ] || [ "$LOCAL_H5_CASES" -ne 8 ] || [ "$LOCAL_H5_SKIPS" -ne 0 ]; then
+          if [ "$LOCAL_H5_ROOTS" -ne 3 ] || [ "$LOCAL_H5_CASES" -ne 8 ] || [ "$LOCAL_H5_SKIPS" -ne 0 ]; then
             echo "正式进程H5入口配置和只转发网关用例漏跑"; exit 1
           fi
           if [ "$LOCAL_WORKER_ROOT" -ne 1 ] || [ "$LOCAL_WORKER_LEVELS" -ne 2 ] || [ "$LOCAL_WORKER_CASES" -ne 16 ] || [ "$LOCAL_WORKER_SHORT_CASES" -ne 2 ] || [ "$LOCAL_WORKER_SKIPS" -ne 0 ]; then
@@ -612,7 +612,8 @@ jobs:
           # 两隔离级别各增加深度不足六条引文的实际worker拒绝/释放场景。
           # 实际反馈独立进程新增1根、2级别和4个轻深用例。
           # 本地问答实际进程新增1根、2级别和4个轻深用例。
-          MIN=1163
+          # 组合H5网关前置条件及最终收尾核验新增1项。
+          MIN=1164
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项，低于下限 $MIN —— 要么没跑，要么有测试被删。"; exit 1
           fi

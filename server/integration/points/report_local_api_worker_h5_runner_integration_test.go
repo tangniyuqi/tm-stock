@@ -28,7 +28,8 @@ func runLocalProcessH5(t *testing.T, depth, origin string, scenario *localProces
 	if depth == "deep" {
 		kind, workflow = 2, "local_deep_running"
 	}
-	live := scenario != nil
+	live := scenario != nil && scenario.external
+	assistant := scenario != nil && scenario.qa
 	duration, lifetime := 5*time.Minute, 10*time.Minute
 	if live {
 		duration, lifetime = 15*time.Minute, 18*time.Minute
@@ -43,6 +44,9 @@ func runLocalProcessH5(t *testing.T, depth, origin string, scenario *localProces
 	defer cancel()
 	e.pointsTestEnv.ctx = ctx
 	localAPISchema(t, e)
+	if assistant {
+		reportDDL(t, e.pointsTestEnv, "20261020_create_tm_ai_report_feedbacks.sql")
+	}
 	// 搜索仍走正式目录仓储；补全本轮合成题材表的只读字段，不返回测试拼装的搜索成功。
 	e.mustExec(`ALTER TABLE addon_quant_theme ADD code varchar(32) NULL, ADD level tinyint NOT NULL DEFAULT 1, ADD parent_id bigint NOT NULL DEFAULT 0, ADD description text, ADD sort int NOT NULL DEFAULT 0, ADD updated_at datetime(3) NULL, ADD created_at datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)`)
 	var random [32]byte
@@ -83,16 +87,25 @@ func runLocalProcessH5(t *testing.T, depth, origin string, scenario *localProces
 	client := &http.Client{Transport: &http.Transport{Proxy: nil}, Timeout: 5 * time.Second}
 	defer client.CloseIdleConnections()
 	base := "http://" + f.runtime.Listen
-	startLocalAPI(t, e, api, localAPIDSN(t, e), signing, runtimeFile, f.path, client, base, kind == 2)
+	dsn := localAPIDSN(t, e, assistant)
+	var a *localH5Assistant
+	qaPath := ""
+	if assistant {
+		q := prepareLocalProcessQA(t, f, dsn)
+		qaPath = q.path
+		peer := startLocalFeedbackPeer(t, f, buildLocalFeedbackAdmin(t), client)
+		a = &localH5Assistant{env: e, qa: q, peer: peer, client: client}
+	}
+	startLocalAPIWithQA(t, e, api, dsn, signing, runtimeFile, f.path, client, base, kind == 2, qaPath, assistant)
 	child := startLocalWorkerChild(t, e, worker, localWorkerDSN(t, e), runtimeFile, f.path, executionFile, e.modelSession)
 	child.waitReady(t)
-	g := newLocalAPIWorkerH5Gateway(t, origin, base, bridge, func() bool {
+	g := newLocalAPIWorkerH5GatewayWithAssistant(t, origin, base, bridge, func() bool {
 		if e.agentPolls.Load() == 0 {
 			return false
 		}
 		e.agentComplete.Store(true)
 		return true
-	}, live)
+	}, live, a)
 	t.Log("正式API与独立worker的实际H5入口（仅测试）：", g.server.URL+"/__test__/")
 	func() {
 		tick := time.NewTicker(time.Second)
@@ -148,7 +161,7 @@ func runLocalProcessH5(t *testing.T, depth, origin string, scenario *localProces
 	if live {
 		wantAgent, wantModel = 0, 0
 	}
-	if e.queryInt(`SELECT COUNT(*) FROM tm_ai_task_admissions`) != 1 || e.queryInt(`SELECT COUNT(*) FROM tm_ai_conversation_messages WHERE user_id=1 AND task_id>0`) != 1 || e.queryInt(`SELECT COUNT(*) FROM tm_ai_conversation_messages WHERE user_id=2`) != 0 || e.queryInt(`SELECT COUNT(*) FROM tm_ai_report_commits`) != 1 || e.queryInt(`SELECT COUNT(*) FROM tm_points_txns WHERE kind='settle'`) != 1 || e.queryInt(`SELECT COUNT(*) FROM tm_ai_report_call_audits`) != 6 || e.queryInt(`SELECT avail FROM tm_points_accounts WHERE user_id=1`) != 60-int(f.spec.PricePoints) || e.queryInt(`SELECT frozen FROM tm_points_accounts WHERE user_id=1`) != 0 || e.queryInt(`SELECT COUNT(*) FROM tm_points_accounts WHERE user_id=2`) != 0 || e.submits.Load() != wantAgent || len(e.server.Requests()) != wantModel {
+	if e.queryInt(`SELECT COUNT(*) FROM tm_ai_task_admissions`) != 1 || e.queryInt(`SELECT COUNT(*) FROM tm_ai_conversation_messages WHERE user_id=1 AND kind='task' AND task_id>0`) != 1 || e.queryInt(`SELECT COUNT(*) FROM tm_ai_conversation_messages WHERE user_id=2`) != 0 || e.queryInt(`SELECT COUNT(*) FROM tm_ai_report_commits`) != 1 || e.queryInt(`SELECT COUNT(*) FROM tm_points_txns WHERE kind='settle'`) != 1 || e.queryInt(`SELECT COUNT(*) FROM tm_ai_report_call_audits`) != 6 || e.queryInt(`SELECT avail FROM tm_points_accounts WHERE user_id=1`) != 60-int(f.spec.PricePoints) || e.queryInt(`SELECT frozen FROM tm_points_accounts WHERE user_id=1`) != 0 || e.queryInt(`SELECT COUNT(*) FROM tm_points_accounts WHERE user_id=2`) != 0 || e.submits.Load() != wantAgent || len(e.server.Requests()) != wantModel {
 		t.Fatal("实际进程H5报告、积分或调用次数不符")
 	}
 	if _, err := io.WriteString(child.input, "stop\n"); err != nil {
@@ -156,6 +169,9 @@ func runLocalProcessH5(t *testing.T, depth, origin string, scenario *localProces
 	}
 	child.wait(t, true)
 	requirePointAudit(t, e.pointsTestEnv, e.ledger)
+	if a != nil {
+		a.verify(t)
+	}
 	bridge.finish(t, ctx)
 	if live {
 		t.Log("TM_STOCK_LIVE_PROCESS_H5_VERIFIED")

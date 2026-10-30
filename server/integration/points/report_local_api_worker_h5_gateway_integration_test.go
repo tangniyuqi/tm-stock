@@ -43,7 +43,7 @@ func TestLocalAPIWorkerH5Configuration(t *testing.T) {
 	}
 }
 
-type localAPIWorkerH5Counts struct{ Conversations, Prepares, Confirms, Reports, Streams int }
+type localAPIWorkerH5Counts struct{ Conversations, Prepares, Confirms, Reports, Streams, Questions, Answers, Feedback, FeedbackReads int }
 type localAPIWorkerH5Gateway struct {
 	server *httptest.Server
 	mu     sync.Mutex
@@ -150,6 +150,68 @@ func mustLocalH5URL(t *testing.T, raw string) *url.URL {
 	return u
 }
 
+func TestLocalAPIWorkerH5AssistantGateway(t *testing.T) {
+	client := &http.Client{Transport: &http.Transport{Proxy: nil}, Timeout: 5 * time.Second}
+	defer client.CloseIdleConnections()
+	upstream := httptest.NewServer(http.NotFoundHandler())
+	defer upstream.Close()
+	login := &h5MemberLoginBridge{proxy: httputil.NewSingleHostReverseProxy(mustLocalH5URL(t, upstream.URL))}
+	a := &localH5Assistant{}
+	g := newLocalAPIWorkerH5GatewayWithAssistant(t, upstream.URL, upstream.URL, login, func() bool { return false }, false, a)
+	for _, path := range []string{"finish", "resolve", "empty", "withdraw"} {
+		r, err := http.NewRequestWithContext(t.Context(), "POST", g.server.URL+"/__test__/"+path, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		r.Header.Set("Origin", g.server.URL)
+		res, err := client.Do(r)
+		if err != nil {
+			t.Fatal(err)
+		}
+		res.Body.Close()
+		if res.StatusCode != 409 {
+			t.Fatal("组合前置条件缺失仍操作", path)
+		}
+	}
+	g.mu.Lock()
+	g.counts = localAPIWorkerH5Counts{Conversations: 1, Prepares: 1, Confirms: 1, Reports: 2, Streams: 1, Questions: 3, Answers: 4, Feedback: 1, FeedbackReads: 2}
+	g.mu.Unlock()
+	r, err := http.NewRequestWithContext(t.Context(), "POST", g.server.URL+"/__test__/finish", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.Header.Set("Origin", g.server.URL)
+	res, err := client.Do(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if res.StatusCode != 409 {
+		t.Fatal("仅网络计数不能完成组合验收")
+	}
+	a.mu.Lock()
+	a.resolved, a.empty, a.withdrawn = true, true, true
+	a.mu.Unlock()
+	r, err = http.NewRequestWithContext(t.Context(), "POST", g.server.URL+"/__test__/finish", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.Header.Set("Origin", g.server.URL)
+	res, err = client.Do(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if res.StatusCode != 204 {
+		t.Fatal("完整组合前置条件未允许收尾")
+	}
+	select {
+	case <-g.finish:
+	default:
+		t.Fatal("没有完成信号")
+	}
+}
+
 // 只代理正式API、原密码桥与完整静态H5；这里不调用任务服务，不改写业务响应。
 func newLocalAPIWorkerH5Gateway(t *testing.T, front, api string, login *h5MemberLoginBridge, complete func() bool, real ...bool) *localAPIWorkerH5Gateway {
 	t.Helper()
@@ -157,6 +219,13 @@ func newLocalAPIWorkerH5Gateway(t *testing.T, front, api string, login *h5Member
 		t.Fatal("每轮只能声明一个真实范围")
 	}
 	live := len(real) == 1 && real[0]
+	return newLocalAPIWorkerH5GatewayWithAssistant(t, front, api, login, complete, live, nil)
+}
+func newLocalAPIWorkerH5GatewayWithAssistant(t *testing.T, front, api string, login *h5MemberLoginBridge, complete func() bool, live bool, assistant *localH5Assistant) *localAPIWorkerH5Gateway {
+	t.Helper()
+	if live && assistant != nil {
+		t.Fatal("组合验收不能混用真实模型")
+	}
 	g := &localAPIWorkerH5Gateway{finish: make(chan struct{})}
 	proxy := func(raw string) *httputil.ReverseProxy {
 		u, err := url.Parse(raw)
@@ -189,6 +258,14 @@ func newLocalAPIWorkerH5Gateway(t *testing.T, front, api string, login *h5Member
 			g.counts.Reports++
 		case method == "GET" && strings.HasPrefix(path, "/api/v1/ai/tasks/") && strings.HasSuffix(path, "/stream"):
 			g.counts.Streams++
+		case method == "POST" && strings.HasSuffix(path, "/questions"):
+			g.counts.Questions++
+		case method == "GET" && strings.HasSuffix(path, "/answer"):
+			g.counts.Answers++
+		case method == "POST" && strings.HasSuffix(path, "/feedback"):
+			g.counts.Feedback++
+		case method == "GET" && strings.HasSuffix(path, "/feedback"):
+			g.counts.FeedbackReads++
 		}
 		return nil
 	}
@@ -204,11 +281,14 @@ func newLocalAPIWorkerH5Gateway(t *testing.T, front, api string, login *h5Member
 			w.Header().Set("Content-Security-Policy", "default-src 'none'; script-src 'nonce-local-api-worker'; connect-src 'self'")
 			notice := "随机会员、合成资料、测试积分及回环Agent/模型，无真实模型或生产数据；任务预算五分钟。"
 			button := `<button id="complete">允许测试Agent完成</button>`
+			if assistant != nil {
+				button += `<button id="resolve">原管理进程处理反馈</button><button id="empty">改为无证据范围</button><button id="withdraw">撤回测试来源</button>`
+			}
 			if live {
 				notice = "随机会员、合成资料与测试积分；本轮经独立父桥调用真实社区V2及付费模型，任务预算十五分钟；无生产数据，不代表生产批准。"
 				button = ""
 			}
-			fmt.Fprintf(w, `<!doctype html><meta charset="utf-8"><title>仅测试：正式API与独立worker</title><h1>实际H5→API→独立worker</h1><p>%s</p><a href="/__test__/login">查看本轮测试账号，使用原密码表单登录</a><p><button id="guest">清理登录态并进入AI助手</button>%s<button id="finish">结束并核验</button></p><p id="result"></p><script nonce="local-api-worker">document.getElementById('guest').onclick=()=>{localStorage.removeItem('token');location.href='/#/pages/ai/index'};for(const id of ['complete','finish']){const button=document.getElementById(id);if(button)button.onclick=async()=>{const r=await fetch('/__test__/'+id,{method:'POST'});document.getElementById('result').textContent=r.ok?'操作已确认':'尚未满足核验条件'}};</script>`, notice, button)
+			fmt.Fprintf(w, `<!doctype html><meta charset="utf-8"><title>仅测试：正式API与独立worker</title><h1>实际H5→API→独立worker</h1><p>%s</p><a href="/__test__/login">查看本轮测试账号，使用原密码表单登录</a><p><button id="guest">清理登录态并进入AI助手</button>%s<button id="finish">结束并核验</button></p><p id="result"></p><script nonce="local-api-worker">document.getElementById('guest').onclick=()=>{localStorage.removeItem('token');location.href='/#/pages/ai/index'};for(const id of ['complete','finish','resolve','empty','withdraw']){const button=document.getElementById(id);if(button)button.onclick=async()=>{const r=await fetch('/__test__/'+id,{method:'POST'});document.getElementById('result').textContent=r.ok?'操作已确认':'尚未满足核验条件'}};</script>`, notice, button)
 			return
 		}
 		if r.URL.Path == "/__test__/login" && r.Method == "GET" {
@@ -232,11 +312,20 @@ func newLocalAPIWorkerH5Gateway(t *testing.T, front, api string, login *h5Member
 				}
 			case "/__test__/finish":
 				c := g.snapshot()
+				if assistant != nil && !assistant.ready(c) {
+					http.Error(w, "组合问答/反馈/撤回尚未完成", 409)
+					return
+				}
 				if c.Conversations != 1 || c.Prepares != 1 || c.Confirms < 1 || c.Reports < 2 || c.Streams < 1 {
 					http.Error(w, "原会话和报告读取尚未完成", 409)
 					return
 				}
 				g.once.Do(func() { close(g.finish) })
+			case "/__test__/resolve", "/__test__/empty", "/__test__/withdraw":
+				if assistant == nil || !assistant.action(r.Context(), r.URL.Path, g.snapshot()) {
+					http.Error(w, "组合操作尚未满足条件", 409)
+					return
+				}
 			default:
 				http.NotFound(w, r)
 				return

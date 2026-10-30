@@ -24,6 +24,7 @@ param(
     [switch]$TimeoutRecoveryTests,
     [switch]$DeepH5Tests,
     [switch]$LocalAPIWorkerBrowser,
+    [switch]$LocalAssistantBrowser,
     [switch]$LocalFeedbackConsoleBrowser,
     [switch]$LocalBootstrapOnly,
     [switch]$LocalAPIBootstrap,
@@ -39,6 +40,9 @@ param(
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 $liveReportPatterns = @('^TestIntegrationAIReportLiveAgents$', '^TestIntegrationAIReportDeepLiveAgents$', '^TestIntegrationAIReportLocalAPIWorkerLive$', '^TestIntegrationAIReportLocalAPIWorkerLiveH5$')
+$localAssistantPattern = '^TestIntegrationAIReportLocalAssistantH5$'
+if ($ReportPattern -eq $localAssistantPattern -and -not $LocalAssistantBrowser) { throw '本地助手组合H5需要显式入口，禁止零用例通过' }
+if ($LocalAssistantBrowser -and ($LiveAgents -or -not [string]::IsNullOrEmpty($env:TM_TEST_AI_LIVE) -or $MaterialQABrowser -or $StreamReplayBrowser -or $TimeoutRecoveryTests -or $DeepH5Tests -or $LocalAPIWorkerBrowser -or $LocalFeedbackConsoleBrowser -or $LocalBootstrapOnly -or $LocalAPIBootstrap -or $LocalMemberBootstrap -or $LocalConversationBootstrap -or $LocalPlanBootstrap -or $LocalTaskBootstrap -or $LocalReportBootstrap -or -not $ReportsOnly -or $RunCount -ne 1 -or $ReportPattern -ne $localAssistantPattern -or $env:TM_TEST_AI_H5_LOCAL_ASSISTANT -ne 'local-fixture-only' -or $env:TM_TEST_AI_H5_LOCAL_DEPTH -notin @('light','deep'))) { throw '助手组合H5仅允许显式单次隔离验收' }
 $localAPIWorkerH5Pattern = '^TestIntegrationAIReportLocalAPIWorkerH5$'
 $localFeedbackConsolePattern = '^TestIntegrationAIReportLocalFeedbackConsoleH5$'
 if ($ReportPattern -eq $localFeedbackConsolePattern -and -not $LocalFeedbackConsoleBrowser) { throw '本地反馈后台浏览器根组需要显式入口，禁止零用例假通过' }
@@ -559,7 +563,7 @@ GRANT SELECT ON $localDatabase.tm_ai_local_instance TO '$localUser'@'127.0.0.1';
         if ($LiveAgents) { $integrationTags = 'integration,liveagents' }
         if ($MaterialQABrowser -or $StreamReplayBrowser -or $TimeoutRecoveryTests -or $LocalFeedbackConsoleBrowser) { $integrationTags = 'integration,browser' }
         if ($DeepH5Tests -and $ReportPattern -eq '^TestIntegrationAIReportH5Deep$') { $integrationTags = 'integration,browser' }
-        if ($LocalAPIWorkerBrowser) { $integrationTags = 'integration,browser' }
+        if ($LocalAPIWorkerBrowser -or $LocalAssistantBrowser) { $integrationTags = 'integration,browser' }
         $pointsTestArgs = @('test', '-p', '1', '-race', "-tags=$integrationTags", './integration/points', '-timeout', $suiteTimeout, '-count', [string]$RunCount, '-v')
         if ($TaskBudgetOnly) { $pointsTestArgs += @('-run', '^TestIntegrationAITaskBudget') }
         if ($TaskStagesOnly) { $pointsTestArgs += @('-run', '^TestIntegrationAITaskStage') }
