@@ -113,7 +113,7 @@ jobs:
           # 本地反馈管理配置与监听前保护2根15子例。
           # 本地问答文件、策略摘要、控制器及装配保护新增53项。
           # 专题比较/字段核98个节点，存储引用与非法读取2个根测试。
-          MIN=1448
+          MIN=1449
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项测试，低于下限 $MIN —— 要么测试没被执行，要么有测试被删。"
             exit 1
@@ -352,6 +352,20 @@ jobs:
             done
           done
           # 专题版本门禁结束
+          # 专题结构门禁开始
+          DOSSIER_SCHEMA_ROOT=$(grep -Ec '^--- PASS: TestIntegrationAIReportDossierSchema ' /tmp/it.log || true)
+          DOSSIER_SCHEMA_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportDossierSchema/' /tmp/it.log || true)
+          DOSSIER_SCHEMA_SKIPS=$(grep -Ec '^[[:space:]]*--- SKIP: TestIntegrationAIReportDossierSchema([ /]|$)' /tmp/it.log || true)
+          if [ "$DOSSIER_SCHEMA_ROOT" -ne 1 ] || [ "$DOSSIER_SCHEMA_CASES" -ne 12 ] || [ "$DOSSIER_SCHEMA_SKIPS" -ne 0 ]; then
+            echo "专题结构保护验收漏跑"; exit 1
+          fi
+          for phase in 空库实际探针回滚 发布默认开启 会员默认开启 正文列口径变化 同名版本检查失效 删除批准外键 约束不执行 同名证据检查失效 同名发布检查失效 同名会员检查失效 同名触发器失效 缺触发器; do
+            MATCHES=$(grep -Ec "^[[:space:]]+--- PASS: TestIntegrationAIReportDossierSchema/$phase " /tmp/it.log || true)
+            if [ "$MATCHES" -ne 1 ]; then
+              echo "专题结构场景缺失或重复：$phase"; exit 1
+            fi
+          done
+          # 专题结构门禁结束
           if [ "$CALL_AUDIT_STARTUP_ROOT" -ne 1 ] || [ "$CALL_AUDIT_STARTUP_LEVELS" -ne 2 ] || [ "$CALL_AUDIT_STARTUP_CASES" -ne 34 ] || [ "$CALL_AUDIT_STARTUP_SKIPS" -ne 0 ]; then
             echo "调用审计启动保护、受限worker及回滚验收未完整通过"; exit 1
           fi
@@ -672,7 +686,7 @@ jobs:
           # 实际强杀恢复新增1根、2级别、4轻深父组及16种阶段/排队场景。
           # 系统信号专项新增1根、2级别、4轻深父组及12种运行阶段场景。
           # 专题存储新增1根、2隔离级别及38个真实SQL场景。
-          MIN=1249
+          MIN=1262
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项，低于下限 $MIN —— 要么没跑，要么有测试被删。"; exit 1
           fi

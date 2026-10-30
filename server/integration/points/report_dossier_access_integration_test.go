@@ -60,6 +60,9 @@ func verifyDossierReader(t *testing.T, e *pointsTestEnv, level sql.IsolationLeve
 	db := open()
 	defer db.Close()
 	repo := repository.NewAIDossierRepo(db, level)
+	if err := repository.NewAIDossierSchemaVerifier(db).Verify(e.ctx); err == nil {
+		t.Fatal("只读账号不应获得结构探针写权限")
+	}
 	if err := repo.VerifyReadAccess(e.ctx); err != nil {
 		t.Fatal("完整只读权限预检失败", err)
 	}
