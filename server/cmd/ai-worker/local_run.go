@@ -128,6 +128,10 @@ func runLocalReports(parent context.Context, args []string, input io.ReadCloser,
 	if cc.Validate() != nil {
 		return fail()
 	}
+	modelSession, err := config.ParseAILocalModelSession(os.Getenv("TM_AI_LOCAL_MODEL_SESSION"))
+	if err != nil {
+		return fail()
+	}
 	stage = 2
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
@@ -175,7 +179,14 @@ func runLocalReports(parent context.Context, args []string, input io.ReadCloser,
 		return fail()
 	}
 	guard := &localExecutionGuard{execution: execution, plans: plans, planner: planner, repo: repo, audit: audit, agentProfile: cc.Profile().Digest}
-	selection, checks, model, err := service.NewAILocalReportModelControls(admission, ledger, payloads, c.ModelConfig(), guard)
+	var selection *service.AILocalReportSelectionControl
+	var checks *service.AILocalReportCheckControl
+	var model *provider.OpenAICompat
+	if modelSession == "" {
+		selection, checks, model, err = service.NewAILocalReportModelControls(admission, ledger, payloads, c.ModelConfig(), guard)
+	} else {
+		selection, checks, model, err = service.NewAILocalReportModelControlsWithSession(admission, ledger, payloads, c.ModelConfig(), guard, modelSession)
+	}
 	if err != nil {
 		return fail()
 	}

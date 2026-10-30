@@ -12,6 +12,7 @@ import (
 	"github.com/tangniyuqi/tm-stock/server/internal/ai/agenttask"
 	"github.com/tangniyuqi/tm-stock/server/internal/ai/finalreport"
 	"github.com/tangniyuqi/tm-stock/server/internal/ai/task"
+	"github.com/tangniyuqi/tm-stock/server/internal/config"
 	"github.com/tangniyuqi/tm-stock/server/internal/points"
 	"github.com/tangniyuqi/tm-stock/server/internal/provider"
 	"github.com/tangniyuqi/tm-stock/server/internal/sources"
@@ -39,6 +40,22 @@ type AILocalReportCheckControl struct{ core *localReportModelControl }
 
 // 仅装配无密钥的字面回环协议服务，不启动请求、队列或真实模型。
 func NewAILocalReportModelControls(admission *AILocalAdmissionControl, ledger *PointsService, payloads agents.PayloadReader, cfg provider.Config, audit AIReportCallAudit) (*AILocalReportSelectionControl, *AILocalReportCheckControl, *provider.OpenAICompat, error) {
+	return newAILocalReportModelControls(admission, ledger, payloads, cfg, audit, "")
+}
+
+// 临时会话仅用于显式本地父桥认证，不赋予真实模型批准；原准入、档案和调用存证照常核验。
+// 供应商Key仍禁止从cfg传入，调用者须在独立受控父桥保管真实凭据。
+func NewAILocalReportModelControlsWithSession(admission *AILocalAdmissionControl, ledger *PointsService, payloads agents.PayloadReader, cfg provider.Config, audit AIReportCallAudit, session string) (*AILocalReportSelectionControl, *AILocalReportCheckControl, *provider.OpenAICompat, error) {
+	if session == "" {
+		return nil, nil, nil, points.ErrInvalid
+	}
+	if _, err := config.ParseAILocalModelSession(session); err != nil {
+		return nil, nil, nil, points.ErrInvalid
+	}
+	return newAILocalReportModelControls(admission, ledger, payloads, cfg, audit, session)
+}
+
+func newAILocalReportModelControls(admission *AILocalAdmissionControl, ledger *PointsService, payloads agents.PayloadReader, cfg provider.Config, audit AIReportCallAudit, session string) (*AILocalReportSelectionControl, *AILocalReportCheckControl, *provider.OpenAICompat, error) {
 	u, err := url.Parse(cfg.BaseURL)
 	if err != nil || u == nil || u.Scheme != "http" || u.Hostname() != "127.0.0.1" || u.Port() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (strings.TrimRight(u.Path, "/") != "" && strings.TrimRight(u.Path, "/") != "/v1") || cfg.APIKey != "" || cfg.JSONSchemaFallback || cfg.ReasoningEffort != "" || admission == nil || ledger == nil || payloads == nil || audit == nil {
 		return nil, nil, nil, points.ErrInvalid
@@ -55,6 +72,8 @@ func NewAILocalReportModelControls(admission *AILocalAdmissionControl, ledger *P
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	// 只在实际Provider内持有临时父桥会话，不进入配置文件/日志/身份摘要。
+	cfg.APIKey = session
 	model, err := provider.NewDirect(cfg, true)
 	if err != nil {
 		return nil, nil, nil, points.ErrInvalid

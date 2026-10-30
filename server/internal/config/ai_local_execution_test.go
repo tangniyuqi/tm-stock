@@ -17,6 +17,26 @@ func localExecutionFixture() (*AILocalRuntime, AILocalExecution) {
 	now := time.Now().UnixMilli()
 	return r, AILocalExecution{Version: 1, InstanceID: r.InstanceID, Revision: "v1", Scope: "synthetic-loopback-only", IssuedAtMS: now - 1000, ExpiresAtMS: now + 60000, Model: AILocalExecutionModel{Name: "local-eval", BaseURL: "http://127.0.0.1:8123", Model: "仅测试:模型", TimeoutMS: 3000}, Agent: AILocalExecutionAgent{BaseURL: "http://127.0.0.1:8124", ApprovalRef: "local-eval:agent", LicenseRef: "local-eval:license", QuickModel: "local-quick", DeepModel: "local-deep", TimeoutMS: 3000, MaxSubmissions: 10}, LeaseMS: 60000, HeartbeatMS: 1000, WorkerTimeoutMS: 30000, AgentPollMS: 50}
 }
+
+func TestLocalModelSessionParsing(t *testing.T) {
+	for _, row := range []struct {
+		name, value string
+		want        bool
+	}{
+		{"未配置", "", true}, {"父桥会话", strings.Repeat("a1", 32), true},
+		{"太短", strings.Repeat("a", 63), false}, {"太长", strings.Repeat("a", 65), false},
+		{"大写", strings.Repeat("A", 64), false}, {"非十六进制", strings.Repeat("z", 64), false},
+		{"前空白", " " + strings.Repeat("a", 63), false}, {"换行", strings.Repeat("a", 63) + "\n", false},
+		{"供应商前缀", "sk-" + strings.Repeat("a", 61), false}, {"宽字符", strings.Repeat("ａ", 64), false},
+	} {
+		t.Run(row.name, func(t *testing.T) {
+			out, err := ParseAILocalModelSession(row.value)
+			if (err == nil) != row.want || err != nil && out != "" || err == nil && out != row.value {
+				t.Fatal("会话解析边界不符")
+			}
+		})
+	}
+}
 func TestLocalExecutionRejectsUnsafeOrAmbiguousConfig(t *testing.T) {
 	r, c := localExecutionFixture()
 	b, err := json.Marshal(c)

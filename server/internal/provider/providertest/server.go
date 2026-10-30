@@ -379,6 +379,17 @@ func Handler(h http.HandlerFunc) Step {
 	}}
 }
 
+// RequireBearer 只作协议替身的认证关口；拒绝响应不回显凭据，原请求记录仍统一脱敏。
+func RequireBearer(bearer string, next Step) Step {
+	return Step{name: "RequireBearer", run: func(s *Server, n int, body []byte, w http.ResponseWriter, r *http.Request) {
+		if bearer == "" || r.Header.Get("Authorization") != "Bearer "+bearer {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		next.run(s, n, body, w, r)
+	}}
+}
+
 func hijack(w http.ResponseWriter) (net.Conn, *bufio.ReadWriter, error) {
 	hj, ok := w.(http.Hijacker)
 	if !ok {

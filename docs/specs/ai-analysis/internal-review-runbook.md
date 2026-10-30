@@ -8,6 +8,10 @@
 
 ### 本地装配启动预检（2026-10-29，首个增量）
 
+本地受控模型桥可由环境`TM_AI_LOCAL_MODEL_SESSION`注入本轮随机64位小写十六进制临时会话；空值继续使用原无认证回环协议，非法值在数据库连接前拒绝。格式校验不证明会话来源，也不授予真实调用批准。真实供应商Key须仍由独立父桥保管，不交给Go进程；执行JSON不接受Key/会话字段，原无密钥工厂继续拒绝cfg.APIKey。临时会话不进入执行档案摘要，全部原准入、资料、预算、审计、发布复核继续生效。实际worker的session场景须验证三次带认证模型请求、六审计、一次结算和输出无会话明文；默认网络边界仍限字面回环。
+
+需要真实HTTP进程专项时，受控父Node通过`startLocalChain`构造一次性桥后，调用`startChainVerification(bridge,{powershell,mysql,bash,goBin,gccBin,processes:true,conversation:true,analysisType:'light'})`（或deep）。此模式自行编译原密码桥，不接收旧loginRunner；只运行精确`TestIntegrationAIReportLocalAPIWorkerLive`，不需要H5源。真实调用仍须独立liveagents标签和显式本地单任务标志。父进程只传临时模型/Agent会话，Go原密码HTTP路由签发会员JWT，实际API创建会话意图、独立worker扫描队列，原终检和测试账本结算；报告/意图重读、终态SSE及跨会员拒绝沿原接口验证。测试计划在创建前声明15分钟任务预算及较大的令牌上界，模型单次网络期限仍30秒，不因此改生产或旧用例时限。回执scope为local_http_process_conversation_async_real_v2_test_ledger、browser_verified明确false，必须另有TM_STOCK_LIVE_PROCESS_HTTP_VERIFIED证明，不能拿旧会话日志替代。模型失败或未知不换键重交，收尾仍须等待原进程、保留实际用量及失败回执。
+
 实际API与独立worker同库验收使用原生脚本`-ReportsOnly -ReportPattern '^TestIntegrationAIReportLocalAPIWorker$' -RunCount 1`，分别指定MySQL8/9程序目录。先编译实际cmd/api、cmd/ai-worker和原GVA密码登录桥，再在每个新建隔离库执行轻深用例；原密码HTTP登录签发JWT，两进程用不同逐表受限账号，API会员资料只读id/status/deleted_at，固定元数据过程只授EXECUTE，不授DDL/TRIGGER、密码、Agent存储或调用审计写权限。API深度开关仅在本轮有深度计划时启用。用例先从会话报价、准备/确认并核冻结，再启动实际worker扫描队列，验证报告终检、一次结算、报告复读、成功后意图回执及SSE终态续读；跨会员与匿名拒绝，原账本审计通过。CI须1根/2级别/4叶用例/0跳过；隔离级别指准备及验收仓储，实际进程沿用自身事务设置。模型与Agent均为字面回环替身，HTTP密码登录不是H5表单操作，终态续读也不替代执行中断网、浏览器或真实模型验收。
 
 实际H5接同一组正式进程时，先按本手册官方HBuilderX步骤完整构建到仓库外目录，再用字面回环静态服务提供产物。设置`TM_TEST_AI_H5_LOCAL_API_WORKER=local-fixture-only`、`TM_TEST_AI_H5_LOCAL_DEPTH=light`或`deep`、`TM_TEST_AI_H5_ORIGIN=http://127.0.0.1:<静态端口>`，运行原生脚本`-ReportsOnly -LocalAPIWorkerBrowser -ReportPattern '^TestIntegrationAIReportLocalAPIWorkerH5$' -RunCount 1`并指定MySQL及Git Bash目录。缺显式入口、未知深度或混用真实/其它浏览器专项均拒绝，不允许零用例通过。程序自行编译API、worker和原密码桥，在新库补齐合成题材目录字段；业务请求只转发原API，不在网关执行任务、拼装搜索结果或改写报告/SSE。

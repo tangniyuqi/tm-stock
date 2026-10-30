@@ -114,11 +114,17 @@ type localWorkerChild struct {
 	waited bool
 }
 
-func startLocalWorkerChild(t *testing.T, e *workflowEnv, binary, dsn, runtimeFile, plansFile, executionFile string) *localWorkerChild {
+func startLocalWorkerChild(t *testing.T, e *workflowEnv, binary, dsn, runtimeFile, plansFile, executionFile string, sessions ...string) *localWorkerChild {
 	t.Helper()
 	c := &localWorkerChild{ready: make(chan struct{}, 1), done: make(chan error, 1)}
 	c.cmd = exec.CommandContext(e.ctx, binary, "run-local", "-config", runtimeFile, "-plans", plansFile, "-execution", executionFile, "-stop-on-stdin")
 	c.cmd.Env = localWorkerEnvironment(dsn, e.agentConfig.Bearer)
+	if len(sessions) > 1 {
+		t.Fatal("只接受本轮一个临时模型会话")
+	}
+	if len(sessions) == 1 {
+		c.cmd.Env = append(c.cmd.Env, "TM_AI_LOCAL_MODEL_SESSION="+sessions[0])
+	}
 	var err error
 	c.input, err = c.cmd.StdinPipe()
 	if err != nil {
@@ -201,11 +207,14 @@ func TestIntegrationAIReportLocalWorkerProcess(t *testing.T) {
 	}
 	for _, level := range []sql.IsolationLevel{sql.LevelReadCommitted, sql.LevelRepeatableRead} {
 		t.Run(level.String(), func(t *testing.T) {
-			for _, mode := range []string{"light", "deep", "unknown", "stop_running", "revoked", "mismatch"} {
+			for _, mode := range []string{"light", "deep", "unknown", "stop_running", "revoked", "mismatch", "session"} {
 				t.Run(mode, func(t *testing.T) {
 					kind, workflow := 1, "local"
 					if mode == "deep" {
 						kind, workflow = 2, "local_deep"
+					}
+					if mode == "session" {
+						workflow = "local_session"
 					}
 					if mode == "unknown" {
 						workflow = "local_unknown"
@@ -235,7 +244,7 @@ func TestIntegrationAIReportLocalWorkerProcess(t *testing.T) {
 						cfg.Model.Model = "仅测试:其它模型"
 					}
 					write(executionFile, cfg)
-					child := startLocalWorkerChild(t, e, binary, dsn, runtimeFile, f.path, executionFile)
+					child := startLocalWorkerChild(t, e, binary, dsn, runtimeFile, f.path, executionFile, e.modelSession)
 					if mode == "mismatch" {
 						child.wait(t, false)
 						if len(e.server.Requests()) != 0 || e.submits.Load() != 0 {
@@ -349,6 +358,9 @@ func TestIntegrationAIReportLocalWorkerProcess(t *testing.T) {
 						}
 					}
 					requirePointAudit(t, e.pointsTestEnv, e.ledger)
+					if e.modelSession != "" && (strings.Contains(child.output.String(), e.modelSession) || strings.Contains(child.stderr.String(), e.modelSession)) {
+						t.Fatal("临时模型会话进入子进程输出")
+					}
 				})
 			}
 		})

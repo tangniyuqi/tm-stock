@@ -120,6 +120,7 @@ type workflowEnv struct {
 	agentPolls    atomic.Int32
 	agentComplete atomic.Bool // 仅浏览器流续读夹具显式放行回环Agent；普通运行模式保持原行为。
 	agentConfig   tradingcn.Config
+	modelSession  string // 仅本轮带认证模型替身；实际供应商Key不进入Go。
 }
 
 func workflowSelectionJSON(t *testing.T, id int64) string {
@@ -185,6 +186,13 @@ func newWorkflowEnv(t *testing.T, level sql.IsolationLevel, mode string) *workfl
 	}
 	selection := providertest.Success(selectionText, provider.Usage{Prompt: 2, Completion: 1, Total: 3})
 	steps := []providertest.Step{selection, checkModelReply("pass", "supported"), checkModelReply("pass", "factual")}
+	modelSession := ""
+	if mode == "local_session" {
+		modelSession = strings.Repeat("a1", 32)
+		for i := range steps {
+			steps[i] = providertest.RequireBearer(modelSession, steps[i])
+		}
+	}
 	switch mode {
 	case "ent_block":
 		steps = steps[:2]
@@ -240,6 +248,7 @@ func newWorkflowEnv(t *testing.T, level sql.IsolationLevel, mode string) *workfl
 		t.Fatal(err)
 	}
 	e := &workflowEnv{reportEnv: x, server: srv, model: model, payloads: repository.NewAIAgentRepo(x.db), store: &workflowStore{AITaskRepo: x.repo, x: x}}
+	e.modelSession = modelSession
 	bearer := strings.Repeat("z", 40)
 	cn := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

@@ -50,6 +50,23 @@ func (c AILocalExecution) GoString() string { return c.String() }
 func (c AILocalExecution) ModelConfig() provider.Config {
 	return provider.Config{Name: c.Model.Name, BaseURL: c.Model.BaseURL, Model: c.Model.Model, TimeoutMS: c.Model.TimeoutMS}
 }
+
+// 只接受64位小写十六进制临时会话约定；格式本身不能证明来源或授予调用批准。
+// 空值维持原无认证回环协议，不把会话写入执行文件或配置摘要。
+func ParseAILocalModelSession(value string) (string, error) {
+	if value == "" {
+		return "", nil
+	}
+	if len(value) != 64 {
+		return "", invalidLocalRuntime()
+	}
+	for _, c := range value {
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+			return "", invalidLocalRuntime()
+		}
+	}
+	return value, nil
+}
 func (c AILocalExecution) AgentConfig(bearer string) tradingcn.Config {
 	return tradingcn.Config{Enabled: true, LocalEvaluation: true, BaseURL: c.Agent.BaseURL, ApprovedHost: "127.0.0.1", Bearer: bearer, ApprovalRef: c.Agent.ApprovalRef, LicenseRef: c.Agent.LicenseRef, QuickModel: c.Agent.QuickModel, DeepModel: c.Agent.DeepModel, Timeout: time.Duration(c.Agent.TimeoutMS) * time.Millisecond, MaxSubmissions: c.Agent.MaxSubmissions}
 }

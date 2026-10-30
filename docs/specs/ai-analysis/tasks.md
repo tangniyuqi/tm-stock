@@ -1,5 +1,13 @@
 # AI 分析模块 · 任务拆解与路线
 
+**临时认证与真实进程收尾（2026-10-30）**：MySQL8/9各LocalAPIWorker四例、LocalPublication四例、LocalWorkerProcess十四例通过，零失败/跳过，父脚本0、迁移64/64和临时实例清理；日志`%TEMP%/tm-stock-process-auth-full-mysql8/9-20261030.log`。新增14场景CI守卫以真实日志及删除session子例反例通过，CI十七个多行shell及PowerShell语法通过。首轮门禁因变量赋值后内联注释误报密钥、服务测试直接依赖HTTP而失败：注释移至独立行，认证单测改用既有Provider协议替身，未改扫描基线或分层规则；最终完整harness退出0（`%TEMP%/tm-stock-process-auth-harness-final-20261030.log`），相关竞态/vet及桥38项自测通过。可选lint/覆盖率未启用，远端CI未核验。两次真实HTTP成功仍不能替代新装配的真实浏览器及助手其余能力验收，目标保持进行中。
+
+**真实深度进程证据（2026-10-30）**：`%TEMP%/tm-stock-tradingcn-live-4pNt1L/local-chain-receipt.json`为deep、verified=true、go_exit0及HTTP进程scope；独立进程/会话/深度三个Go证明齐全，根组203.95秒通过，迁移64/64并清理。实际qwen3.7-plus的18次确认响应均200，报告阶段3次，输入28541/输出7331 token，unknown=false、用量完整。原公开API核四节至少六引文、报告重读、原意图重放、跨会员拒绝和终态SSE续读；同库六条调用审计、一次报告提交/settle、冻结0和账本审计通过，模型与Agent替身零调用。执行期间记录的七项关键源码摘要在结束后相同，不把它作为构建可复现证明。父桥已关闭模型/异步监听，持钥父进程退出0；仅测试资料及积分，无线上部署，browser_verified仍明确false。真实模型接新进程后的实际H5验收、问答/反馈和系统信号恢复仍未由本HTTP证据覆盖。
+
+**真实HTTP进程入口与临时模型认证（2026-10-30）**：worker新增仅环境注入的父桥临时模型会话，原无密钥工厂继续拒绝cfg.APIKey；会话只在Provider内持有，不写文件/日志/执行档案。新liveagents精确单任务入口复用原密码HTTP路由、实际API会话报价/意图、独立worker队列、持久调用审计及报告/积分原子终检结算，显式配置合成资料的15分钟任务预算与令牌上界，原模型单次网络时限30秒。Node父桥新增processes模式与独立HTTP证明，不能用旧会话标记代替；回执明确browser_verified=false。配置十类正反例、认证工厂真实HTTP单测及相关竞态/vet通过；异步/模型桥38项无真实调用守卫自测通过。MySQL8的session独立worker专项通过、迁移64/64并清理（`%TEMP%/tm-stock-process-session-20261030.log`）；两隔离级别完整14场景回归及全门禁仍待收尾。
+
+**真实轻度进程证据**：本轮`%TEMP%/tm-stock-tradingcn-live-0SZOVE/local-chain-receipt.json`为HTTP进程scope、verified=true、go_exit0、process_http_verified=true及browser_verified=false；原Go根组293.98秒通过，迁移64/64和临时实例清理。实际qwen3.7-plus共18次确认响应均200，其中报告3次；输入27428/输出7253 token，用量完整、unknown=false。原密码双会员/错误拒绝、会话确认及重放、真实Agent/模型替身零调用、报告四节/复读、SSE终态续读、跨会员拒绝、六调用审计/一次报告及settle/冻结0和原账本审计由实际API/worker验证。无线上部署或真实用户积分变动；不将此HTTP回执当作新进程装配下的真实模型浏览器验收。深度另有下条独立成功记录。
+
 **本轮H5收尾**：MySQL8/9的LocalAPIWorker四例、LocalPublication四例和LocalWorkerProcess十二例各通过，父脚本0、迁移64/64及临时实例清理；日志`%TEMP%/tm-stock-api-worker-h5-regression-mysql8/9-20261029.log`。完整harness退出0（`%TEMP%/tm-stock-api-worker-h5-harness-20261029.log`），CI十七个多行shell块及PowerShell语法通过；新增两根/八配置子例/零跳过守卫已用实际单测日志及遗漏/跳过反例验证。可选lint/覆盖率未启用，远端CI未核验；本轮不升级为真实模型或生产可用结论。
 
 **完整H5接正式API/独立worker（2026-10-29）**：新增仅转发的回环浏览器入口，复用原密码桥和两个实际二进制；题材搜索走正式仓储，网关不执行任务或改写业务响应。轻度在MySQL8、深度在MySQL9各独立新库实际操作：错误密码拒绝/会员一原登录→新会话→7/30测试积分报价与原意图二次确认→原SSE连接/深度可见事件#3→独立worker五阶段完成→四节报告及复读→第二会员原登录、会话/任务空及旧页私有内容清空。深度实际显示六条引文，375×640实测scrollWidth375，固定工具栏及引文来源可见；两轮页面警告/错误均为空。控制页放行的只是回环Agent返回，新计划事先声明300秒预算，不改变旧自动化30秒任务或网络时限。未运行真实模型，不宣称物理手机或断网恢复验收。

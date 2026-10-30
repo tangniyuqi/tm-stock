@@ -221,7 +221,12 @@ func startLocalAPI(t *testing.T, e *workflowEnv, binary, dsn, signing, runtimeFi
 	}
 }
 
-func verifyLocalAPIWorker(t *testing.T, level sql.IsolationLevel, kind int, api, worker, login string) {
+type localProcessCase struct {
+	configure func(*testing.T, *localPublicationFixture, *config.AILocalExecution)
+	external  bool
+}
+
+func verifyLocalAPIWorker(t *testing.T, level sql.IsolationLevel, kind int, api, worker, login string, cases ...localProcessCase) {
 	t.Helper()
 	mode, analysis := "local", "light"
 	if kind == 2 {
@@ -229,6 +234,15 @@ func verifyLocalAPIWorker(t *testing.T, level sql.IsolationLevel, kind int, api,
 	}
 	f := newLocalPublicationFixture(t, level, kind, mode)
 	e := f.env
+	if len(cases) > 1 {
+		t.Fatal("每轮只允许一个进程配置")
+	}
+	external := len(cases) == 1 && cases[0].external
+	if external {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+		t.Cleanup(cancel)
+		e.pointsTestEnv.ctx = ctx
+	}
 	localAPISchema(t, e)
 	var seed [32]byte
 	if _, err := rand.Read(seed[:]); err != nil {
@@ -262,7 +276,13 @@ func verifyLocalAPIWorker(t *testing.T, level sql.IsolationLevel, kind int, api,
 	}
 	write(runtimeFile, f.runtime)
 	cc, mc := e.agentConfig, workflowModelConfig(e.server.URL())
-	write(executionFile, config.AILocalExecution{Version: 1, InstanceID: f.runtime.InstanceID, Revision: "v1", Scope: "synthetic-loopback-only", IssuedAtMS: time.Now().UnixMilli() - 1000, ExpiresAtMS: f.file.ExpiresAtMS, Model: config.AILocalExecutionModel{Name: mc.Name, BaseURL: mc.BaseURL, Model: mc.Model, TimeoutMS: mc.TimeoutMS}, Agent: config.AILocalExecutionAgent{BaseURL: cc.BaseURL, ApprovalRef: cc.ApprovalRef, LicenseRef: cc.LicenseRef, QuickModel: cc.QuickModel, DeepModel: cc.DeepModel, TimeoutMS: int(cc.Timeout / time.Millisecond), MaxSubmissions: cc.MaxSubmissions}, LeaseMS: 60000, HeartbeatMS: 1000, WorkerTimeoutMS: 30000, AgentPollMS: 50})
+	execution := config.AILocalExecution{Version: 1, InstanceID: f.runtime.InstanceID, Revision: "v1", Scope: "synthetic-loopback-only", IssuedAtMS: time.Now().UnixMilli() - 1000, ExpiresAtMS: f.file.ExpiresAtMS, Model: config.AILocalExecutionModel{Name: mc.Name, BaseURL: mc.BaseURL, Model: mc.Model, TimeoutMS: mc.TimeoutMS}, Agent: config.AILocalExecutionAgent{BaseURL: cc.BaseURL, ApprovalRef: cc.ApprovalRef, LicenseRef: cc.LicenseRef, QuickModel: cc.QuickModel, DeepModel: cc.DeepModel, TimeoutMS: int(cc.Timeout / time.Millisecond), MaxSubmissions: cc.MaxSubmissions}, LeaseMS: 60000, HeartbeatMS: 1000, WorkerTimeoutMS: 30000, AgentPollMS: 50}
+	if len(cases) == 1 {
+		cases[0].configure(t, f, &execution)
+		f.file.Plans = []config.AILocalPlan{f.spec}
+		write(f.path, f.file)
+	}
+	write(executionFile, execution)
 	startLocalAPI(t, e, api, localAPIDSN(t, e), signing, runtimeFile, f.path, client, base, kind == 2)
 	hidden := func(raw []byte) {
 		t.Helper()
@@ -355,9 +375,13 @@ func verifyLocalAPIWorker(t *testing.T, level sql.IsolationLevel, kind int, api,
 		t.Fatal("worker启动前任务不是排队状态")
 	}
 	call("GET", taskPath+"/report", tokens[0], "", "", 422)
-	child := startLocalWorkerChild(t, e, worker, localWorkerDSN(t, e), runtimeFile, f.path, executionFile)
+	child := startLocalWorkerChild(t, e, worker, localWorkerDSN(t, e), runtimeFile, f.path, executionFile, e.modelSession)
 	child.waitReady(t)
-	deadline := time.NewTimer(30 * time.Second)
+	wait := 30 * time.Second
+	if external {
+		wait = 14 * time.Minute
+	}
+	deadline := time.NewTimer(wait)
 	defer deadline.Stop()
 	tick := time.NewTicker(50 * time.Millisecond)
 	defer tick.Stop()
@@ -365,6 +389,9 @@ func verifyLocalAPIWorker(t *testing.T, level sql.IsolationLevel, kind int, api,
 		v := call("GET", taskPath, tokens[0], "", "", 200)
 		if v.Status == 3 && v.ReportAvailable {
 			break
+		}
+		if v.Status >= 4 {
+			t.Fatalf("实际任务未交付：status=%d；不重提、不将失败记为成功", v.Status)
 		}
 		select {
 		case <-tick.C:
@@ -474,10 +501,18 @@ func verifyLocalAPIWorker(t *testing.T, level sql.IsolationLevel, kind int, api,
 	}
 	child.wait(t, true)
 	balance(60-price, 0)
-	if e.submits.Load() != 1 || len(e.server.Requests()) != 3 || e.queryInt(`SELECT COUNT(*) FROM tm_ai_report_commits`) != 1 || e.queryInt(`SELECT COUNT(*) FROM tm_points_txns WHERE kind='settle'`) != 1 || e.queryInt(`SELECT COUNT(*) FROM tm_ai_report_call_audits`) != 6 || e.queryInt(`SELECT COUNT(*) FROM tm_points_accounts WHERE user_id=2`) != 0 {
+	wantAgent, wantModel := int32(1), 3
+	if external {
+		wantAgent, wantModel = 0, 0
+	}
+	if e.submits.Load() != wantAgent || len(e.server.Requests()) != wantModel || e.queryInt(`SELECT COUNT(*) FROM tm_ai_report_commits`) != 1 || e.queryInt(`SELECT COUNT(*) FROM tm_points_txns WHERE kind='settle'`) != 1 || e.queryInt(`SELECT COUNT(*) FROM tm_ai_report_call_audits`) != 6 || e.queryInt(`SELECT COUNT(*) FROM tm_points_accounts WHERE user_id=2`) != 0 {
 		t.Fatal("实际API和worker闭环重复调用、结算或污染其它会员")
 	}
 	requirePointAudit(t, e.pointsTestEnv, e.ledger)
 	bridge.finishAs(t, e.ctx, false)
-	t.Log("实际API→会话意图→队列worker→报告终检→一次结算及SSE恢复通过；回环替身，非浏览器/真实模型")
+	if external {
+		t.Log("TM_STOCK_LIVE_PROCESS_HTTP_VERIFIED")
+	} else {
+		t.Log("实际API→会话意图→队列worker→报告终检→一次结算及SSE恢复通过；回环替身，非浏览器/真实模型")
+	}
 }

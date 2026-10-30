@@ -4,7 +4,26 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { createAsyncBridge, validSubmission, finishChainVerification, chainConversationOptions, hasConversationProof, hasDeepProof } from './tradingcn-local-chain.mjs'
+import { createAsyncBridge, validSubmission, finishChainVerification, chainConversationOptions, hasConversationProof, hasDeepProof, hasProcessHTTPProof } from './tradingcn-local-chain.mjs'
+
+test('正式进程模式单独声明HTTP证据，不能沿用旧会话证明冒充', async () => {
+  assert.deepEqual(chainConversationOptions({processes:true,conversation:true,analysisType:'deep'}),{TM_TEST_AI_LIVE_PROCESS:'local-fixture-only',TM_TEST_AI_H5_LOCAL_DEPTH:'deep'})
+  for(const options of [{processes:true},{processes:'true'},{processes:true,conversation:true,loginRunner:'old.exe'},{processes:true,conversation:true,analysisType:'other'}]) assert.throws(()=>chainConversationOptions(options))
+  assert.equal(hasProcessHTTPProof('    x.go:12: TM_STOCK_LIVE_PROCESS_HTTP_VERIFIED\n'),true)
+  for(const output of ['TM_STOCK_LIVE_PROCESS_HTTP_VERIFIED','    x.go:12: TM_STOCK_LIVE_CONVERSATION_VERIFIED\n','    x.go:12: TM_STOCK_LIVE_PROCESS_HTTP_VERIFIED_extra\n'])assert.equal(hasProcessHTTPProof(output),false)
+  const output=await fs.mkdtemp(path.join(os.tmpdir(),'tm-stock-tradingcn-live-'))
+  const bridge={evaluation:{output,execute:true,child:'passed',summary:{verified:true,executed:true,model_calls:1},requests:4,usage:[{phase:'core',status:200,input:1,output:1},...Array.from({length:3},()=>({phase:'report',status:200,input:1,output:1}))]},counts:{submissions:1,polls:1,results:1},async close(){}}
+  const verification={status:'passed',exit:0,finished:Promise.resolve(),conversation:true,conversationVerified:true,processes:true,analysisType:'light'}
+  try{
+    assert.equal((await finishChainVerification(bridge,verification)).verified,false)
+    verification.processHTTPVerified=true
+    const receipt=await finishChainVerification(bridge,verification)
+    assert.equal(receipt.verified,true);assert.equal(receipt.browser_verified,false);assert.equal(receipt.process_http_verified,true)
+    assert.equal(receipt.scope,'local_http_process_conversation_async_real_v2_test_ledger')
+    verification.conversation=false
+    assert.equal((await finishChainVerification(bridge,verification)).verified,false)
+  }finally{assert.equal(path.dirname(output),os.tmpdir());assert.match(path.basename(output),/^tm-stock-tradingcn-live-[A-Za-z0-9]{6}$/);await fs.rm(output,{recursive:true})}
+})
 
 test('真实会话入口显式原登录配置，不接受隐式或不完整模式', () => {
   assert.deepEqual(chainConversationOptions(), {})
