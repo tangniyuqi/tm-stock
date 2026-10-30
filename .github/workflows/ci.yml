@@ -115,11 +115,97 @@ jobs:
           # 专题比较/字段核98个节点，存储引用与非法读取2个根测试。
           # 会话档案引用增加16个普通测试节点（选择/隐私/服务/非法装配）。
           # 引用配置、HTTP闭集与默认关闭装配增加48个普通测试节点。
-          MIN=1560
+          # 逐字段核验内部计划/捕获/回放新增113节点，不代表真实模型准确率。
+          MIN=1673
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项测试，低于下限 $MIN —— 要么测试没被执行，要么有测试被删。"
             exit 1
           fi
+
+          # 专题字段核验协议门禁开始
+          SUPPORT_ROOTS=$(grep -Ec '^--- PASS: TestDossierSupport[^ /]+ ' /tmp/gotest.log || true)
+          SUPPORT_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestDossierSupport[^ /]+/' /tmp/gotest.log || true)
+          SUPPORT_SKIPS=$(grep -Ec '^[[:space:]]*--- SKIP: TestDossierSupport' /tmp/gotest.log || true)
+          if [ "$SUPPORT_ROOTS" -ne 10 ] || [ "$SUPPORT_CASES" -ne 103 ] || [ "$SUPPORT_SKIPS" -ne 0 ]; then
+            echo "专题字段核验协议/捕获/原阶段适配验收漏跑"; exit 1
+          fi
+          MATCHES=$(grep -Ec '^--- PASS: TestDossierSupportCapturedVerdicts ' /tmp/gotest.log || true)
+          if [ "$MATCHES" -ne 1 ]; then
+            echo "字段核验根组缺失或重复：TestDossierSupportCapturedVerdicts"; exit 1
+          fi
+          for phase in '直接支持' '部分支持' '主体不符' '阶段不符' '章节不符' '不支持' '语境不足'; do
+            MATCHES=$(grep -Ec "^[[:space:]]+--- PASS: TestDossierSupportCapturedVerdicts/$phase " /tmp/gotest.log || true)
+            if [ "$MATCHES" -ne 1 ]; then
+              echo "字段核验场景缺失或重复：$phase"; exit 1
+            fi
+          done
+          MATCHES=$(grep -Ec '^--- PASS: TestDossierSupportAllFieldsAndCheckLimit ' /tmp/gotest.log || true)
+          if [ "$MATCHES" -ne 1 ]; then
+            echo "字段核验根组缺失或重复：TestDossierSupportAllFieldsAndCheckLimit"; exit 1
+          fi
+          MATCHES=$(grep -Ec '^--- PASS: TestDossierSupportRejectsProtocol ' /tmp/gotest.log || true)
+          if [ "$MATCHES" -ne 1 ]; then
+            echo "字段核验根组缺失或重复：TestDossierSupportRejectsProtocol"; exit 1
+          fi
+          for phase in '缺项' '重复替换' '额外项' '零编号' '越界编号' '小数编号' '文字编号' '空编号' '未知状态' '空状态' '空理由' '自由理由' '支持不确定混写' '部分支持伪完整' '主体冒充阶段' '章节冒充时间' '模型添加正文' '模型添加链接' '模型改字段名' '大小写别名' '空结果' '空集合' '空项目' '顶层别名' '自由顶层解释' '重复顶层键' '大小写重复键' '尾随文档' '残缺JSON' '代码围栏'; do
+            MATCHES=$(grep -Ec "^[[:space:]]+--- PASS: TestDossierSupportRejectsProtocol/$phase " /tmp/gotest.log || true)
+            if [ "$MATCHES" -ne 1 ]; then
+              echo "字段核验场景缺失或重复：$phase"; exit 1
+            fi
+          done
+          MATCHES=$(grep -Ec '^--- PASS: TestDossierSupportRejectsIncompleteReceipt ' /tmp/gotest.log || true)
+          if [ "$MATCHES" -ne 1 ]; then
+            echo "字段核验根组缺失或重复：TestDossierSupportRejectsIncompleteReceipt"; exit 1
+          fi
+          for phase in '错模型' '截断' '工具结束' '估算用量' '缺回执' '控制回执' '隐形回执' '零输入' '负输入' '零输出' '总数不合' '负总数' '输入超预算' '输出超预算' '负缓存' '缓存超输入' '负推理' '推理超输出'; do
+            MATCHES=$(grep -Ec "^[[:space:]]+--- PASS: TestDossierSupportRejectsIncompleteReceipt/$phase " /tmp/gotest.log || true)
+            if [ "$MATCHES" -ne 1 ]; then
+              echo "字段核验场景缺失或重复：$phase"; exit 1
+            fi
+          done
+          MATCHES=$(grep -Ec '^--- PASS: TestDossierSupportCaptureAndStageBoundary ' /tmp/gotest.log || true)
+          if [ "$MATCHES" -ne 1 ]; then
+            echo "字段核验根组缺失或重复：TestDossierSupportCaptureAndStageBoundary"; exit 1
+          fi
+          MATCHES=$(grep -Ec '^--- PASS: TestDossierSupportPlanEvidence ' /tmp/gotest.log || true)
+          if [ "$MATCHES" -ne 1 ]; then
+            echo "字段核验根组缺失或重复：TestDossierSupportPlanEvidence"; exit 1
+          fi
+          MATCHES=$(grep -Ec '^--- PASS: TestDossierSupportPlanIdentityAndOrdering ' /tmp/gotest.log || true)
+          if [ "$MATCHES" -ne 1 ]; then
+            echo "字段核验根组缺失或重复：TestDossierSupportPlanIdentityAndOrdering"; exit 1
+          fi
+          for phase in '任务' '会员' '任务号' '深度' '档案版本' '编制时点' '许可元数据' '题材名' '所核字段集合'; do
+            MATCHES=$(grep -Ec "^[[:space:]]+--- PASS: TestDossierSupportPlanIdentityAndOrdering/$phase " /tmp/gotest.log || true)
+            if [ "$MATCHES" -ne 1 ]; then
+              echo "字段核验场景缺失或重复：$phase"; exit 1
+            fi
+          done
+          MATCHES=$(grep -Ec '^--- PASS: TestDossierSupportOnlyRelatedFullSources ' /tmp/gotest.log || true)
+          if [ "$MATCHES" -ne 1 ]; then
+            echo "字段核验根组缺失或重复：TestDossierSupportOnlyRelatedFullSources"; exit 1
+          fi
+          MATCHES=$(grep -Ec '^--- PASS: TestDossierSupportConfigBoundaries ' /tmp/gotest.log || true)
+          if [ "$MATCHES" -ne 1 ]; then
+            echo "字段核验根组缺失或重复：TestDossierSupportConfigBoundaries"; exit 1
+          fi
+          for phase in '空模型' '空版本' '空公示' '空批准' '空质量' '空硬预算' '错误摘要' '大写摘要' '元数据控制符' '元数据隐形符' '元数据过长' '零输入' '过大输入' '少输出' '多输出' '少正文' '过大正文' '模型变更' '版本变更' '批准变更' '质量变更' '预算变更' '公示变更' '模型摘要变更' '输入上限变更' '输出上限变更' '提示上限变更'; do
+            MATCHES=$(grep -Ec "^[[:space:]]+--- PASS: TestDossierSupportConfigBoundaries/$phase " /tmp/gotest.log || true)
+            if [ "$MATCHES" -ne 1 ]; then
+              echo "字段核验场景缺失或重复：$phase"; exit 1
+            fi
+          done
+          MATCHES=$(grep -Ec '^--- PASS: TestDossierSupportPlanRejectsUnboundInput ' /tmp/gotest.log || true)
+          if [ "$MATCHES" -ne 1 ]; then
+            echo "字段核验根组缺失或重复：TestDossierSupportPlanRejectsUnboundInput"; exit 1
+          fi
+          for phase in '缺卡' '重复卡' '未知卡' '超四卡' '无档案' '无名称' '无任务' '超安全会员' '错误任务号' '专题未接' '跨题材' '未知深度'; do
+            MATCHES=$(grep -Ec "^[[:space:]]+--- PASS: TestDossierSupportPlanRejectsUnboundInput/$phase " /tmp/gotest.log || true)
+            if [ "$MATCHES" -ne 1 ]; then
+              echo "字段核验场景缺失或重复：$phase"; exit 1
+            fi
+          done
+          # 专题字段核验协议门禁结束
 
       - name: 受限问答执行核必跑（不调用真实模型）
         run: |
