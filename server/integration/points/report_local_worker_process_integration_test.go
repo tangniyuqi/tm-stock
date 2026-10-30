@@ -116,15 +116,21 @@ type localWorkerChild struct {
 
 func startLocalWorkerChild(t *testing.T, e *workflowEnv, binary, dsn, runtimeFile, plansFile, executionFile string, sessions ...string) *localWorkerChild {
 	t.Helper()
-	c := &localWorkerChild{ready: make(chan struct{}, 1), done: make(chan error, 1)}
-	c.cmd = exec.CommandContext(e.ctx, binary, "run-local", "-config", runtimeFile, "-plans", plansFile, "-execution", executionFile, "-stop-on-stdin")
-	c.cmd.Env = localWorkerEnvironment(dsn, e.agentConfig.Bearer)
+	cmd := exec.CommandContext(e.ctx, binary, "run-local", "-config", runtimeFile, "-plans", plansFile, "-execution", executionFile, "-stop-on-stdin")
+	cmd.Env = localWorkerEnvironment(dsn, e.agentConfig.Bearer)
 	if len(sessions) > 1 {
 		t.Fatal("只接受本轮一个临时模型会话")
 	}
 	if len(sessions) == 1 {
-		c.cmd.Env = append(c.cmd.Env, "TM_AI_LOCAL_MODEL_SESSION="+sessions[0])
+		cmd.Env = append(cmd.Env, "TM_AI_LOCAL_MODEL_SESSION="+sessions[0])
 	}
+	return startLocalWorkerCommand(t, cmd)
+}
+
+// 管道只属于本轮明确启动的进程；信号专项可共用观察和清理，不改变实际worker参数。
+func startLocalWorkerCommand(t *testing.T, cmd *exec.Cmd) *localWorkerChild {
+	t.Helper()
+	c := &localWorkerChild{cmd: cmd, ready: make(chan struct{}, 1), done: make(chan error, 1)}
 	var err error
 	c.input, err = c.cmd.StdinPipe()
 	if err != nil {

@@ -273,6 +273,11 @@ jobs:
           LOCAL_RECOVERY_DEPTHS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportLocalWorkerRecovery/(Read_Committed|Repeatable_Read)/(1|2) ' /tmp/it.log || true)
           LOCAL_RECOVERY_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportLocalWorkerRecovery/(Read_Committed|Repeatable_Read)/(1|2)/(final|agent|model|queued) ' /tmp/it.log || true)
           LOCAL_RECOVERY_SKIPS=$(grep -Ec '^[[:space:]]*--- SKIP: TestIntegrationAIReportLocalWorkerRecovery' /tmp/it.log || true)
+          LOCAL_SIGNAL_ROOT=$(grep -Ec '^--- PASS: TestIntegrationAIReportLocalWorkerSignal ' /tmp/it.log || true)
+          LOCAL_SIGNAL_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportLocalWorkerSignal/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
+          LOCAL_SIGNAL_DEPTHS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportLocalWorkerSignal/(Read_Committed|Repeatable_Read)/(1|2) ' /tmp/it.log || true)
+          LOCAL_SIGNAL_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportLocalWorkerSignal/(Read_Committed|Repeatable_Read)/(1|2)/(idle|agent|model) ' /tmp/it.log || true)
+          LOCAL_SIGNAL_SKIPS=$(grep -Ec '^[[:space:]]*--- SKIP: TestIntegrationAIReportLocalWorkerSignal([ /]|$)' /tmp/it.log || true)
           LOCAL_API_WORKER_ROOT=$(grep -Ec '^--- PASS: TestIntegrationAIReportLocalAPIWorker ' /tmp/it.log || true)
           LOCAL_API_WORKER_LEVELS=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportLocalAPIWorker/(Read_Committed|Repeatable_Read) ' /tmp/it.log || true)
           LOCAL_API_WORKER_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportLocalAPIWorker/(Read_Committed|Repeatable_Read)/(1|2) ' /tmp/it.log || true)
@@ -312,6 +317,19 @@ jobs:
                 MATCHES=$(grep -Ec "^[[:space:]]+--- PASS: TestIntegrationAIReportLocalWorkerRecovery/$level/$depth/$phase " /tmp/it.log || true)
                 if [ "$MATCHES" -ne 1 ]; then
                   echo "实际worker恢复场景缺失或重复：$level/$depth/$phase"; exit 1
+                fi
+              done
+            done
+          done
+          if [ "$LOCAL_SIGNAL_ROOT" -ne 1 ] || [ "$LOCAL_SIGNAL_LEVELS" -ne 2 ] || [ "$LOCAL_SIGNAL_DEPTHS" -ne 4 ] || [ "$LOCAL_SIGNAL_CASES" -ne 12 ] || [ "$LOCAL_SIGNAL_SKIPS" -ne 0 ]; then
+            echo "实际worker系统信号、退出码或原任务保留验收漏跑"; exit 1
+          fi
+          for level in Read_Committed Repeatable_Read; do
+            for depth in 1 2; do
+              for phase in idle agent model; do
+                MATCHES=$(grep -Ec "^[[:space:]]+--- PASS: TestIntegrationAIReportLocalWorkerSignal/$level/$depth/$phase " /tmp/it.log || true)
+                if [ "$MATCHES" -ne 1 ]; then
+                  echo "实际worker系统信号场景缺失或重复：$level/$depth/$phase"; exit 1
                 fi
               done
             done
@@ -634,7 +652,8 @@ jobs:
           # 本地问答实际进程新增1根、2级别和4个轻深用例。
           # 组合H5网关前置条件及最终收尾核验新增1项。
           # 实际强杀恢复新增1根、2级别、4轻深父组及16种阶段/排队场景。
-          MIN=1187
+          # 系统信号专项新增1根、2级别、4轻深父组及12种运行阶段场景。
+          MIN=1206
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项，低于下限 $MIN —— 要么没跑，要么有测试被删。"; exit 1
           fi

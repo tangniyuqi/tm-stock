@@ -32,6 +32,10 @@
 
 上列RC/RR指准备、创建及验收仓储的隔离级别；实际worker进程沿自己的默认事务设置，最终提交测试锁固定使用RR以阻塞空索引区间。父Go测试带-race，子进程按实际命令普通构建；不能把这组标签解释成实际worker分别强制采用了两种隔离级别或带竞态插桩。
 
+系统信号复现使用相同脚本及显式参数，将ReportPattern改为`^TestIntegrationAIReportLocalWorkerSignal$`；该根组按RC/RR准备与验收仓储×轻深×idle/agent/model共12场景启动实际worker，不启用-stop-on-stdin停止参数。Windows使用本轮新建隐藏控制台，发送器核该控制台只包含自身及worker，再对worker的新进程组发送Ctrl+Break；实际worker退出130后宿主才转交130和固定退出证明，父进程还核原worker阶段5停止路径。Unix直接向本轮子PID发SIGTERM；只完成跨平台编译不能写成该平台已运行。所有场景核无额外外呼、报告/settle、释放或会员取消，保留原冻结及远端running，完成原账本对账；不把本地退出说成远端已取消。
+
+Windows另以`^TestIntegrationAIReportLocalWorkerSignalControl$`验证控制管道收到stop时拒绝发送信号，清理并Wait自己启动的实际worker，退出1且无signal/实际130证明；不把管道指令当成OS信号测试。`TestLocalWorkerSignalTarget`只验零和自身PID在接触控制台前拒绝，绝不发送广播事件。两项均不接用户控制台、不传真实模型凭据；控制台关闭/注销/关机、Linux运行及真机键盘分别保留其验收边界。实际矩阵结果以tasks.md同轮日志为准。
+
 独立进程专项为`-ReportsOnly -ReportPattern '^TestIntegrationAIReport(LocalWorkerProcess|LocalPublication|WorkflowLifecycle)$' -RunCount 1`，显式指定本机MySQL程序及Git Bash目录，逐版运行。LocalWorkerProcess必须1根/2级别/12叶场景/0跳过：轻度、深度、未知模型响应、远端已记录running时管道停止、空队列配置撤回、启动摘要错绑。父测试编译并直接启动实际worker二进制，使用随机受限账号和最小白名单环境；先等就绪再由原创建服务提交任务，子进程通过原数据库扫描发现，不能把指定任务调用worker当常驻进程。RC/RR指创建/验收仓储，子进程使用实际程序默认RC。网络仍为回环替身，没有H5或真实模型。
 
 成功例保持进程两个原扫描间隔再停止，须一次Agent提交/三次模型请求/六条持久调用审计/五阶段/一次settle/冻结0；四节报告重读可用，深度至少六引文。未知响应只能一次模型请求且保留两条调用审计、原冻结及原键；运行中停止不发模型、不结算或释放，远端running记录不因本地退出变成停止。配置撤回和错绑均零上游调用，子进程收尾后再核账本审计。此为独立CLI＋真实SQL/原服务验证，尚不替代原网站登录→实际API/worker合流、真实多Agent或进程恢复验收。
