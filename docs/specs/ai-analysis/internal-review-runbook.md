@@ -1,5 +1,15 @@
 # AI 内部操作手册（L0 审核与隔离 Agent 执行）
 
+## 成功报告两卡对照展示（2026-11-03，仅本地隔离）
+
+设计13.18：七步成功报告在原`dossierReview.comparison`提供固定焦点/结论、原句出处提示、左右原句和七轴；旧五/六步省略该键。复用原成功读取事务重新核双用途、会员、发布和来源，失败整份拒读；不返回内部捕获、批准或执行定位。会话报告新增“两卡对照”页签，仍使用原红白样式、上下排列双方、文字出处操作。模型结论一致不表示独立来源或已证实事实。
+
+普通竞态专项为`go test -race ./internal/ai/dossier ./internal/service -run '^TestReportComparison' -count=1 -v`，核五根十子节点、零跳过；前端继续执行`verify-ai-report-ui.cjs`和`verify-ai-qa-ui.cjs`，依赖位于仓库外。MySQL8/9原生报告专项`^TestIntegrationAIReportDossier(ComparisonWorkflow|SevenStepProcess)$`核19+3节点、独立API/worker原密码HTTP和两次复读；成功用例另逐项撤回字段用途、比较用途、会员档案授权、发布和来源，要求正文/比较全部清空，恢复后可读且不加调用/账务。原六步可另加`Workflow`回归，不把回环语义当真实模型质量。
+
+实际H5仅在浏览器可用时进行：沿原LocalAPIWorkerBrowser入口，设置`TM_TEST_AI_H5_LOCAL_API_WORKER=local-fixture-only`、`TM_TEST_AI_H5_DOSSIER_COMPARISON=local-fixture-only`、`TM_TEST_AI_H5_LOCAL_DEPTH=deep`和本轮回环H5源，清除旧`TM_TEST_AI_H5_DOSSIER_REVIEW`及真实调用标记；运行原生脚本`-ReportsOnly -LocalAPIWorkerBrowser -ReportPattern '^TestIntegrationAIReportLocalAPIWorkerH5$' -RunCount 1`。仅新比较场景给十分钟任务/十四分钟交互期限，原五/六步期限不变。由原随机口令表单、新会话、深度技能、报价确认、SSE到七步报告，核两卡页签、七轴原文/未知、出处确认、复读和双账号清理后再结束。父脚本须亲核7步/10审计/5模型替身/1CN替身、单报告单结算和实例清理，不能仅凭页面可见宣称通过。
+
+本轮Work设置禁用本地浏览器控制，未运行上述七步H5交互；整包构建、组件宿主和HTTP/真库分别记录，不能替代实际H5。没有部署线上、真实模型调用或真实用户积分操作。当前证据及剩余事项见tasks矩阵。
+
 ## 显式七步深度比较报告（2026-11-02）
 
 受控本地文件显式填写`report_profile=dossier-comparison-report-v1`及已登记的`dossier_support_digest`、`dossier_comparison_digest`，仅深度、完整预算至少七步。字段清单ReviewStep=4且覆盖比较两卡，两份清单同一档案；比较清单自带焦点、ReviewStep=5。两个独立AI用途、会员/发布/来源及模型/质量/硬限额均分别核，登记不能代替批准。真实执行仍需原单独开关，默认关闭，不部署或扣真实用户积分。

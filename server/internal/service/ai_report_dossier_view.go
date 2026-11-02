@@ -39,7 +39,22 @@ func reportDossierReview(ctx context.Context, tx finalreport.Tx, v task.Task, po
 	if len(bound) != 1 || bound[0].Digest() != manifest.DraftDigest() || bound[0].Digest() != review.DraftDigest() {
 		return nil, points.ErrInvariant
 	}
-	return dossierReviewDTO(plan, review, bound[0])
+	out, err := dossierReviewDTO(plan, review, bound[0])
+	if err != nil {
+		return nil, err
+	}
+	comparison, compared := policy.ComparisonProof()
+	if comparison == nil && compared == nil {
+		return out, nil
+	}
+	if !comparison.MatchesTask(v) || comparison.DraftDigest() != bound[0].Digest() || comparison.CheckSupport(plan, review, compared) != nil {
+		return nil, points.ErrInvariant
+	}
+	out.Comparison, err = dossierComparisonDTO(comparison, compared, bound[0])
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func dossierReviewDTO(plan *dossier.SupportPlan, review *dossier.SupportReview, bound *dossier.BoundDraft) (*dto.AIReportDossierReview, error) {

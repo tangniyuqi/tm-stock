@@ -495,6 +495,13 @@ func verifyLocalAPIWorker(t *testing.T, level sql.IsolationLevel, kind int, api,
 			if v.DossierReview == nil || v.DossierReview.Version != 1 || len(v.DossierReview.Items) != wantItems || v.DossierReview.Items[0].Verdict != wantVerdict || v.DossierReview.Items[0].Checked.SourceURL == "" {
 				t.Fatal("原密码HTTP报告未返回白名单核验结果")
 			}
+			if len(cases) == 1 && cases[0].comparison {
+				if v.DossierReview.Comparison == nil || len(v.DossierReview.Comparison.Axes) != 7 || v.DossierReview.Comparison.Outcome != "scope_aligned" || v.DossierReview.Comparison.Left.Statement.SourceURL == "" || v.DossierReview.Comparison.Axes[0].Left.Quote == nil || v.DossierReview.Comparison.Axes[1].Left.Quote != nil {
+					t.Fatal("七步报告两卡对照、已知原文或未知字段不符")
+				}
+			} else if v.DossierReview.Comparison != nil {
+				t.Fatal("旧六步报告被补造两卡对照")
+			}
 		} else if v.DossierReview != nil {
 			t.Fatal("旧五步报告被补造核验结果")
 		}

@@ -122,11 +122,36 @@ jobs:
           # 两卡语义口径内部协议新增11根86子节点，未计作真实模型准确率。
           # 两卡清单/登记闭集普通验收新增4根21子节点。
           # 七步报告新增13根81子节点，旧普通门禁保留。
-          MIN=2175
+          # 成功报告两卡展示投影新增5根10子节点；字段原文/旧编码门禁保留。
+          MIN=2190
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项测试，低于下限 $MIN —— 要么测试没被执行，要么有测试被删。"
             exit 1
           fi
+
+          # 报告两卡展示普通门禁开始
+          COMPARISON_VIEW_ACTUAL=$(sed -nE 's/^[[:space:]]*--- PASS: (TestReportComparison[^ ]*) .*/\1/p' /tmp/gotest.log | LC_ALL=C sort)
+          COMPARISON_VIEW_EXPECTED=$(printf '%s\n' \
+            'TestReportComparisonAxesProjection' \
+            'TestReportComparisonDTOProjection' \
+            'TestReportComparisonDTOProjection/scope_aligned' \
+            'TestReportComparisonDTOProjection/wording_differs' \
+            'TestReportComparisonDTOProjection/not_comparable' \
+            'TestReportComparisonDTOProjection/insufficient_context' \
+            'TestReportComparisonDTORefusals' \
+            'TestReportComparisonDTORefusals/plan' \
+            'TestReportComparisonDTORefusals/review' \
+            'TestReportComparisonDTORefusals/bound' \
+            'TestReportComparisonDTORefusals/foreign_review' \
+            'TestReportComparisonDTORefusals/foreign_bound' \
+            'TestReportComparisonDTORefusals/unresolved' \
+            'TestReportComparisonSideRefusals' \
+            'TestReportComparisonLegacyEncoding' | LC_ALL=C sort)
+          if [ "$COMPARISON_VIEW_ACTUAL" != "$COMPARISON_VIEW_EXPECTED" ] || grep -Eq "^[[:space:]]*--- (SKIP|FAIL): TestReportComparison" /tmp/gotest.log; then
+            echo '::error::报告两卡展示投影正反例有遗漏、重复、跳过或失败'
+            exit 1
+          fi
+          # 报告两卡展示普通门禁结束
 
           # 专题七步报告普通门禁开始
           SEVEN_UNIT_ACTUAL=$(sed -nE 's/^[[:space:]]*--- PASS: (TestDossierSevenStep[^ ]*) .*/\1/p' /tmp/gotest.log | LC_ALL=C sort)

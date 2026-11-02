@@ -7,6 +7,7 @@ import { formatMillis } from '../../libs/theme.uts'
 import { openSafeExternalUrl } from '../../libs/external-link.uts'
 import AIReportTools from './AIReportTools.uvue'
 import AIReportDossierPanel from './AIReportDossierPanel.uvue'
+import AIReportComparisonPanel from './AIReportComparisonPanel.uvue'
 
 type AIReportPanelProps = { report : AIReport, sessionToken ?: string }
 defineOptions({ name: 'AIReportPanel' })
@@ -22,7 +23,7 @@ const visibleSections = computed(() : AIReportSection[] => {
 })
 const sources = computed(() : AIReportSourceEntry[] => safeReport.value == null ? [] as AIReportSourceEntry[] : aiReportSources(safeReport.value!))
 const selectSection = (key : string) : void => {
-	if (['all', 'definition', 'timeline', 'segment', 'companies', 'sources', 'dossier'].includes(key)) sectionKey.value = key
+	if (['all', 'definition', 'timeline', 'segment', 'companies', 'sources', 'dossier', 'comparison'].includes(key)) sectionKey.value = key
 }
 const openSource = (url : string) : void => { openSafeExternalUrl(url) }
 watch(() : AIReport => props.report, () => { sectionKey.value = 'all' }, { flush: 'sync' })
@@ -42,6 +43,7 @@ watch(() : string => props.sessionToken, () => { sectionKey.value = 'all' }, { f
 				<x-button :color="sectionKey == section.key ? aiBrandColor : aiMutedColor" v-for="section in safeReport!.sections" :key="section.key" class="ai-section-tab" height="44" :skin="sectionKey == section.key ? 'thin' : 'text'" @click="selectSection(section.key)" round="10" font-size="14">{{ section.title }}</x-button>
 				<x-button :color="sectionKey == 'sources' ? aiBrandColor : aiMutedColor" class="ai-section-tab" height="44" :skin="sectionKey == 'sources' ? 'thin' : 'text'" @click="selectSection('sources')" round="10" font-size="14">来源清单</x-button>
 				<x-button :color="sectionKey == 'dossier' ? aiBrandColor : aiMutedColor" v-if="safeReport!.dossierReview != null" class="ai-section-tab" height="44" :skin="sectionKey == 'dossier' ? 'thin' : 'text'" @click="selectSection('dossier')" round="10" font-size="14">专题字段核验</x-button>
+				<x-button :color="sectionKey == 'comparison' ? aiBrandColor : aiMutedColor" v-if="safeReport!.dossierReview != null && safeReport!.dossierReview!.comparison != null" class="ai-section-tab" height="44" :skin="sectionKey == 'comparison' ? 'thin' : 'text'" @click="selectSection('comparison')" round="10" font-size="14">两卡对照</x-button>
 			</view>
 		</x-sheet>
 		<x-sheet v-for="section in visibleSections" :key="section.key" :margin="16" :padding="16" :round="18" dark-color="#ffffff">
@@ -68,7 +70,7 @@ watch(() : string => props.sessionToken, () => { sectionKey.value = 'all' }, { f
 		</x-sheet>
 		<x-sheet v-if="sectionKey == 'sources'" :margin="16" :padding="16" :round="18" dark-color="#ffffff">
 			<text class="report-heading text-weight-b">出处条目 {{ sources.length }} 项</text>
-			<text class="report-meta mt-8">按报告正文出现顺序归集；字段核验的出处另见各核验项。来源类型、链接和采集时点相同才合并，条目数不代表独立发布者数量或核验结论。</text>
+			<text class="report-meta mt-8">按报告正文出现顺序归集；字段核验与两卡对照的出处另见各核验项。来源类型、链接和采集时点相同才合并，条目数不代表独立发布者数量或核验结论。</text>
 			<view v-for="(source, index) in sources" :key="index" class="mt-16">
 				<text class="report-meta">{{ index + 1 }} · {{ source.sourceType }} · 采集时点：{{ formatMillis(source.collectedAt) }}</text>
 				<text class="report-meta mt-4">本报告引用 {{ source.references }} 处</text>
@@ -76,6 +78,7 @@ watch(() : string => props.sessionToken, () => { sectionKey.value = 'all' }, { f
 			</view>
 		</x-sheet>
 		<AIReportDossierPanel v-if="safeReport!.dossierReview != null && (sectionKey == 'all' || sectionKey == 'dossier')" :review="safeReport!.dossierReview!" :generated-at="safeReport!.generatedAt"></AIReportDossierPanel>
+		<AIReportComparisonPanel v-if="safeReport!.dossierReview != null && safeReport!.dossierReview!.comparison != null && (sectionKey == 'all' || sectionKey == 'comparison')" :review="safeReport!.dossierReview!" :generated-at="safeReport!.generatedAt"></AIReportComparisonPanel>
 		<AIReportTools :report="safeReport!" :session-token="sessionToken"></AIReportTools>
 	</view>
 	<view v-else class="pa-16"><text class="report-meta">报告格式暂不可用，请重新核对。</text></view>

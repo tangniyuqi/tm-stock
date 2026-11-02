@@ -31,7 +31,11 @@ func runLocalProcessH5(t *testing.T, depth, origin string, scenario *localProces
 	live := scenario != nil && scenario.external
 	assistant := scenario != nil && scenario.qa
 	dossierReport := scenario != nil && scenario.dossier
+	comparisonReport := scenario != nil && scenario.comparison
 	duration, lifetime := 5*time.Minute, 10*time.Minute
+	if comparisonReport {
+		duration, lifetime = 10*time.Minute, 14*time.Minute
+	}
 	if live {
 		duration, lifetime = 15*time.Minute, 18*time.Minute
 		workflow = "local"
@@ -166,12 +170,18 @@ func runLocalProcessH5(t *testing.T, depth, origin string, scenario *localProces
 	if dossierReport {
 		wantSteps, wantAudits = 6, 8
 	}
+	if comparisonReport {
+		wantSteps, wantAudits = 7, 10
+	}
 	if err != nil || v.Status != 3 || v.CurrentStep != wantSteps {
 		t.Fatal("页面交付未对应原终检成功任务")
 	}
 	wantAgent, wantModel := int32(1), 3
 	if dossierReport {
 		wantModel = 4
+	}
+	if comparisonReport {
+		wantModel = 5
 	}
 	if live {
 		wantAgent, wantModel = 0, 0

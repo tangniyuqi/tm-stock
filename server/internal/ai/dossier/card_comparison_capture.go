@@ -20,6 +20,24 @@ type CardComparisonAxis struct {
 	ID                                   int
 	Field, Left, Right, Relation, Reason string
 }
+
+// 供当前授权读取层投影；不改变已经终检的内部固定呈现或摘要。
+type ReviewedComparisonAxis struct {
+	CardComparisonAxis
+	Required bool
+}
+
+func (p *CardComparisonPlan) ReviewedAxes(r *CardComparisonReview) ([]ReviewedComparisonAxis, error) {
+	if _, err := p.VisibleReview(r); err != nil {
+		return nil, err
+	}
+	out := make([]ReviewedComparisonAxis, len(p.axes))
+	for i, axis := range p.axes {
+		out[i] = ReviewedComparisonAxis{CardComparisonAxis: r.axes[i], Required: axis.Required}
+	}
+	return out, nil
+}
+
 type CardComparisonReview struct {
 	inputDigest, draftDigest, payloadDigest, origins, outcome, wording string
 	axes                                                               []CardComparisonAxis

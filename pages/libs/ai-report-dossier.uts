@@ -2,8 +2,13 @@ import { AIDossierQuote, isDossierQuote } from './ai-dossier.uts'
 import { isSafeAIId } from './ai-number.uts'
 
 export type AIReportDossierField = { cardKey : string, section : string, field : string, verdict : string, reason : string, checked : AIDossierQuote, statement : AIDossierQuote }
-export type AIReportDossierReview = { version : number, compiledAt : number, notice : string, items : AIReportDossierField[] }
+export type AIReportComparisonSide = { state : string, verdict : string, quote? : AIDossierQuote }
+export type AIReportComparisonCard = { key : string, section : string, statement : AIDossierQuote }
+export type AIReportComparisonAxis = { field : string, required : boolean, left : AIReportComparisonSide, right : AIReportComparisonSide, relation : string, reason : string }
+export type AIReportDossierComparison = { notice : string, focus : string, outcome : string, wording : string, statementOrigins : string, left : AIReportComparisonCard, right : AIReportComparisonCard, axes : AIReportComparisonAxis[] }
+export type AIReportDossierReview = { version : number, compiledAt : number, notice : string, items : AIReportDossierField[], comparison? : AIReportDossierComparison }
 export const reportDossierNotice = '仅核对本次获授权资料；所核内容为候选字段，不代表已证实事实。未列字段未在本次核验范围内。'
+export const reportComparisonNotice = '仅比较本次两张候选资料卡；不同口径不等于事实冲突或更正，原句出处提示不代表来源独立性已核实。'
 const reviewFields : string[] = ['section','subject','publishedDate','effectiveDate','period','scope','stage','basis','unit']
 const exactReviewKeys = (value : string[], expected : string[]) : boolean => value.length == expected.length && value.every((s : string) : boolean => expected.includes(s))
 const sameReviewQuote = (a : AIDossierQuote, b : AIDossierQuote) : boolean => a.text == b.text && a.context == b.context && a.sourceType == b.sourceType && a.sourceUrl == b.sourceUrl && a.collectedAt == b.collectedAt && a.snapshotId == b.snapshotId && a.sentence == b.sentence && a.startByte == b.startByte && a.endByte == b.endByte
@@ -16,8 +21,58 @@ const validReviewReason = (field : string, verdict : string, reason : string) : 
 	if (['publishedDate','effectiveDate','period'].includes(field)) return reason == 'time_mismatch'
 	return reason == field + '_mismatch'
 }
+const comparisonField = (items : AIReportDossierField[], card : string, field : string) : AIReportDossierField | null => {
+	for (const item of items) { if (item.cardKey == card && item.field == field) return item }
+	return null
+}
+const validComparisonCard = (card : AIReportComparisonCard, items : AIReportDossierField[]) : boolean => {
+	if (card == null || typeof card != 'object' || Array.isArray(card) || !exactReviewKeys(Object.keys(card),['key','section','statement']) || typeof card.key != 'string' || typeof card.section != 'string' || !isDossierQuote(card.statement)) return false
+	const bound : AIReportDossierField | null = comparisonField(items,card.key,'section')
+	return bound != null && bound!.section == card.section && bound!.verdict == 'supported' && sameReviewQuote(bound!.statement,card.statement)
+}
+const validComparisonSide = (side : AIReportComparisonSide, card : string, field : string, items : AIReportDossierField[]) : boolean => {
+	if (side == null || typeof side != 'object' || Array.isArray(side) || typeof side.state != 'string' || typeof side.verdict != 'string') return false
+	const bound : AIReportDossierField | null = comparisonField(items,card,field)
+	if (side.state == 'unknown') return bound == null && side.verdict == 'unknown' && exactReviewKeys(Object.keys(side),['state','verdict'])
+	return side.state == 'known' && exactReviewKeys(Object.keys(side),['state','verdict','quote']) && bound != null && side.verdict == bound!.verdict && isDossierQuote(side.quote!) && sameReviewQuote(side.quote!,bound!.checked)
+}
+const comparisonRequired = (focus : string, field : string, policy : boolean) : boolean => {
+	if (field == 'subject' || field == 'scope') return true
+	if (field == 'effectiveDate') return policy
+	if (focus == 'definition') return false
+	if (field == 'period' || field == 'stage') return true
+	return focus == 'measurement'
+}
+export const isAIReportDossierComparison = (value : AIReportDossierComparison | null, items : AIReportDossierField[]) : boolean => {
+	if (value == null || typeof value != 'object' || Array.isArray(value) || !exactReviewKeys(Object.keys(value),['notice','focus','outcome','wording','statementOrigins','left','right','axes']) || value.notice != reportComparisonNotice || typeof value.notice != 'string' || typeof value.focus != 'string' || !['definition','progress','measurement'].includes(value.focus) || !validComparisonCard(value.left,items) || !validComparisonCard(value.right,items) || value.left.key >= value.right.key || typeof value.statementOrigins != 'string' || !['same_document','duplicate_body','same_registered_source','unverified'].includes(value.statementOrigins) || typeof value.wording != 'string' || !['same_meaning','different_wording','insufficient_context'].includes(value.wording) || typeof value.outcome != 'string' || !Array.isArray(value.axes) || value.axes.length != 7) return false
+	if ((value.left.statement.sourceUrl == value.right.statement.sourceUrl) != (value.statementOrigins == 'same_document')) return false
+	const fields : string[] = ['subject','effectiveDate','period','scope','stage','basis','unit']
+	let different : boolean = false; let uncertain : boolean = false; let resolved : number = 0
+	for (let i : number = 0; i < fields.length; i++) {
+		const axis : AIReportComparisonAxis = value.axes[i]
+		if (axis == null || typeof axis != 'object' || Array.isArray(axis) || !exactReviewKeys(Object.keys(axis),['field','required','left','right','relation','reason']) || axis.field != fields[i] || typeof axis.field != 'string' || typeof axis.required != 'boolean' || axis.required != comparisonRequired(value.focus,axis.field,value.left.section == 'policy' || value.right.section == 'policy') || !validComparisonSide(axis.left,value.left.key,axis.field,items) || !validComparisonSide(axis.right,value.right.key,axis.field,items) || typeof axis.relation != 'string' || typeof axis.reason != 'string') return false
+		const missing : boolean = axis.left.state == 'unknown' || axis.right.state == 'unknown'
+		let reason : string = ''
+		if (axis.relation == 'not_applicable') {
+			if (axis.required || axis.left.state != 'unknown' || axis.right.state != 'unknown') return false
+			reason = 'not_required'
+		} else if (axis.relation == 'uncertain') {
+			uncertain = true
+			reason = missing ? 'missing_field' : axis.left.verdict != 'supported' || axis.right.verdict != 'supported' ? 'field_meaning_unverified' : 'insufficient_context'
+		} else if (axis.relation == 'aligned' || axis.relation == 'different') {
+			if (missing || axis.left.verdict != 'supported' || axis.right.verdict != 'supported') return false
+			resolved++
+			if (axis.relation == 'different') different = true
+			reason = axis.relation == 'aligned' ? 'meaning_aligned' : axis.field + '_differs'
+		} else return false
+		if (axis.reason != reason) return false
+	}
+	if (resolved == 0 || different && value.wording == 'same_meaning') return false
+	const outcome : string = different ? 'not_comparable' : uncertain || value.wording == 'insufficient_context' ? 'insufficient_context' : value.wording == 'different_wording' ? 'wording_differs' : 'scope_aligned'
+	return value.outcome == outcome
+}
 export const isAIReportDossierReview = (value : AIReportDossierReview | null, generatedAt : number) : boolean => {
-	if (value == null || typeof value != 'object' || Array.isArray(value) || !exactReviewKeys(Object.keys(value),['version','compiledAt','notice','items']) || !isSafeAIId(value.version) || !isSafeAIId(value.compiledAt) || value.compiledAt > generatedAt || typeof value.notice != 'string' || value.notice != reportDossierNotice || !Array.isArray(value.items) || value.items.length < 1 || value.items.length > 36) return false
+	if (value == null || typeof value != 'object' || Array.isArray(value) || !exactReviewKeys(Object.keys(value),Object.keys(value).includes('comparison') ? ['version','compiledAt','notice','items','comparison'] : ['version','compiledAt','notice','items']) || !isSafeAIId(value.version) || !isSafeAIId(value.compiledAt) || value.compiledAt > generatedAt || typeof value.notice != 'string' || value.notice != reportDossierNotice || !Array.isArray(value.items) || value.items.length < 1 || value.items.length > 36) return false
 	let previousCard : string = ''; let previousField : number = -1; let cardCount : number = 0; let resolved : boolean = false
 	let statement : AIDossierQuote | null = null; let section : string = ''
 	for (const item of value.items) {
@@ -32,11 +87,21 @@ export const isAIReportDossierReview = (value : AIReportDossierReview | null, ge
 		if (item.verdict != 'uncertain') resolved = true
 		previousCard = item.cardKey; previousField = index
 	}
-	return resolved
+	return resolved && (!Object.keys(value).includes('comparison') || isAIReportDossierComparison(value.comparison!,value.items))
 }
 export const reportDossierVerdict = (v : string) : string => v == 'supported' ? '原文完整支持' : v == 'partial' ? '原文部分支持' : v == 'unsupported' ? '原文不支持' : v == 'uncertain' ? '资料不足' : ''
 export const reportDossierReason = (v : string) : string => {
 	const codes : string[] = ['direct_support','partial_support','not_supported','insufficient_context','section_mismatch','subject_mismatch','time_mismatch','scope_mismatch','stage_mismatch','basis_mismatch','unit_mismatch']
 	const index : number = codes.indexOf(v)
 	return index < 0 ? '' : ['原文直接支持','原文仅支持部分含义','缺少原文支持','语境或证据不足','章节含义不符','主体不符','时间口径不符','适用范围不符','阶段不符','统计口径不符','单位不符'][index]
+}
+export const reportComparisonFocus = (v : string) : string => v == 'definition' ? '定义与范围' : v == 'progress' ? '公开进展' : v == 'measurement' ? '统计与计量口径' : ''
+export const reportComparisonOutcome = (v : string) : string => v == 'not_comparable' ? '口径不同，不可直接比较' : v == 'insufficient_context' ? '资料不足，尚不能完整对齐' : v == 'wording_differs' ? '口径已对齐，原句表述不同' : v == 'scope_aligned' ? '本次口径已对齐' : ''
+export const reportComparisonWording = (v : string) : string => v == 'same_meaning' ? '原句含义相同' : v == 'different_wording' ? '原句表述不同' : v == 'insufficient_context' ? '原句语境不足' : ''
+export const reportComparisonOrigin = (v : string) : string => v == 'same_document' ? '两张卡的原句来自同一文档链接' : v == 'duplicate_body' ? '两张卡的原句所在正文重复' : v == 'same_registered_source' ? '两张卡的原句来自同一登记来源' : v == 'unverified' ? '原句来源独立性尚未核实' : ''
+export const reportComparisonRelation = (v : string) : string => v == 'aligned' ? '口径对齐' : v == 'different' ? '口径不同' : v == 'uncertain' ? '资料不足' : v == 'not_applicable' ? '本次非必核，双方均未知' : ''
+export const reportComparisonReason = (v : string) : string => {
+	const codes : string[] = ['not_required','missing_field','field_meaning_unverified','insufficient_context','meaning_aligned','subject_differs','effectiveDate_differs','period_differs','scope_differs','stage_differs','basis_differs','unit_differs']
+	const index : number = codes.indexOf(v)
+	return index < 0 ? '' : ['本次焦点未要求核对该项，双方资料均未给出字段','至少一方缺少字段，不能补值比较','至少一方字段未获原文完整支持','现有语境不足以确认关系','双方字段均获原文支持且含义对齐','主体口径不同','生效日期口径不同','数据所属期间不同','适用范围不同','阶段口径不同','统计依据不同','单位口径不同'][index]
 }

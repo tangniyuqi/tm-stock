@@ -1,0 +1,58 @@
+<script lang="ts" setup>
+import { computed } from 'vue'
+import { aiMutedColor } from '../ai-theme.uts'
+import { AIReportDossierReview, AIReportDossierComparison, AIReportComparisonCard, AIReportComparisonAxis, AIReportComparisonSide, isAIReportDossierReview, reportDossierVerdict, reportComparisonFocus, reportComparisonOutcome, reportComparisonWording, reportComparisonOrigin, reportComparisonRelation, reportComparisonReason } from '../../libs/ai-report-dossier.uts'
+import { dossierSectionLabel, dossierFieldLabel } from '../../libs/ai-dossier.uts'
+import { aiSourceTypeLabel } from '../../libs/ai-qa.uts'
+import { formatMillis } from '../../libs/theme.uts'
+import { openSafeExternalUrl } from '../../libs/external-link.uts'
+
+type ComparisonProps = { review : AIReportDossierReview, generatedAt : number }
+defineOptions({ name: 'AIReportComparisonPanel' })
+const props = defineProps<ComparisonProps>()
+const comparison = computed(() : AIReportDossierComparison | null => isAIReportDossierReview(props.review,props.generatedAt) && props.review.comparison != null ? props.review.comparison! : null)
+const cards = computed(() : AIReportComparisonCard[] => comparison.value == null ? [] as AIReportComparisonCard[] : [comparison.value!.left,comparison.value!.right])
+const axisSides = (axis : AIReportComparisonAxis) : AIReportComparisonSide[] => [axis.left,axis.right]
+const sideLabel = (index : number) : string => index == 0 ? '左侧资料卡' : '右侧资料卡'
+const openSource = (url : string) : void => { if (comparison.value != null) openSafeExternalUrl(url) }
+</script>
+
+<template>
+	<x-sheet v-if="comparison != null" :margin="16" :padding="16" :round="18" dark-color="#ffffff">
+		<text class="comparison-title text-weight-b">两卡原文口径对照</text>
+		<text class="comparison-meta mt-8">本次焦点：{{ reportComparisonFocus(comparison!.focus) }}</text>
+		<text class="comparison-outcome mt-12">{{ reportComparisonOutcome(comparison!.outcome) }}</text>
+		<text class="comparison-meta mt-8">{{ comparison!.notice }}</text>
+		<text class="comparison-meta mt-8">{{ reportComparisonWording(comparison!.wording) }} · {{ reportComparisonOrigin(comparison!.statementOrigins) }}</text>
+		<view v-for="(card, index) in cards" :key="card.key" class="ai-quote-block">
+			<text class="comparison-title">{{ sideLabel(index) }} · {{ dossierSectionLabel(card.section) }}</text>
+			<text class="comparison-quote mt-8">{{ card.statement.text }}</text>
+			<text class="comparison-meta mt-8">原文语境：{{ card.statement.context }}</text>
+			<text class="comparison-meta mt-8">{{ aiSourceTypeLabel(card.statement.sourceType) }} · 采集于 {{ formatMillis(card.statement.collectedAt) }} · 原文第 {{ card.statement.sentence }} 句</text>
+			<x-button :color="aiMutedColor" class="mt-8" height="44" :block="true" skin="text" round="10" font-size="14" @click="openSource(card.statement.sourceUrl)">查看{{ index == 0 ? '左侧' : '右侧' }}资料卡原文</x-button>
+		</view>
+		<view v-for="axis in comparison!.axes" :key="axis.field" class="comparison-axis mt-16">
+			<text class="comparison-title text-weight-b">{{ dossierFieldLabel(axis.field) }} · {{ reportComparisonRelation(axis.relation) }}</text>
+			<text class="comparison-meta mt-8">{{ axis.required ? '本次必核项' : '本次非必核项' }} · {{ reportComparisonReason(axis.reason) }}</text>
+			<view v-for="(side, index) in axisSides(axis)" :key="index" class="comparison-value mt-12">
+				<text class="comparison-meta">{{ sideLabel(index) }} · {{ side.state == 'unknown' ? '资料未提供，字段未知' : reportDossierVerdict(side.verdict) }}</text>
+				<view v-if="side.state == 'known' && side.quote != null">
+					<text class="comparison-quote mt-4">{{ side.quote!.text }}</text>
+					<text class="comparison-meta mt-8">原文语境：{{ side.quote!.context }}</text>
+					<text class="comparison-meta mt-8">{{ aiSourceTypeLabel(side.quote!.sourceType) }} · 采集于 {{ formatMillis(side.quote!.collectedAt) }} · 原文第 {{ side.quote!.sentence }} 句</text>
+					<x-button :color="aiMutedColor" class="mt-8" height="44" :block="true" skin="text" round="10" font-size="14" @click="openSource(side.quote!.sourceUrl)">查看{{ index == 0 ? '左侧' : '右侧' }}字段原文</x-button>
+				</view>
+			</view>
+		</view>
+	</x-sheet>
+</template>
+
+<style lang="scss" scoped>
+@import "../ai-theme.scss";
+.comparison-title { color: #1f2329; font-size: 16px; line-height: 24px; }
+.comparison-meta { color: #6b7280; font-size: 13px; line-height: 20px; }
+.comparison-quote { color: #1f2329; font-size: 15px; line-height: 24px; white-space: pre-wrap; }
+.comparison-outcome { padding: 12px; background-color: #fff3f3; border-radius: 10px; color: #b52a2a; font-size: 15px; line-height: 24px; }
+.comparison-axis { border-top: 1px solid #e5e7eb; padding-top: 16px; }
+.comparison-value { padding: 12px; background-color: #f7f8fa; border-radius: 12px; }
+</style>

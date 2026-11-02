@@ -78,24 +78,38 @@ func TestIntegrationAIReportDossierComparisonWorkflow(t *testing.T) {
 						if err != nil {
 							t.Fatal(err)
 						}
-						if report, err := reads.Read(e.ctx, 1, f.id); err != nil || report.TaskID != f.id {
+						if report, err := reads.Read(e.ctx, 1, f.id); err != nil || report.TaskID != f.id || report.DossierReview == nil || report.DossierReview.Comparison == nil || len(report.DossierReview.Comparison.Axes) != 7 || report.DossierReview.Comparison.Left.Key != "test_card" || report.DossierReview.Comparison.Right.Key != "test_card_b" {
 							t.Fatal("七步成功报告无法读取", err)
 						}
-						if report, err := reads.Read(e.ctx, 2, f.id); err == nil || report.TaskID != 0 {
+						if report, err := reads.Read(e.ctx, 2, f.id); err == nil || report.TaskID != 0 || report.DossierReview != nil || len(report.Sections) != 0 {
 							t.Fatal("他人读到比较报告")
 						}
 						for _, component := range []string{f.spec.DossierSupportDigest, f.spec.DossierComparisonDigest} {
 							if _, err = e.db.ExecContext(e.ctx, `UPDATE tm_ai_dossier_support_uses SET enabled=0 WHERE component_digest=?`, component); err != nil {
 								t.Fatal(err)
 							}
-							if report, err := reads.Read(e.ctx, 1, f.id); err == nil || report.TaskID != 0 {
+							if report, err := reads.Read(e.ctx, 1, f.id); err == nil || report.TaskID != 0 || report.DossierReview != nil || len(report.Sections) != 0 {
 								t.Fatal("任一用途撤回后仍交付报告")
 							}
 							if _, err = e.db.ExecContext(e.ctx, `UPDATE tm_ai_dossier_support_uses SET enabled=1 WHERE component_digest=?`, component); err != nil {
 								t.Fatal(err)
 							}
-							if report, err := reads.Read(e.ctx, 1, f.id); err != nil || report.TaskID != f.id {
+							if report, err := reads.Read(e.ctx, 1, f.id); err != nil || report.TaskID != f.id || report.DossierReview == nil || report.DossierReview.Comparison == nil {
 								t.Fatal("恢复用途不能复读原报告", err)
+							}
+						}
+						for _, revoke := range []struct{ off, on string }{
+							{`UPDATE tm_ai_dossier_grants SET enabled=0 WHERE user_id=1`, `UPDATE tm_ai_dossier_grants SET enabled=1 WHERE user_id=1`},
+							{`UPDATE tm_ai_dossier_publications SET enabled=0`, `UPDATE tm_ai_dossier_publications SET enabled=1`},
+							{`UPDATE tm_ai_sources SET enabled=0 WHERE id=1`, `UPDATE tm_ai_sources SET enabled=1 WHERE id=1`},
+						} {
+							e.mustExec(revoke.off)
+							if report, err := reads.Read(e.ctx, 1, f.id); err == nil || report.TaskID != 0 || report.DossierReview != nil || len(report.Sections) != 0 {
+								t.Fatal("会员、发布或来源撤回后仍泄漏比较内容")
+							}
+							e.mustExec(revoke.on)
+							if report, err := reads.Read(e.ctx, 1, f.id); err != nil || report.DossierReview == nil || report.DossierReview.Comparison == nil {
+								t.Fatal("恢复授权后不能复读原比较", err)
 							}
 						}
 						if len(e.server.Requests()) != calls || e.queryInt(`SELECT COUNT(*) FROM tm_points_txns`) != txns {

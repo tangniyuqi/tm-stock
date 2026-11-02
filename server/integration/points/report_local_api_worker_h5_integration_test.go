@@ -19,6 +19,17 @@ func TestIntegrationAIReportLocalAPIWorkerH5(t *testing.T) {
 		}
 	}
 	marker := os.Getenv("TM_TEST_AI_H5_DOSSIER_REVIEW")
+	comparison := os.Getenv("TM_TEST_AI_H5_DOSSIER_COMPARISON")
+	if comparison != "" {
+		if comparison != "local-fixture-only" || marker != "" || depth != "deep" {
+			t.Fatal("两卡对照H5仅允许独立深度合成隔离模式")
+		}
+		runLocalProcessH5(t, depth, origin, &localProcessCase{dossier: true, comparison: true, configure: func(t *testing.T, f *localPublicationFixture, c *config.AILocalExecution) {
+			configureDossierLocalFixture(t, f, "comparison_supported")
+			c.Model.BaseURL = f.env.server.URL()
+		}})
+		return
+	}
 	if marker != "" {
 		if marker != "local-fixture-only" {
 			t.Fatal("专题报告H5仅允许显式合成隔离模式")

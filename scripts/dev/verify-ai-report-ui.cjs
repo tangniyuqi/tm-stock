@@ -162,6 +162,72 @@ async function dossierReportReview() {
   console.log('通过：报告核验固定标签/原文跳转、闭集格式反例、全部不确定拒绝、旧报告兼容与切账号清理；模拟组件证据，不替代H5。');
 }
 
+async function reportCardComparison() {
+  const env=environment(), rules=env.load('pages/libs/ai.uts'), contract=env.load('pages/libs/ai-report-dossier.uts');
+  const make=()=>{
+    const r=report(), quote=(side)=>{ const text='测试示例题材：'+side+'卡合成原文，非实际资料。';return {text,context:text,sourceType:'announcement',sourceUrl:'https://example.test/comparison-'+side,collectedAt:now-1000,snapshotId:side==='左'?1:2,sentence:1,startByte:0,endByte:Buffer.byteLength(text)}; };
+    const left=quote('左'),right=quote('右');
+    const items=['card_a','card_b'].flatMap((key,i)=>['section','subject','scope'].map(field=>({cardKey:key,section:'definition',field,verdict:'supported',reason:'direct_support',checked:clone(i===0?left:right),statement:clone(i===0?left:right)})));
+    r.dossierReview={version:1,compiledAt:now,notice:contract.reportDossierNotice,items,comparison:{notice:contract.reportComparisonNotice,focus:'definition',outcome:'scope_aligned',wording:'same_meaning',statementOrigins:'unverified',left:{key:'card_a',section:'definition',statement:left},right:{key:'card_b',section:'definition',statement:right},axes:['subject','effectiveDate','period','scope','stage','basis','unit'].map((field,i)=>({field,required:i===0||i===3,left:i===0||i===3?{state:'known',verdict:'supported',quote:clone(left)}:{state:'unknown',verdict:'unknown'},right:i===0||i===3?{state:'known',verdict:'supported',quote:clone(right)}:{state:'unknown',verdict:'unknown'},relation:i===0||i===3?'aligned':'not_applicable',reason:i===0||i===3?'meaning_aligned':'not_required'}))}};
+    return r;
+  };
+  const component=env.load('pages/ai/components/AIReportPanel.uvue').default;
+  for(const mode of ['scope_aligned','wording_differs','not_comparable','partial','unsupported','uncertain','missing','progress','measurement','policy','same_document']){
+    const r=make(),c=r.dossierReview.comparison;
+    if(mode==='wording_differs'){c.wording='different_wording';c.outcome=mode;}
+    if(mode==='not_comparable'){c.wording='different_wording';c.outcome=mode;c.axes[0].relation='different';c.axes[0].reason='subject_differs';}
+    if(mode==='partial'){Object.assign(r.dossierReview.items[1],{verdict:'partial',reason:'partial_support'});Object.assign(c.axes[0].left,{verdict:'partial'});Object.assign(c.axes[0],{relation:'uncertain',reason:'field_meaning_unverified'});c.outcome='insufficient_context';}
+    if(mode==='unsupported'||mode==='uncertain'){Object.assign(r.dossierReview.items[1],{verdict:mode,reason:mode==='unsupported'?'not_supported':'insufficient_context'});c.axes[0].left.verdict=mode;Object.assign(c.axes[0],{relation:'uncertain',reason:'field_meaning_unverified'});c.outcome='insufficient_context';}
+    if(mode==='missing'){r.dossierReview.items.splice(1,1);c.axes[0].left={state:'unknown',verdict:'unknown'};Object.assign(c.axes[0],{relation:'uncertain',reason:'missing_field'});c.outcome='insufficient_context';}
+    if(mode==='progress'||mode==='measurement'||mode==='policy'){
+      if(mode==='policy'){c.left.section=c.right.section='policy';for(const item of r.dossierReview.items)item.section='policy';Object.assign(c.axes[1],{required:true,relation:'uncertain',reason:'missing_field'});}
+      else {c.focus=mode;for(const i of mode==='progress'?[2,4]:[2,4,5,6])Object.assign(c.axes[i],{required:true,relation:'uncertain',reason:'missing_field'});}
+      c.outcome='insufficient_context';
+    }
+    if(mode==='same_document'){c.statementOrigins=mode;c.right.statement.sourceUrl=c.left.statement.sourceUrl;for(const item of r.dossierReview.items.filter(v=>v.cardKey==='card_b')){item.checked.sourceUrl=c.left.statement.sourceUrl;item.statement.sourceUrl=c.left.statement.sourceUrl;}for(const a of c.axes){if(a.right.quote)a.right.quote.sourceUrl=c.left.statement.sourceUrl;}}
+    assert.equal(rules.isValidAIReport(r,9),true,mode);
+    const ui=mount(component,{report:r,sessionToken:memberToken(1)});
+    ui.click('两卡对照');await flush();
+    for(const label of ['两卡原文口径对照',contract.reportComparisonFocus(c.focus),contract.reportComparisonOutcome(c.outcome),'左侧资料卡','右侧资料卡',contract.reportComparisonOrigin(c.statementOrigins),'资料未提供，字段未知'])assert.ok(ui.text().includes(label),label);
+    ui.click('查看左侧资料卡原文');assert.equal(env.opened.length,0);env.modals.shift().success({confirm:true});assert.equal(env.opened.pop().url,c.left.statement.sourceUrl);ui.app.unmount();
+  }
+  const bad=[
+    r=>r.dossierReview.comparison=null,
+    r=>r.dossierReview.comparison.raw='内部捕获包',
+    r=>r.dossierReview.comparison.notice='多源一致，已经证实',
+    r=>r.dossierReview.comparison.focus=['definition'],
+    r=>r.dossierReview.comparison.statementOrigins='independent_sources',
+    r=>r.dossierReview.comparison.statementOrigins='same_document',
+    r=>r.dossierReview.comparison.wording='conflict',
+    r=>r.dossierReview.comparison.outcome='not_comparable',
+    r=>r.dossierReview.comparison.axes.pop(),
+    r=>r.dossierReview.comparison.axes.reverse(),
+    r=>r.dossierReview.comparison.axes[0].field='publishedDate',
+    r=>r.dossierReview.comparison.axes[0].required=false,
+    r=>r.dossierReview.comparison.axes[0].required=['true'],
+    r=>r.dossierReview.comparison.axes[0].reason='模型自由解释',
+    r=>r.dossierReview.comparison.axes[0].extra=true,
+    r=>r.dossierReview.comparison.axes[0].left.quote.text='跨卡替换',
+    r=>r.dossierReview.comparison.axes[0].left.verdict='partial',
+    r=>r.dossierReview.comparison.axes[1].left.quote=clone(r.dossierReview.items[0].checked),
+    r=>r.dossierReview.comparison.axes[1].relation='aligned',
+    r=>r.dossierReview.comparison.axes[1].left.state='known',
+    r=>r.dossierReview.comparison.left.key='other',
+    r=>r.dossierReview.comparison.left.section='policy',
+    r=>r.dossierReview.comparison.left.statement.sourceUrl='javascript:alert(1)',
+    r=>r.dossierReview.comparison.right=clone(r.dossierReview.comparison.left),
+    r=>Object.assign(r.dossierReview.items[0],{verdict:'partial',reason:'partial_support'}),
+    r=>{const c=r.dossierReview.comparison;Object.assign(c.axes[0],{relation:'different',reason:'subject_differs'});c.outcome='not_comparable';},
+    r=>{const c=r.dossierReview.comparison;for(const a of c.axes){if(a.relation==='aligned')Object.assign(a,{relation:'uncertain',reason:'insufficient_context'});}c.outcome='insufficient_context';}
+  ];
+  for(const change of bad){const r=make();change(r);assert.equal(rules.isValidAIReport(r,9),false,'非法比较拒绝整份报告');const ui=mount(component,{report:r,sessionToken:memberToken(1)});assert.ok(!ui.text().includes('两卡原文口径对照'));assert.ok(!ui.text().includes('卡合成原文'));ui.app.unmount();}
+  const props=vue.reactive({report:make(),sessionToken:memberToken(1)}),ui=mount({render:()=>vue.h(component,props)});
+  ui.click('两卡对照');await flush();assert.ok(ui.text().includes('两卡原文口径对照'));
+  props.report=report(10);props.sessionToken=memberToken(2);await flush();assert.ok(!ui.text().includes('两卡原文口径对照'));assert.ok(!ui.text().includes('卡合成原文'));ui.app.unmount();
+  assert.equal(env.requests.length,0,'对照展示和出处确认不得发起执行、收费或检索');
+  console.log('通过：两卡七轴/三焦点/政策必核/支持范围/缺字段/不同口径、固定出处提示、27种闭集反例、旧报告和切账号清理；组件替身证据，不替代实际H5。');
+}
+
 async function validators() {
   const env = environment(), rules = env.load('pages/libs/ai.uts');
   assert.equal(rules.isValidAIReport(report(), 9), true);
@@ -1402,7 +1468,7 @@ process.once('beforeExit', () => {
   if (!completed) { console.error('源码验收尚未完成，不得以退出0计通过：'+currentCase); process.exitCode=1; }
 });
 (async () => {
-  for (const check of [validators, dossierReportReview, conversationResponsiveLayout, conversationCreatedList, conversationTaskFrontend, api, historyReportPermission, taskOutcomeFeedback, page, panel, reportPresentation, reportTools, feedbackContracts, feedbackPanel, entry, submissionContracts, submissionPage, memberFlow, creationHistoryFlow, cancellationContracts, cancellationPanel, cancellationMemberFlow, shellTabs, reportQuestionPageAccess, conversationFrontend, conversationRefreshDuringEdit]) {
+  for (const check of [validators, dossierReportReview, reportCardComparison, conversationResponsiveLayout, conversationCreatedList, conversationTaskFrontend, api, historyReportPermission, taskOutcomeFeedback, page, panel, reportPresentation, reportTools, feedbackContracts, feedbackPanel, entry, submissionContracts, submissionPage, memberFlow, creationHistoryFlow, cancellationContracts, cancellationPanel, cancellationMemberFlow, shellTabs, reportQuestionPageAccess, conversationFrontend, conversationRefreshDuringEdit]) {
     currentCase=check.name; await check();
   }
   currentCase='conversationLateMessages'; await conversationLateMessages();
