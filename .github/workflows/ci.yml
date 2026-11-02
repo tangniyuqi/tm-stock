@@ -120,11 +120,45 @@ jobs:
           # 核验清单规范与登记控制增加61个普通节点。
           # Worker守卫和命令生命周期新增5根54子节点，默认CLI不开放核验替换开关。
           # 两卡语义口径内部协议新增11根86子节点，未计作真实模型准确率。
-          MIN=2056
+          # 两卡清单/登记闭集普通验收新增4根21子节点。
+          MIN=2081
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项测试，低于下限 $MIN —— 要么测试没被执行，要么有测试被删。"
             exit 1
           fi
+
+          # 专题两卡清单普通门禁开始
+          COMPARISON_ACTUAL=$(sed -nE 's/^[[:space:]]*--- PASS: (TestDossierComparison[^ ]*) .*/\1/p' /tmp/gotest.log | LC_ALL=C sort)
+          COMPARISON_EXPECTED=$(printf '%s\n' \
+            'TestDossierComparisonManifestRoundTrip' \
+            'TestDossierComparisonManifestRejects' \
+            'TestDossierComparisonManifestRejects/旧协议' \
+            'TestDossierComparisonManifestRejects/轻类型' \
+            'TestDossierComparisonManifestRejects/零题材' \
+            'TestDossierComparisonManifestRejects/零版本' \
+            'TestDossierComparisonManifestRejects/时点越界' \
+            'TestDossierComparisonManifestRejects/档案摘要' \
+            'TestDossierComparisonManifestRejects/空题材名' \
+            'TestDossierComparisonManifestRejects/缺卡' \
+            'TestDossierComparisonManifestRejects/重复卡' \
+            'TestDossierComparisonManifestRejects/卡顺序' \
+            'TestDossierComparisonManifestRejects/非法卡键' \
+            'TestDossierComparisonManifestRejects/错误步位' \
+            'TestDossierComparisonManifestRejects/未知焦点' \
+            'TestDossierComparisonManifestRejects/错组件' \
+            'TestDossierComparisonManifestRegistration' \
+            'TestDossierComparisonManifestRegistration/时间早于档案' \
+            'TestDossierComparisonManifestRegistration/非毫秒时点' \
+            'TestDossierComparisonManifestRegistration/记录身份' \
+            'TestDossierComparisonManifestRegistration/记录类型' \
+            'TestDossierComparisonManifestRegistration/记录哈希' \
+            'TestDossierComparisonManifestRegistration/未知协议' \
+            'TestDossierComparisonManifestRegistration/坏JSON' \
+            'TestDossierComparisonRegistryGates' | LC_ALL=C sort)
+          if [ "$COMPARISON_ACTUAL" != "$COMPARISON_EXPECTED" ] || grep -Eq "^[[:space:]]*--- (SKIP|FAIL): TestDossierComparison" /tmp/gotest.log; then
+            echo "两卡清单/登记普通用例缺失、重复、替名、跳过或失败"; exit 1
+          fi
+          # 专题两卡清单普通门禁结束
 
           # 专题两卡口径协议门禁开始
           # 固定登记11根86子节点；不能以同数量重复、替名或跳过掩盖漏跑。
@@ -1152,6 +1186,110 @@ jobs:
           if [ "$QA_HTTP_ROOTS" -ne 3 ] || [ "$QA_HTTP_LEVELS" -ne 4 ] || [ "$QA_HTTP_BOUNDARIES" -ne 18 ] || [ "$QA_SCHEMA_CASES" -ne 20 ]; then
             echo '::error::问答实际JWT/HTTP/配额/当前撤权/原键未知/无模型读取或结构破坏用例漏跑'; exit 1
           fi
+          # 专题两卡清单真库门禁开始
+          COMPARISON_SQL_ACTUAL=$(sed -nE 's/^[[:space:]]*--- PASS: (TestIntegrationAIReportDossierComparisonRegistry[^ ]*) .*/\1/p' /tmp/it.log | LC_ALL=C sort)
+          COMPARISON_SQL_EXPECTED=$(printf '%s\n' \
+            'TestIntegrationAIReportDossierComparisonRegistryLifecycle' \
+            'TestIntegrationAIReportDossierComparisonRegistryLifecycle/Read_Committed' \
+            'TestIntegrationAIReportDossierComparisonRegistryLifecycle/Read_Committed/旧结构拒绝新协议' \
+            'TestIntegrationAIReportDossierComparisonRegistryLifecycle/Read_Committed/并发登记不自动批准' \
+            'TestIntegrationAIReportDossierComparisonRegistryLifecycle/Read_Committed/缺少AI用途拒绝' \
+            'TestIntegrationAIReportDossierComparisonRegistryLifecycle/Read_Committed/用途默认关闭' \
+            'TestIntegrationAIReportDossierComparisonRegistryLifecycle/Read_Committed/原文重建及登记重放' \
+            'TestIntegrationAIReportDossierComparisonRegistryLifecycle/Read_Committed/新旧入口互拒' \
+            'TestIntegrationAIReportDossierComparisonRegistryLifecycle/Read_Committed/再次迁移保留历史' \
+            'TestIntegrationAIReportDossierComparisonRegistryLifecycle/Read_Committed/零执行与账务副作用' \
+            'TestIntegrationAIReportDossierComparisonRegistryLifecycle/Repeatable_Read' \
+            'TestIntegrationAIReportDossierComparisonRegistryLifecycle/Repeatable_Read/旧结构拒绝新协议' \
+            'TestIntegrationAIReportDossierComparisonRegistryLifecycle/Repeatable_Read/并发登记不自动批准' \
+            'TestIntegrationAIReportDossierComparisonRegistryLifecycle/Repeatable_Read/缺少AI用途拒绝' \
+            'TestIntegrationAIReportDossierComparisonRegistryLifecycle/Repeatable_Read/用途默认关闭' \
+            'TestIntegrationAIReportDossierComparisonRegistryLifecycle/Repeatable_Read/原文重建及登记重放' \
+            'TestIntegrationAIReportDossierComparisonRegistryLifecycle/Repeatable_Read/新旧入口互拒' \
+            'TestIntegrationAIReportDossierComparisonRegistryLifecycle/Repeatable_Read/再次迁移保留历史' \
+            'TestIntegrationAIReportDossierComparisonRegistryLifecycle/Repeatable_Read/零执行与账务副作用' \
+            'TestIntegrationAIReportDossierComparisonRegistryBoundaries' \
+            'TestIntegrationAIReportDossierComparisonRegistryBoundaries/Read_Committed' \
+            'TestIntegrationAIReportDossierComparisonRegistryBoundaries/Read_Committed/use_disabled' \
+            'TestIntegrationAIReportDossierComparisonRegistryBoundaries/Read_Committed/use_expired' \
+            'TestIntegrationAIReportDossierComparisonRegistryBoundaries/Read_Committed/source' \
+            'TestIntegrationAIReportDossierComparisonRegistryBoundaries/Read_Committed/license' \
+            'TestIntegrationAIReportDossierComparisonRegistryBoundaries/Read_Committed/grant' \
+            'TestIntegrationAIReportDossierComparisonRegistryBoundaries/Read_Committed/publication' \
+            'TestIntegrationAIReportDossierComparisonRegistryBoundaries/Read_Committed/member' \
+            'TestIntegrationAIReportDossierComparisonRegistryBoundaries/Read_Committed/theme' \
+            'TestIntegrationAIReportDossierComparisonRegistryBoundaries/Read_Committed/cross_member' \
+            'TestIntegrationAIReportDossierComparisonRegistryBoundaries/Read_Committed/light_scope' \
+            'TestIntegrationAIReportDossierComparisonRegistryBoundaries/Read_Committed/metadata' \
+            'TestIntegrationAIReportDossierComparisonRegistryBoundaries/Read_Committed/strategy' \
+            'TestIntegrationAIReportDossierComparisonRegistryBoundaries/Read_Committed/end_clock_expiry' \
+            'TestIntegrationAIReportDossierComparisonRegistryBoundaries/Read_Committed/unknown_registration' \
+            'TestIntegrationAIReportDossierComparisonRegistryBoundaries/Read_Committed/shared_use_lock' \
+            'TestIntegrationAIReportDossierComparisonRegistryBoundaries/Repeatable_Read' \
+            'TestIntegrationAIReportDossierComparisonRegistryBoundaries/Repeatable_Read/use_disabled' \
+            'TestIntegrationAIReportDossierComparisonRegistryBoundaries/Repeatable_Read/use_expired' \
+            'TestIntegrationAIReportDossierComparisonRegistryBoundaries/Repeatable_Read/source' \
+            'TestIntegrationAIReportDossierComparisonRegistryBoundaries/Repeatable_Read/license' \
+            'TestIntegrationAIReportDossierComparisonRegistryBoundaries/Repeatable_Read/grant' \
+            'TestIntegrationAIReportDossierComparisonRegistryBoundaries/Repeatable_Read/publication' \
+            'TestIntegrationAIReportDossierComparisonRegistryBoundaries/Repeatable_Read/member' \
+            'TestIntegrationAIReportDossierComparisonRegistryBoundaries/Repeatable_Read/theme' \
+            'TestIntegrationAIReportDossierComparisonRegistryBoundaries/Repeatable_Read/cross_member' \
+            'TestIntegrationAIReportDossierComparisonRegistryBoundaries/Repeatable_Read/light_scope' \
+            'TestIntegrationAIReportDossierComparisonRegistryBoundaries/Repeatable_Read/metadata' \
+            'TestIntegrationAIReportDossierComparisonRegistryBoundaries/Repeatable_Read/strategy' \
+            'TestIntegrationAIReportDossierComparisonRegistryBoundaries/Repeatable_Read/end_clock_expiry' \
+            'TestIntegrationAIReportDossierComparisonRegistryBoundaries/Repeatable_Read/unknown_registration' \
+            'TestIntegrationAIReportDossierComparisonRegistryBoundaries/Repeatable_Read/shared_use_lock' \
+            'TestIntegrationAIReportDossierComparisonRegistrySchema' \
+            'TestIntegrationAIReportDossierComparisonRegistrySchema/unknown_protocol' \
+            'TestIntegrationAIReportDossierComparisonRegistrySchema/light' \
+            'TestIntegrationAIReportDossierComparisonRegistrySchema/missing_card' \
+            'TestIntegrationAIReportDossierComparisonRegistrySchema/duplicate_card' \
+            'TestIntegrationAIReportDossierComparisonRegistrySchema/reverse_keys' \
+            'TestIntegrationAIReportDossierComparisonRegistrySchema/unknown_focus' \
+            'TestIntegrationAIReportDossierComparisonRegistrySchema/null_focus' \
+            'TestIntegrationAIReportDossierComparisonRegistrySchema/missing_focus' \
+            'TestIntegrationAIReportDossierComparisonRegistrySchema/wrong_step' \
+            'TestIntegrationAIReportDossierComparisonRegistrySchema/fraction_step' \
+            'TestIntegrationAIReportDossierComparisonRegistrySchema/missing_model' \
+            'TestIntegrationAIReportDossierComparisonRegistrySchema/model_type' \
+            'TestIntegrationAIReportDossierComparisonRegistrySchema/foreign_version' \
+            'TestIntegrationAIReportDossierComparisonRegistryCancellation' \
+            'TestIntegrationAIReportDossierComparisonRegistryReader' \
+            'TestIntegrationAIReportDossierComparisonRegistryReader/Read_Committed' \
+            'TestIntegrationAIReportDossierComparisonRegistryReader/Read_Committed/只读连接实际重建' \
+            'TestIntegrationAIReportDossierComparisonRegistryReader/Read_Committed/只读服务拒绝登记' \
+            'TestIntegrationAIReportDossierComparisonRegistryReader/Read_Committed/addon_member' \
+            'TestIntegrationAIReportDossierComparisonRegistryReader/Read_Committed/addon_quant_theme' \
+            'TestIntegrationAIReportDossierComparisonRegistryReader/Read_Committed/tm_ai_dossier_versions' \
+            'TestIntegrationAIReportDossierComparisonRegistryReader/Read_Committed/tm_ai_dossier_evidence' \
+            'TestIntegrationAIReportDossierComparisonRegistryReader/Read_Committed/tm_ai_dossier_publications' \
+            'TestIntegrationAIReportDossierComparisonRegistryReader/Read_Committed/tm_ai_dossier_grants' \
+            'TestIntegrationAIReportDossierComparisonRegistryReader/Read_Committed/tm_ai_sources' \
+            'TestIntegrationAIReportDossierComparisonRegistryReader/Read_Committed/tm_ai_source_snapshots' \
+            'TestIntegrationAIReportDossierComparisonRegistryReader/Read_Committed/tm_ai_source_bodies' \
+            'TestIntegrationAIReportDossierComparisonRegistryReader/Read_Committed/tm_ai_dossier_support_plans' \
+            'TestIntegrationAIReportDossierComparisonRegistryReader/Read_Committed/tm_ai_dossier_support_uses' \
+            'TestIntegrationAIReportDossierComparisonRegistryReader/Repeatable_Read' \
+            'TestIntegrationAIReportDossierComparisonRegistryReader/Repeatable_Read/只读连接实际重建' \
+            'TestIntegrationAIReportDossierComparisonRegistryReader/Repeatable_Read/只读服务拒绝登记' \
+            'TestIntegrationAIReportDossierComparisonRegistryReader/Repeatable_Read/addon_member' \
+            'TestIntegrationAIReportDossierComparisonRegistryReader/Repeatable_Read/addon_quant_theme' \
+            'TestIntegrationAIReportDossierComparisonRegistryReader/Repeatable_Read/tm_ai_dossier_versions' \
+            'TestIntegrationAIReportDossierComparisonRegistryReader/Repeatable_Read/tm_ai_dossier_evidence' \
+            'TestIntegrationAIReportDossierComparisonRegistryReader/Repeatable_Read/tm_ai_dossier_publications' \
+            'TestIntegrationAIReportDossierComparisonRegistryReader/Repeatable_Read/tm_ai_dossier_grants' \
+            'TestIntegrationAIReportDossierComparisonRegistryReader/Repeatable_Read/tm_ai_sources' \
+            'TestIntegrationAIReportDossierComparisonRegistryReader/Repeatable_Read/tm_ai_source_snapshots' \
+            'TestIntegrationAIReportDossierComparisonRegistryReader/Repeatable_Read/tm_ai_source_bodies' \
+            'TestIntegrationAIReportDossierComparisonRegistryReader/Repeatable_Read/tm_ai_dossier_support_plans' \
+            'TestIntegrationAIReportDossierComparisonRegistryReader/Repeatable_Read/tm_ai_dossier_support_uses' | LC_ALL=C sort)
+          if [ "$COMPARISON_SQL_ACTUAL" != "$COMPARISON_SQL_EXPECTED" ] || grep -Eq "^[[:space:]]*--- (SKIP|FAIL): TestIntegrationAIReportDossierComparisonRegistry" /tmp/it.log; then
+            echo "两卡清单/登记真库用例缺失、重复、替名、跳过或失败"; exit 1
+          fi
+          # 专题两卡清单真库门禁结束
+
           # 专题字段核验真库门禁开始
           SUPPORT_SQL_ROOTS=$(grep -Ec '^--- PASS: TestIntegrationAIReportDossierSupport[^ /]+ ' /tmp/it.log || true)
           SUPPORT_SQL_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportDossierSupport[^ /]+/' /tmp/it.log || true)
@@ -1335,7 +1473,8 @@ jobs:
           # 核验登记与资料只读权限增加5根、10隔离父组及104具体场景，共119项。
           # 专题完整六步报告增加6根、12隔离子组、4轻深父组及60具体场景，共82项。
           # 核验公开投影/当前授权读取新增1根、2隔离组、4轻深组及24反例，共31项。
-          MIN=1642
+          # 两卡清单/授权重建真库新增5根91子节点，保留旧清单回归。
+          MIN=1738
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项，低于下限 $MIN —— 要么没跑，要么有测试被删。"; exit 1
           fi

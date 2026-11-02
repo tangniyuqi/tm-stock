@@ -11,6 +11,7 @@ import (
 	"github.com/tangniyuqi/tm-stock/server/internal/ai/dossier"
 	"github.com/tangniyuqi/tm-stock/server/internal/ai/finalreport"
 	"github.com/tangniyuqi/tm-stock/server/internal/ai/task"
+	"github.com/tangniyuqi/tm-stock/server/internal/sources"
 )
 
 type AIDossierSupportRegistryService struct {
@@ -31,7 +32,32 @@ func (s AIDossierSupportRegistryService) GoString() string { return s.String() }
 
 // RegisterInternal只登记可重建计划，不写AI用途批准、会员许可、结果发布或账务。
 func (s *AIDossierSupportRegistryService) RegisterInternal(parent context.Context, m *dossier.SupportManifest) (string, error) {
-	if s == nil || s.store == nil || !s.stage || parent == nil || !m.Valid() {
+	return s.registerManifest(parent, m, func(ctx context.Context, b *dossier.BoundDraft, snapshots []sources.Snapshot) error {
+		_, err := m.Rebuild(ctx, b, snapshots)
+		return err
+	})
+}
+
+// RegisterComparisonInternal沿同一登记事务，不将登记升级为AI用途或执行批准。
+func (s *AIDossierSupportRegistryService) RegisterComparisonInternal(parent context.Context, m *dossier.CardComparisonManifest) (string, error) {
+	return s.registerManifest(parent, m, func(ctx context.Context, b *dossier.BoundDraft, snapshots []sources.Snapshot) error {
+		_, err := m.Rebuild(ctx, b, snapshots)
+		return err
+	})
+}
+
+type dossierRegistryManifest interface {
+	Valid() bool
+	Identity() dossier.DraftIdentity
+	DraftDigest() string
+	ComponentDigest() string
+	AnalysisType() int
+	Canonical() []byte
+	Registration(time.Time) (dossier.SupportRegistration, error)
+}
+
+func (s *AIDossierSupportRegistryService) registerManifest(parent context.Context, m dossierRegistryManifest, rebuild func(context.Context, *dossier.BoundDraft, []sources.Snapshot) error) (string, error) {
+	if s == nil || s.store == nil || !s.stage || parent == nil || m == nil || !m.Valid() || rebuild == nil {
 		return "", dossier.ErrInvalidDraft
 	}
 	ctx, cancel := context.WithTimeout(parent, 10*time.Second)
@@ -70,7 +96,7 @@ func (s *AIDossierSupportRegistryService) RegisterInternal(parent context.Contex
 		if err != nil || bound.Identity() != row.Identity || !slices.Equal(bound.Stored().Evidence, row.Evidence) {
 			return dossier.ErrSupportReview
 		}
-		if _, err = m.Rebuild(ctx, bound, snapshots); err != nil {
+		if err = rebuild(ctx, bound, snapshots); err != nil {
 			return err
 		}
 		now, err := db.Now(ctx)
@@ -82,7 +108,7 @@ func (s *AIDossierSupportRegistryService) RegisterInternal(parent context.Contex
 		}
 		old, err := tx.SupportManifest(ctx, m.ComponentDigest())
 		if err == nil {
-			if _, err = old.Manifest(); err != nil || !bytes.Equal(old.Canonical, m.Canonical()) || old.CreatedAt.After(now) {
+			if _, err = old.ValidatedDraftDigest(); err != nil || !bytes.Equal(old.Canonical, m.Canonical()) || old.CreatedAt.After(now) {
 				return dossier.ErrConflict
 			}
 		} else if !errors.Is(err, dossier.ErrNotFound) {
@@ -142,7 +168,46 @@ func (s *AIDossierSupportRegistryService) loadForTask(parent context.Context, v 
 }
 
 func (s *AIDossierSupportRegistryService) prepareForScope(parent context.Context, scope task.AdmissionScope, component string, consume func(context.Context, *dossier.SupportPreparation) error) error {
-	if s == nil || s.store == nil || parent == nil || scope.Validate() != nil || scope.SubjectType != task.Theme || !finalreport.ValidDigest(component) || consume == nil {
+	if consume == nil {
+		return dossier.ErrSupportReview
+	}
+	return s.prepareManifestForScope(parent, scope, component, func(r dossier.SupportRegistration) (dossierRegistryManifest, error) { return r.Manifest() },
+		func(ctx context.Context, m dossierRegistryManifest, bound *dossier.BoundDraft, snapshots []sources.Snapshot) error {
+			old, ok := m.(*dossier.SupportManifest)
+			if !ok {
+				return dossier.ErrSupportReview
+			}
+			prepared, err := old.Rebuild(ctx, bound, snapshots)
+			if err != nil {
+				return err
+			}
+			return consume(ctx, prepared)
+		})
+}
+
+// PrepareComparisonForScope逐次复核原会员/档案/来源和独立AI用途，不创建任务或执行模型。
+func (s *AIDossierSupportRegistryService) PrepareComparisonForScope(parent context.Context, scope task.AdmissionScope, component string) (*dossier.CardComparisonPreparation, error) {
+	var out *dossier.CardComparisonPreparation
+	err := s.prepareManifestForScope(parent, scope, component, func(r dossier.SupportRegistration) (dossierRegistryManifest, error) {
+		return r.CardComparisonManifest()
+	},
+		func(ctx context.Context, m dossierRegistryManifest, bound *dossier.BoundDraft, snapshots []sources.Snapshot) error {
+			comparison, ok := m.(*dossier.CardComparisonManifest)
+			if !ok {
+				return dossier.ErrCardComparison
+			}
+			var err error
+			out, err = comparison.Rebuild(ctx, bound, snapshots)
+			return err
+		})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (s *AIDossierSupportRegistryService) prepareManifestForScope(parent context.Context, scope task.AdmissionScope, component string, decode func(dossier.SupportRegistration) (dossierRegistryManifest, error), consume func(context.Context, dossierRegistryManifest, *dossier.BoundDraft, []sources.Snapshot) error) error {
+	if s == nil || s.store == nil || parent == nil || scope.Validate() != nil || scope.SubjectType != task.Theme || !finalreport.ValidDigest(component) || decode == nil || consume == nil {
 		return dossier.ErrSupportReview
 	}
 	ctx, cancel := context.WithTimeout(parent, 10*time.Second)
@@ -155,8 +220,8 @@ func (s *AIDossierSupportRegistryService) prepareForScope(parent context.Context
 		if err != nil {
 			return err
 		}
-		m, err := r.Manifest()
-		if err != nil || m.Identity().ThemeID != scope.SubjectID || m.AnalysisType() != scope.AnalysisType {
+		m, err := decode(r)
+		if err != nil || m == nil || !m.Valid() || m.Identity().ThemeID != scope.SubjectID || m.AnalysisType() != scope.AnalysisType {
 			return dossier.ErrSupportReview
 		}
 		db := tx.Dossiers()
@@ -190,11 +255,7 @@ func (s *AIDossierSupportRegistryService) prepareForScope(parent context.Context
 		if err != nil {
 			return err
 		}
-		prepared, err := m.Rebuild(ctx, bound[0], snapshots)
-		if err != nil {
-			return err
-		}
-		if err := consume(ctx, prepared); err != nil {
+		if err := consume(ctx, m, bound[0], snapshots); err != nil {
 			return err
 		}
 		finished, err := db.Now(ctx)

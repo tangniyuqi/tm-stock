@@ -67,8 +67,8 @@ func (t *aiDossierSupportTx) SupportManifest(ctx context.Context, digest string)
 	if err != nil {
 		return dossier.SupportRegistration{}, err
 	}
-	m, err := r.Manifest()
-	if err != nil || m.DraftDigest() != versionDigest {
+	draftDigest, err := r.ValidatedDraftDigest()
+	if err != nil || draftDigest != versionDigest {
 		return dossier.SupportRegistration{}, dossier.ErrSupportReview
 	}
 	return r, nil
@@ -77,11 +77,11 @@ func (t *aiDossierSupportTx) InsertSupportManifest(ctx context.Context, r dossie
 	if !t.write {
 		return dossier.ErrInvalidDraft
 	}
-	m, err := r.Manifest()
+	digest, err := r.ValidatedDraftDigest()
 	if err != nil {
 		return err
 	}
-	_, err = t.tx.ExecContext(ctx, `INSERT INTO tm_ai_dossier_support_plans(component_digest,theme_id,version_no,version_digest,analysis_type,manifest_digest,canonical,compiled_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)`, r.ComponentDigest, r.Identity.ThemeID, r.Identity.Version, m.DraftDigest(), r.AnalysisType, r.ManifestDigest, r.Canonical, pointsUTC(time.UnixMilli(r.Identity.CreatedAt)), pointsUTC(r.CreatedAt), pointsUTC(r.CreatedAt))
+	_, err = t.tx.ExecContext(ctx, `INSERT INTO tm_ai_dossier_support_plans(component_digest,theme_id,version_no,version_digest,analysis_type,manifest_digest,canonical,compiled_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)`, r.ComponentDigest, r.Identity.ThemeID, r.Identity.Version, digest, r.AnalysisType, r.ManifestDigest, r.Canonical, pointsUTC(time.UnixMilli(r.Identity.CreatedAt)), pointsUTC(r.CreatedAt), pointsUTC(r.CreatedAt))
 	return dossierDBError(err)
 }
 func (t *aiDossierSupportTx) SupportUse(ctx context.Context, digest string) (dossier.Approval, error) {

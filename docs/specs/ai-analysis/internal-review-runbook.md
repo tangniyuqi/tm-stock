@@ -1,5 +1,13 @@
 # AI 内部操作手册（L0 审核与隔离 Agent 执行）
 
+## 两卡清单登记及当前授权重建（2026-11-02）
+
+`dossier-card-comparison-manifest-v1`复用原核验清单与AI用途表，专用清单解码器和旧字段清单互拒。原内部登记服务显式开启后可调用RegisterComparisonInternal；PrepareComparisonForScope仅接原认证/准入控制面核定的深度会员范围，逐次核本人档案、发布、来源和独立AI用途，不能由公开请求自行指定会员身份。登记不自动授予用途、读取或发布许可。
+
+先按迁移序数执行`20261102_register_dossier_card_comparison.sql`，变更时停止核验登记写入；仅扩展原CHECK到显式第二协议，新协议另核深度、两卡、焦点及第5步，不修改历史记录、不可变触发器、用途默认值或调用审计。未迁移时新登记应拒绝，旧字段登记/读取保持原协议。不要把这段资料重建接成现有六步报告的语义第5步；完整执行版本、准入和终检还需接线。
+
+在server目录执行`go test -race -count=1 -v ./internal/ai/dossier ./internal/service -run '^TestDossierComparison'`，预期4根21子例共25个唯一通过节点、零跳过。真库以原生隔离脚本、单次ReportsOnly选择`^TestIntegrationAIReportDossierComparisonRegistry`，预期5根91子节点共96个唯一PASS；另跑原`^TestIntegrationAIReportDossierRegistry`回归。MySQL8/9与普通协议证据分别记录；一次只采集仓储或服务覆盖率，不同时传两个覆盖参数。测试包含原HTTP夹具已有的一条取消任务和一条当前任务，断言两条不增加、原冻结/账务和调用数不变，不宣称空库零任务。
+
 ## 两卡语义口径内核（2026-11-02）
 
 在server目录执行`go test -race -count=1 -v ./internal/ai/dossier -run '^TestDossierCardComparison'`，预期11根86子例共97个唯一通过节点、零跳过。使用同一精确档案版本的两张不同候选卡，显式焦点为definition/progress/measurement；核七轴、完整正文和未知字段、出处关系、原任务/版本绑定、闭集回执与用量、捕获原包、取消及原judge策略。合成固定回执不证明模型判断准确，不得将全未知或不同网址称作多来源已核。
