@@ -1,0 +1,3 @@
+// 沿用题材目录与会员页的红白配色；只供AI展示使用，不修改组件库全局主题。
+export const aiBrandColor : string = '#E93030'
+export const aiMutedColor : string = '#60656E'

@@ -1,0 +1,6 @@
+// 与原题材页、会员页一致的阅读层级和轻量操作布局。
+.ai-action-row { flex-direction: row; flex-wrap: wrap; align-items: center; }
+.ai-action-cell { flex: 1; min-width: 0; }
+.ai-section-tabs { flex-direction: row; flex-wrap: wrap; margin-top: 8px; }
+.ai-section-tab { margin-right: 4px; margin-top: 4px; }
+.ai-quote-block { margin-top: 16px; padding: 14px; background-color: #f7f8fa; border-radius: 12px; }

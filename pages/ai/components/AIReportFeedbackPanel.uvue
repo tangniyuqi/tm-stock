@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { aiBrandColor, aiMutedColor } from '../ai-theme.uts'
 import { ref, watch, onBeforeUnmount } from 'vue'
 import { AiFeedbackApi } from '../../libs/ai-feedback-api.uts'
 import { AIFeedback, aiFeedbackStatus, aiFeedbackResolution, isAIFeedbackCategory } from '../../libs/ai-feedback.uts'
@@ -75,12 +76,12 @@ onBeforeUnmount(() => { alive = false; reset() })
 </script>
 
 <template>
-	<x-sheet :margin="16" :padding="16" :round="12" dark-color="#ffffff">
+	<x-sheet :margin="16" :padding="16" :round="18" dark-color="#ffffff">
 		<text class="feedback-heading text-weight-b">报告反馈 · 任务 #{{ taskId }}</text>
 		<text class="feedback-copy mt-8">报告暂不可读时仍可查询反馈。反馈不触发重新生成、扣费或自动退款。</text>
-		<x-button class="mt-12" height="44" :block="true" skin="outline" :disabled="busy" @click="toggle">{{ expanded ? '收起报告反馈' : '举报与反馈' }}</x-button>
+		<x-button :color="aiMutedColor" class="mt-12" height="44" :block="true" skin="text" :disabled="busy" @click="toggle" round="10" font-size="14">{{ expanded ? '收起报告反馈' : '举报与反馈' }}</x-button>
 		<view v-if="expanded">
-			<x-button class="mt-12" height="44" :block="true" skin="outline" :loading="busy" :disabled="busy" @click="load">查询反馈状态</x-button>
+			<x-button :color="aiMutedColor" class="mt-12" height="44" :block="true" skin="text" :loading="busy" :disabled="busy" @click="load" round="10" font-size="14">查询反馈状态</x-button>
 			<text v-if="busy" class="feedback-copy mt-8">正在核对，请稍候…</text>
 			<text v-if="loaded && items.length == 0" class="feedback-copy mt-8">本报告暂无反馈记录，可选择问题分类后提交。</text>
 			<view v-for="item in items" :key="item.id" class="feedback-receipt mt-12 pa-12 round-8">
@@ -90,15 +91,16 @@ onBeforeUnmount(() => { alive = false; reset() })
 				<text class="feedback-copy mt-4">更新时间：{{ formatMillis(item.updatedAt) }}</text>
 			</view>
 			<text class="feedback-copy mt-12">选择问题分类；不收集自由文本、账号、联系方式或报告正文。</text>
-			<x-button v-for="item in categories" :key="item" class="mt-8" height="44" :block="true" :skin="category == item ? 'thin' : 'outline'" :disabled="busy || !loaded || uncertain != ''" @click="choose(item)">{{ aiFeedbackCategoryLabel(item) }}</x-button>
-			<x-button class="mt-12" height="44" :block="true" :disabled="busy || !loaded || uncertain != ''" @click="submit">确认反馈分类</x-button>
+			<x-button :color="aiBrandColor" v-for="item in categories" :key="item" class="mt-8" height="44" :block="true" :skin="category == item ? 'thin' : 'outline'" :disabled="busy || !loaded || uncertain != ''" @click="choose(item)" round="10" font-size="14">{{ aiFeedbackCategoryLabel(item) }}</x-button>
+			<x-button :color="aiBrandColor" class="mt-12" height="44" :block="true" :disabled="busy || !loaded || uncertain != ''" @click="submit" round="10" font-size="14">确认反馈分类</x-button>
 			<text v-if="message != ''" class="feedback-copy mt-8">{{ message }}</text>
 		</view>
 	</x-sheet>
 </template>
 
-<style scoped>
-.feedback-heading { color: #30343c; }
-.feedback-copy { color: #586174; font-size: 13px; line-height: 22px; }
+<style lang="scss" scoped>
+@import "../ai-theme.scss";
+.feedback-heading { color: #1f2329; }
+.feedback-copy { color: #6b7280; font-size: 13px; line-height: 22px; }
 .feedback-receipt { background-color: #f5f7fa; }
 </style>

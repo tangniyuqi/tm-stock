@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { aiMutedColor } from '../ai-theme.uts'
 import { computed } from 'vue'
 import { AIDossierView, AIDossierCardChange, dossierSectionLabel, dossierFieldLabel, dossierGapLabel } from '../../libs/ai-dossier.uts'
 import { formatMillis } from '../../libs/theme.uts'
@@ -29,10 +30,10 @@ const changeQuote = (key : string, newer : boolean) : string => { if (view.value
 					<view v-for="(card,index) in row.cards" :key="card.key" class="dossier-version mt-8">
 						<text class="dossier-title">{{ dossierSectionLabel(card.section) }} · 资料卡 {{ index + 1 }}</text><text class="dossier-quote mt-8">{{ card.quote.text }}</text>
 						<text class="dossier-copy mt-4">{{ aiSourceTypeLabel(card.quote.sourceType) }} · 采集于 {{ formatMillis(card.quote.collectedAt) }} · 原文第 {{ card.quote.sentence }} 句</text>
-						<x-button class="mt-8" height="44" :block="true" skin="outline" :disabled="busy" @click="copySource(row.version,card.key,'')">核对并复制原文链接</x-button>
+						<x-button :color="aiMutedColor" class="mt-8" height="44" :block="true" skin="text" :disabled="busy" @click="copySource(row.version,card.key,'')" round="10" font-size="14">核对并复制原文链接</x-button>
 						<view v-for="field in card.fields" :key="field.key" class="mt-8">
 							<text class="dossier-copy">{{ dossierFieldLabel(field.key) }}：{{ field.state == 'unknown' ? '未知，资料不足' : field.quote!.text }}</text>
-							<view v-if="field.state == 'known'"><text class="dossier-quote mt-4">字段原句：{{ field.quote!.context }}</text><x-button class="mt-4" height="44" :block="true" skin="outline" :disabled="busy" @click="copySource(row.version,card.key,field.key)">核对{{ dossierFieldLabel(field.key) }}的原文链接</x-button></view>
+							<view v-if="field.state == 'known'"><text class="dossier-quote mt-4">字段原句：{{ field.quote!.context }}</text><x-button :color="aiMutedColor" class="mt-4" height="44" :block="true" skin="text" :disabled="busy" @click="copySource(row.version,card.key,field.key)" round="10" font-size="14">核对{{ dossierFieldLabel(field.key) }}的原文链接</x-button></view>
 						</view>
 					</view>
 					<text v-if="row.gaps.length == 0" class="dossier-copy mt-8">此版本未登记额外缺口，不表示资料已经完备。</text>
@@ -40,9 +41,10 @@ const changeQuote = (key : string, newer : boolean) : string => { if (view.value
 				</view>
 			</view>
 </template>
-<style scoped>
+<style lang="scss" scoped>
+@import "../ai-theme.scss";
 .dossier-version { padding: 12px; background-color: #ffffff; border-radius: 8px; min-width: 0; }
-.dossier-title { color: #30343c; font-size: 15px; line-height: 24px; }
-.dossier-copy { color: #586174; font-size: 14px; line-height: 23px; }
-.dossier-quote { color: #30343c; font-size: 14px; line-height: 25px; white-space: pre-wrap; }
+.dossier-title { color: #1f2329; font-size: 15px; font-weight: 600; line-height: 24px; }
+.dossier-copy { color: #6b7280; font-size: 14px; line-height: 23px; }
+.dossier-quote { color: #1f2329; font-size: 14px; line-height: 25px; white-space: pre-wrap; }
 </style>

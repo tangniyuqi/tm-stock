@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { aiBrandColor, aiMutedColor } from '../ai-theme.uts'
 import { ref, watch, onBeforeUnmount } from 'vue'
 import { AIDossierApi } from '../../libs/ai-dossier-api.uts'
 import { AIDossierVersionItem, AIDossierView, AIDossierQuote, dossierQuoteFor, dossierError } from '../../libs/ai-dossier.uts'
@@ -96,7 +97,7 @@ onBeforeUnmount(() => { alive = false; reset() })
 	<view class="dossier-panel mt-12">
 		<text class="dossier-title text-weight-b">{{ themeName }} · 专题档案</text>
 		<text class="dossier-copy mt-4">查阅已获授权的资料卡、原文出处与版本变化。本次查询不调用模型、不扣积分。</text>
-		<x-button class="mt-8" height="44" :block="true" skin="outline" @click="toggle">{{ expanded ? '收起专题档案' : '查询可读档案版本' }}</x-button>
+		<x-button :color="aiMutedColor" class="mt-8" height="44" :block="true" skin="text" @click="toggle" round="10" font-size="14">{{ expanded ? '收起专题档案' : '查询可读档案版本' }}</x-button>
 		<view v-if="expanded" class="mt-8">
 			<text class="dossier-copy">所选版本用于本次档案查阅；资料问答仍在当前题材的授权资料范围内检索。</text>
 			<text v-if="busy" class="dossier-copy">正在核对当前资料与版本权限…</text>
@@ -104,27 +105,28 @@ onBeforeUnmount(() => { alive = false; reset() })
 			<view v-for="item in versions" :key="item.version" class="dossier-version mt-8">
 				<text class="dossier-title">版本 {{ item.version }} · 编制于 {{ formatMillis(item.compiledAt) }}</text>
 				<view class="dossier-actions mt-8">
-					<view class="dossier-action"><x-button height="44" :block="true" skin="outline" :disabled="busy" @click="read(item.version,0)">阅读此版本</x-button></view>
-					<view class="dossier-action ml-8"><x-button height="44" :block="true" :skin="picked.includes(item.version) ? 'primary' : 'outline'" :disabled="busy" @click="choose(item.version)">{{ picked.includes(item.version) ? '取消对照' : '加入对照' }}</x-button></view>
+					<view class="dossier-action"><x-button :color="aiMutedColor" height="44" :block="true" skin="text" :disabled="busy" @click="read(item.version,0)" round="10" font-size="14">阅读此版本</x-button></view>
+					<view class="dossier-action ml-8"><x-button :color="aiBrandColor" height="44" :block="true" :skin="picked.includes(item.version) ? 'primary' : 'outline'" :disabled="busy" @click="choose(item.version)" round="10" font-size="14">{{ picked.includes(item.version) ? '取消对照' : '加入对照' }}</x-button></view>
 				</view>
 			</view>
-			<x-button v-if="hasMore" class="mt-8" height="44" :block="true" skin="outline" :disabled="busy" @click="loadVersions(true)">查询更早的可读版本</x-button>
-			<x-button v-if="versions.length > 0" class="mt-8" height="44" :block="true" :disabled="busy || picked.length != 2" @click="comparePicked">对照所选的两个版本（{{ picked.length }}/2）</x-button>
-			<x-button class="mt-8" height="44" :block="true" skin="outline" :disabled="busy" @click="loadVersions(false)">重新核对可读版本</x-button>
+			<x-button :color="aiMutedColor" v-if="hasMore" class="mt-8" height="44" :block="true" skin="text" :disabled="busy" @click="loadVersions(true)" round="10" font-size="14">查询更早的可读版本</x-button>
+			<x-button :color="aiBrandColor" v-if="versions.length > 0" class="mt-8" height="44" :block="true" :disabled="busy || picked.length != 2" @click="comparePicked" round="10" font-size="14">对照所选的两个版本（{{ picked.length }}/2）</x-button>
+			<x-button :color="aiMutedColor" class="mt-8" height="44" :block="true" skin="text" :disabled="busy" @click="loadVersions(false)" round="10" font-size="14">重新核对可读版本</x-button>
 			<text v-if="message != ''" class="dossier-copy mt-12">{{ message }}</text>
-			<x-button v-if="pendingSelection != null" class="mt-8" height="44" :block="true" skin="outline" :disabled="busy" @click="checkSaved">查询原组合保存收据</x-button>
-			<x-button v-if="view != null && conversationId > 0 && !archived" class="mt-8" height="44" :block="true" skin="outline" :disabled="busy || pendingSelection != null" @click="save">保存当前档案到本会话（不扣积分）</x-button>
+			<x-button :color="aiMutedColor" v-if="pendingSelection != null" class="mt-8" height="44" :block="true" skin="text" :disabled="busy" @click="checkSaved" round="10" font-size="14">查询原组合保存收据</x-button>
+			<x-button :color="aiMutedColor" v-if="view != null && conversationId > 0 && !archived" class="mt-8" height="44" :block="true" skin="text" :disabled="busy || pendingSelection != null" @click="save" round="10" font-size="14">保存当前档案到本会话（不扣积分）</x-button>
 			<AIDossierContent v-if="view != null" :value="view!" :busy="busy" @copy="copySource"></AIDossierContent>
 		</view>
 	</view>
 </template>
 
-<style scoped>
+<style lang="scss" scoped>
+@import "../ai-theme.scss";
 .dossier-panel { padding: 12px; background-color: #f6f8fc; border-radius: 10px; min-width: 0; }
 .dossier-version { padding: 12px; background-color: #ffffff; border-radius: 8px; min-width: 0; }
-.dossier-title { color: #30343c; font-size: 15px; line-height: 24px; }
-.dossier-copy { color: #586174; font-size: 14px; line-height: 23px; }
-.dossier-quote { color: #30343c; font-size: 14px; line-height: 25px; white-space: pre-wrap; }
+.dossier-title { color: #1f2329; font-size: 15px; font-weight: 600; line-height: 24px; }
+.dossier-copy { color: #6b7280; font-size: 14px; line-height: 23px; }
+.dossier-quote { color: #1f2329; font-size: 14px; line-height: 25px; white-space: pre-wrap; }
 .dossier-actions { flex-direction: row; }
 .dossier-action { flex: 1; min-width: 0; }
 </style>

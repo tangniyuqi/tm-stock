@@ -10,7 +10,7 @@ CLI入口始终固定原实例/准入/结构/审计核验和原轻深循环，�
 
 原成功报告GET响应可选附带dossierReview；旧报告没有该键。该结果只投影已终检的原字段计划和固定回执，不外发模型自由输出、内部摘要或批准。读取仍在原事务中重取精确版本、当前用途/发布/会员/来源和原文坐标，任一失效整份拒读；曾成功结算不授予永久读取权，复读不生成任务或扣分。前端在原报告增加“专题字段核验”，所核内容明确为候选，逐项显示支持范围、理由码、原文语境和来源；来源按钮沿原确认流程。
 
-普通协议专项在server目录执行`go test -race -count=1 -v ./internal/ai/dossier ./internal/service -run '^TestDossierReview'`，预期2根10子例且零跳过。仓库根运行`node scripts/dev/verify-ai-report-ui.cjs`验证旧报告兼容、固定标签、畸形数据、来源确认及账号/报告切换；它不代替实际uni-app x编译或浏览器。
+普通协议专项在server目录执行`go test -race -count=1 -v ./internal/ai/dossier ./internal/service -run '^TestDossierReview'`，预期2根10子例且零跳过。仓库根运行`node scripts/dev/verify-ai-report-ui.cjs <隔离依赖目录>`验证旧报告兼容、固定标签、畸形数据、来源确认及账号/报告切换；固定依赖见本手册对应前端验收段，它不代替实际uni-app x编译或浏览器。
 
 真库仍串行运行原生脚本，`-ReportPattern '^TestIntegrationAIReport(DossierReviewRead|DossierWorkflowProcess)$' -ReportsOnly -RunCount 1`，分别用下节MySQL8/9路径。Read根预期31个唯一PASS（1根30子节点），RC/RR及轻深覆盖用途/发布/会员/来源撤回、恢复、跨会员和两次读取之间撤权，复读零新增调用/账务；Process另7节点。每个父脚本须退出0、客户端65项通过且实例停止清理，不能只看子例。
 

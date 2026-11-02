@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { aiMutedColor } from '../ai-theme.uts'
 import { ref, watch, onBeforeUnmount } from 'vue'
 import { AIConversationDossierApi, AISavedDossier, AISavedDossierView, savedDossierNotice, savedDossierError } from '../../libs/ai-conversation-dossier.uts'
 import { dossierQuoteFor, AIDossierQuote } from '../../libs/ai-dossier.uts'
@@ -64,7 +65,7 @@ onBeforeUnmount(() => { alive = false; reset() })
 	<view class="saved-dossiers mt-12">
 		<text class="saved-title text-weight-b">本会话已保存档案</text>
 		<text class="saved-copy mt-4">仅保存版本入口，不存原文、不调用模型、不扣积分；打开时核对当前资料权限。</text>
-		<x-button class="mt-8" height="44" :block="true" skin="outline" @click="toggle">{{ expanded ? '收起已保存档案' : '查询本会话保存的档案' }}</x-button>
+		<x-button :color="aiMutedColor" class="mt-8" height="44" :block="true" skin="text" @click="toggle" round="10" font-size="14">{{ expanded ? '收起已保存档案' : '查询本会话保存的档案' }}</x-button>
 		<view v-if="expanded" class="mt-8">
 			<text class="saved-copy">{{ savedDossierNotice }}</text>
 			<text v-if="busy" class="saved-copy mt-8">正在核对本人引用或当前原文权限…</text>
@@ -72,17 +73,18 @@ onBeforeUnmount(() => { alive = false; reset() })
 			<view v-for="item in rows" :key="item.id" class="mt-12">
 				<text class="saved-title">题材 #{{ item.themeId }} · {{ item.compareVersion == 0 ? '版本 ' + item.version.toString() : '版本 ' + item.version.toString() + ' 与 ' + item.compareVersion.toString() }}</text>
 				<text class="saved-copy mt-4">保存于 {{ formatMillis(item.createdAt) }}</text>
-				<x-button class="mt-8" height="44" :block="true" skin="outline" :disabled="busy" @click="read(item,0,'','')">核对并打开档案引用 #{{ item.id }}</x-button>
+				<x-button :color="aiMutedColor" class="mt-8" height="44" :block="true" skin="text" :disabled="busy" @click="read(item,0,'','')" round="10" font-size="14">核对并打开档案引用 #{{ item.id }}</x-button>
 			</view>
-			<x-button v-if="hasMore" class="mt-8" height="44" :block="true" skin="outline" :disabled="busy" @click="load(true)">读取更早保存的档案</x-button>
-			<x-button class="mt-8" height="44" :block="true" skin="outline" :disabled="busy" @click="load(false)">刷新本会话保存记录</x-button>
+			<x-button :color="aiMutedColor" v-if="hasMore" class="mt-8" height="44" :block="true" skin="text" :disabled="busy" @click="load(true)" round="10" font-size="14">读取更早保存的档案</x-button>
+			<x-button :color="aiMutedColor" class="mt-8" height="44" :block="true" skin="text" :disabled="busy" @click="load(false)" round="10" font-size="14">刷新本会话保存记录</x-button>
 			<text v-if="message != ''" class="saved-copy mt-12">{{ message }}</text>
 			<AIDossierContent v-if="view != null" :value="view!.dossier" :busy="busy" @copy="copySource"></AIDossierContent>
 		</view>
 	</view>
 </template>
-<style scoped>
+<style lang="scss" scoped>
+@import "../ai-theme.scss";
 .saved-dossiers { padding: 12px; background-color: #f6f8fc; border-radius: 10px; min-width: 0; }
-.saved-title { color: #30343c; font-size: 15px; line-height: 24px; }
-.saved-copy { color: #586174; font-size: 14px; line-height: 23px; }
+.saved-title { color: #1f2329; font-size: 15px; font-weight: 600; line-height: 24px; }
+.saved-copy { color: #6b7280; font-size: 14px; line-height: 23px; }
 </style>

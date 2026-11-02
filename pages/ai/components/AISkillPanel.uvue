@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { aiBrandColor } from '../ai-theme.uts'
 import { computed } from 'vue'
 import { AISkill, aiSkills, aiSkillByKey, isAISkillUsable, aiSkillStateLabel } from '../../libs/ai-skills.uts'
 type SkillProps = { active : string }
@@ -13,11 +14,11 @@ const choose = (skill : AISkill) : void => {
 </script>
 
 <template>
-	<x-sheet :margin="16" :padding="16" :round="12" dark-color="#ffffff">
+	<x-sheet :margin="16" :padding="16" :round="18" dark-color="#ffffff">
 		<text class="skill-heading text-weight-b">选择技能</text>
 		<view class="skill-grid mt-8">
 			<view v-for="skill in skills" :key="skill.key" class="skill-option">
-				<x-button height="44" :block="true" :disabled="!isAISkillUsable(skill)" :skin="skill.key == active ? 'default' : 'outline'" @click="choose(skill)">{{ skill.title }}</x-button>
+				<x-button :color="aiBrandColor" height="44" :block="true" :disabled="!isAISkillUsable(skill)" :skin="skill.key == active ? 'default' : 'outline'" @click="choose(skill)" round="10" font-size="14">{{ skill.title }}</x-button>
 				<text class="skill-copy mt-4">{{ skill.state == 'report' ? '报告内使用' : skill.price }}</text>
 			</view>
 		</view>
@@ -32,10 +33,11 @@ const choose = (skill : AISkill) : void => {
 	</x-sheet>
 </template>
 
-<style scoped>
-.skill-heading { color: #30343c; line-height: 24px; }
-.skill-copy { color: #586174; font-size: 13px; line-height: 20px; }
-.skill-title { color: #30343c; font-size: 15px; line-height: 22px; }
+<style lang="scss" scoped>
+@import "../ai-theme.scss";
+.skill-heading { color: #1f2329; font-size: 16px; font-weight: 600; line-height: 24px; }
+.skill-copy { color: #6b7280; font-size: 13px; line-height: 20px; }
+.skill-title { color: #1f2329; font-size: 15px; line-height: 22px; }
 .skill-grid { flex-direction: row; flex-wrap: wrap; justify-content: space-between; }
 .skill-option { flex: 1; min-width: 140px; margin: 4px; }
 </style>

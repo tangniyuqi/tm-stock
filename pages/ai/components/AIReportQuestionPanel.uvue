@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { aiBrandColor, aiMutedColor } from '../ai-theme.uts'
 import { ref, watch, onBeforeUnmount } from 'vue'
 import { currentAIMemberToken } from '../../libs/ai-session.uts'
 import { AIConversationApi } from '../../libs/ai-conversation-api.uts'
@@ -139,27 +140,27 @@ onBeforeUnmount(() => { active = false; generation++; status.value = null; answe
 </script>
 
 <template>
-	<x-sheet :margin="16" :padding="16" :round="12" dark-color="#ffffff">
+	<x-sheet :margin="16" :padding="16" :round="18" dark-color="#ffffff">
 		<text class="report-qa-heading text-weight-b">报告追问 · 任务 #{{ taskId }}</text>
 		<text class="report-qa-copy mt-8">仅在本人当前可读报告中查找已终检引文，无证据固定拒答；不扣积分、不生成新报告、不联网。</text>
 		<text v-if="archived" class="report-qa-copy mt-8">当前会话已归档，只能核查已有问题。</text>
 		<text v-if="questionSeq > 0" class="report-qa-copy mt-8">正在查询历史问题 #{{ questionSeq }}；此入口只读取原状态及答案，不发起新问题或模型调用。</text>
 		<view v-if="questionSeq == 0 && !archived && safeStorage && pending == null" class="mt-12">
-			<x-button v-if="allowDock" class="mb-8" height="44" :block="true" skin="outline" :disabled="busy" @click="emit('dock', !dockInput)">{{ dockInput ? '恢复报告内输入' : '将报告追问固定到底部' }}</x-button>
+			<x-button :color="aiMutedColor" v-if="allowDock" class="mb-8" height="44" :block="true" skin="text" :disabled="busy" @click="emit('dock', !dockInput)" round="10" font-size="14">{{ dockInput ? '恢复报告内输入' : '将报告追问固定到底部' }}</x-button>
 			<AIQuestionComposer :question="question" :scope-label="'报告追问 · 任务 #' + taskId.toString()" placeholder="输入针对本报告的事实问题，最多1000字" submit-label="提交报告追问（不扣积分）" :busy="busy" :docked="allowDock && dockInput" :dock-left="dockLeft" :dock-bottom="60" @change="question = $event" @submit="submit"></AIQuestionComposer>
 		</view>
 		<view v-if="pending != null" class="mt-12">
 			<text class="report-qa-copy">本机保留有待核查问题，暂不提交第二个。超时或暂未查到不代表未保存。</text>
 			<text v-if="pending!.skill == 'material_qa'" class="report-qa-copy mt-4">待核查的是会话 #{{ pending!.conversationId }} 的资料问答，请打开该会话并选择“资料问答”核查原问题。</text>
-			<x-button v-else-if="pending!.conversationId == conversationId && pending!.taskId == taskId" class="mt-8" height="44" :block="true" skin="outline" :disabled="busy" @click="check">核查本机原问题</x-button>
+			<x-button :color="aiMutedColor" v-else-if="pending!.conversationId == conversationId && pending!.taskId == taskId" class="mt-8" height="44" :block="true" skin="text" :disabled="busy" @click="check" round="10" font-size="14">核查本机原问题</x-button>
 			<text v-else class="report-qa-copy mt-4">待核查问题属于会话 #{{ pending!.conversationId }} / 任务 #{{ pending!.taskId }}，请回到对应报告核查。</text>
 		</view>
 		<text v-if="busy" class="report-qa-copy mt-12">正在核对本次操作，请勿重复提交；不会展示未经核验的模型原文。</text>
 		<view v-if="status != null" class="mt-12">
 			<text class="report-qa-heading">问题 #{{ status!.seq }}：{{ status!.question }}</text>
 			<text class="report-qa-copy mt-4">{{ aiQAStateLabel(status!.state) }} · {{ formatMillis(status!.updatedAt) }}</text>
-			<x-button class="mt-8" height="44" :block="true" skin="outline" :disabled="busy" @click="readStatus(status!.seq)">刷新问题状态</x-button>
-			<x-button v-if="status!.state == 'answered' || status!.state == 'refused'" class="mt-8" height="44" :block="true" :disabled="busy" @click="readAnswer">核对当前答案</x-button>
+			<x-button :color="aiMutedColor" class="mt-8" height="44" :block="true" skin="text" :disabled="busy" @click="readStatus(status!.seq)" round="10" font-size="14">刷新问题状态</x-button>
+			<x-button :color="aiBrandColor" v-if="status!.state == 'answered' || status!.state == 'refused'" class="mt-8" height="44" :block="true" :disabled="busy" @click="readAnswer" round="10" font-size="14">核对当前答案</x-button>
 		</view>
 		<view v-if="answer != null" class="mt-12">
 			<text class="report-qa-heading">{{ answer!.subjectName }}</text>
@@ -170,18 +171,19 @@ onBeforeUnmount(() => { active = false; generation++; status.value = null; answe
 				<text class="report-qa-excerpt">{{ q.excerpt }}</text>
 				<text class="report-qa-copy mt-4">{{ aiSourceTypeLabel(q.sourceType) }} · {{ formatMillis(q.collectedAt) }}</text>
 				<text class="report-qa-copy mt-4">{{ q.sourceUrl }}</text>
-				<x-button class="mt-8" height="44" :block="true" skin="outline" :disabled="busy" @click="openQuote(index)">重新核对并打开出处 #{{ index + 1 }}</x-button>
+				<x-button :color="aiMutedColor" class="mt-8" height="44" :block="true" skin="text" :disabled="busy" @click="openQuote(index)" round="10" font-size="14">重新核对并打开出处 #{{ index + 1 }}</x-button>
 			</view>
 		</view>
-		<x-button v-if="pending != null && pending!.conversationId == conversationId && pending!.taskId == taskId && status != null && qaMatchesPending(status!,pending!) && (status!.state == 'answered' || status!.state == 'refused' || status!.state == 'failed')" class="mt-12" height="44" :block="true" skin="outline" :disabled="busy" @click="finish">核实终态并清理本地原键</x-button>
+		<x-button :color="aiMutedColor" v-if="pending != null && pending!.conversationId == conversationId && pending!.taskId == taskId && status != null && qaMatchesPending(status!,pending!) && (status!.state == 'answered' || status!.state == 'refused' || status!.state == 'failed')" class="mt-12" height="44" :block="true" skin="text" :disabled="busy" @click="finish" round="10" font-size="14">核实终态并清理本地原键</x-button>
 		<text v-if="message != ''" class="report-qa-copy mt-12">{{ message }}</text>
 		<view v-if="allowDock && dockInput && questionSeq == 0 && !archived && safeStorage && pending == null" class="report-qa-composer-reserve"></view>
 	</x-sheet>
 </template>
 
-<style scoped>
-.report-qa-heading { color: #30343c; line-height: 24px; }
-.report-qa-copy { color: #586174; font-size: 14px; line-height: 22px; }
-.report-qa-excerpt { color: #30343c; line-height: 25px; white-space: pre-wrap; }
+<style lang="scss" scoped>
+@import "../ai-theme.scss";
+.report-qa-heading { color: #1f2329; font-size: 16px; font-weight: 600; line-height: 24px; }
+.report-qa-copy { color: #6b7280; font-size: 14px; line-height: 22px; }
+.report-qa-excerpt { color: #1f2329; line-height: 25px; white-space: pre-wrap; }
 .report-qa-composer-reserve { height: 380px; padding-bottom: env(safe-area-inset-bottom); }
 </style>

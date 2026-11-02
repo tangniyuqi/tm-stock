@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { aiBrandColor, aiMutedColor } from '../ai-theme.uts'
 import { computed, ref, watch, onBeforeUnmount } from 'vue'
 import { AIReport, isValidAIReport } from '../../libs/ai.uts'
 import { aiFeedbackCategoryLabel, aiReportLocator } from '../../libs/ai-report-presentation.uts'
@@ -50,24 +51,25 @@ onBeforeUnmount(() => { alive = false; clearDraft() })
 </script>
 
 <template>
-	<x-sheet v-if="validReport" :margin="16" :padding="16" :round="12" dark-color="#ffffff">
+	<x-sheet v-if="validReport" :margin="16" :padding="16" :round="18" dark-color="#ffffff">
 		<text class="tools-heading text-weight-b">报告操作与定位</text>
 		<text class="tools-copy mt-8">查看权限不代表复制或下载授权。正文复制、导出及下载暂未开放。</text>
-		<x-button class="mt-12" height="44" :block="true" skin="outline" :disabled="true">复制报告正文（未开放）</x-button>
-		<x-button class="mt-8" height="44" :block="true" skin="outline" :disabled="true">下载报告（未开放）</x-button>
-		<x-button class="mt-8" height="44" :block="true" skin="outline" :disabled="copying" @click="toggleFeedback">{{ expanded ? '收起定位准备' : '准备报告定位信息' }}</x-button>
+		<x-button :color="aiMutedColor" class="mt-12" height="44" :block="true" skin="text" :disabled="true" round="10" font-size="14">复制报告正文（未开放）</x-button>
+		<x-button :color="aiMutedColor" class="mt-8" height="44" :block="true" skin="text" :disabled="true" round="10" font-size="14">下载报告（未开放）</x-button>
+		<x-button :color="aiMutedColor" class="mt-8" height="44" :block="true" skin="text" :disabled="copying" @click="toggleFeedback" round="10" font-size="14">{{ expanded ? '收起定位准备' : '准备报告定位信息' }}</x-button>
 		<view v-if="expanded" class="mt-12">
 			<text class="tools-copy">以下仅准备定位信息，不发送网络请求。提交或查询反馈请使用任务下方的“举报与反馈”入口，以受理记录为准。</text>
 			<text class="tools-copy mt-8">分类仅在本页临时使用，不写入本地存储；请勿向未知渠道提供正文、账号或密钥。</text>
 			<text class="tools-copy mt-8">当前分类：{{ aiFeedbackCategoryLabel(category) }}</text>
-			<x-button v-for="item in categories" :key="item" class="mt-8" height="44" :block="true" :skin="category == item ? 'thin' : 'outline'" :disabled="copying" @click="selectCategory(item)">{{ aiFeedbackCategoryLabel(item) }}</x-button>
-			<x-button class="mt-12" height="44" :block="true" :loading="copying" :disabled="copying || sessionToken == ''" @click="copyLocator">复制定位信息（不含正文）</x-button>
+			<x-button :color="aiBrandColor" v-for="item in categories" :key="item" class="mt-8" height="44" :block="true" :skin="category == item ? 'thin' : 'outline'" :disabled="copying" @click="selectCategory(item)" round="10" font-size="14">{{ aiFeedbackCategoryLabel(item) }}</x-button>
+			<x-button :color="aiBrandColor" class="mt-12" height="44" :block="true" :loading="copying" :disabled="copying || sessionToken == ''" @click="copyLocator" round="10" font-size="14">复制定位信息（不含正文）</x-button>
 		</view>
 		<text v-if="message != ''" class="tools-copy mt-8">{{ message }}</text>
 	</x-sheet>
 </template>
 
-<style scoped>
-.tools-heading { color: #30343c; }
-.tools-copy { color: #586174; font-size: 13px; line-height: 22px; }
+<style lang="scss" scoped>
+@import "../ai-theme.scss";
+.tools-heading { color: #1f2329; font-size: 16px; font-weight: 600; }
+.tools-copy { color: #6b7280; font-size: 13px; line-height: 22px; }
 </style>

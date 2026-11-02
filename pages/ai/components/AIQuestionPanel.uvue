@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { aiBrandColor, aiMutedColor } from '../ai-theme.uts'
 import { ref, watch, onBeforeUnmount } from 'vue'
 import { currentAIMemberToken } from '../../libs/ai-session.uts'
 import { ThemeApi } from '../../libs/theme-api.uts'
@@ -165,16 +166,16 @@ onBeforeUnmount(() => { active = false; generation++; status.value = null; answe
 </script>
 
 <template>
-	<x-sheet :margin="16" :padding="16" :round="12" dark-color="#ffffff">
+	<x-sheet :margin="16" :padding="16" :round="18" dark-color="#ffffff">
 		<text class="qa-heading text-weight-b">会话资料问答</text>
 		<text class="qa-copy mt-8">仅在所选题材当前获授权资料内查找事实引文，无证据明确拒答，不自动联网。问答不扣积分；新报告须另行报价确认。服务开放状态以实际接口核验为准。</text>
 		<text v-if="archived" class="qa-copy mt-8">当前会话已归档，仅可核查已有问题。</text>
 		<view v-if="!archived && safeStorage && pending == null" class="mt-12">
 			<x-input :model-value="keyword" @update:modelValue="keyword = $event" :maxlength="64" height="44" placeholder="查找本次问答的题材" :disabled="busy"></x-input>
-			<x-button class="mt-8" height="44" :block="true" skin="outline" :disabled="busy" @click="search">查询问答题材</x-button>
+			<x-button :color="aiMutedColor" class="mt-8" height="44" :block="true" skin="text" :disabled="busy" @click="search" round="10" font-size="14">查询问答题材</x-button>
 			<view v-for="item in themes" :key="item.id" class="mt-8">
 				<text class="qa-copy">{{ item.name }}</text>
-				<x-button class="mt-4" height="44" :block="true" skin="outline" :disabled="busy" @click="choose(item.id)">选择问答题材 #{{ item.id }}</x-button>
+				<x-button :color="aiMutedColor" class="mt-4" height="44" :block="true" skin="text" :disabled="busy" @click="choose(item.id)" round="10" font-size="14">选择问答题材 #{{ item.id }}</x-button>
 			</view>
 			<view v-if="subject != null" class="mt-12">
 				<AIQuestionComposer :question="question" :scope-label="'当前所选题材：' + subject!.name" placeholder="输入所选资料的事实问题，最多1000字" submit-label="提交本次资料问题（不扣积分）" :busy="busy" :docked="dockInput && !dossierExpanded" :dock-left="dockLeft" :dock-bottom="dockBottom" @change="question = $event" @submit="submit"></AIQuestionComposer>
@@ -182,15 +183,15 @@ onBeforeUnmount(() => { active = false; generation++; status.value = null; answe
 		</view>
 		<view v-if="pending != null" class="mt-12">
 			<text class="qa-copy">本机保留有原问题，暂不提交第二个。超时或暂未查到不代表未保存。</text>
-			<x-button v-if="pending!.conversationId == conversationId" class="mt-8" height="44" :block="true" skin="outline" :disabled="busy" @click="check">核查本机原问题</x-button>
-			<x-button v-else class="mt-8" height="44" :block="true" skin="outline" :disabled="busy" @click="openPendingConversation">打开待核查会话 #{{ pending!.conversationId }}</x-button>
+			<x-button :color="aiMutedColor" v-if="pending!.conversationId == conversationId" class="mt-8" height="44" :block="true" skin="text" :disabled="busy" @click="check" round="10" font-size="14">核查本机原问题</x-button>
+			<x-button :color="aiMutedColor" v-else class="mt-8" height="44" :block="true" skin="text" :disabled="busy" @click="openPendingConversation" round="10" font-size="14">打开待核查会话 #{{ pending!.conversationId }}</x-button>
 		</view>
 		<text v-if="busy" class="qa-copy mt-12">正在核对本次操作，请勿重复提交；不会展示未经核验的模型原文。</text>
 		<view v-if="status != null" class="mt-12">
 			<text class="qa-heading">问题 #{{ status!.seq }}：{{ status!.question }}</text>
 			<text class="qa-copy mt-4">{{ aiQAStateLabel(status!.state) }} · {{ formatMillis(status!.updatedAt) }}</text>
-			<x-button class="mt-8" height="44" :block="true" skin="outline" :disabled="busy" @click="readStatus(status!.seq)">刷新问题状态</x-button>
-			<x-button v-if="status!.state == 'answered' || status!.state == 'refused'" class="mt-8" height="44" :block="true" :disabled="busy" @click="readAnswer">核对当前答案</x-button>
+			<x-button :color="aiMutedColor" class="mt-8" height="44" :block="true" skin="text" :disabled="busy" @click="readStatus(status!.seq)" round="10" font-size="14">刷新问题状态</x-button>
+			<x-button :color="aiBrandColor" v-if="status!.state == 'answered' || status!.state == 'refused'" class="mt-8" height="44" :block="true" :disabled="busy" @click="readAnswer" round="10" font-size="14">核对当前答案</x-button>
 		</view>
 		<view v-if="answer != null" class="mt-12">
 			<text class="qa-heading">{{ answer!.subjectName }}</text>
@@ -201,10 +202,10 @@ onBeforeUnmount(() => { active = false; generation++; status.value = null; answe
 				<text class="qa-excerpt">{{ q.excerpt }}</text>
 				<text class="qa-copy mt-4">{{ aiSourceTypeLabel(q.sourceType) }} · {{ formatMillis(q.collectedAt) }}</text>
 				<text class="qa-copy mt-4">{{ q.sourceUrl }}</text>
-				<x-button class="mt-8" height="44" :block="true" skin="outline" :disabled="busy" @click="openQuote(index)">重新核对并打开出处 #{{ index + 1 }}</x-button>
+				<x-button :color="aiMutedColor" class="mt-8" height="44" :block="true" skin="text" :disabled="busy" @click="openQuote(index)" round="10" font-size="14">重新核对并打开出处 #{{ index + 1 }}</x-button>
 			</view>
 		</view>
-		<x-button v-if="pending != null && pending!.conversationId == conversationId && status != null && qaMatchesPending(status!,pending!) && (status!.state == 'answered' || status!.state == 'refused' || status!.state == 'failed')" class="mt-12" height="44" :block="true" skin="outline" :disabled="busy" @click="finish">核实终态并清理本地原键</x-button>
+		<x-button :color="aiMutedColor" v-if="pending != null && pending!.conversationId == conversationId && status != null && qaMatchesPending(status!,pending!) && (status!.state == 'answered' || status!.state == 'refused' || status!.state == 'failed')" class="mt-12" height="44" :block="true" skin="text" :disabled="busy" @click="finish" round="10" font-size="14">核实终态并清理本地原键</x-button>
 		<text v-if="message != ''" class="qa-copy mt-12">{{ message }}</text>
 		<AIDossierPanel v-if="subject != null" :key="subject!.id" :session-token="sessionToken" :conversation-id="conversationId" :archived="archived" :theme-id="subject!.id" :theme-name="subject!.name" :enabled="dossierEnabled" @saved="emit('dossierSaved')" @expanded="dossierExpanded = $event" @unauthorized="emit('unauthorized')"></AIDossierPanel>
 		<!-- 留白放在所有答案/错误/操作之后，保证它们可滚动到固定输入上方。 -->
@@ -212,9 +213,10 @@ onBeforeUnmount(() => { active = false; generation++; status.value = null; answe
 	</x-sheet>
 </template>
 
-<style scoped>
-.qa-heading { color: #30343c; line-height: 24px; }
-.qa-copy { color: #586174; font-size: 14px; line-height: 22px; }
-.qa-excerpt { color: #30343c; line-height: 25px; white-space: pre-wrap; }
+<style lang="scss" scoped>
+@import "../ai-theme.scss";
+.qa-heading { color: #1f2329; font-size: 16px; font-weight: 600; line-height: 24px; }
+.qa-copy { color: #6b7280; font-size: 14px; line-height: 22px; }
+.qa-excerpt { color: #1f2329; line-height: 25px; white-space: pre-wrap; }
 .qa-composer-reserve { height: 320px; padding-bottom: env(safe-area-inset-bottom); }
 </style>

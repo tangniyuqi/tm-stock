@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { aiBrandColor, aiMutedColor } from '../ai-theme.uts'
 import { ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { AIConversationApi } from '../../libs/ai-conversation-api.uts'
 import { AIConversation, AIConversationSummary, AIConversationMessage, AIPendingConversation, isAIConversationTitle, aiConversationError, conversationPartition, readPendingConversation, reserveConversation, clearPendingConversation } from '../../libs/ai-conversation.uts'
@@ -230,8 +231,8 @@ onBeforeUnmount(() => { active = false; generation++; summaryRefreshPending = fa
 		<!-- 固定报告输入占据视口底部，必须缩小阅读视口；仅在内容末尾留白不能防止按钮被覆盖。 -->
 		<scroll-view scroll-y="true" :scroll-into-view="scrollTarget" class="conversation-main" :style="reportInputActive && activeTab == 'conversation' ? 'margin-bottom: calc(240px + env(safe-area-inset-bottom));' : ''">
 		<view :style="activeTab == 'conversation' ? '' : 'display: none;'">
-		<view v-if="!wide" class="px-16 mt-16"><x-button height="44" :block="true" skin="outline" @click="historyVisible = true">会话历史 / 新建</x-button></view>
-	<x-sheet :margin="16" :padding="16" :round="12" dark-color="#ffffff">
+		<view v-if="!wide" class="px-16 mt-16"><x-button :color="aiMutedColor" height="44" :block="true" skin="text" @click="historyVisible = true" round="10" font-size="14">会话历史 / 新建</x-button></view>
+	<x-sheet :margin="16" :padding="16" :round="18" dark-color="#ffffff">
 		<view v-if="selected == null && !loadingMessages">
 			<text class="conversation-title text-weight-b">选择会话，开始查阅资料</text>
 			<text class="conversation-copy mt-8">{{ wide ? '从左侧打开或新建会话。' : '从上方“会话历史 / 新建”打开或新建会话。' }}仅限获授权事实资料；报告追问从本人当前可读报告进入。</text>
@@ -241,20 +242,22 @@ onBeforeUnmount(() => { active = false; generation++; summaryRefreshPending = fa
 			<text class="conversation-title text-weight-b">当前会话：{{ selected!.title }}</text>
 			<view v-if="!selected!.archived" class="mt-8">
 				<x-input :model-value="renameTitle" @update:modelValue="renameTitle = $event" :maxlength="80" height="44" placeholder="新的会话标题" :disabled="busy || loadingMessages"></x-input>
-				<x-button class="mt-8" height="44" :block="true" skin="outline" :disabled="busy || loadingMessages || !isAIConversationTitle(renameTitle)" @click="rename">保存会话标题</x-button>
-				<x-button class="mt-8" height="44" :block="true" skin="outline" :disabled="busy || loadingMessages" @click="archive">归档当前会话</x-button>
+				<view class="ai-action-row mt-4">
+					<view class="ai-action-cell"><x-button :color="aiMutedColor" height="44" :block="true" skin="text" :disabled="busy || loadingMessages || !isAIConversationTitle(renameTitle)" @click="rename" round="10" font-size="14">保存会话标题</x-button></view>
+					<view class="ai-action-cell"><x-button :color="aiMutedColor" height="44" :block="true" skin="text" :disabled="busy || loadingMessages" @click="archive" round="10" font-size="14">归档当前会话</x-button></view>
+				</view>
 			</view>
 			<AIConversationDossiersPanel :key="selected!.id" :session-token="sessionToken" :conversation-id="selected!.id" :enabled="activeTab == 'conversation'" :refresh-key="dossierRefresh" @expanded="savedDossierExpanded = $event" @unauthorized="emit('unauthorized')"></AIConversationDossiersPanel>
 			<text v-if="messages.length == 0 && !loadingMessages" class="conversation-copy mt-12">当前会话暂无消息。此处不展示模拟回答。</text>
 			<view v-for="item in messages" :key="item.seq" class="mt-12">
 				<text class="conversation-copy">消息 #{{ item.seq }} · {{ formatMillis(item.createdAt) }}</text>
 				<text v-if="item.kind == 'question'" class="conversation-title mt-4">历史提问：{{ item.question }}</text>
-				<x-button v-if="item.kind == 'question' && item.skill == 'material_qa'" class="mt-8" height="44" :block="true" skin="outline" :disabled="busy" @click="openQuestion(item)">查询问题状态 #{{ item.seq }}</x-button>
-				<x-button v-if="item.kind == 'question' && item.skill == 'report_qa'" class="mt-8" height="44" :block="true" skin="outline" :disabled="busy" @click="openReportQuestion(item)">查询报告追问 #{{ item.seq }}</x-button>
+				<x-button :color="aiMutedColor" v-if="item.kind == 'question' && item.skill == 'material_qa'" class="mt-8" height="44" :block="true" skin="text" :disabled="busy" @click="openQuestion(item)" round="10" font-size="14">查询问题状态 #{{ item.seq }}</x-button>
+				<x-button :color="aiMutedColor" v-if="item.kind == 'question' && item.skill == 'report_qa'" class="mt-8" height="44" :block="true" skin="text" :disabled="busy" @click="openReportQuestion(item)" round="10" font-size="14">查询报告追问 #{{ item.seq }}</x-button>
 				<text v-if="item.kind == 'task'" class="conversation-title mt-4">{{ item.skill == 'light' ? '轻度' : '深度' }}资料任务 · {{ item.subjectType == 'theme' ? '题材' : '专题' }} #{{ item.subjectId }}</text>
-				<x-button v-if="item.kind == 'task'" class="mt-8" height="44" :block="true" skin="outline" :disabled="busy" @click="openTask(item)">查看关联任务 #{{ item.taskId }}</x-button>
+				<x-button :color="aiMutedColor" v-if="item.kind == 'task'" class="mt-8" height="44" :block="true" skin="text" :disabled="busy" @click="openTask(item)" round="10" font-size="14">查看关联任务 #{{ item.taskId }}</x-button>
 			</view>
-			<x-button v-if="moreMessages" class="mt-8" height="44" :block="true" :disabled="loadingMessages || busy" @click="loadMessages(true)">继续读取会话消息</x-button>
+			<x-button :color="aiBrandColor" v-if="moreMessages" class="mt-8" height="44" :block="true" :disabled="loadingMessages || busy" @click="loadMessages(true)" round="10" font-size="14">继续读取会话消息</x-button>
 		</view>
 		<text v-if="message != ''" class="conversation-copy mt-12">{{ message }}</text>
 	</x-sheet>
@@ -277,8 +280,8 @@ onBeforeUnmount(() => { active = false; generation++; summaryRefreshPending = fa
 		<view id="ai-conversation-bottom" class="conversation-bottom-anchor"></view>
 		</scroll-view>
 		<view v-if="selected != null && activeTab == 'conversation'" class="conversation-tools" :style="'left:' + (wide ? '324' : '16') + 'px;'">
-			<view class="conversation-tool"><x-button height="44" :block="true" skin="outline" @click="skillsVisible = true">技能与范围</x-button></view>
-			<view class="conversation-tool ml-8"><x-button height="44" :block="true" skin="outline" @click="scrollToBottom">回到底部</x-button></view>
+			<view class="conversation-tool"><x-button :color="aiMutedColor" height="44" :block="true" skin="text" @click="skillsVisible = true" round="10" font-size="14">技能与范围</x-button></view>
+			<view class="conversation-tool ml-8"><x-button :color="aiMutedColor" height="44" :block="true" skin="text" @click="scrollToBottom" round="10" font-size="14">回到底部</x-button></view>
 		</view>
 		<x-drawer v-if="selected != null" :show="skillsVisible" @update:show="skillsVisible = $event" title="选择技能与核对范围" position="bottom" size="70%" :show-close="true" content-margin="0">
 			<AISkillPanel :active="reportInputActive ? 'report_qa' : activeSkill" @select="selectSkill"></AISkillPanel>
@@ -286,16 +289,17 @@ onBeforeUnmount(() => { active = false; generation++; summaryRefreshPending = fa
 	</view>
 </template>
 
-<style scoped>
-.conversation-title { color: #30343c; line-height: 24px; }
-.conversation-copy { color: #586174; font-size: 14px; line-height: 22px; }
+<style lang="scss" scoped>
+@import "../ai-theme.scss";
+.conversation-title { color: #1f2329; font-size: 16px; line-height: 24px; }
+.conversation-copy { color: #6b7280; font-size: 14px; line-height: 22px; }
 .conversation-workspace { flex: 1; min-height: 0; overflow: hidden; flex-direction: column; }
 .conversation-wide { flex-direction: row; align-items: stretch; }
-.conversation-sidebar { width: 292px; flex-shrink: 0; margin-top: 16px; margin-left: 16px; background-color: #ffffff; border-radius: 12px; }
+.conversation-sidebar { width: 292px; flex-shrink: 0; margin-top: 16px; margin-left: 16px; background-color: #ffffff; border-radius: 18px; }
 .conversation-history-scroll { flex: 1; min-height: 0; }
 .conversation-main { flex: 1; min-width: 0; min-height: 0; }
 .conversation-composer { padding-bottom: env(safe-area-inset-bottom); }
-.conversation-tools { position: fixed; right: 16px; bottom: 0; z-index: 11; padding: 8px; padding-bottom: env(safe-area-inset-bottom); background-color: #ffffff; flex-direction: row; }
+.conversation-tools { position: fixed; right: 16px; bottom: 0; z-index: 11; padding: 8px; padding-bottom: env(safe-area-inset-bottom); background-color: #ffffff; flex-direction: row; border-top-width: 1px; border-top-color: #f0f1f3; }
 .conversation-tool { flex: 1; min-width: 0; }
 .conversation-bottom-anchor { height: 1px; flex-shrink: 0; }
 .conversation-tools-reserve { height: 60px; padding-bottom: env(safe-area-inset-bottom); }

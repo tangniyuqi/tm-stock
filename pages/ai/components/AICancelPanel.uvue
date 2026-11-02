@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { aiBrandColor, aiMutedColor } from '../ai-theme.uts'
 import { ref, watch, onBeforeUnmount, PropType } from 'vue'
 import { AITaskProgress, isSafeAIId, aiTaskStatusLabel } from '../../libs/ai.uts'
 import { AiCancellationApi, aiCancellationError } from '../../libs/ai-cancel-api.uts'
@@ -63,18 +64,19 @@ onBeforeUnmount(() => { active = false; generation++; message.value = ''; emit('
 
 <template>
 	<view class="mt-12">
-		<x-button v-if="state == 'ready' && cancellable()" height="44" :block="true" skin="outline" @click="beginCancel">申请取消任务</x-button>
+		<x-button :color="aiMutedColor" v-if="state == 'ready' && cancellable()" height="44" :block="true" skin="text" @click="beginCancel" round="10" font-size="14">申请取消任务</x-button>
 		<view v-if="state == 'confirming'">
 			<text class="cancel-copy">确认申请取消任务 #{{ id }}？运行中的任务需等待后台确认；此操作不表示远端立即停止或积分已经释放。</text>
-			<x-button class="mt-8" height="44" :block="true" skin="outline" @click="dismissCancel">保留任务</x-button>
-			<x-button class="mt-8" height="44" :block="true" :disabled="!cancellable()" @click="confirmCancel">确认申请取消</x-button>
+			<x-button :color="aiMutedColor" class="mt-8" height="44" :block="true" skin="text" @click="dismissCancel" round="10" font-size="14">保留任务</x-button>
+			<x-button :color="aiBrandColor" class="mt-8" height="44" :block="true" :disabled="!cancellable()" @click="confirmCancel" round="10" font-size="14">确认申请取消</x-button>
 		</view>
 		<text v-if="state == 'submitting'" class="cancel-copy">正在提交取消请求，请勿重复操作…</text>
 		<text v-if="message != ''" class="cancel-copy">{{ message }}</text>
-		<x-button v-if="state == 'received' || state == 'unknown'" class="mt-8" height="44" :block="true" skin="outline" @click="refreshOriginal">核对原任务状态</x-button>
+		<x-button :color="aiMutedColor" v-if="state == 'received' || state == 'unknown'" class="mt-8" height="44" :block="true" skin="text" @click="refreshOriginal" round="10" font-size="14">核对原任务状态</x-button>
 	</view>
 </template>
 
-<style scoped>
-.cancel-copy { color: #586174; font-size: 14px; line-height: 22px; }
+<style lang="scss" scoped>
+@import "../ai-theme.scss";
+.cancel-copy { color: #6b7280; font-size: 14px; line-height: 22px; }
 </style>

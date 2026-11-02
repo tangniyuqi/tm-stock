@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { aiBrandColor, aiMutedColor } from '../ai-theme.uts'
 import { ref, watch, onBeforeUnmount } from 'vue'
 import { ThemeApi } from '../../libs/theme-api.uts'
 import { ThemeBrief, formatMillis } from '../../libs/theme.uts'
@@ -132,15 +133,15 @@ onBeforeUnmount(() => { active = false; generation++; quote.value = null; pendin
 </script>
 
 <template>
-	<x-sheet :margin="16" :padding="16" :round="12" dark-color="#ffffff">
+	<x-sheet :margin="16" :padding="16" :round="18" dark-color="#ffffff">
 		<text class="create-heading text-weight-b">{{ quoteOnly ? '为当前会话选择' + (analysisType == 'deep' ? '深度' : '轻度') + '题材资料' : '新建' + (analysisType == 'deep' ? '深度' : '轻度') + '资料整理' }}</text>
 		<text class="create-copy mt-8">服务开放状态以实际接口核验为准；报价不冻结积分，创建须另行确认。</text>
 		<view v-if="pending == null && state != 'error'">
 			<x-input :model-value="keyword" @update:modelValue="keyword = $event" class="mt-12" :maxlength="64" height="44" placeholder="输入题材名称，仅用于查询目录" :disabled="!editable()"></x-input>
-			<x-button class="mt-8" height="44" :block="true" skin="outline" :disabled="!editable()" :loading="state == 'searching'" @click="searchThemes">查询题材</x-button>
+			<x-button :color="aiMutedColor" class="mt-8" height="44" :block="true" skin="text" :disabled="!editable()" :loading="state == 'searching'" @click="searchThemes" round="10" font-size="14">查询题材</x-button>
 			<view v-for="item in themes" :key="item.id" class="mt-12">
 				<text class="create-copy">{{ item.name }}</text>
-				<x-button class="mt-4" height="44" :block="true" skin="outline" :disabled="!editable()" @click="requestQuote(item.id)">核对该题材报价</x-button>
+				<x-button :color="aiMutedColor" class="mt-4" height="44" :block="true" skin="text" :disabled="!editable()" @click="requestQuote(item.id)" round="10" font-size="14">核对该题材报价</x-button>
 			</view>
 		</view>
 		<text v-if="state == 'quoting'" class="create-copy mt-12">正在核对报价与资料范围…</text>
@@ -154,25 +155,26 @@ onBeforeUnmount(() => { active = false; generation++; quote.value = null; pendin
 				<text class="create-copy">{{ item.sourceUrl }}</text>
 			</view>
 			<text v-if="quote!.availablePoints < quote!.pricePoints" class="create-copy mt-8">可消费积分不足，不能创建。</text>
-			<x-button v-if="!quoteOnly" class="mt-12" height="44" :block="true" :disabled="locked || state != 'quoted' || quote!.availablePoints < quote!.pricePoints" @click="confirmCreate">确认报价并创建</x-button>
-			<x-button v-else class="mt-12" height="44" :block="true" :disabled="locked || state != 'quoted'" @click="useQuote">保存会话报价意图（不冻结积分）</x-button>
+			<x-button :color="aiBrandColor" v-if="!quoteOnly" class="mt-12" height="44" :block="true" :disabled="locked || state != 'quoted' || quote!.availablePoints < quote!.pricePoints" @click="confirmCreate" round="10" font-size="14">确认报价并创建</x-button>
+			<x-button :color="aiBrandColor" v-else class="mt-12" height="44" :block="true" :disabled="locked || state != 'quoted'" @click="useQuote" round="10" font-size="14">保存会话报价意图（不冻结积分）</x-button>
 		</view>
 		<text v-if="state == 'submitting'" class="create-copy mt-12">正在提交原请求，请勿重复创建…</text>
 		<view v-if="pending != null" class="mt-12">
 			<text v-if="state != 'created'" class="create-copy">原请求已保留。核查不会重新生成或冻结积分；暂未查到时也不会自动换键。</text>
-			<x-button v-if="state != 'submitting'" class="mt-8" height="44" :block="true" skin="outline" :disabled="state == 'checking'" :loading="state == 'checking'" @click="checkReceipt">核查原请求</x-button>
+			<x-button :color="aiMutedColor" v-if="state != 'submitting'" class="mt-8" height="44" :block="true" skin="text" :disabled="state == 'checking'" :loading="state == 'checking'" @click="checkReceipt" round="10" font-size="14">核查原请求</x-button>
 		</view>
 		<view v-if="receipt != null && state == 'created'" class="mt-12">
 			<text class="create-heading">已确认创建任务 #{{ receipt!.taskId }}</text>
 			<text class="create-copy mt-4">原冻结 {{ receipt!.pricePoints }} 积分。这是创建收据，不代表报告已交付或积分已结算。</text>
-			<x-button class="mt-8" height="44" :block="true" @click="showCreatedTask">查看已创建任务</x-button>
-			<x-button class="mt-8" height="44" :block="true" skin="outline" @click="finishConfirmed">已记录任务，返回新建</x-button>
+			<x-button :color="aiBrandColor" class="mt-8" height="44" :block="true" @click="showCreatedTask" round="10" font-size="14">查看已创建任务</x-button>
+			<x-button :color="aiMutedColor" class="mt-8" height="44" :block="true" skin="text" @click="finishConfirmed" round="10" font-size="14">已记录任务，返回新建</x-button>
 		</view>
 		<text v-if="message != ''" class="create-copy mt-8">{{ message }}</text>
 	</x-sheet>
 </template>
 
-<style scoped>
-.create-heading { color: #30343c; line-height: 24px; }
-.create-copy { color: #586174; font-size: 14px; line-height: 22px; }
+<style lang="scss" scoped>
+@import "../ai-theme.scss";
+.create-heading { color: #1f2329; font-size: 16px; font-weight: 600; line-height: 24px; }
+.create-copy { color: #6b7280; font-size: 14px; line-height: 22px; }
 </style>
