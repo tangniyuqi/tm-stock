@@ -32,6 +32,8 @@ import (
 // 本组HTTP用测试签发JWT，原密码登录/独立进程另行验收。
 func configureDossierLocalFixture(t *testing.T, f *localPublicationFixture, mode string) *service.AIDossierSupportRegistryService {
 	t.Helper()
+	comparison := strings.HasPrefix(mode, "comparison_")
+	mode = strings.TrimPrefix(mode, "comparison_")
 	e := f.env
 	reportDDL(t, e.pointsTestEnv, "20261030_create_tm_ai_dossiers.sql")
 	reportDDL(t, e.pointsTestEnv, "20261030_register_tm_ai_dossier_support_plans.sql")
@@ -72,7 +74,46 @@ func configureDossierLocalFixture(t *testing.T, f *localPublicationFixture, mode
 	if mode == "semantic" {
 		sem = checkModelReply("block", "prohibited")
 	}
-	e.server = providertest.NewServer(t, providertest.Success(selection, provider.Usage{Prompt: 2, Completion: 1, Total: 3}), ent, support, sem)
+	if comparison {
+		rows := []map[string]any{}
+		for i := 1; i <= 6; i++ {
+			row := map[string]any{"id": i, "verdict": verdict, "reason": reason}
+			if mode == "partial_consistent" && i == 2 {
+				row["verdict"], row["reason"] = "partial", "partial_support"
+			}
+			rows = append(rows, row)
+		}
+		raw, err := json.Marshal(map[string]any{"results": rows})
+		if err != nil {
+			t.Fatal(err)
+		}
+		support = providertest.Success(string(raw), provider.Usage{Prompt: 2, Completion: 2, Total: 4})
+		axes := []map[string]any{}
+		for i := 1; i <= 7; i++ {
+			left, right, relation := "unknown", "unknown", "not_applicable"
+			if i == 1 || i == 4 {
+				left, right, relation = "supported", "supported", "aligned"
+			}
+			axes = append(axes, map[string]any{"id": i, "left": left, "right": right, "relation": relation})
+		}
+		if mode == "mismatch" || mode == "partial_consistent" {
+			axes[0]["left"], axes[0]["relation"] = "partial", "uncertain"
+		}
+		compared, err := json.Marshal(map[string]any{"axes": axes, "wording": "same_meaning"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		compareReply := providertest.Success(string(compared), provider.Usage{Prompt: 2, Completion: 2, Total: 4})
+		if mode == "comparison_transport" {
+			compareReply = providertest.Abort()
+		}
+		if mode == "comparison_malformed" {
+			compareReply = providertest.Success(`{"axes":[]}`, provider.Usage{Prompt: 2, Completion: 2, Total: 4})
+		}
+		e.server = providertest.NewServer(t, providertest.Success(selection, provider.Usage{Prompt: 2, Completion: 1, Total: 3}), ent, support, compareReply, sem)
+	} else {
+		e.server = providertest.NewServer(t, providertest.Success(selection, provider.Usage{Prompt: 2, Completion: 1, Total: 3}), ent, support, sem)
+	}
 	model, err := provider.NewDirect(workflowModelConfig(e.server.URL()), true)
 	if err != nil {
 		t.Fatal(err)
@@ -83,6 +124,24 @@ func configureDossierLocalFixture(t *testing.T, f *localPublicationFixture, mode
 	u := dossier.Field{State: "unknown"}
 	sentence := e.snap.Sentences[0]
 	d := dossier.Draft{Protocol: dossier.DraftVersion, ThemeID: 1, Version: 1, CreatedAt: e.snap.FetchedAt.UnixMilli(), Cards: []dossier.FactCard{{Key: "test_card", Section: "definition", Statement: dossier.SentenceRef{SnapshotID: e.snap.ID, Hash: e.snap.Hash, Number: sentence.Number, StartByte: sentence.StartByte, EndByte: sentence.EndByte}, Subject: u, PublishedDate: u, EffectiveDate: u, Period: u, Scope: u, Stage: u, Basis: u, Unit: u}}}
+	if comparison {
+		for _, item := range []struct {
+			field *dossier.Field
+			text  string
+		}{{&d.Cards[0].Subject, f.spec.SubjectName}, {&d.Cards[0].Scope, "本测试资料"}} {
+			start := strings.Index(sentence.Text, item.text)
+			if start < 0 {
+				t.Fatal("合成比较字段缺失")
+			}
+			ref := d.Cards[0].Statement
+			ref.StartByte = sentence.StartByte + start
+			ref.EndByte = ref.StartByte + len(item.text)
+			*item.field = dossier.Field{State: "known", Ref: ref}
+		}
+		second := d.Cards[0]
+		second.Key = "test_card_b"
+		d.Cards = append(d.Cards, second)
+	}
 	dossiers, err := service.NewAIDossierService(repository.NewAIDossierRepo(e.db, sql.LevelReadCommitted), dossierTestAuth{}, true)
 	if err != nil {
 		t.Fatal(err)
@@ -96,7 +155,11 @@ INSERT INTO tm_ai_dossier_grants SELECT 1,theme_id,version_no,digest,'test-fixtu
 	if err != nil {
 		t.Fatal(err)
 	}
-	prepared, err := dossier.PrepareSupport(e.ctx, sc, f.spec.SubjectName, bound, []sources.Snapshot{e.snap}, []string{"test_card"})
+	keys := []string{"test_card"}
+	if comparison {
+		keys = append(keys, "test_card_b")
+	}
+	prepared, err := dossier.PrepareSupport(e.ctx, sc, f.spec.SubjectName, bound, []sources.Snapshot{e.snap}, keys)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -116,6 +179,32 @@ INSERT INTO tm_ai_dossier_grants SELECT 1,theme_id,version_no,digest,'test-fixtu
 	}
 	f.spec.ReportProfile = task.DossierReportProfile
 	f.spec.DossierSupportDigest = m.ComponentDigest()
+	if comparison {
+		reportDDL(t, e.pointsTestEnv, "20261102_register_dossier_card_comparison.sql")
+		reportDDL(t, e.pointsTestEnv, "20261102_enable_dossier_comparison_report_audit.sql")
+		mc := sc
+		mc.ReviewStep = 0
+		mc.MaxOutputTokens = 1024
+		cp, err := dossier.PrepareCardComparison(e.ctx, dossier.CardComparisonConfig{Model: mc, Focus: "definition", ReviewStep: 5}, f.spec.SubjectName, bound, []sources.Snapshot{e.snap}, keys)
+		if err != nil {
+			t.Fatal(err)
+		}
+		manifest, err := cp.Manifest()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err = registry.RegisterComparisonInternal(e.ctx, manifest); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = e.db.ExecContext(e.ctx, `INSERT INTO tm_ai_dossier_support_uses(component_digest,approval_ref,enabled,valid_until,created_at,updated_at) VALUES(?,'test-fixture:comparison-ai-use',1,UTC_TIMESTAMP(3)+INTERVAL 1 HOUR,UTC_TIMESTAMP(3),UTC_TIMESTAMP(3))`, manifest.ComponentDigest()); err != nil {
+			t.Fatal(err)
+		}
+		f.spec.ReportProfile = task.DossierComparisonReportProfile
+		f.spec.DossierComparisonDigest = manifest.ComponentDigest()
+		if f.spec.Budget.MaxCalls < 7 {
+			f.spec.Budget.MaxCalls = 7
+		}
+	}
 	f.file.Plans = []config.AILocalPlan{f.spec}
 	f.raw, err = json.Marshal(f.file)
 	if err != nil {
@@ -221,6 +310,16 @@ func newDossierWorkflowFixture(t *testing.T, level sql.IsolationLevel, kind int,
 	worker, err := service.NewAIDossierReportWorker(e.tasks, e.repo, e.ledger, e.agent, e.payloads, model, planner, selection, checks, supportControl, f.owner, agenttask.Options{Enabled: true, Lease: task.RecoveryOptions{Lease: time.Minute, Heartbeat: 100 * time.Millisecond, Timeout: 30 * time.Second}, PollInterval: 50 * time.Millisecond})
 	if err != nil {
 		t.Fatal(err)
+	}
+	if f.spec.ReportProfile == task.DossierComparisonReportProfile {
+		comparison, err := service.NewAIDossierComparisonExecutionControl(registry, e.repo, f.admission, audit)
+		if err != nil {
+			t.Fatal(err)
+		}
+		worker, err = service.NewAIDossierComparisonReportWorker(e.tasks, e.repo, e.ledger, e.agent, e.payloads, model, planner, selection, checks, supportControl, comparison, f.owner, agenttask.Options{Enabled: true, Lease: task.RecoveryOptions{Lease: time.Minute, Heartbeat: 100 * time.Millisecond, Timeout: 30 * time.Second}, PollInterval: 50 * time.Millisecond})
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 	return &dossierWorkflowFixture{localPublicationFixture: f, web: web, worker: worker, id: created.Data.TaskID}
 }

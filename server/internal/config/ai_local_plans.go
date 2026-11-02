@@ -27,36 +27,37 @@ type AILocalPlans struct {
 }
 
 type AILocalPlan struct {
-	AnalysisType         int               `json:"analysis_type"`
-	SubjectID            int64             `json:"subject_id"`
-	SubjectName          string            `json:"subject_name"`
-	ActorID              int64             `json:"actor_id"`
-	Symbol               string            `json:"symbol"`
-	AgentProfileDigest   string            `json:"agent_profile_digest"`
-	AgentCalls           int64             `json:"agent_calls"`
-	AgentTokens          int64             `json:"agent_tokens"`
-	AgentPages           int64             `json:"agent_pages"`
-	ModelName            string            `json:"model_name"`
-	ModelProfileDigest   string            `json:"model_profile_digest"`
-	FilingNo             string            `json:"filing_no"`
-	ModelVersion         string            `json:"model_version"`
-	MaxInputTokens       int64             `json:"max_input_tokens"`
-	SelectionMaxTokens   int               `json:"selection_max_tokens"`
-	CheckMaxTokens       int               `json:"check_max_tokens"`
-	PolicyRef            string            `json:"policy_ref"`
-	MinQuotes            int               `json:"min_quotes"`
-	AllowedDomains       []string          `json:"allowed_domains"`
-	ApprovalRef          string            `json:"approval_ref"`
-	QualityRef           string            `json:"quality_ref"`
-	HardBudgetRef        string            `json:"hard_budget_ref"`
-	PriceRef             string            `json:"price_ref"`
-	SourceRef            string            `json:"source_ref"`
-	PriceVersion         string            `json:"price_version"`
-	PricePoints          int64             `json:"price_points"`
-	Budget               task.Budget       `json:"budget"`
-	Materials            []AILocalMaterial `json:"materials"`
-	ReportProfile        string            `json:"report_profile,omitempty"`
-	DossierSupportDigest string            `json:"dossier_support_digest,omitempty"`
+	AnalysisType            int               `json:"analysis_type"`
+	SubjectID               int64             `json:"subject_id"`
+	SubjectName             string            `json:"subject_name"`
+	ActorID                 int64             `json:"actor_id"`
+	Symbol                  string            `json:"symbol"`
+	AgentProfileDigest      string            `json:"agent_profile_digest"`
+	AgentCalls              int64             `json:"agent_calls"`
+	AgentTokens             int64             `json:"agent_tokens"`
+	AgentPages              int64             `json:"agent_pages"`
+	ModelName               string            `json:"model_name"`
+	ModelProfileDigest      string            `json:"model_profile_digest"`
+	FilingNo                string            `json:"filing_no"`
+	ModelVersion            string            `json:"model_version"`
+	MaxInputTokens          int64             `json:"max_input_tokens"`
+	SelectionMaxTokens      int               `json:"selection_max_tokens"`
+	CheckMaxTokens          int               `json:"check_max_tokens"`
+	PolicyRef               string            `json:"policy_ref"`
+	MinQuotes               int               `json:"min_quotes"`
+	AllowedDomains          []string          `json:"allowed_domains"`
+	ApprovalRef             string            `json:"approval_ref"`
+	QualityRef              string            `json:"quality_ref"`
+	HardBudgetRef           string            `json:"hard_budget_ref"`
+	PriceRef                string            `json:"price_ref"`
+	SourceRef               string            `json:"source_ref"`
+	PriceVersion            string            `json:"price_version"`
+	PricePoints             int64             `json:"price_points"`
+	Budget                  task.Budget       `json:"budget"`
+	Materials               []AILocalMaterial `json:"materials"`
+	ReportProfile           string            `json:"report_profile,omitempty"`
+	DossierSupportDigest    string            `json:"dossier_support_digest,omitempty"`
+	DossierComparisonDigest string            `json:"dossier_comparison_digest,omitempty"`
 }
 
 type AILocalMaterial struct {
@@ -190,7 +191,14 @@ func (p *AILocalPlans) validate(runtime *AILocalRuntime, now int64) error {
 	}
 	seen := map[[2]int64]bool{}
 	for _, v := range p.Plans {
-		if v.ReportProfile == "" && v.DossierSupportDigest != "" || v.ReportProfile != "" && (v.ReportProfile != task.DossierReportProfile || !localPlanDigest.MatchString(v.DossierSupportDigest) || v.Budget.MaxCalls < 6) {
+		if v.ReportProfile == "" && (v.DossierSupportDigest != "" || v.DossierComparisonDigest != "") || v.ReportProfile != "" && (v.ReportProfile != task.DossierReportProfile && v.ReportProfile != task.DossierComparisonReportProfile || !localPlanDigest.MatchString(v.DossierSupportDigest) || v.Budget.MaxCalls < 6) {
+			return invalidLocalRuntime()
+		}
+		if v.ReportProfile == task.DossierComparisonReportProfile {
+			if v.AnalysisType != task.DeepAnalysisType || v.Budget.MaxCalls < 7 || !localPlanDigest.MatchString(v.DossierComparisonDigest) {
+				return invalidLocalRuntime()
+			}
+		} else if v.DossierComparisonDigest != "" {
 			return invalidLocalRuntime()
 		}
 		key := [2]int64{int64(v.AnalysisType), v.SubjectID}

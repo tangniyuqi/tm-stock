@@ -56,6 +56,17 @@ func dossierCapturedReview(ctx context.Context, tx task.StageTx, v task.Task, p 
 	return p.Review(ctx, raw)
 }
 
+func dossierCapturedComparison(ctx context.Context, tx task.StageTx, v task.Task, p *dossier.CardComparisonPlan) (*dossier.CardComparisonReview, error) {
+	if !p.Valid() || !p.MatchesTask(v) || p.StepNo() != 5 {
+		return nil, points.ErrInvalid
+	}
+	raw, err := dossierCapturedStep(ctx, tx, v, 5, p.InputDigest(), p.OperationKey(v, 5), p.StagePolicy().Digest)
+	if err != nil {
+		return nil, err
+	}
+	return p.Review(ctx, raw)
+}
+
 func loadDossierReportPolicy(ctx context.Context, tx finalreport.Tx, v task.Task, p AIL1ReportPlan, raw []byte) (*finalreport.Policy, error) {
 	pending, err := p.pendingPolicy()
 	if err != nil {
@@ -98,17 +109,33 @@ func loadDossierReportPolicy(ctx context.Context, tx finalreport.Tx, v task.Task
 	if err != nil {
 		return nil, err
 	}
+	var compared *dossier.CardComparisonReview
+	semanticStep := 5
+	if p.ReportProfile == task.DossierComparisonReportProfile {
+		compared, err = dossierCapturedComparison(ctx, tx, v, p.Comparison)
+		if err != nil {
+			return nil, err
+		}
+		visible, err = finalreport.DossierComparisonVisible(visible, p.Dossier, review, p.Comparison, compared)
+		if err != nil {
+			return nil, err
+		}
+		semanticStep = 6
+	}
 	sp, err := finalreport.NewSemanticCheck(p.Model, v.No, visible)
 	if err != nil {
 		return nil, err
 	}
-	packet, err = dossierCapturedStep(ctx, tx, v, 5, sp.InputDigest(), sp.OperationKey(v, 5), sp.StagePolicy().Digest)
+	packet, err = dossierCapturedStep(ctx, tx, v, semanticStep, sp.InputDigest(), sp.OperationKey(v, semanticStep), sp.StagePolicy().Digest)
 	if err != nil {
 		return nil, err
 	}
 	sem, err := sp.Evidence(string(packet))
 	if err != nil {
 		return nil, err
+	}
+	if p.ReportProfile == task.DossierComparisonReportProfile {
+		return finalreport.NewDossierComparisonCapturedPolicy(p.Policy, p.Dossier, p.Comparison, review, compared, ent, sem, p.Companies)
 	}
 	return finalreport.NewDossierCapturedPolicy(p.Policy, p.Dossier, review, ent, sem, p.Companies)
 }

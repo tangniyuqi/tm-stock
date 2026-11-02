@@ -12,7 +12,7 @@ const DossierReportPolicyVersion = "dossier-report-policy-v1"
 
 // NewDossierPolicy绑定新编排的真实任务计划；未捕获字段结果不能交付。
 func NewDossierPolicy(c Config, p *dossier.SupportPlan, e EntailmentCheck, s SemanticCheck, companies ...*CompanyDraft) (*Policy, error) {
-	if !p.Valid() || p.StepNo() != 4 || c.DossierSupportDigest != p.ComponentDigest() || c.ModelName != p.Config().Model || c.FilingNo != p.Config().FilingNo || len(companies) > 1 {
+	if c.DossierComparisonDigest != "" || !p.Valid() || p.StepNo() != 4 || c.DossierSupportDigest != p.ComponentDigest() || c.ModelName != p.Config().Model || c.FilingNo != p.Config().FilingNo || len(companies) > 1 {
 		return nil, points.ErrInvalid
 	}
 	want := 0
@@ -92,7 +92,13 @@ func (p *Policy) dossierDeliverable() bool {
 		return false
 	}
 	_, err := p.dossierPlan.VisibleReview(p.dossierReview)
-	return err == nil
+	if err != nil {
+		return false
+	}
+	if p.comparisonPlan != nil {
+		return p.comparisonReview != nil && p.comparisonReview.ResolvedCount() > 0 && p.comparisonPlan.CheckSupport(p.dossierPlan, p.dossierReview, p.comparisonReview) == nil
+	}
+	return true
 }
 func (p *Policy) DossierProof() (*dossier.SupportPlan, *dossier.SupportReview) {
 	if p == nil {
@@ -101,10 +107,13 @@ func (p *Policy) DossierProof() (*dossier.SupportPlan, *dossier.SupportReview) {
 	return p.dossierPlan, p.dossierReview
 }
 func (p *Policy) dossierAdmission(a task.AdmissionPlan) bool {
-	if p.dossierPlan == nil {
-		return a.ReportProfile == "" && a.DossierSupportDigest == "" && p.cfg.DossierSupportDigest == ""
+	if p.comparisonPlan != nil {
+		return a.ReportProfile == task.DossierComparisonReportProfile && a.DossierSupportDigest == p.cfg.DossierSupportDigest && a.DossierComparisonDigest == p.cfg.DossierComparisonDigest && p.dossierPlan.MatchesAdmission(a) && p.comparisonPlan.MatchesAdmission(a)
 	}
-	return a.ReportProfile == task.DossierReportProfile && a.DossierSupportDigest == p.cfg.DossierSupportDigest && p.dossierPlan.MatchesAdmission(a)
+	if p.dossierPlan == nil {
+		return a.ReportProfile == "" && a.DossierSupportDigest == "" && p.cfg.DossierSupportDigest == "" && a.DossierComparisonDigest == "" && p.cfg.DossierComparisonDigest == ""
+	}
+	return a.ReportProfile == task.DossierReportProfile && a.DossierComparisonDigest == "" && p.cfg.DossierComparisonDigest == "" && a.DossierSupportDigest == p.cfg.DossierSupportDigest && p.dossierPlan.MatchesAdmission(a)
 }
 
 func DossierVisible(visible string, p *dossier.SupportPlan, r *dossier.SupportReview) (string, error) {

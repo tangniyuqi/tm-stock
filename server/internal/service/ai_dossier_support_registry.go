@@ -206,6 +206,21 @@ func (s *AIDossierSupportRegistryService) PrepareComparisonForScope(parent conte
 	return out, nil
 }
 
+func (s *AIDossierSupportRegistryService) loadComparisonForTask(ctx context.Context, v task.Task, a task.AdmissionPlan) (*dossier.CardComparisonPlan, error) {
+	if a.Validate(a.Scope) != nil || a.ReportProfile != task.DossierComparisonReportProfile || a.Scope != (task.AdmissionScope{UserID: v.UserID, AnalysisType: v.AnalysisType, SubjectType: v.SubjectType, SubjectID: v.SubjectID}) {
+		return nil, dossier.ErrCardComparison
+	}
+	prepared, err := s.PrepareComparisonForScope(ctx, a.Scope, a.DossierComparisonDigest)
+	if err != nil {
+		return nil, err
+	}
+	p, err := prepared.BindTask(ctx, v)
+	if err != nil || !p.MatchesAdmission(a) {
+		return nil, dossier.ErrCardComparison
+	}
+	return p, nil
+}
+
 func (s *AIDossierSupportRegistryService) prepareManifestForScope(parent context.Context, scope task.AdmissionScope, component string, decode func(dossier.SupportRegistration) (dossierRegistryManifest, error), consume func(context.Context, dossierRegistryManifest, *dossier.BoundDraft, []sources.Snapshot) error) error {
 	if s == nil || s.store == nil || parent == nil || scope.Validate() != nil || scope.SubjectType != task.Theme || !finalreport.ValidDigest(component) || decode == nil || consume == nil {
 		return dossier.ErrSupportReview

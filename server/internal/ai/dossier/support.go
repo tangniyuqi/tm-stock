@@ -338,7 +338,11 @@ func (p *SupportPlan) MatchesAdmission(a task.AdmissionPlan) bool {
 }
 
 func (p *SupportPlan) materialsAdmitted(allowed []task.AdmissionMaterial) bool {
-	for _, need := range p.materials {
+	return supportMaterialsAdmitted(p.materials, allowed)
+}
+
+func supportMaterialsAdmitted(needed, allowed []task.AdmissionMaterial) bool {
+	for _, need := range needed {
 		found := false
 		for _, have := range allowed {
 			if have.SnapshotID == need.SnapshotID {
@@ -350,7 +354,14 @@ func (p *SupportPlan) materialsAdmitted(allowed []task.AdmissionMaterial) bool {
 			return false
 		}
 	}
-	return len(p.materials) > 0
+	return len(needed) > 0
+}
+
+func (p *SupportPlan) DraftDigest() string {
+	if !p.Valid() {
+		return ""
+	}
+	return p.draftDigest
 }
 
 func supportTask(v task.Task) bool {

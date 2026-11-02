@@ -82,16 +82,26 @@ func (c *AILocalAdmissionControl) Ready(ctx context.Context) error {
 			return err
 		}
 	}
+	needsDossier, needsComparison := false, false
 	for _, spec := range p.Plans {
-		if spec.ReportProfile == task.DossierReportProfile {
-			check, ok := c.evidence.(interface{ VerifyDossierReportSchema(context.Context) error })
-			if !ok {
-				return task.ErrAdmissionUnavailable
-			}
-			if err := check.VerifyDossierReportSchema(ctx); err != nil {
-				return err
-			}
-			break
+		needsDossier = needsDossier || spec.ReportProfile != ""
+		needsComparison = needsComparison || spec.ReportProfile == task.DossierComparisonReportProfile
+	}
+	if needsComparison {
+		check, ok := c.evidence.(interface{ VerifyDossierComparisonReportSchema(context.Context) error })
+		if !ok {
+			return task.ErrAdmissionUnavailable
+		}
+		if err := check.VerifyDossierComparisonReportSchema(ctx); err != nil {
+			return err
+		}
+	} else if needsDossier {
+		check, ok := c.evidence.(interface{ VerifyDossierReportSchema(context.Context) error })
+		if !ok {
+			return task.ErrAdmissionUnavailable
+		}
+		if err := check.VerifyDossierReportSchema(ctx); err != nil {
+			return err
 		}
 	}
 	_, err = c.readCurrent(ctx)
@@ -213,10 +223,19 @@ func (c *AILocalAdmissionControl) ExecutionPlan(ctx context.Context, v task.Task
 			if err := out.Agent.ValidateScope(v); err != nil {
 				return AIL1ReportPlan{}, err
 			}
-			if out.ReportProfile == task.DossierReportProfile {
+			if out.ReportProfile != "" {
 				out.Dossier, err = c.registry.loadForTask(ctx, v, admission)
 				if err != nil {
 					return AIL1ReportPlan{}, err
+				}
+			}
+			if out.ReportProfile == task.DossierComparisonReportProfile {
+				out.Comparison, err = c.registry.loadComparisonForTask(ctx, v, admission)
+				if err != nil {
+					return AIL1ReportPlan{}, err
+				}
+				if !out.Comparison.MatchesFields(out.Dossier) {
+					return AIL1ReportPlan{}, points.ErrIdempotency
 				}
 			}
 			if _, err := c.readCurrent(ctx); err != nil {
@@ -252,8 +271,9 @@ func (c *AILocalAdmissionControl) build(ctx context.Context, spec config.AILocal
 	p := AIL1ReportPlan{Model: model, Policy: policy, ThemeName: spec.SubjectName, AnalysisType: model.AnalysisType}
 	p.Agent = agenttask.Plan{SubjectType: task.Theme, SubjectID: spec.SubjectID, ActorID: spec.ActorID, Symbol: spec.Symbol, ProfileDigest: spec.AgentProfileDigest, Units: task.Units{Calls: spec.AgentCalls, Tokens: spec.AgentTokens, Pages: spec.AgentPages}}
 	var supportPreparation *dossier.SupportPreparation
+	var comparisonPreparation *dossier.CardComparisonPreparation
 	if spec.ReportProfile != "" {
-		if spec.ReportProfile != task.DossierReportProfile || c.registry == nil {
+		if spec.ReportProfile != task.DossierReportProfile && spec.ReportProfile != task.DossierComparisonReportProfile || c.registry == nil {
 			return invalid("专题登记依赖")
 		}
 		prepared, e := c.registry.PrepareForScope(ctx, task.AdmissionScope{UserID: uid, AnalysisType: spec.AnalysisType, SubjectType: task.Theme, SubjectID: spec.SubjectID}, spec.DossierSupportDigest)
@@ -269,6 +289,20 @@ func (c *AILocalAdmissionControl) build(ctx context.Context, spec config.AILocal
 		units := prepared.Units()
 		p.SupportUnits = &units
 		p.Policy.DossierSupportDigest = spec.DossierSupportDigest
+	}
+	if spec.ReportProfile == task.DossierComparisonReportProfile {
+		prepared, e := c.registry.PrepareComparisonForScope(ctx, task.AdmissionScope{UserID: uid, AnalysisType: spec.AnalysisType, SubjectType: task.Theme, SubjectID: spec.SubjectID}, spec.DossierComparisonDigest)
+		if e != nil {
+			return invalid("比较当前用途")
+		}
+		mc := prepared.Config().Model
+		if !prepared.MatchesFields(supportPreparation) || mc.Model != model.Model || mc.FilingNo != model.FilingNo || mc.ProfileDigest != model.ProfileDigest || mc.Version != model.Version || mc.ApprovalRef != model.ApprovalRef || mc.QualityRef != model.QualityRef || mc.HardBudgetRef != model.HardBudgetRef {
+			return invalid("比较模型策略或档案范围")
+		}
+		comparisonPreparation = prepared
+		units := prepared.Units()
+		p.ComparisonUnits = &units
+		p.Policy.DossierComparisonDigest = spec.DossierComparisonDigest
 	}
 	if p.preflightBudget(spec.Budget) != nil {
 		return invalid("完整预算")
@@ -320,14 +354,22 @@ func (c *AILocalAdmissionControl) build(ctx context.Context, spec config.AILocal
 		return invalid("执行摘要")
 	}
 	admission := task.AdmissionPlan{Scope: task.AdmissionScope{UserID: uid, AnalysisType: spec.AnalysisType, SubjectType: task.Theme, SubjectID: spec.SubjectID}, Price: price, Budget: spec.Budget, SubjectName: spec.SubjectName, ModelName: model.Model, FilingNo: model.FilingNo, ProfileDigest: model.ProfileDigest, ExecutionDigest: digest, ApprovalRef: spec.ApprovalRef, QualityRef: spec.QualityRef, HardBudgetRef: spec.HardBudgetRef, PriceRef: spec.PriceRef, SourceRef: spec.SourceRef, ReportProfile: spec.ReportProfile, DossierSupportDigest: spec.DossierSupportDigest}
+	admission.DossierComparisonDigest = spec.DossierComparisonDigest
 	for _, s := range p.Snapshots {
 		admission.Materials = append(admission.Materials, task.AdmissionMaterial{SnapshotID: s.ID, Digest: s.Hash, Domain: urlDomain(s.URL), Category: s.SourceCategory, URL: s.URL, CollectedAt: s.FetchedAt})
 	}
 	if admission.Validate(admission.Scope) != nil {
 		return invalid("准入身份")
 	}
+	var dossierMaterials []task.AdmissionMaterial
 	if supportPreparation != nil {
-		for _, need := range supportPreparation.Materials() {
+		dossierMaterials = append(dossierMaterials, supportPreparation.Materials()...)
+	}
+	if comparisonPreparation != nil {
+		dossierMaterials = append(dossierMaterials, comparisonPreparation.Materials()...)
+	}
+	if len(dossierMaterials) > 0 {
+		for _, need := range dossierMaterials {
 			if !slices.ContainsFunc(admission.Materials, func(have task.AdmissionMaterial) bool {
 				return have.SnapshotID == need.SnapshotID && have.Digest == need.Digest && have.Domain == need.Domain && have.Category == need.Category && have.URL == need.URL && have.CollectedAt.Equal(need.CollectedAt)
 			}) {

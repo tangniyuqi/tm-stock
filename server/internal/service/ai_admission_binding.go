@@ -52,6 +52,10 @@ func guardTaskAgentAdmission(ctx context.Context, store task.AdmissionStore, pla
 	return nil
 }
 func cloneL1Plan(p AIL1ReportPlan) AIL1ReportPlan {
+	if p.ComparisonUnits != nil {
+		u := *p.ComparisonUnits
+		p.ComparisonUnits = &u
+	}
 	if p.SupportUnits != nil {
 		u := *p.SupportUnits
 		p.SupportUnits = &u
@@ -91,10 +95,18 @@ func (p AIL1ReportPlan) AdmissionDigest() (string, error) {
 	})
 	version := "l1-admission-execution-v1"
 	if p.ReportProfile != "" {
-		if p.ReportProfile != task.DossierReportProfile || p.SupportUnits == nil || !finalreport.ValidDigest(p.Policy.DossierSupportDigest) {
+		if p.ReportProfile != task.DossierReportProfile && p.ReportProfile != task.DossierComparisonReportProfile || p.SupportUnits == nil || !finalreport.ValidDigest(p.Policy.DossierSupportDigest) {
 			return "", points.ErrInvalid
 		}
 		version = task.DossierReportProfile
+	}
+	if p.ReportProfile == task.DossierComparisonReportProfile {
+		if p.AnalysisType != task.DeepAnalysisType || p.ComparisonUnits == nil || !finalreport.ValidDigest(p.Policy.DossierComparisonDigest) {
+			return "", points.ErrInvalid
+		}
+		version = task.DossierComparisonReportProfile
+	} else if p.ComparisonUnits != nil || p.Policy.DossierComparisonDigest != "" {
+		return "", points.ErrInvalid
 	}
 	b, err := json.Marshal(struct {
 		Version string
@@ -142,7 +154,7 @@ func checkAdmittedL1(ctx context.Context, store task.AdmissionStore, v task.Task
 		return err
 	}
 	a := record.Plan
-	if a.ReportProfile != p.ReportProfile || a.DossierSupportDigest != p.Policy.DossierSupportDigest || a.ExecutionDigest != digest || a.CompanyDigest != p.Policy.CompanyDigest || a.SubjectName != p.ThemeName || a.ModelName != p.Model.Model || a.FilingNo != p.Model.FilingNo || a.ProfileDigest != p.Model.ProfileDigest || a.ApprovalRef != p.Model.ApprovalRef || a.QualityRef != p.Model.QualityRef || a.HardBudgetRef != p.Model.HardBudgetRef || len(a.Materials) != len(p.Snapshots) {
+	if a.DossierComparisonDigest != p.Policy.DossierComparisonDigest || a.ReportProfile != p.ReportProfile || a.DossierSupportDigest != p.Policy.DossierSupportDigest || a.ExecutionDigest != digest || a.CompanyDigest != p.Policy.CompanyDigest || a.SubjectName != p.ThemeName || a.ModelName != p.Model.Model || a.FilingNo != p.Model.FilingNo || a.ProfileDigest != p.Model.ProfileDigest || a.ApprovalRef != p.Model.ApprovalRef || a.QualityRef != p.Model.QualityRef || a.HardBudgetRef != p.Model.HardBudgetRef || len(a.Materials) != len(p.Snapshots) {
 		return points.ErrIdempotency
 	}
 	if p.ReportProfile != "" && (!p.Dossier.Valid() || !p.Dossier.MatchesTask(v) || !p.Dossier.MatchesAdmission(a)) {

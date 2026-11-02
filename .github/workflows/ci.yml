@@ -121,11 +121,114 @@ jobs:
           # Worker守卫和命令生命周期新增5根54子节点，默认CLI不开放核验替换开关。
           # 两卡语义口径内部协议新增11根86子节点，未计作真实模型准确率。
           # 两卡清单/登记闭集普通验收新增4根21子节点。
-          MIN=2081
+          # 七步报告新增13根81子节点，旧普通门禁保留。
+          MIN=2175
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项测试，低于下限 $MIN —— 要么测试没被执行，要么有测试被删。"
             exit 1
           fi
+
+          # 专题七步报告普通门禁开始
+          SEVEN_UNIT_ACTUAL=$(sed -nE 's/^[[:space:]]*--- PASS: (TestDossierSevenStep[^ ]*) .*/\1/p' /tmp/gotest.log | LC_ALL=C sort)
+          SEVEN_UNIT_EXPECTED=$(printf '%s\n' \
+            'TestDossierSevenStepAdmission' \
+            'TestDossierSevenStepAdmission/七步深度' \
+            'TestDossierSevenStepAdmission/轻量不能比较' \
+            'TestDossierSevenStepAdmission/缺字段组件' \
+            'TestDossierSevenStepAdmission/缺比较组件' \
+            'TestDossierSevenStepAdmission/比较组件格式' \
+            'TestDossierSevenStepAdmission/五步不解释比较' \
+            'TestDossierSevenStepAdmission/六步不解释比较' \
+            'TestDossierSevenStepAdmission/六步预算不足' \
+            'TestDossierSevenStepAdmission/未知编排' \
+            'TestDossierSevenStepSupportConsistency' \
+            'TestDossierSevenStepSupportConsistency/consistent' \
+            'TestDossierSevenStepSupportConsistency/field_partial' \
+            'TestDossierSevenStepSupportConsistency/field_unknown_meaning' \
+            'TestDossierSevenStepSupportConsistency/section_partial' \
+            'TestDossierSevenStepSupportConsistency/cross_account' \
+            'TestDossierSevenStepSupportConsistency/cross_draft' \
+            'TestDossierSevenStepSupportConsistency/missing_review' \
+            'TestDossierSevenStepSupportConsistency/missing_comparison' \
+            'TestDossierSevenStepComparisonAdmission' \
+            'TestDossierSevenStepComparisonAdmission/account' \
+            'TestDossierSevenStepComparisonAdmission/theme' \
+            'TestDossierSevenStepComparisonAdmission/component' \
+            'TestDossierSevenStepComparisonAdmission/model' \
+            'TestDossierSevenStepComparisonAdmission/profile' \
+            'TestDossierSevenStepComparisonAdmission/material' \
+            'TestDossierSevenStepComparisonAdmission/budget' \
+            'TestDossierSevenStepComparisonAdmission/old_profile' \
+            'TestDossierSevenStepCapturedPolicy' \
+            'TestDossierSevenStepCapturedPolicy/missing_entailment' \
+            'TestDossierSevenStepCapturedPolicy/missing_fields' \
+            'TestDossierSevenStepCapturedPolicy/missing_comparison' \
+            'TestDossierSevenStepCapturedPolicy/missing_semantic' \
+            'TestDossierSevenStepCapturedPolicy/wrong_component' \
+            'TestDossierSevenStepCapturedPolicy/light' \
+            'TestDossierSevenStepCapturedPolicy/old_constructor' \
+            'TestDossierSevenStepSealedModelStep' \
+            'TestDossierSevenStepAuditShape' \
+            'TestDossierSevenStepPolicyFailures' \
+            'TestDossierSevenStepPolicyFailures/same' \
+            'TestDossierSevenStepPolicyFailures/missing_field_digest' \
+            'TestDossierSevenStepPolicyFailures/minimum_quotes' \
+            'TestDossierSevenStepPolicyFailures/nil_fields' \
+            'TestDossierSevenStepPolicyFailures/nil_comparison' \
+            'TestDossierSevenStepPolicyFailures/model' \
+            'TestDossierSevenStepPolicyFailures/entailment_block' \
+            'TestDossierSevenStepPolicyFailures/bad_field_support' \
+            'TestDossierSevenStepPolicyFailures/wrong_semantic' \
+            'TestDossierSevenStepPolicyFailures/wrong_entailment' \
+            'TestDossierSevenStepForeignReviewRefusal' \
+            'TestDossierSevenStepLocalConfig' \
+            'TestDossierSevenStepLocalConfig/same' \
+            'TestDossierSevenStepLocalConfig/missing_fields' \
+            'TestDossierSevenStepLocalConfig/missing_comparison' \
+            'TestDossierSevenStepLocalConfig/bad_comparison' \
+            'TestDossierSevenStepLocalConfig/legacy' \
+            'TestDossierSevenStepLocalConfig/six_step' \
+            'TestDossierSevenStepLocalConfig/light' \
+            'TestDossierSevenStepLocalConfig/budget' \
+            'TestDossierSevenStepLocalConfig/null' \
+            'TestDossierSevenStepLocalConfig/alias' \
+            'TestDossierSevenStepLocalConfig/extra' \
+            'TestDossierSevenStepExecutionGates' \
+            'TestDossierSevenStepExecutionGates/registry' \
+            'TestDossierSevenStepExecutionGates/tasks' \
+            'TestDossierSevenStepExecutionGates/full' \
+            'TestDossierSevenStepExecutionGates/audit' \
+            'TestDossierSevenStepExecutionGates/worker_tasks' \
+            'TestDossierSevenStepExecutionGates/worker_store' \
+            'TestDossierSevenStepExecutionGates/worker_model' \
+            'TestDossierSevenStepExecutionGates/worker_control' \
+            'TestDossierSevenStepExecutionGates/worker_owner' \
+            'TestDossierSevenStepControlRefusals' \
+            'TestDossierSevenStepControlRefusals/nil_context' \
+            'TestDossierSevenStepControlRefusals/cancelled' \
+            'TestDossierSevenStepControlRefusals/user' \
+            'TestDossierSevenStepControlRefusals/task' \
+            'TestDossierSevenStepControlRefusals/cross_member' \
+            'TestDossierSevenStepControlRefusals/missing_admission' \
+            'TestDossierSevenStepControlRefusals/bad_record' \
+            'TestDossierSevenStepControlRefusals/legacy' \
+            'TestDossierSevenStepControlRefusals/full_denied' \
+            'TestDossierSevenStepControlRefusals/registry_failed' \
+            'TestDossierSevenStepPlanBinding' \
+            'TestDossierSevenStepPlanBinding/same' \
+            'TestDossierSevenStepPlanBinding/missing_comparison' \
+            'TestDossierSevenStepPlanBinding/missing_units' \
+            'TestDossierSevenStepPlanBinding/changed_units' \
+            'TestDossierSevenStepPlanBinding/old_profile' \
+            'TestDossierSevenStepPlanBinding/light' \
+            'TestDossierSevenStepPlanBinding/cross_task' \
+            'TestDossierSevenStepPlanBinding/budget' \
+            'TestDossierSevenStepPlanBinding/component' \
+            'TestDossierSevenStepSchemaConstruction' | LC_ALL=C sort)
+          if [ "$SEVEN_UNIT_ACTUAL" != "$SEVEN_UNIT_EXPECTED" ] || grep -Eq "^[[:space:]]*--- (SKIP|FAIL): TestDossierSevenStep" /tmp/gotest.log; then
+            echo "七步报告验收缺失、重复、替名、跳过或失败"; exit 1
+          fi
+          # 专题七步报告普通门禁结束
 
           # 专题两卡清单普通门禁开始
           COMPARISON_ACTUAL=$(sed -nE 's/^[[:space:]]*--- PASS: (TestDossierComparison[^ ]*) .*/\1/p' /tmp/gotest.log | LC_ALL=C sort)
@@ -1186,6 +1289,41 @@ jobs:
           if [ "$QA_HTTP_ROOTS" -ne 3 ] || [ "$QA_HTTP_LEVELS" -ne 4 ] || [ "$QA_HTTP_BOUNDARIES" -ne 18 ] || [ "$QA_SCHEMA_CASES" -ne 20 ]; then
             echo '::error::问答实际JWT/HTTP/配额/当前撤权/原键未知/无模型读取或结构破坏用例漏跑'; exit 1
           fi
+          # 专题七步报告真库门禁开始
+          SEVEN_SQL_ACTUAL=$(sed -nE 's/^[[:space:]]*--- PASS: (TestIntegrationAIReportDossier(ComparisonWorkflow|SevenStep(Schema|Process))[^ ]*) .*/\1/p' /tmp/it.log | LC_ALL=C sort)
+          SEVEN_SQL_EXPECTED=$(printf '%s\n' \
+            'TestIntegrationAIReportDossierComparisonWorkflow' \
+            'TestIntegrationAIReportDossierComparisonWorkflow/Read_Committed' \
+            'TestIntegrationAIReportDossierComparisonWorkflow/Read_Committed/supported' \
+            'TestIntegrationAIReportDossierComparisonWorkflow/Read_Committed/partial_consistent' \
+            'TestIntegrationAIReportDossierComparisonWorkflow/Read_Committed/uncertain' \
+            'TestIntegrationAIReportDossierComparisonWorkflow/Read_Committed/mismatch' \
+            'TestIntegrationAIReportDossierComparisonWorkflow/Read_Committed/entailment' \
+            'TestIntegrationAIReportDossierComparisonWorkflow/Read_Committed/semantic' \
+            'TestIntegrationAIReportDossierComparisonWorkflow/Read_Committed/comparison_transport' \
+            'TestIntegrationAIReportDossierComparisonWorkflow/Read_Committed/comparison_malformed' \
+            'TestIntegrationAIReportDossierComparisonWorkflow/Repeatable_Read' \
+            'TestIntegrationAIReportDossierComparisonWorkflow/Repeatable_Read/supported' \
+            'TestIntegrationAIReportDossierComparisonWorkflow/Repeatable_Read/partial_consistent' \
+            'TestIntegrationAIReportDossierComparisonWorkflow/Repeatable_Read/uncertain' \
+            'TestIntegrationAIReportDossierComparisonWorkflow/Repeatable_Read/mismatch' \
+            'TestIntegrationAIReportDossierComparisonWorkflow/Repeatable_Read/entailment' \
+            'TestIntegrationAIReportDossierComparisonWorkflow/Repeatable_Read/semantic' \
+            'TestIntegrationAIReportDossierComparisonWorkflow/Repeatable_Read/comparison_transport' \
+            'TestIntegrationAIReportDossierComparisonWorkflow/Repeatable_Read/comparison_malformed' \
+            'TestIntegrationAIReportDossierSevenStepProcess' \
+            'TestIntegrationAIReportDossierSevenStepProcess/Read_Committed' \
+            'TestIntegrationAIReportDossierSevenStepProcess/Repeatable_Read' \
+            'TestIntegrationAIReportDossierSevenStepSchema' \
+            'TestIntegrationAIReportDossierSevenStepSchema/实际探针全部回滚' \
+            'TestIntegrationAIReportDossierSevenStepSchema/缺第六步CHECK' \
+            'TestIntegrationAIReportDossierSevenStepSchema/旧触发器放开第六步' \
+            'TestIntegrationAIReportDossierSevenStepSchema/恢复后重新核验' | LC_ALL=C sort)
+          if [ "$SEVEN_SQL_ACTUAL" != "$SEVEN_SQL_EXPECTED" ] || grep -Eq "^[[:space:]]*--- (SKIP|FAIL): TestIntegrationAIReportDossier(ComparisonWorkflow|SevenStep(Schema|Process))" /tmp/it.log; then
+            echo "七步报告验收缺失、重复、替名、跳过或失败"; exit 1
+          fi
+          # 专题七步报告真库门禁结束
+
           # 专题两卡清单真库门禁开始
           COMPARISON_SQL_ACTUAL=$(sed -nE 's/^[[:space:]]*--- PASS: (TestIntegrationAIReportDossierComparisonRegistry[^ ]*) .*/\1/p' /tmp/it.log | LC_ALL=C sort)
           COMPARISON_SQL_EXPECTED=$(printf '%s\n' \
@@ -1474,7 +1612,8 @@ jobs:
           # 专题完整六步报告增加6根、12隔离子组、4轻深父组及60具体场景，共82项。
           # 核验公开投影/当前授权读取新增1根、2隔离组、4轻深组及24反例，共31项。
           # 两卡清单/授权重建真库新增5根91子节点，保留旧清单回归。
-          MIN=1738
+          # 七步编排/审计结构/独立进程新增3根24子节点。
+          MIN=1765
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项，低于下限 $MIN —— 要么没跑，要么有测试被删。"; exit 1
           fi

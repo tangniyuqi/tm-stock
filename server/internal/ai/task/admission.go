@@ -17,13 +17,14 @@ var (
 )
 
 const (
-	LightAnalysisType    = 1
-	DeepAnalysisType     = 2
-	DeepPricePoints      = 30
-	DeepMinQuotes        = 6
-	DeepMaxPerUser       = 1
-	DeepMaxGlobal        = 5
-	DossierReportProfile = "dossier-report-v1"
+	LightAnalysisType              = 1
+	DeepAnalysisType               = 2
+	DeepPricePoints                = 30
+	DeepMinQuotes                  = 6
+	DeepMaxPerUser                 = 1
+	DeepMaxGlobal                  = 5
+	DossierReportProfile           = "dossier-report-v1"
+	DossierComparisonReportProfile = "dossier-comparison-report-v1"
 )
 
 type AdmissionScope struct {
@@ -58,6 +59,7 @@ type AdmissionPlan struct {
 	CompanyDigest                                                    string `json:",omitempty"` // 非空时显式绑定完整审核公司集合，空值保留旧编码。
 	DossierSupportDigest                                             string `json:",omitempty"` // 新核验组件另行绑定，不解释为旧报告批准。
 	ReportProfile                                                    string `json:",omitempty"` // 非空才声明新版完整报告编排；独立单步核验不等于该批准。
+	DossierComparisonDigest                                          string `json:",omitempty"` // 比较组件只能由显式七步深度编排使用。
 }
 
 func (AdmissionPlan) String() string {
@@ -72,7 +74,23 @@ func (p AdmissionPlan) Validate(scope AdmissionScope) error {
 	if p.DossierSupportDigest != "" && !digestPattern.MatchString(p.DossierSupportDigest) {
 		return points.ErrInvalid
 	}
-	if p.ReportProfile != "" && (p.ReportProfile != DossierReportProfile || p.DossierSupportDigest == "" || p.Budget.MaxCalls < 6) {
+	if p.DossierComparisonDigest != "" && !digestPattern.MatchString(p.DossierComparisonDigest) {
+		return points.ErrInvalid
+	}
+	switch p.ReportProfile {
+	case "":
+		if p.DossierComparisonDigest != "" {
+			return points.ErrInvalid
+		}
+	case DossierReportProfile:
+		if p.DossierSupportDigest == "" || p.DossierComparisonDigest != "" || p.Budget.MaxCalls < 6 {
+			return points.ErrInvalid
+		}
+	case DossierComparisonReportProfile:
+		if scope.AnalysisType != DeepAnalysisType || p.DossierSupportDigest == "" || p.DossierComparisonDigest == "" || p.Budget.MaxCalls < 7 {
+			return points.ErrInvalid
+		}
+	default:
 		return points.ErrInvalid
 	}
 	if scope.Validate() != nil || p.Scope != scope || scope.SubjectType != Theme || p.Price.Validate() != nil || p.Budget.Validate() != nil || p.Budget.MaxCalls < 5 || !digestPattern.MatchString(p.ProfileDigest) || !digestPattern.MatchString(p.ExecutionDigest) {

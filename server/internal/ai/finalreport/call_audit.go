@@ -24,7 +24,7 @@ func (a CallAudit) Validate() error {
 		return points.ErrInvariant
 	}
 	r := a.Request
-	if !(r.StepNo == 2 && r.Stage == "extract" || (r.StepNo == 3 || r.StepNo == 4 || r.StepNo == 5) && r.Stage == "judge") {
+	if !(r.StepNo == 2 && r.Stage == "extract" || (r.StepNo == 3 || r.StepNo == 4 || r.StepNo == 5 || r.StepNo == 6) && r.Stage == "judge") {
 		return points.ErrInvariant
 	}
 	if a.Phase == "start" && a.Outcome == "started" && a.ResultDigest == "" || a.Phase == "finish" && (a.Outcome == "returned" || a.Outcome == "errored") && ValidDigest(a.ResultDigest) {

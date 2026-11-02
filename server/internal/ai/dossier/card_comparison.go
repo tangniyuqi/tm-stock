@@ -61,6 +61,8 @@ type CardComparisonPlan struct {
 	axes                                            []comparisonAxisInput
 	materials                                       []task.AdmissionMaterial
 	digest, policy, component, draftDigest, origins string
+	checks                                          []supportCheck
+	themeName                                       string
 }
 
 func (CardComparisonConfig) String() string          { return "两卡口径配置（身份已隐藏）" }
@@ -242,7 +244,7 @@ func (p *CardComparisonPreparation) BindTask(ctx context.Context, v task.Task) (
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	return &CardComparisonPlan{p.cfg, identity, req, slices.Clone(p.axes), p.Materials(), task.StageDigest(raw), p.policy, component, p.base.draftDigest, p.origins}, nil
+	return &CardComparisonPlan{p.cfg, identity, req, slices.Clone(p.axes), p.Materials(), task.StageDigest(raw), p.policy, component, p.base.draftDigest, p.origins, slices.Clone(p.base.checks), p.base.themeName}, nil
 }
 func (p *CardComparisonPlan) Valid() bool { return p != nil && supportDigest(p.digest) }
 func (p *CardComparisonPlan) InputDigest() string {
@@ -268,6 +270,35 @@ func (p *CardComparisonPlan) Config() CardComparisonConfig {
 		return CardComparisonConfig{}
 	}
 	return p.cfg
+}
+
+func (p *CardComparisonPlan) DraftDigest() string {
+	if !p.Valid() {
+		return ""
+	}
+	return p.draftDigest
+}
+
+func (p *CardComparisonPlan) CardKeys() []string {
+	if !p.Valid() {
+		return nil
+	}
+	keys := []string{}
+	for _, check := range p.checks {
+		if check.Field == "section" {
+			keys = append(keys, check.Card)
+		}
+	}
+	return keys
+}
+
+func (p *CardComparisonPlan) MatchesAdmission(a task.AdmissionPlan) bool {
+	if !p.Valid() || a.Validate(a.Scope) != nil || a.ReportProfile != task.DossierComparisonReportProfile || a.DossierComparisonDigest != p.component ||
+		a.Scope != (task.AdmissionScope{UserID: p.identity.UserID, AnalysisType: task.DeepAnalysisType, SubjectType: task.Theme, SubjectID: p.identity.ThemeID}) ||
+		a.SubjectName != p.themeName || a.ModelName != p.cfg.Model.Model || a.FilingNo != p.cfg.Model.FilingNo || a.ProfileDigest != p.cfg.Model.ProfileDigest || !p.Units().Fits(a.Budget.Limits()) {
+		return false
+	}
+	return supportMaterialsAdmitted(p.materials, a.Materials)
 }
 func (p *CardComparisonPlan) StepNo() int {
 	if !p.Valid() {

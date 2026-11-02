@@ -1,5 +1,13 @@
 # AI 内部操作手册（L0 审核与隔离 Agent 执行）
 
+## 显式七步深度比较报告（2026-11-02）
+
+受控本地文件显式填写`report_profile=dossier-comparison-report-v1`及已登记的`dossier_support_digest`、`dossier_comparison_digest`，仅深度、完整预算至少七步。字段清单ReviewStep=4且覆盖比较两卡，两份清单同一档案；比较清单自带焦点、ReviewStep=5。两个独立AI用途、会员/发布/来源及模型/质量/硬限额均分别核，登记不能代替批准。真实执行仍需原单独开关，默认关闭，不部署或扣真实用户积分。
+
+按迁移序数执行`20261102_register_dossier_card_comparison.sql`及`20261102_enable_dossier_comparison_report_audit.sql`；停止报告写入后变更，不改历史记录。新Ready调用VerifyDossierComparisonReportSchema，在同一回滚事务给足预算，验证旧五/六步第6步1644拒绝、新七步第5/6步成功及原结构保护。缺步位CHECK、旧触发器放开第6步或探针不回滚必须拒绝启动；不能只跑旧第5步探针。原受限连接复用既有审计/任务探针权限，资料和用途仍只读。
+
+在server目录执行`go test -race -count=1 -v ./internal/ai/task ./internal/ai/dossier ./internal/ai/finalreport ./internal/config ./internal/service ./internal/repository -run '^TestDossierSevenStep'`，预期13根81子节点94个唯一PASS，零跳过。真库分别选精确根`^TestIntegrationAIReportDossierComparisonWorkflow$`及`^TestIntegrationAIReportDossierSevenStep(Schema|Process)$`，合计3根24子节点27个唯一PASS，另跑原六步及审计启动。不得用一次成功冒烟替代失败、未知恢复、双用途撤回和独立进程；本阶段仍没有比较结果的浏览器展示或真实语义质量证据。
+
 ## 两卡清单登记及当前授权重建（2026-11-02）
 
 `dossier-card-comparison-manifest-v1`复用原核验清单与AI用途表，专用清单解码器和旧字段清单互拒。原内部登记服务显式开启后可调用RegisterComparisonInternal；PrepareComparisonForScope仅接原认证/准入控制面核定的深度会员范围，逐次核本人档案、发布、来源和独立AI用途，不能由公开请求自行指定会员身份。登记不自动授予用途、读取或发布许可。

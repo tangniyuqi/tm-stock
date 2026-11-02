@@ -84,7 +84,7 @@ func (c *AILocalReportReadControl) policy(ctx context.Context, p localPublicatio
 		return nil, finalreport.ErrUnavailable
 	}
 	var policy *finalreport.Policy
-	if execution.ReportProfile == task.DossierReportProfile {
+	if execution.ReportProfile != "" {
 		err = c.admission.evidence.WithinReportTx(ctx, func(tx finalreport.Tx) error {
 			current, e := lockOwnedTask(ctx, tx, p.task.UserID, p.task.ID)
 			if e != nil {

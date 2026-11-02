@@ -261,6 +261,7 @@ func startLocalAPIConfigured(t *testing.T, e *workflowEnv, binary, dsn, signing,
 type localProcessCase struct {
 	configure             func(*testing.T, *localPublicationFixture, *config.AILocalExecution)
 	dossier               bool // 仅显式新六步编排专项，旧用例保持原调用数和资料权限。
+	comparison            bool // 显式七步深度比较专项，不复用六步期望值。
 	external              bool
 	feedbackAdmin         string
 	feedbackBrowserRunner string
@@ -487,7 +488,11 @@ func verifyLocalAPIWorker(t *testing.T, level sql.IsolationLevel, kind int, api,
 			t.Fatal("报告任务归属或章节不符")
 		}
 		if dossierReport {
-			if v.DossierReview == nil || v.DossierReview.Version != 1 || len(v.DossierReview.Items) != 1 || v.DossierReview.Items[0].Verdict != "partial" || v.DossierReview.Items[0].Checked.SourceURL == "" {
+			wantItems, wantVerdict := 1, "partial"
+			if len(cases) == 1 && cases[0].comparison {
+				wantItems, wantVerdict = 6, "supported"
+			}
+			if v.DossierReview == nil || v.DossierReview.Version != 1 || len(v.DossierReview.Items) != wantItems || v.DossierReview.Items[0].Verdict != wantVerdict || v.DossierReview.Items[0].Checked.SourceURL == "" {
 				t.Fatal("原密码HTTP报告未返回白名单核验结果")
 			}
 		} else if v.DossierReview != nil {
@@ -595,6 +600,9 @@ func verifyLocalAPIWorker(t *testing.T, level sql.IsolationLevel, kind int, api,
 	if dossierReport {
 		wantModel = 4
 		wantAudits = 8
+	}
+	if len(cases) == 1 && cases[0].comparison {
+		wantModel, wantAudits = 5, 10
 	}
 	if external {
 		wantAgent, wantModel = 0, 0

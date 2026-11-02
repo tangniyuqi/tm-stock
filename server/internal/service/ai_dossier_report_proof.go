@@ -23,7 +23,7 @@ func checkDossierReportProof(ctx context.Context, tx task.AdmissionReadTx, v tas
 	if a.ReportProfile == "" && plan == nil {
 		return nil
 	}
-	if a.ReportProfile != task.DossierReportProfile || !plan.Valid() || !plan.MatchesTask(v) || plan.StepNo() != 4 {
+	if a.ReportProfile != task.DossierReportProfile && a.ReportProfile != task.DossierComparisonReportProfile || !plan.Valid() || !plan.MatchesTask(v) || plan.StepNo() != 4 {
 		return points.ErrIdempotency
 	}
 	registry, ok := tx.(interface {
@@ -40,6 +40,21 @@ func checkDossierReportProof(ctx context.Context, tx task.AdmissionReadTx, v tas
 	if current.InputDigest() != plan.InputDigest() || current.PolicyDigest() != plan.PolicyDigest() {
 		return points.ErrIdempotency
 	}
+	comparison, compared := p.ComparisonProof()
+	if a.ReportProfile == task.DossierComparisonReportProfile {
+		if !comparison.Valid() || !comparison.MatchesTask(v) || !comparison.MatchesAdmission(a) {
+			return points.ErrIdempotency
+		}
+		actual, err := reader.loadComparisonForTask(ctx, v, a)
+		if err != nil {
+			return err
+		}
+		if actual.InputDigest() != comparison.InputDigest() || actual.PolicyDigest() != comparison.PolicyDigest() {
+			return points.ErrIdempotency
+		}
+	} else if comparison != nil || compared != nil {
+		return points.ErrIdempotency
+	}
 	// 蕴含明确失败可提前结束；缺字段回执的策略本身不能得到成功判定。
 	if review == nil {
 		return nil
@@ -54,6 +69,15 @@ func checkDossierReportProof(ctx context.Context, tx task.AdmissionReadTx, v tas
 	}
 	if actual.PayloadDigest() != review.PayloadDigest() {
 		return points.ErrInvariant
+	}
+	if compared != nil {
+		actualComparison, err := dossierCapturedComparison(ctx, stages, v, comparison)
+		if err != nil {
+			return err
+		}
+		if actualComparison.PayloadDigest() != compared.PayloadDigest() || comparison.CheckSupport(current, actual, actualComparison) != nil {
+			return points.ErrInvariant
+		}
 	}
 	return nil
 }

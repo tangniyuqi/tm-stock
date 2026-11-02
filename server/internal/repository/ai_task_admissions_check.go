@@ -88,6 +88,18 @@ func probeAdmissionTask(ctx context.Context, tx *sql.Tx, action func(task.Task, 
 }
 
 func probeAdmissionTaskWithDossier(ctx context.Context, tx *sql.Tx, dossier bool, action func(task.Task, task.AdmissionRecord) error) error {
+	profile := ""
+	if dossier {
+		profile = task.DossierReportProfile
+	}
+	return probeAdmissionTaskWithReportProfile(ctx, tx, profile, action)
+}
+
+func probeAdmissionTaskWithReportProfile(ctx context.Context, tx *sql.Tx, profile string, action func(task.Task, task.AdmissionRecord) error) error {
+	return probeAdmissionTaskWithReportBudget(ctx, tx, profile, 0, action)
+}
+
+func probeAdmissionTaskWithReportBudget(ctx context.Context, tx *sql.Tx, profile string, minCalls int64, action func(task.Task, task.AdmissionRecord) error) error {
 	// 这些行仅为保护探针，全部回滚，绝不代表模型/来源/定价批准。
 	base, err := budgetProbeTask(ctx, tx)
 	if err != nil {
@@ -103,10 +115,18 @@ func probeAdmissionTaskWithDossier(ctx context.Context, tx *sql.Tx, dossier bool
 	}
 	p := task.AdmissionPlan{Scope: task.AdmissionScope{UserID: base.UserID, AnalysisType: 1, SubjectType: task.Theme, SubjectID: 1}, Price: points.Price{Version: "probe", Points: 7}, Budget: base.Budget, SubjectName: "结构探针题材", ModelName: "结构探针模型", FilingNo: "probe-only", ProfileDigest: strings.Repeat("a", 64), ExecutionDigest: strings.Repeat("b", 64), ApprovalRef: "probe-only", QualityRef: "probe-only", HardBudgetRef: "probe-only", PriceRef: "probe-only", SourceRef: "probe-only", Materials: []task.AdmissionMaterial{{SnapshotID: 1, Digest: strings.Repeat("c", 64), Domain: "admission.example.test", Category: sources.CategoryAnnouncement, URL: "https://admission.example.test/probe", CollectedAt: now.Add(-time.Hour)}}}
 	p.Budget.MaxCalls = 5
-	if dossier {
+	if profile != "" {
 		p.Budget.MaxCalls = 6
-		p.ReportProfile = task.DossierReportProfile
+		p.ReportProfile = profile
 		p.DossierSupportDigest = strings.Repeat("d", 64)
+	}
+	if profile == task.DossierComparisonReportProfile {
+		p.Budget.MaxCalls = 7
+		p.Scope.AnalysisType = task.DeepAnalysisType
+		p.DossierComparisonDigest = strings.Repeat("e", 64)
+	}
+	if p.Budget.MaxCalls < minCalls {
+		p.Budget.MaxCalls = minCalls
 	}
 	no := fmt.Sprintf("%032x", base.UserID+1)
 	key := "admission_probe_" + no
@@ -123,6 +143,7 @@ func probeAdmissionTaskWithDossier(ctx context.Context, tx *sql.Tx, dossier bool
 		return err
 	}
 	v := task.Task{UserID: base.UserID, No: no, Key: key, Hash: strings.Repeat("0", 64), AnalysisType: 1, SubjectType: task.Theme, SubjectID: 1, HoldID: hold, PriceVersion: "probe", PricePoints: 7, Budget: p.Budget, Status: task.Queued, NotBefore: now, Deadline: now.Add(time.Hour), EventSeq: 1}
+	v.AnalysisType = p.Scope.AnalysisType
 	if _, err := a.InsertAdmittedTask(ctx, v, strings.Repeat("g", 64)); !pointsProbeError(err, 3819) {
 		return fmt.Errorf("准入标记CHECK未拒绝: %w", errOrMissing(err))
 	}

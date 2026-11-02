@@ -86,14 +86,14 @@ func newAILocalReportModelControls(admission *AILocalAdmissionControl, ledger *P
 // expected 亲自回取原隔离Agent及已捕获选句，不信任调用方提供的提示或判定正文。
 // 只读转换仍经过原准入/检查点/当前资料核验，不执行模型或账务操作。
 func (c *localReportModelControl) expected(ctx context.Context, v task.Task, step int) (finalreport.ModelStep, error) {
-	if c == nil || ctx == nil || step < 2 || step > 5 {
+	if c == nil || ctx == nil || step < 2 || step > 6 {
 		return nil, points.ErrInvalid
 	}
 	p, err := c.admission.ExecutionPlan(ctx, v)
 	if err != nil {
 		return nil, err
 	}
-	if step == 5 && p.ReportProfile != task.DossierReportProfile || step == 4 && p.ReportProfile == task.DossierReportProfile {
+	if step == 5 && p.ReportProfile != task.DossierReportProfile || step == 4 && p.ReportProfile != "" || step == 6 && p.ReportProfile != task.DossierComparisonReportProfile {
 		return nil, points.ErrInvalid
 	}
 	// 本地装配不接管无首次准入的历史开发任务。
@@ -165,11 +165,15 @@ func (c *localReportModelControl) expected(ctx context.Context, v task.Task, ste
 	if step == 3 {
 		return finalreport.NewEntailmentCheck(p.Model, in)
 	}
-	if step == 5 {
+	if step >= 5 {
 		var review *dossier.SupportReview
+		var compared *dossier.CardComparisonReview
 		err = c.store.WithinStageTx(ctx, func(tx task.StageTx) error {
 			var e error
 			review, e = dossierCapturedReview(ctx, tx, v, p.Dossier)
+			if e == nil && step == 6 {
+				compared, e = dossierCapturedComparison(ctx, tx, v, p.Comparison)
+			}
 			return e
 		})
 		if err != nil {
@@ -178,6 +182,12 @@ func (c *localReportModelControl) expected(ctx context.Context, v task.Task, ste
 		visible, err = finalreport.DossierVisible(visible, p.Dossier, review)
 		if err != nil {
 			return nil, err
+		}
+		if step == 6 {
+			visible, err = finalreport.DossierComparisonVisible(visible, p.Dossier, review, p.Comparison, compared)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 	return finalreport.NewSemanticCheck(p.Model, v.No, visible)
@@ -219,12 +229,15 @@ func (c *AILocalReportCheckControl) Recheck(ctx context.Context, v task.Task, p 
 		if plan.ReportProfile == task.DossierReportProfile {
 			step = 5
 		}
+		if plan.ReportProfile == task.DossierComparisonReportProfile {
+			step = 6
+		}
 	}
 	return c.core.recheck(ctx, v, p, step)
 }
 
 func (c *localReportModelControl) start(parent context.Context, r task.StageRequest, req provider.Request) error {
-	if parent == nil || r.Validate() != nil || r.StepNo < 2 || r.StepNo > 5 {
+	if parent == nil || r.Validate() != nil || r.StepNo < 2 || r.StepNo > 6 {
 		return points.ErrInvalid
 	}
 	ctx, cancel := context.WithTimeout(parent, 10*time.Second)
@@ -263,7 +276,7 @@ func (c *AILocalReportSelectionControl) Start(ctx context.Context, r task.StageR
 	return c.core.start(ctx, r, req)
 }
 func (c *AILocalReportCheckControl) Start(ctx context.Context, r task.StageRequest, req provider.Request) error {
-	if c == nil || c.core == nil || (r.StepNo != 3 && r.StepNo != 4 && r.StepNo != 5) || r.Stage != "judge" {
+	if c == nil || c.core == nil || (r.StepNo != 3 && r.StepNo != 4 && r.StepNo != 5 && r.StepNo != 6) || r.Stage != "judge" {
 		return points.ErrInvalid
 	}
 	return c.core.start(ctx, r, req)
@@ -277,7 +290,7 @@ func (c *AILocalReportSelectionControl) Finish(ctx context.Context, r task.Stage
 	return c.core.audit.Finish(ctx, r, out, callErr)
 }
 func (c *AILocalReportCheckControl) Finish(ctx context.Context, r task.StageRequest, out provider.Response, callErr error) error {
-	if c == nil || c.core == nil || ctx == nil || r.Validate() != nil || (r.StepNo != 3 && r.StepNo != 4 && r.StepNo != 5) || r.Stage != "judge" {
+	if c == nil || c.core == nil || ctx == nil || r.Validate() != nil || (r.StepNo != 3 && r.StepNo != 4 && r.StepNo != 5 && r.StepNo != 6) || r.Stage != "judge" {
 		return points.ErrInvalid
 	}
 	return c.core.audit.Finish(ctx, r, out, callErr)

@@ -263,7 +263,11 @@ func runLocalReportModeWith(parent context.Context, args []string, input io.Read
 	if err != nil {
 		return fail()
 	}
-	worker, err := service.NewAIDossierReportWorker(tasks, repo, ledger, agent, payloads, model, guard, selection, checks, support, owner, agenttask.Options{Enabled: true, Lease: c.RecoveryOptions(), PollInterval: time.Duration(c.AgentPollMS) * time.Millisecond})
+	comparison, err := service.NewAIDossierComparisonExecutionControl(registry, repo, admission, audit)
+	if err != nil {
+		return fail()
+	}
+	worker, err := service.NewAIDossierComparisonReportWorker(tasks, repo, ledger, agent, payloads, model, guard, selection, checks, support, comparison, owner, agenttask.Options{Enabled: true, Lease: c.RecoveryOptions(), PollInterval: time.Duration(c.AgentPollMS) * time.Millisecond})
 	if err != nil {
 		return fail()
 	}

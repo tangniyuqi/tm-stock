@@ -28,6 +28,14 @@ func (v *AIReportCallAuditSchemaVerifier) VerifyWithDossier(parent context.Conte
 }
 
 func (v *AIReportCallAuditSchemaVerifier) verify(parent context.Context, dossier bool) error {
+	return v.verifyProfile(parent, dossier, false)
+}
+
+func (v *AIReportCallAuditSchemaVerifier) VerifyWithComparison(parent context.Context) error {
+	return v.verifyProfile(parent, true, true)
+}
+
+func (v *AIReportCallAuditSchemaVerifier) verifyProfile(parent context.Context, dossier, comparison bool) error {
 	if v == nil || v.db == nil || parent == nil {
 		return points.ErrInvalid
 	}
@@ -46,6 +54,11 @@ func (v *AIReportCallAuditSchemaVerifier) verify(parent context.Context, dossier
 	if dossier {
 		if err := probeDossierReportCallAudit(ctx, tx); err != nil {
 			return fmt.Errorf("专题报告第5步调用审计自检失败: %w", err)
+		}
+	}
+	if comparison {
+		if err := probeComparisonReportCallAudit(ctx, tx); err != nil {
+			return fmt.Errorf("七步比较报告调用审计自检失败: %w", err)
 		}
 	}
 	if err := tx.Rollback(); err != nil {

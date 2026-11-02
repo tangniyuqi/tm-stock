@@ -26,10 +26,12 @@ type AIL1ReportPlan struct {
 	Snapshots []sources.Snapshot
 	Companies *finalreport.CompanyDraft `json:"-"`
 	// AnalysisType 0 保留既有 L1 编码；2 为深度报告，必须与任务、终检策略同时为 2。
-	AnalysisType  int                  `json:",omitempty"`
-	ReportProfile string               `json:",omitempty"`
-	SupportUnits  *task.Units          `json:",omitempty"`
-	Dossier       *dossier.SupportPlan `json:"-"`
+	AnalysisType    int                         `json:",omitempty"`
+	ReportProfile   string                      `json:",omitempty"`
+	SupportUnits    *task.Units                 `json:",omitempty"`
+	Dossier         *dossier.SupportPlan        `json:"-"`
+	ComparisonUnits *task.Units                 `json:",omitempty"`
+	Comparison      *dossier.CardComparisonPlan `json:"-"`
 }
 
 func (p AIL1ReportPlan) String() string {
@@ -51,18 +53,19 @@ type AIL1ReportReceipt struct {
 	Commit finalreport.Receipt `json:"commit"`
 }
 type AIL1ReportWorker struct {
-	tasks     recoveryTasks
-	store     l1ReportStore
-	ledger    *PointsService
-	agent     taskAgentClient
-	payloads  agents.PayloadReader
-	model     *provider.OpenAICompat
-	planner   AIL1ReportPlanner
-	selection AIReportSelectionControl
-	checks    AIReportCheckControl
-	owner     string
-	opts      agenttask.Options
-	support   AIDossierSupportControl
+	tasks      recoveryTasks
+	store      l1ReportStore
+	ledger     *PointsService
+	agent      taskAgentClient
+	payloads   agents.PayloadReader
+	model      *provider.OpenAICompat
+	planner    AIL1ReportPlanner
+	selection  AIReportSelectionControl
+	checks     AIReportCheckControl
+	owner      string
+	opts       agenttask.Options
+	support    AIDossierSupportControl
+	comparison AIDossierComparisonControl
 }
 
 func NewAIL1ReportWorker(tasks recoveryTasks, store l1ReportStore, ledger *PointsService, agent taskAgentClient, payloads agents.PayloadReader, model *provider.OpenAICompat, planner AIL1ReportPlanner, selection AIReportSelectionControl, checks AIReportCheckControl, owner string, o agenttask.Options) (*AIL1ReportWorker, error) {
@@ -88,20 +91,41 @@ func NewAIDossierReportWorker(tasks recoveryTasks, store l1ReportStore, ledger *
 	return w, nil
 }
 
+func NewAIDossierComparisonReportWorker(tasks recoveryTasks, store l1ReportStore, ledger *PointsService, agent taskAgentClient, payloads agents.PayloadReader, model *provider.OpenAICompat, planner AIL1ReportPlanner, selection AIReportSelectionControl, checks AIReportCheckControl, support AIDossierSupportControl, comparison AIDossierComparisonControl, owner string, o agenttask.Options) (*AIL1ReportWorker, error) {
+	if o.Enabled && comparison == nil {
+		return nil, points.ErrInvalid
+	}
+	w, err := NewAIDossierReportWorker(tasks, store, ledger, agent, payloads, model, planner, selection, checks, support, owner, o)
+	if err != nil {
+		return nil, err
+	}
+	w.comparison = comparison
+	return w, nil
+}
+
 func (p AIL1ReportPlan) pendingPolicy() (*finalreport.Policy, error) {
 	if p.ReportProfile == "" {
-		if p.SupportUnits != nil || p.Dossier != nil || p.Policy.DossierSupportDigest != "" {
+		if p.SupportUnits != nil || p.Dossier != nil || p.Policy.DossierSupportDigest != "" || p.ComparisonUnits != nil || p.Comparison != nil || p.Policy.DossierComparisonDigest != "" {
 			return nil, points.ErrInvalid
 		}
 		return pendingPolicy(p.Policy, p.Companies)
 	}
-	if p.ReportProfile != task.DossierReportProfile || !p.Dossier.Valid() || p.Dossier.StepNo() != 4 || p.SupportUnits == nil || *p.SupportUnits != p.Dossier.Units() {
+	if p.ReportProfile != task.DossierReportProfile && p.ReportProfile != task.DossierComparisonReportProfile || !p.Dossier.Valid() || p.Dossier.StepNo() != 4 || p.SupportUnits == nil || *p.SupportUnits != p.Dossier.Units() {
 		return nil, points.ErrInvalid
 	}
 	e := func(context.Context, finalreport.EntailmentInput) (finalreport.Verdict, error) {
 		return finalreport.Uncertain, nil
 	}
 	s := func(context.Context, string) (finalreport.Verdict, error) { return finalreport.Uncertain, nil }
+	if p.ReportProfile == task.DossierComparisonReportProfile {
+		if !p.Comparison.Valid() || p.ComparisonUnits == nil || *p.ComparisonUnits != p.Comparison.Units() {
+			return nil, points.ErrInvalid
+		}
+		return finalreport.NewDossierComparisonPolicy(p.Policy, p.Dossier, p.Comparison, e, s, p.Companies)
+	}
+	if p.ComparisonUnits != nil || p.Comparison != nil || p.Policy.DossierComparisonDigest != "" {
+		return nil, points.ErrInvalid
+	}
 	return finalreport.NewDossierPolicy(p.Policy, p.Dossier, e, s, p.Companies)
 }
 
@@ -154,6 +178,9 @@ func (p AIL1ReportPlan) validate(v task.Task, model *provider.OpenAICompat) (*fi
 	if p.Dossier != nil && (!p.Dossier.MatchesTask(v) || p.Dossier.Config().Model != p.Model.Model || p.Dossier.Config().ProfileDigest != p.Model.ProfileDigest) {
 		return nil, points.ErrIdempotency
 	}
+	if p.Comparison != nil && (!p.Comparison.MatchesTask(v) || p.Comparison.Config().Model.Model != p.Model.Model || p.Comparison.Config().Model.ProfileDigest != p.Model.ProfileDigest) {
+		return nil, points.ErrIdempotency
+	}
 	if _, err := finalreport.NewSelectionStage(policy, v.No, v.SubjectID, p.ThemeName, p.Snapshots); err != nil {
 		return nil, err
 	}
@@ -170,11 +197,21 @@ func (p AIL1ReportPlan) preflightBudget(budget task.Budget) error {
 		return task.ErrBudget
 	}
 	if p.ReportProfile != "" {
-		if p.ReportProfile != task.DossierReportProfile || p.SupportUnits == nil || p.SupportUnits.Calls != 1 || p.SupportUnits.Pages != 0 || p.SupportUnits.Validate() != nil || !finalreport.ValidDigest(p.Policy.DossierSupportDigest) {
+		if p.ReportProfile != task.DossierReportProfile && p.ReportProfile != task.DossierComparisonReportProfile || p.SupportUnits == nil || p.SupportUnits.Calls != 1 || p.SupportUnits.Pages != 0 || p.SupportUnits.Validate() != nil || !finalreport.ValidDigest(p.Policy.DossierSupportDigest) {
 			return points.ErrInvalid
 		}
 		units, err = units.Add(*p.SupportUnits)
 	} else if p.SupportUnits != nil || p.Policy.DossierSupportDigest != "" {
+		return points.ErrInvalid
+	}
+	if p.ReportProfile == task.DossierComparisonReportProfile {
+		if p.AnalysisType != task.DeepAnalysisType || p.ComparisonUnits == nil || p.ComparisonUnits.Calls != 1 || p.ComparisonUnits.Pages != 0 || p.ComparisonUnits.Validate() != nil || !finalreport.ValidDigest(p.Policy.DossierComparisonDigest) {
+			return points.ErrInvalid
+		}
+		if err == nil {
+			units, err = units.Add(*p.ComparisonUnits)
+		}
+	} else if p.ComparisonUnits != nil || p.Policy.DossierComparisonDigest != "" {
 		return points.ErrInvalid
 	}
 	if err != nil || units.Validate() != nil || !units.Fits(budget.Limits()) {
@@ -199,6 +236,19 @@ func (c admittedDossierControl) Recheck(ctx context.Context, v task.Task, p *dos
 		return err
 	}
 	return c.AIDossierSupportControl.Recheck(ctx, v, p)
+}
+
+type admittedComparisonControl struct {
+	AIDossierComparisonControl
+	planner AIL1ReportPlanner
+	plan    AIL1ReportPlan
+}
+
+func (c admittedComparisonControl) Recheck(ctx context.Context, v task.Task, p *dossier.CardComparisonPlan) error {
+	if err := c.planner.Recheck(ctx, v, c.plan); err != nil {
+		return err
+	}
+	return c.AIDossierComparisonControl.Recheck(ctx, v, p)
 }
 
 func (l1AgentPlanner) admittedTaskPlan() {}
@@ -255,6 +305,9 @@ func (w *AIL1ReportWorker) Run(parent context.Context, uid, id int64) (AIL1Repor
 		return AIL1ReportReceipt{}, err
 	}
 	if p.ReportProfile != "" && w.support == nil {
+		return AIL1ReportReceipt{}, finalreport.ErrDisabled
+	}
+	if p.ReportProfile == task.DossierComparisonReportProfile && w.comparison == nil {
 		return AIL1ReportReceipt{}, finalreport.ErrDisabled
 	}
 	policy, err := p.validate(v, w.model)
@@ -402,9 +455,10 @@ func (w *AIL1ReportWorker) runOwned(ctx context.Context, v task.Task, p AIL1Repo
 	}
 	var sem AIReportCheckReceipt
 	var support AIDossierSupportReceipt
+	var comparison AIDossierComparisonReceipt
 	if ent.Evidence.Decision().Verdict == finalreport.Pass {
 		semanticStep := 4
-		if p.ReportProfile == task.DossierReportProfile {
+		if p.ReportProfile != "" {
 			worker, err := NewAIDossierSupportWorker(w.tasks, w.store, w.model, admittedDossierControl{AIDossierSupportControl: w.support, planner: w.planner, plan: p}, w.owner, options)
 			if err != nil {
 				return AIL1ReportReceipt{}, err
@@ -423,8 +477,27 @@ func (w *AIL1ReportWorker) runOwned(ctx context.Context, v task.Task, p AIL1Repo
 			}
 			semanticStep = 5
 		}
+		if p.ReportProfile == task.DossierComparisonReportProfile && support.Review.ResolvedCount() > 0 {
+			worker, err := NewAIDossierComparisonWorker(w.tasks, w.store, w.model, admittedComparisonControl{AIDossierComparisonControl: w.comparison, planner: w.planner, plan: p}, w.owner, options)
+			if err != nil {
+				return AIL1ReportReceipt{}, err
+			}
+			last = l1Stage(v, w.owner, "judge", 5, p.Comparison.OperationKey(v, 5), p.Comparison.InputDigest())
+			comparison, err = worker.RunOwned(ctx, last, p.Comparison)
+			if err != nil {
+				return AIL1ReportReceipt{}, err
+			}
+			if comparison.Review == nil {
+				return AIL1ReportReceipt{Task: comparison.Task}, nil
+			}
+			visible, err = finalreport.DossierComparisonVisible(visible, p.Dossier, support.Review, p.Comparison, comparison.Review)
+			if err != nil {
+				return AIL1ReportReceipt{}, err
+			}
+			semanticStep = 6
+		}
 		// 全部资料不足时保留字段存证，直接沿终检失败释放，不制造语义调用。
-		if p.ReportProfile == "" || support.Review.ResolvedCount() > 0 {
+		if p.ReportProfile == "" || support.Review.ResolvedCount() > 0 && (p.ReportProfile != task.DossierComparisonReportProfile || comparison.Review.ResolvedCount() > 0) {
 			mp, err := finalreport.NewSemanticCheck(p.Model, v.No, visible)
 			if err != nil {
 				return AIL1ReportReceipt{}, err
@@ -445,7 +518,9 @@ func (w *AIL1ReportWorker) runOwned(ctx context.Context, v task.Task, p AIL1Repo
 		return AIL1ReportReceipt{}, err
 	}
 	var finalPolicy *finalreport.Policy
-	if p.ReportProfile == task.DossierReportProfile {
+	if p.ReportProfile == task.DossierComparisonReportProfile {
+		finalPolicy, err = finalreport.NewDossierComparisonCapturedPolicy(p.Policy, p.Dossier, p.Comparison, support.Review, comparison.Review, ent.Evidence, sem.Evidence, p.Companies)
+	} else if p.ReportProfile == task.DossierReportProfile {
 		finalPolicy, err = finalreport.NewDossierCapturedPolicy(p.Policy, p.Dossier, support.Review, ent.Evidence, sem.Evidence, p.Companies)
 	} else {
 		finalPolicy, err = finalreport.NewCapturedPolicy(p.Policy, ent.Evidence, sem.Evidence, p.Companies)
@@ -462,6 +537,10 @@ func (w *AIL1ReportWorker) runOwned(ctx context.Context, v task.Task, p AIL1Repo
 	if p.ReportProfile == task.DossierReportProfile {
 		finalInput = []any{task.DossierReportProfile, draft.InputDigest, ent.Checkpoint, support.Checkpoint, sem.Checkpoint}
 		finalKey = []any{task.DossierReportProfile, v.UserID, v.ID, v.No}
+	}
+	if p.ReportProfile == task.DossierComparisonReportProfile {
+		finalInput = []any{task.DossierComparisonReportProfile, draft.InputDigest, ent.Checkpoint, support.Checkpoint, comparison.Checkpoint, sem.Checkpoint}
+		finalKey = []any{task.DossierComparisonReportProfile, v.UserID, v.ID, v.No}
 	}
 	b, err := json.Marshal(finalInput)
 	if err != nil {
