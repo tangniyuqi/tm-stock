@@ -119,11 +119,118 @@ jobs:
           # 准入准备、可选组件兼容、封闭适配和单步执行增加83项，旧执行拒绝新组件另增2项。
           # 核验清单规范与登记控制增加61个普通节点。
           # Worker守卫和命令生命周期新增5根54子节点，默认CLI不开放核验替换开关。
-          MIN=1959
+          # 两卡语义口径内部协议新增11根86子节点，未计作真实模型准确率。
+          MIN=2056
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项测试，低于下限 $MIN —— 要么测试没被执行，要么有测试被删。"
             exit 1
           fi
+
+          # 专题两卡口径协议门禁开始
+          # 固定登记11根86子节点；不能以同数量重复、替名或跳过掩盖漏跑。
+          CARD_ACTUAL=$(sed -nE 's/^[[:space:]]*--- PASS: (TestDossierCardComparison[^ ]*) .*/\1/p' /tmp/gotest.log | LC_ALL=C sort)
+          CARD_EXPECTED=$(printf '%s\n' \
+            'TestDossierCardComparisonResponseRejections' \
+            'TestDossierCardComparisonResponseRejections/漏轴' \
+            'TestDossierCardComparisonResponseRejections/重复轴' \
+            'TestDossierCardComparisonResponseRejections/越界轴' \
+            'TestDossierCardComparisonResponseRejections/浮点轴' \
+            'TestDossierCardComparisonResponseRejections/额外轴键' \
+            'TestDossierCardComparisonResponseRejections/轴空值' \
+            'TestDossierCardComparisonResponseRejections/轴键大小写' \
+            'TestDossierCardComparisonResponseRejections/已知字段伪称未知' \
+            'TestDossierCardComparisonResponseRejections/字段部分支持仍对齐' \
+            'TestDossierCardComparisonResponseRejections/字段不支持仍判不同' \
+            'TestDossierCardComparisonResponseRejections/必核轴被忽略' \
+            'TestDossierCardComparisonResponseRejections/非必核已有字段被忽略' \
+            'TestDossierCardComparisonResponseRejections/差异与同义矛盾' \
+            'TestDossierCardComparisonResponseRejections/事实冲突不在闭集' \
+            'TestDossierCardComparisonResponseRejections/自由关系' \
+            'TestDossierCardComparisonResponseRejections/无JSON' \
+            'TestDossierCardComparisonResponseRejections/额外顶层键' \
+            'TestDossierCardComparisonResponseRejections/重复顶层键' \
+            'TestDossierCardComparisonResponseRejections/顶层空值' \
+            'TestDossierCardComparisonResponseRejections/根空值' \
+            'TestDossierCardComparisonResponseRejections/尾随对象' \
+            'TestDossierCardComparisonResponseRejections/重复轴键' \
+            'TestDossierCardComparisonMissingCannotBeSupported' \
+            'TestDossierCardComparisonMissingCannotBeSupported/补造未知字段' \
+            'TestDossierCardComparisonMissingCannotBeSupported/缺主体仍对齐' \
+            'TestDossierCardComparisonMissingCannotBeSupported/缺主体仍判不同' \
+            'TestDossierCardComparisonMissingCannotBeSupported/有单边字段被忽略' \
+            'TestDossierCardComparisonCaptureAndPolicy' \
+            'TestDossierCardComparisonCaptureAndPolicy/输入摘要' \
+            'TestDossierCardComparisonCaptureAndPolicy/旧协议' \
+            'TestDossierCardComparisonUsageRejections' \
+            'TestDossierCardComparisonUsageRejections/错模型' \
+            'TestDossierCardComparisonUsageRejections/不完整输出' \
+            'TestDossierCardComparisonUsageRejections/估计用量' \
+            'TestDossierCardComparisonUsageRejections/缺请求编号' \
+            'TestDossierCardComparisonUsageRejections/缺用量' \
+            'TestDossierCardComparisonUsageRejections/总量错误' \
+            'TestDossierCardComparisonUsageRejections/超过输入' \
+            'TestDossierCardComparisonUsageRejections/超过输出' \
+            'TestDossierCardComparisonUsageRejections/缓存超量' \
+            'TestDossierCardComparisonUsageRejections/推理负数' \
+            'TestDossierCardComparisonUsageRejections/正文超限' \
+            'TestDossierCardComparisonUsageRejections/模型超限' \
+            'TestDossierCardComparisonUsageRejections/编号超限' \
+            'TestDossierCardComparisonUsageRejections/非法UTF8' \
+            'TestDossierCardComparisonCopiesAndPresentation' \
+            'TestDossierCardComparisonCopiesAndPresentation/输入' \
+            'TestDossierCardComparisonCopiesAndPresentation/档案' \
+            'TestDossierCardComparisonCopiesAndPresentation/包摘要缺失' \
+            'TestDossierCardComparisonCopiesAndPresentation/伪造独立来源' \
+            'TestDossierCardComparisonCopiesAndPresentation/漏轴' \
+            'TestDossierCardComparisonCopiesAndPresentation/字段' \
+            'TestDossierCardComparisonCopiesAndPresentation/原因' \
+            'TestDossierCardComparisonCopiesAndPresentation/结果' \
+            'TestDossierCardComparisonCopiesAndPresentation/数量' \
+            'TestDossierCardComparisonNilAndCancellation' \
+            'TestDossierCardComparisonInputBinding' \
+            'TestDossierCardComparisonRequiredFields' \
+            'TestDossierCardComparisonRequiredFields/定义' \
+            'TestDossierCardComparisonRequiredFields/进展' \
+            'TestDossierCardComparisonRequiredFields/测量' \
+            'TestDossierCardComparisonRequiredFields/政策另核生效' \
+            'TestDossierCardComparisonScopeOutcomes' \
+            'TestDossierCardComparisonScopeOutcomes/集团与子公司' \
+            'TestDossierCardComparisonScopeOutcomes/生效日期' \
+            'TestDossierCardComparisonScopeOutcomes/历史所属期间' \
+            'TestDossierCardComparisonScopeOutcomes/适用范围' \
+            'TestDossierCardComparisonScopeOutcomes/计划与实际送样与试生产' \
+            'TestDossierCardComparisonScopeOutcomes/统计依据' \
+            'TestDossierCardComparisonScopeOutcomes/计量单位' \
+            'TestDossierCardComparisonScopeOutcomes/same_meaning' \
+            'TestDossierCardComparisonScopeOutcomes/different_wording' \
+            'TestDossierCardComparisonScopeOutcomes/insufficient_context' \
+            'TestDossierCardComparisonScopeOutcomes/语境不足_partial' \
+            'TestDossierCardComparisonScopeOutcomes/语境不足_unsupported' \
+            'TestDossierCardComparisonScopeOutcomes/语境不足_uncertain' \
+            'TestDossierCardComparisonScopeOutcomes/语境不足_supported' \
+            'TestDossierCardComparisonStatementOrigins' \
+            'TestDossierCardComparisonStatementOrigins/同网址' \
+            'TestDossierCardComparisonStatementOrigins/同正文不同网址' \
+            'TestDossierCardComparisonStatementOrigins/同登记不同正文' \
+            'TestDossierCardComparisonStatementOrigins/不同登记仍未知' \
+            'TestDossierCardComparisonInputRejections' \
+            'TestDossierCardComparisonInputRejections/错误步位' \
+            'TestDossierCardComparisonInputRejections/旧字段步位不能冒充' \
+            'TestDossierCardComparisonInputRejections/未知焦点' \
+            'TestDossierCardComparisonInputRejections/输出容量不足' \
+            'TestDossierCardComparisonInputRejections/空模型' \
+            'TestDossierCardComparisonInputRejections/完整输入不得截断' \
+            'TestDossierCardComparisonInputRejections/账户' \
+            'TestDossierCardComparisonInputRejections/任务' \
+            'TestDossierCardComparisonInputRejections/编号' \
+            'TestDossierCardComparisonInputRejections/题材' \
+            'TestDossierCardComparisonInputRejections/轻任务' \
+            'TestDossierCardComparisonInputRejections/非法任务' \
+            'TestDossierCardComparisonInputRejections/非题材' | LC_ALL=C sort)
+          if [ "$CARD_ACTUAL" != "$CARD_EXPECTED" ] || grep -Eq "^[[:space:]]*--- (SKIP|FAIL): TestDossierCardComparison" /tmp/gotest.log; then
+            echo "专题两卡口径协议用例缺失、重复、替名、跳过或失败"; exit 1
+          fi
+          # 专题两卡口径协议门禁结束
 
           # 专题字段核验协议门禁开始
           SUPPORT_ROOTS=$(grep -Ec '^--- PASS: TestDossierSupport[^ /]+ ' /tmp/gotest.log || true)
