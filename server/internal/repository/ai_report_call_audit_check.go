@@ -19,6 +19,15 @@ func NewAIReportCallAuditSchemaVerifier(db *sql.DB) *AIReportCallAuditSchemaVeri
 	return &AIReportCallAuditSchemaVerifier{db}
 }
 func (v *AIReportCallAuditSchemaVerifier) Verify(parent context.Context) error {
+	return v.verify(parent, false)
+}
+
+// VerifyWithDossier在同一回滚事务实测六步编排第5步；原入口仍兼容旧库。
+func (v *AIReportCallAuditSchemaVerifier) VerifyWithDossier(parent context.Context) error {
+	return v.verify(parent, true)
+}
+
+func (v *AIReportCallAuditSchemaVerifier) verify(parent context.Context, dossier bool) error {
 	if v == nil || v.db == nil || parent == nil {
 		return points.ErrInvalid
 	}
@@ -32,6 +41,11 @@ func (v *AIReportCallAuditSchemaVerifier) Verify(parent context.Context) error {
 	for i, check := range []func(context.Context, *sql.Tx) error{verifyPointsSession, verifyPointsSchemaMetadata, verifyAITaskMetadata, verifyAITaskBudgetMetadata, verifyAITaskStageMetadata, verifyAdmissionMetadata, verifyReportCallAuditMetadata, probePointsConstraints, probeAITaskConstraints, probeAITaskBudgetConstraints, probeAITaskStageConstraints, probeReportCallAuditConstraints} {
 		if err := check(ctx, tx); err != nil {
 			return fmt.Errorf("调用审计自检阶段%d失败: %w", i+1, err)
+		}
+	}
+	if dossier {
+		if err := probeDossierReportCallAudit(ctx, tx); err != nil {
+			return fmt.Errorf("专题报告第5步调用审计自检失败: %w", err)
 		}
 	}
 	if err := tx.Rollback(); err != nil {

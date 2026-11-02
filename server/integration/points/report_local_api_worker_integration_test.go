@@ -259,6 +259,7 @@ func startLocalAPIConfigured(t *testing.T, e *workflowEnv, binary, dsn, signing,
 
 type localProcessCase struct {
 	configure             func(*testing.T, *localPublicationFixture, *config.AILocalExecution)
+	dossier               bool // 仅显式新六步编排专项，旧用例保持原调用数和资料权限。
 	external              bool
 	feedbackAdmin         string
 	feedbackBrowserRunner string
@@ -331,6 +332,10 @@ func verifyLocalAPIWorker(t *testing.T, level sql.IsolationLevel, kind int, api,
 		feedbackPeer = startLocalFeedbackPeer(t, f, cases[0].feedbackAdmin, client)
 	}
 	dsn := localAPIDSN(t, e, feedbackEnabled)
+	dossierReport := len(cases) == 1 && cases[0].dossier
+	if dossierReport {
+		grantDossierProcessPermissions(t, e, dsn)
+	}
 	var qaFixture *localProcessQA
 	if len(cases) == 1 && cases[0].qa {
 		qaFixture = prepareLocalProcessQA(t, f, dsn)
@@ -431,7 +436,11 @@ func verifyLocalAPIWorker(t *testing.T, level sql.IsolationLevel, kind int, api,
 		t.Fatal("worker启动前任务不是排队状态")
 	}
 	call("GET", taskPath+"/report", tokens[0], "", "", 422)
-	child := startLocalWorkerChild(t, e, worker, localWorkerDSN(t, e), runtimeFile, f.path, executionFile, e.modelSession)
+	workerDSN := localWorkerDSN(t, e)
+	if dossierReport {
+		grantDossierProcessPermissions(t, e, workerDSN)
+	}
+	child := startLocalWorkerChild(t, e, worker, workerDSN, runtimeFile, f.path, executionFile, e.modelSession)
 	child.waitReady(t)
 	wait := 30 * time.Second
 	if external {
@@ -561,10 +570,15 @@ func verifyLocalAPIWorker(t *testing.T, level sql.IsolationLevel, kind int, api,
 	child.wait(t, true)
 	balance(60-price, 0)
 	wantAgent, wantModel := int32(1), 3
+	wantAudits := 6
+	if dossierReport {
+		wantModel = 4
+		wantAudits = 8
+	}
 	if external {
 		wantAgent, wantModel = 0, 0
 	}
-	if e.submits.Load() != wantAgent || len(e.server.Requests()) != wantModel || e.queryInt(`SELECT COUNT(*) FROM tm_ai_report_commits`) != 1 || e.queryInt(`SELECT COUNT(*) FROM tm_points_txns WHERE kind='settle'`) != 1 || e.queryInt(`SELECT COUNT(*) FROM tm_ai_report_call_audits`) != 6 || e.queryInt(`SELECT COUNT(*) FROM tm_points_accounts WHERE user_id=2`) != 0 {
+	if e.submits.Load() != wantAgent || len(e.server.Requests()) != wantModel || e.queryInt(`SELECT COUNT(*) FROM tm_ai_report_commits`) != 1 || e.queryInt(`SELECT COUNT(*) FROM tm_points_txns WHERE kind='settle'`) != 1 || e.queryInt(`SELECT COUNT(*) FROM tm_ai_report_call_audits`) != wantAudits || e.queryInt(`SELECT COUNT(*) FROM tm_points_accounts WHERE user_id=2`) != 0 {
 		t.Fatal("实际API和worker闭环重复调用、结算或污染其它会员")
 	}
 	requirePointAudit(t, e.pointsTestEnv, e.ledger)

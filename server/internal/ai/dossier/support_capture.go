@@ -22,8 +22,8 @@ type SupportResult struct {
 	Card, Field, Verdict, Reason string
 }
 type SupportReview struct {
-	inputDigest, draftDigest string
-	results                  []SupportResult
+	inputDigest, draftDigest, payloadDigest string
+	results                                 []SupportResult
 }
 
 func (SupportReview) String() string     { return "专题字段核验记录（内部定位已隐藏）" }
@@ -47,6 +47,14 @@ func (r *SupportReview) DraftDigest() string {
 		return ""
 	}
 	return r.draftDigest
+}
+
+// PayloadDigest供终检绑定实际已捕获包；不能只凭字段状态相同就替换另一份回执。
+func (r *SupportReview) PayloadDigest() string {
+	if r == nil {
+		return ""
+	}
+	return r.payloadDigest
 }
 
 // CapturePayload只保留受限回执；原始HTTP仍须进入既有调用审计，不在此补造用量。
@@ -176,7 +184,7 @@ func (p *SupportPlan) Review(ctx context.Context, raw []byte) (*SupportReview, e
 	if err = ctx.Err(); err != nil {
 		return nil, err
 	}
-	return &SupportReview{inputDigest: p.digest, draftDigest: p.draftDigest, results: rows}, nil
+	return &SupportReview{inputDigest: p.digest, draftDigest: p.draftDigest, payloadDigest: task.StageDigest(raw), results: rows}, nil
 }
 
 // 原阶段服务负责原任务/租约/预算/审计。合法否定结果可存证，但不能作为发布通过。

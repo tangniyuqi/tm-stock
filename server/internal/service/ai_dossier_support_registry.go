@@ -9,6 +9,7 @@ import (
 
 	"github.com/tangniyuqi/tm-stock/server/internal/ai/conversation"
 	"github.com/tangniyuqi/tm-stock/server/internal/ai/dossier"
+	"github.com/tangniyuqi/tm-stock/server/internal/ai/finalreport"
 	"github.com/tangniyuqi/tm-stock/server/internal/ai/task"
 )
 
@@ -110,24 +111,52 @@ func (s *AIDossierSupportRegistryService) RegisterInternal(parent context.Contex
 	return m.ComponentDigest(), nil
 }
 
+// PrepareForScope在任务生成前核当前许可并准备真实输入，不制造任务编号。
+func (s *AIDossierSupportRegistryService) PrepareForScope(parent context.Context, scope task.AdmissionScope, component string) (*dossier.SupportPreparation, error) {
+	var out *dossier.SupportPreparation
+	err := s.prepareForScope(parent, scope, component, func(_ context.Context, p *dossier.SupportPreparation) error { out = p; return nil })
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // loadForTask仅由原准入核定身份后的执行控制器调用；清单格式/只读许可不能代替AI用途。
 func (s *AIDossierSupportRegistryService) loadForTask(parent context.Context, v task.Task, a task.AdmissionPlan) (*dossier.SupportPlan, error) {
-	if s == nil || s.store == nil || parent == nil || a.Validate(a.Scope) != nil || a.DossierSupportDigest == "" {
+	if a.Validate(a.Scope) != nil || a.Scope != (task.AdmissionScope{UserID: v.UserID, AnalysisType: v.AnalysisType, SubjectType: v.SubjectType, SubjectID: v.SubjectID}) {
 		return nil, dossier.ErrSupportReview
+	}
+	var out *dossier.SupportPlan
+	err := s.prepareForScope(parent, a.Scope, a.DossierSupportDigest, func(ctx context.Context, prepared *dossier.SupportPreparation) error {
+		plan, err := prepared.BindTask(ctx, v)
+		if err != nil || !plan.MatchesAdmission(a) {
+			return dossier.ErrSupportReview
+		}
+		out = plan
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (s *AIDossierSupportRegistryService) prepareForScope(parent context.Context, scope task.AdmissionScope, component string, consume func(context.Context, *dossier.SupportPreparation) error) error {
+	if s == nil || s.store == nil || parent == nil || scope.Validate() != nil || scope.SubjectType != task.Theme || !finalreport.ValidDigest(component) || consume == nil {
+		return dossier.ErrSupportReview
 	}
 	ctx, cancel := context.WithTimeout(parent, 10*time.Second)
 	defer cancel()
-	var out *dossier.SupportPlan
 	err := s.store.WithinSupport(ctx, false, func(tx dossier.SupportRegistryTx) error {
 		if tx == nil || tx.Dossiers() == nil {
 			return dossier.ErrInvalidDraft
 		}
-		r, err := tx.SupportManifest(ctx, a.DossierSupportDigest)
+		r, err := tx.SupportManifest(ctx, component)
 		if err != nil {
 			return err
 		}
 		m, err := r.Manifest()
-		if err != nil || m.Identity().ThemeID != v.SubjectID || m.AnalysisType() != v.AnalysisType {
+		if err != nil || m.Identity().ThemeID != scope.SubjectID || m.AnalysisType() != scope.AnalysisType {
 			return dossier.ErrSupportReview
 		}
 		db := tx.Dossiers()
@@ -145,7 +174,7 @@ func (s *AIDossierSupportRegistryService) loadForTask(parent context.Context, v 
 		if !validUse(now) {
 			return dossier.ErrNotFound
 		}
-		bound, err := readDossierVersions(ctx, db, v.UserID, v.SubjectID, []int64{m.Identity().Version})
+		bound, err := readDossierVersions(ctx, db, scope.UserID, scope.SubjectID, []int64{m.Identity().Version})
 		if err != nil {
 			return err
 		}
@@ -165,9 +194,8 @@ func (s *AIDossierSupportRegistryService) loadForTask(parent context.Context, v 
 		if err != nil {
 			return err
 		}
-		plan, err := prepared.BindTask(ctx, v)
-		if err != nil || !plan.MatchesAdmission(a) {
-			return dossier.ErrSupportReview
+		if err := consume(ctx, prepared); err != nil {
+			return err
 		}
 		finished, err := db.Now(ctx)
 		if err != nil {
@@ -176,11 +204,11 @@ func (s *AIDossierSupportRegistryService) loadForTask(parent context.Context, v 
 		if !validUse(finished) || !dossierSourcesValid(registered, snapshots, finished) {
 			return dossier.ErrNotFound
 		}
-		pub, err := db.Publication(ctx, v.SubjectID, m.Identity().Version)
+		pub, err := db.Publication(ctx, scope.SubjectID, m.Identity().Version)
 		if err != nil {
 			return err
 		}
-		grant, err := db.Grant(ctx, v.UserID, v.SubjectID, m.Identity().Version)
+		grant, err := db.Grant(ctx, scope.UserID, scope.SubjectID, m.Identity().Version)
 		if err != nil {
 			return err
 		}
@@ -189,11 +217,7 @@ func (s *AIDossierSupportRegistryService) loadForTask(parent context.Context, v 
 				return dossier.ErrNotFound
 			}
 		}
-		out = plan
 		return ctx.Err()
 	})
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
+	return err
 }

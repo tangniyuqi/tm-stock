@@ -4,7 +4,7 @@ import "github.com/tangniyuqi/tm-stock/server/internal/ai/task"
 
 // 只比对首次已批准范围，不授予当前来源、质量、模型或发布许可。
 func (p *Policy) admittedIdentity(a task.AdmissionPlan, id int64, name string) bool {
-	if !p.Valid() || a.DossierSupportDigest != "" {
+	if !p.Valid() || !p.dossierAdmission(a) {
 		return false
 	}
 	wantType := 1
@@ -24,7 +24,7 @@ func admittedMaterial(a task.AdmissionPlan, id int64, hash, url, category string
 
 // MatchesAdmission 允许引用原批准范围的子集，但任何引文都不能来自其外部。
 func (p *Policy) MatchesAdmission(a task.AdmissionPlan, v Proposal) bool {
-	if !p.admittedIdentity(a, v.ThemeID, v.ThemeName) || !validProposalIdentity(v.TaskNo, v.ThemeID, v.ThemeName) || len(v.Report.Sections) != len(sectionOrder) || v.Report.Disclosure.ModelName != a.ModelName || v.Report.Disclosure.FilingNo != a.FilingNo {
+	if !p.admittedIdentity(a, v.ThemeID, v.ThemeName) || !p.dossierTask(v.TaskNo) || !validProposalIdentity(v.TaskNo, v.ThemeID, v.ThemeName) || len(v.Report.Sections) != len(sectionOrder) || v.Report.Disclosure.ModelName != a.ModelName || v.Report.Disclosure.FilingNo != a.FilingNo {
 		return false
 	}
 	quotes := 0
@@ -52,7 +52,7 @@ func (p *Policy) MatchesAdmission(a task.AdmissionPlan, v Proposal) bool {
 	return true
 }
 func (s *SelectionStage) MatchesAdmission(a task.AdmissionPlan) bool {
-	if !s.Valid() || !s.policy.admittedIdentity(a, s.themeID, s.themeName) {
+	if !s.Valid() || !s.policy.admittedIdentity(a, s.themeID, s.themeName) || !s.policy.dossierTask(s.taskNo) {
 		return false
 	}
 	for _, snap := range s.snapshots {

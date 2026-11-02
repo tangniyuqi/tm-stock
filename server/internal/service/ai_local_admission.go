@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/tangniyuqi/tm-stock/server/internal/ai/agenttask"
+	"github.com/tangniyuqi/tm-stock/server/internal/ai/dossier"
 	"github.com/tangniyuqi/tm-stock/server/internal/ai/finalreport"
 	"github.com/tangniyuqi/tm-stock/server/internal/ai/task"
 	"github.com/tangniyuqi/tm-stock/server/internal/config"
@@ -25,13 +26,18 @@ type AILocalAdmissionControl struct {
 	source   *config.AILocalPlanSource
 	identity localInstanceCheck
 	evidence finalreport.Store
+	registry *AIDossierSupportRegistryService
 }
 
-func NewAILocalAdmissionControl(source *config.AILocalPlanSource, identity localInstanceCheck, evidence finalreport.Store) (*AILocalAdmissionControl, error) {
-	if source == nil || identity == nil || evidence == nil {
+func NewAILocalAdmissionControl(source *config.AILocalPlanSource, identity localInstanceCheck, evidence finalreport.Store, registry ...*AIDossierSupportRegistryService) (*AILocalAdmissionControl, error) {
+	if source == nil || identity == nil || evidence == nil || len(registry) > 1 || len(registry) == 1 && registry[0] == nil {
 		return nil, points.ErrInvalid
 	}
-	return &AILocalAdmissionControl{source, identity, evidence}, nil
+	c := &AILocalAdmissionControl{source: source, identity: identity, evidence: evidence}
+	if len(registry) == 1 {
+		c.registry = registry[0]
+	}
+	return c, nil
 }
 
 func (c *AILocalAdmissionControl) current(ctx context.Context) (*config.AILocalPlans, error) {
@@ -74,6 +80,18 @@ func (c *AILocalAdmissionControl) Ready(ctx context.Context) error {
 	for _, spec := range p.Plans {
 		if _, _, err := c.build(ctx, spec, p.Members[0]); err != nil {
 			return err
+		}
+	}
+	for _, spec := range p.Plans {
+		if spec.ReportProfile == task.DossierReportProfile {
+			check, ok := c.evidence.(interface{ VerifyDossierReportSchema(context.Context) error })
+			if !ok {
+				return task.ErrAdmissionUnavailable
+			}
+			if err := check.VerifyDossierReportSchema(ctx); err != nil {
+				return err
+			}
+			break
 		}
 	}
 	_, err = c.readCurrent(ctx)
@@ -195,6 +213,12 @@ func (c *AILocalAdmissionControl) ExecutionPlan(ctx context.Context, v task.Task
 			if err := out.Agent.ValidateScope(v); err != nil {
 				return AIL1ReportPlan{}, err
 			}
+			if out.ReportProfile == task.DossierReportProfile {
+				out.Dossier, err = c.registry.loadForTask(ctx, v, admission)
+				if err != nil {
+					return AIL1ReportPlan{}, err
+				}
+			}
 			if _, err := c.readCurrent(ctx); err != nil {
 				return AIL1ReportPlan{}, err
 			}
@@ -227,6 +251,25 @@ func (c *AILocalAdmissionControl) build(ctx context.Context, spec config.AILocal
 	policy := finalreport.Config{Ref: spec.PolicyRef, ModelName: model.Model, FilingNo: model.FilingNo, EntailmentVersion: ent, SemanticVersion: sem, AllowedDomains: slices.Clone(spec.AllowedDomains), AnalysisType: model.AnalysisType, MinQuotes: spec.MinQuotes}
 	p := AIL1ReportPlan{Model: model, Policy: policy, ThemeName: spec.SubjectName, AnalysisType: model.AnalysisType}
 	p.Agent = agenttask.Plan{SubjectType: task.Theme, SubjectID: spec.SubjectID, ActorID: spec.ActorID, Symbol: spec.Symbol, ProfileDigest: spec.AgentProfileDigest, Units: task.Units{Calls: spec.AgentCalls, Tokens: spec.AgentTokens, Pages: spec.AgentPages}}
+	var supportPreparation *dossier.SupportPreparation
+	if spec.ReportProfile != "" {
+		if spec.ReportProfile != task.DossierReportProfile || c.registry == nil {
+			return invalid("专题登记依赖")
+		}
+		prepared, e := c.registry.PrepareForScope(ctx, task.AdmissionScope{UserID: uid, AnalysisType: spec.AnalysisType, SubjectType: task.Theme, SubjectID: spec.SubjectID}, spec.DossierSupportDigest)
+		if e != nil {
+			return invalid("专题当前用途")
+		}
+		sc := prepared.Config()
+		supportPreparation = prepared
+		if sc.Model != model.Model || sc.FilingNo != model.FilingNo || sc.ProfileDigest != model.ProfileDigest || sc.Version != model.Version || sc.ApprovalRef != model.ApprovalRef || sc.QualityRef != model.QualityRef || sc.HardBudgetRef != model.HardBudgetRef || sc.ReviewStep != 4 {
+			return invalid("专题模型策略")
+		}
+		p.ReportProfile = spec.ReportProfile
+		units := prepared.Units()
+		p.SupportUnits = &units
+		p.Policy.DossierSupportDigest = spec.DossierSupportDigest
+	}
 	if p.preflightBudget(spec.Budget) != nil {
 		return invalid("完整预算")
 	}
@@ -276,12 +319,21 @@ func (c *AILocalAdmissionControl) build(ctx context.Context, spec config.AILocal
 	if err != nil {
 		return invalid("执行摘要")
 	}
-	admission := task.AdmissionPlan{Scope: task.AdmissionScope{UserID: uid, AnalysisType: spec.AnalysisType, SubjectType: task.Theme, SubjectID: spec.SubjectID}, Price: price, Budget: spec.Budget, SubjectName: spec.SubjectName, ModelName: model.Model, FilingNo: model.FilingNo, ProfileDigest: model.ProfileDigest, ExecutionDigest: digest, ApprovalRef: spec.ApprovalRef, QualityRef: spec.QualityRef, HardBudgetRef: spec.HardBudgetRef, PriceRef: spec.PriceRef, SourceRef: spec.SourceRef}
+	admission := task.AdmissionPlan{Scope: task.AdmissionScope{UserID: uid, AnalysisType: spec.AnalysisType, SubjectType: task.Theme, SubjectID: spec.SubjectID}, Price: price, Budget: spec.Budget, SubjectName: spec.SubjectName, ModelName: model.Model, FilingNo: model.FilingNo, ProfileDigest: model.ProfileDigest, ExecutionDigest: digest, ApprovalRef: spec.ApprovalRef, QualityRef: spec.QualityRef, HardBudgetRef: spec.HardBudgetRef, PriceRef: spec.PriceRef, SourceRef: spec.SourceRef, ReportProfile: spec.ReportProfile, DossierSupportDigest: spec.DossierSupportDigest}
 	for _, s := range p.Snapshots {
 		admission.Materials = append(admission.Materials, task.AdmissionMaterial{SnapshotID: s.ID, Digest: s.Hash, Domain: urlDomain(s.URL), Category: s.SourceCategory, URL: s.URL, CollectedAt: s.FetchedAt})
 	}
 	if admission.Validate(admission.Scope) != nil {
 		return invalid("准入身份")
+	}
+	if supportPreparation != nil {
+		for _, need := range supportPreparation.Materials() {
+			if !slices.ContainsFunc(admission.Materials, func(have task.AdmissionMaterial) bool {
+				return have.SnapshotID == need.SnapshotID && have.Digest == need.Digest && have.Domain == need.Domain && have.Category == need.Category && have.URL == need.URL && have.CollectedAt.Equal(need.CollectedAt)
+			}) {
+				return invalid("专题资料批准范围")
+			}
+		}
 	}
 	return admission, p, nil
 }

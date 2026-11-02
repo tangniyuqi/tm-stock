@@ -22,6 +22,10 @@ func reportAdmission(ctx context.Context, tx task.AdmissionReadTx, v task.Task) 
 func checkReportAdmissionScope(ctx context.Context, tx task.AdmissionReadTx, v task.Task, p *finalreport.Policy, raw []byte) error {
 	a, found, err := reportAdmission(ctx, tx, v)
 	if err != nil || !found {
+		plan, _ := p.DossierProof()
+		if err == nil && plan != nil {
+			return task.ErrAdmissionUnavailable
+		}
 		return err
 	}
 	proposal, err := p.Decode(string(raw))
@@ -32,11 +36,14 @@ func checkReportAdmissionScope(ctx context.Context, tx task.AdmissionReadTx, v t
 	if !p.MatchesAdmission(a.Plan, proposal) {
 		return points.ErrIdempotency
 	}
-	return nil
+	return checkDossierReportProof(ctx, tx, v, a.Plan, p)
 }
 func checkSelectionAdmissionScope(ctx context.Context, tx task.AdmissionReadTx, v task.Task, s *finalreport.SelectionStage) error {
 	a, found, err := reportAdmission(ctx, tx, v)
 	if err != nil || !found {
+		if err == nil && s.HasDossierSupport() {
+			return task.ErrAdmissionUnavailable
+		}
 		return err
 	}
 	if !s.MatchesAdmission(a.Plan) {

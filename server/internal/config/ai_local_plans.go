@@ -27,34 +27,36 @@ type AILocalPlans struct {
 }
 
 type AILocalPlan struct {
-	AnalysisType       int               `json:"analysis_type"`
-	SubjectID          int64             `json:"subject_id"`
-	SubjectName        string            `json:"subject_name"`
-	ActorID            int64             `json:"actor_id"`
-	Symbol             string            `json:"symbol"`
-	AgentProfileDigest string            `json:"agent_profile_digest"`
-	AgentCalls         int64             `json:"agent_calls"`
-	AgentTokens        int64             `json:"agent_tokens"`
-	AgentPages         int64             `json:"agent_pages"`
-	ModelName          string            `json:"model_name"`
-	ModelProfileDigest string            `json:"model_profile_digest"`
-	FilingNo           string            `json:"filing_no"`
-	ModelVersion       string            `json:"model_version"`
-	MaxInputTokens     int64             `json:"max_input_tokens"`
-	SelectionMaxTokens int               `json:"selection_max_tokens"`
-	CheckMaxTokens     int               `json:"check_max_tokens"`
-	PolicyRef          string            `json:"policy_ref"`
-	MinQuotes          int               `json:"min_quotes"`
-	AllowedDomains     []string          `json:"allowed_domains"`
-	ApprovalRef        string            `json:"approval_ref"`
-	QualityRef         string            `json:"quality_ref"`
-	HardBudgetRef      string            `json:"hard_budget_ref"`
-	PriceRef           string            `json:"price_ref"`
-	SourceRef          string            `json:"source_ref"`
-	PriceVersion       string            `json:"price_version"`
-	PricePoints        int64             `json:"price_points"`
-	Budget             task.Budget       `json:"budget"`
-	Materials          []AILocalMaterial `json:"materials"`
+	AnalysisType         int               `json:"analysis_type"`
+	SubjectID            int64             `json:"subject_id"`
+	SubjectName          string            `json:"subject_name"`
+	ActorID              int64             `json:"actor_id"`
+	Symbol               string            `json:"symbol"`
+	AgentProfileDigest   string            `json:"agent_profile_digest"`
+	AgentCalls           int64             `json:"agent_calls"`
+	AgentTokens          int64             `json:"agent_tokens"`
+	AgentPages           int64             `json:"agent_pages"`
+	ModelName            string            `json:"model_name"`
+	ModelProfileDigest   string            `json:"model_profile_digest"`
+	FilingNo             string            `json:"filing_no"`
+	ModelVersion         string            `json:"model_version"`
+	MaxInputTokens       int64             `json:"max_input_tokens"`
+	SelectionMaxTokens   int               `json:"selection_max_tokens"`
+	CheckMaxTokens       int               `json:"check_max_tokens"`
+	PolicyRef            string            `json:"policy_ref"`
+	MinQuotes            int               `json:"min_quotes"`
+	AllowedDomains       []string          `json:"allowed_domains"`
+	ApprovalRef          string            `json:"approval_ref"`
+	QualityRef           string            `json:"quality_ref"`
+	HardBudgetRef        string            `json:"hard_budget_ref"`
+	PriceRef             string            `json:"price_ref"`
+	SourceRef            string            `json:"source_ref"`
+	PriceVersion         string            `json:"price_version"`
+	PricePoints          int64             `json:"price_points"`
+	Budget               task.Budget       `json:"budget"`
+	Materials            []AILocalMaterial `json:"materials"`
+	ReportProfile        string            `json:"report_profile,omitempty"`
+	DossierSupportDigest string            `json:"dossier_support_digest,omitempty"`
 }
 
 type AILocalMaterial struct {
@@ -130,7 +132,7 @@ func (s *AILocalPlanSource) read() (*AILocalPlans, error) {
 	return &p, nil
 }
 
-// 所有层级精确键且全部必填，包括显式零值；不接受大小写别名、null或未知字段。
+// 所有层级精确键，旧字段包括零值仍必填；仅显式omitempty增量可省略，不接受null或别名。
 func exactLocalPlanJSON(raw json.RawMessage, typ reflect.Type) bool {
 	if bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
 		return false
@@ -138,7 +140,7 @@ func exactLocalPlanJSON(raw json.RawMessage, typ reflect.Type) bool {
 	switch typ.Kind() {
 	case reflect.Struct:
 		var fields map[string]json.RawMessage
-		if json.Unmarshal(raw, &fields) != nil || len(fields) != typ.NumField() {
+		if json.Unmarshal(raw, &fields) != nil || len(fields) > typ.NumField() {
 			return false
 		}
 		for i := 0; i < typ.NumField(); i++ {
@@ -148,9 +150,16 @@ func exactLocalPlanJSON(raw json.RawMessage, typ reflect.Type) bool {
 				name = field.Name
 			}
 			value, ok := fields[name]
+			if !ok && strings.Contains(field.Tag.Get("json"), ",omitempty") {
+				continue
+			}
 			if !ok || !exactLocalPlanJSON(value, field.Type) {
 				return false
 			}
+			delete(fields, name)
+		}
+		if len(fields) != 0 {
+			return false
 		}
 	case reflect.Slice:
 		var values []json.RawMessage
@@ -168,6 +177,7 @@ func exactLocalPlanJSON(raw json.RawMessage, typ reflect.Type) bool {
 
 var localRef = regexp.MustCompile(`^local-eval:[A-Za-z0-9_.:-]{1,110}$`)
 var localRevision = regexp.MustCompile(`^[A-Za-z0-9_.-]{1,32}$`)
+var localPlanDigest = regexp.MustCompile(`^[a-f0-9]{64}$`)
 
 func (p *AILocalPlans) validate(runtime *AILocalRuntime, now int64) error {
 	if runtime.validate() != nil || p.Version != 1 || p.InstanceID != runtime.InstanceID || !localRevision.MatchString(p.Revision) || p.Scope != "synthetic-local-only" || p.IssuedAtMS <= 0 || p.IssuedAtMS > now || p.ExpiresAtMS <= now || p.ExpiresAtMS <= p.IssuedAtMS || p.ExpiresAtMS-p.IssuedAtMS > 86400000 || len(p.Members) < 1 || len(p.Members) > 16 || len(p.Plans) < 1 || len(p.Plans) > 16 {
@@ -180,6 +190,9 @@ func (p *AILocalPlans) validate(runtime *AILocalRuntime, now int64) error {
 	}
 	seen := map[[2]int64]bool{}
 	for _, v := range p.Plans {
+		if v.ReportProfile == "" && v.DossierSupportDigest != "" || v.ReportProfile != "" && (v.ReportProfile != task.DossierReportProfile || !localPlanDigest.MatchString(v.DossierSupportDigest) || v.Budget.MaxCalls < 6) {
+			return invalidLocalRuntime()
+		}
 		key := [2]int64{int64(v.AnalysisType), v.SubjectID}
 		if seen[key] || v.AnalysisType != 1 && v.AnalysisType != 2 || v.SubjectID <= 0 || v.ActorID <= 0 || v.Budget.Validate() != nil || v.SelectionMaxTokens <= 0 || v.CheckMaxTokens <= 0 || len(v.Materials) < 1 || len(v.Materials) > 32 || len(v.AllowedDomains) < 1 || len(v.AllowedDomains) > 32 {
 			return invalidLocalRuntime()

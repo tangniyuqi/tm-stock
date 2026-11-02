@@ -39,6 +39,11 @@ func (r *AIDossierSupportRepo) WithinSupport(ctx context.Context, write bool, fn
 	return dossierDBError(tx.Commit())
 }
 func (t *aiDossierSupportTx) Dossiers() dossier.Tx { return &aiDossierTx{tx: t.tx, write: false} }
+
+// DossierRegistry借用原报告事务；来源/用途撤回锁与最终账务提交共用边界。
+func (t *aiTaskTx) DossierRegistry() dossier.SupportRegistryTx {
+	return &aiDossierSupportTx{tx: t.tx, write: false}
+}
 func (t *aiDossierSupportTx) LockSupportTheme(ctx context.Context, id int64) error {
 	if !t.write {
 		return dossier.ErrInvalidDraft

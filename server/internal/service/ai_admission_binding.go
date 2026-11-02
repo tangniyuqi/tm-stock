@@ -52,6 +52,10 @@ func guardTaskAgentAdmission(ctx context.Context, store task.AdmissionStore, pla
 	return nil
 }
 func cloneL1Plan(p AIL1ReportPlan) AIL1ReportPlan {
+	if p.SupportUnits != nil {
+		u := *p.SupportUnits
+		p.SupportUnits = &u
+	}
 	p.Policy.AllowedDomains = slices.Clone(p.Policy.AllowedDomains)
 	p.Snapshots = slices.Clone(p.Snapshots)
 	for i := range p.Snapshots {
@@ -85,10 +89,17 @@ func (p AIL1ReportPlan) AdmissionDigest() (string, error) {
 		}
 		return 0
 	})
+	version := "l1-admission-execution-v1"
+	if p.ReportProfile != "" {
+		if p.ReportProfile != task.DossierReportProfile || p.SupportUnits == nil || !finalreport.ValidDigest(p.Policy.DossierSupportDigest) {
+			return "", points.ErrInvalid
+		}
+		version = task.DossierReportProfile
+	}
 	b, err := json.Marshal(struct {
 		Version string
 		Plan    AIL1ReportPlan
-	}{"l1-admission-execution-v1", p})
+	}{version, p})
 	if err != nil {
 		return "", points.ErrInvalid
 	}
@@ -121,7 +132,7 @@ func checkAdmittedL1(ctx context.Context, store task.AdmissionStore, v task.Task
 	}
 	// 只有无标记且无记录的既有内部任务可走旧开发核；新会员创建没有此降级路径。
 	if !found {
-		if p.Policy.CompanyDigest != "" {
+		if p.Policy.CompanyDigest != "" || p.ReportProfile != "" {
 			return task.ErrAdmissionUnavailable
 		}
 		return nil
@@ -131,7 +142,10 @@ func checkAdmittedL1(ctx context.Context, store task.AdmissionStore, v task.Task
 		return err
 	}
 	a := record.Plan
-	if a.DossierSupportDigest != "" || a.ExecutionDigest != digest || a.CompanyDigest != p.Policy.CompanyDigest || a.SubjectName != p.ThemeName || a.ModelName != p.Model.Model || a.FilingNo != p.Model.FilingNo || a.ProfileDigest != p.Model.ProfileDigest || a.ApprovalRef != p.Model.ApprovalRef || a.QualityRef != p.Model.QualityRef || a.HardBudgetRef != p.Model.HardBudgetRef || len(a.Materials) != len(p.Snapshots) {
+	if a.ReportProfile != p.ReportProfile || a.DossierSupportDigest != p.Policy.DossierSupportDigest || a.ExecutionDigest != digest || a.CompanyDigest != p.Policy.CompanyDigest || a.SubjectName != p.ThemeName || a.ModelName != p.Model.Model || a.FilingNo != p.Model.FilingNo || a.ProfileDigest != p.Model.ProfileDigest || a.ApprovalRef != p.Model.ApprovalRef || a.QualityRef != p.Model.QualityRef || a.HardBudgetRef != p.Model.HardBudgetRef || len(a.Materials) != len(p.Snapshots) {
+		return points.ErrIdempotency
+	}
+	if p.ReportProfile != "" && (!p.Dossier.Valid() || !p.Dossier.MatchesTask(v) || !p.Dossier.MatchesAdmission(a)) {
 		return points.ErrIdempotency
 	}
 	snaps := slices.Clone(p.Snapshots)
@@ -155,7 +169,7 @@ func checkAdmittedL1(ctx context.Context, store task.AdmissionStore, v task.Task
 		if !ok {
 			return points.ErrInvariant
 		}
-		policy, err := pendingPolicy(p.Policy, p.Companies)
+		policy, err := p.pendingPolicy()
 		if err != nil {
 			return err
 		}

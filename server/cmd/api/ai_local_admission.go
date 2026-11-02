@@ -25,7 +25,11 @@ func prepareAILocalAdmission(db *sql.DB, runtime *config.AILocalRuntime) (servic
 	if err != nil {
 		return nil, err
 	}
-	return service.NewAILocalAdmissionControl(source, repository.NewAILocalInstanceVerifier(db), repository.NewAITaskRepo(db))
+	registry, err := service.NewAIDossierSupportRegistryService(repository.NewAIDossierSupportRepo(db, sql.LevelReadCommitted), false)
+	if err != nil {
+		return nil, err
+	}
+	return service.NewAILocalAdmissionControl(source, repository.NewAILocalInstanceVerifier(db), repository.NewAITaskRepo(db), registry)
 }
 
 // 同一计划来源解析本人任务的轻/深策略，不因读取开关开启创建或模型。

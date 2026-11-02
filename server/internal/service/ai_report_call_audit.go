@@ -56,6 +56,9 @@ func (s *AIReportCallAuditService) Start(parent context.Context, r task.StageReq
 		if !found {
 			return task.ErrAdmissionUnavailable
 		}
+		if r.StepNo == 5 && a.Plan.ReportProfile != task.DossierReportProfile {
+			return task.ErrAdmissionUnavailable
+		}
 		state, err := tx.LockBudget(ctx, r.UserID, r.TaskID)
 		if err != nil {
 			return err

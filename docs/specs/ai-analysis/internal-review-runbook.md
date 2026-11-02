@@ -1,5 +1,24 @@
 # AI 内部操作手册（L0 审核与隔离 Agent 执行）
 
+## 专题核验六步报告（2026-11-02，仅本地隔离编排）
+
+受控计划中的可选report_profile=dossier-report-v1必须同时指定已登记的dossier_support_digest，清单ReviewStep必须为4，且完整预算至少六步。来源、档案发布/本人读取、独立AI用途及整套模型/质量/硬预算仍分别复核，登记不能自动授予批准。旧文件省略两个字段保留原五步。配置变更后重新启动与核验，禁止仅热改文件跳过结构检查。真实执行仍需原单独开关，本节回归只使用合成资料和字面回环CN/模型，不消耗真实用户积分。
+
+先按迁移序数执行20261102_allow_dossier_report_model_step.sql，变更时停止报告写入；不改历史准入或审计。显式新版Ready额外运行VerifyDossierReportSchema，实际验证旧编排第5步1644拒绝及新编排成功，探针全部回滚。旧CHECK不支持5或SQL移除了编排保护时必须拒绝启动，不能用原2—4步自检代替。受限API/worker沿原任务连接执行探针，本地API账号需调用审计表SELECT/INSERT/UPDATE/DELETE用于原正反例（不可变触发器仍拒绝更新/删除）；不是生产最小权限方案。资料部分只增必需档案/登记表SELECT，不开放登记或用途修改。
+
+在server目录执行`go test -race -count=1 -v ./internal/ai/task ./internal/ai/dossier ./internal/ai/finalreport ./internal/service ./internal/config -run '^TestDossierReport'`，预期9根60子例共69个唯一通过节点且零跳过。验证新旧编码、真实任务绑定、固定呈现、实际回执摘要、全部不确定拒绝、部分/不支持保留、语义范围、预算及规范文件拒绝；不是模型质量评测。
+
+在仓库根用PowerShell7串行运行，不与其他真库或完整门禁并行：
+
+```powershell
+./scripts/dev/verify-ai-source-native.ps1 -MySqlBaseDir D:/mysql/mysql-8.0.46-winx64 -BashPath D:/Git/bin/bash.exe -RunCount 1 -ReportsOnly -ReportPattern '^TestIntegrationAIReportDossierWorkflow'
+./scripts/dev/verify-ai-source-native.ps1 -MySqlBaseDir D:/mysql9/mysql-9.7.0-winx64 -BashPath D:/Git/bin/bash.exe -RunCount 1 -ReportsOnly -ReportPattern '^TestIntegrationAIReportDossierWorkflow'
+```
+
+每版预期6根、76个子节点，共82个唯一PASS且零跳过：Workflow39、Recovery21、FifthStepGuard3、Schema9、Process7、FinalUse3。原任务连接覆盖RC/RR，登记重建连接沿本地工厂使用RC；不声称全部连接均为RR。场景包含轻深成功、否定/部分发现、全部不确定、蕴含/语义拒绝、非法回执/传输失败、预算/审计/捕获/检查点/终检提交确认丢失、较高围栏接管、调用后撤回，以及服务/SQL第5步正反保护。FinalUse在完整规划预检成功后才撤回AI用途，已完成第6步仍不得生成报告或结算；恢复后复用原捕获和检查点成功一次，证明终检事务独立核验。未知预留不重发、不擅自释放；已保存捕获沿原键恢复至一次报告及一次结算，账本审计仍须通过。
+
+Process使用新构建原cmd/api、cmd/ai-worker及原密码HTTP校验，验本人/第二会员、报价→会话意图→确认→队列→六步报告→结算、原读取及SSE重放；不是浏览器或真实多Agent证据。成功报告读取会重新取得实际第3/4/5步捕获并复算最终策略，AI用途撤回后拒读、恢复后可读；不请求模型或新增账务。原公众报告DTO尚不返回字段附属结果，不以内部固定语义呈现冒充已完成前端。模型语义准确率、公众核验页面及真实资料评测仍待验，具体证据见tasks当前矩阵。
+
 ## 核验清单登记与当前AI用途重建（2026-10-30，仅内部服务）
 
 `SupportPreparation.Manifest`形成16KiB以内的规范清单，只含精确档案/卡片定位、轻深类型、模型策略及组件摘要；没有正文、会员/任务号或模型回执。`AIDossierSupportRegistryService.RegisterInternal`显式开启内部登记后才可保存，默认只读；不会创建用途批准、任务、报告或积分流水。迁移`20261030_register_tm_ai_dossier_support_plans.sql`按序排在原档案迁移后，新清单表不可修改/删除，AI用途表独立且enabled默认0。不能将测试批准登记语句用于生产。

@@ -118,7 +118,7 @@ jobs:
           # 逐字段核验内部计划/捕获/回放新增113节点，不代表真实模型准确率。
           # 准入准备、可选组件兼容、封闭适配和单步执行增加83项，旧执行拒绝新组件另增2项。
           # 核验清单规范与登记控制增加61个普通节点。
-          MIN=1819
+          MIN=1888
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项测试，低于下限 $MIN —— 要么测试没被执行，要么有测试被删。"
             exit 1
@@ -355,6 +355,30 @@ jobs:
             fi
           done
           # 专题核验清单门禁结束
+
+          # 专题六步报告协议门禁开始
+          REPORT_ROOTS=$(grep -Ec '^--- PASS: TestDossierReport[^ /]+ ' /tmp/gotest.log || true)
+          REPORT_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestDossierReport[^ /]+/' /tmp/gotest.log || true)
+          REPORT_SKIPS=$(grep -Ec '^[[:space:]]*--- SKIP: TestDossierReport' /tmp/gotest.log || true)
+          if [ "$REPORT_ROOTS" -ne 9 ] || [ "$REPORT_CASES" -ne 60 ] || [ "$REPORT_SKIPS" -ne 0 ]; then
+            echo "六步报告准入/绑定/判定/预算验收漏跑"; exit 1
+          fi
+          for phase in \
+            TestDossierReportAdmissionProfile{,/legacy,/single_support,/six_step,/unknown,/missing_support,/budget} \
+            TestDossierReportVisibleBinding{,/input,/draft,/payload,/missing,/id,/card,/field,/free_reason} \
+            TestDossierReportVisibleVerdicts{,/supported,/partial,/unsupported,/uncertain} \
+            TestDossierReportPolicyDelivery{,/supported,/partial,/unsupported,/uncertain} \
+            TestDossierReportPolicyCaptureAndScope{,/legacy,/single_step,/other_member,/other_task} \
+            TestDossierReportPolicyRefusal{,/plan,/component,/model,/filing,/analysis,/entailment,/ent_version,/missing_review,/missing_semantic,/sem_version,/company_count} \
+            TestDossierReportPlanScopeAndBudget{,/same,/unknown_profile,/missing_profile,/missing_plan,/missing_units,/changed_units,/missing_component,/changed_component,/cross_task,/calls,/tokens} \
+            TestDossierReportPlanDigestAndCopies \
+            TestDossierReportLocalPlanProfile{,/legacy,/six_step,/missing_profile,/unknown_profile,/missing_component,/bad_component,/budget,/null_profile,/null_component,/alias,/unknown_field,/required_zero_missing}; do
+            MATCHES=$(grep -Ec "^[[:space:]]*--- PASS: $phase " /tmp/gotest.log || true)
+            if [ "$MATCHES" -ne 1 ]; then
+              echo "六步报告协议场景缺失或重复：$phase"; exit 1
+            fi
+          done
+          # 专题六步报告协议门禁结束
 
 
       - name: 受限问答执行核必跑（不调用真实模型）
@@ -1104,6 +1128,43 @@ jobs:
           done
           # 专题核验登记真库门禁结束
 
+          # 专题六步报告真库门禁开始
+          WORKFLOW_ROOTS=$(grep -Ec '^--- PASS: TestIntegrationAIReportDossierWorkflow[^ /]* ' /tmp/it.log || true)
+          WORKFLOW_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportDossierWorkflow[^ /]*/' /tmp/it.log || true)
+          WORKFLOW_SKIPS=$(grep -Ec '^[[:space:]]*--- SKIP: TestIntegrationAIReportDossierWorkflow' /tmp/it.log || true)
+          if [ "$WORKFLOW_ROOTS" -ne 6 ] || [ "$WORKFLOW_CASES" -ne 76 ] || [ "$WORKFLOW_SKIPS" -ne 0 ]; then
+            echo "六步报告真库/恢复/原登录独立进程/结构保护验收漏跑"; exit 1
+          fi
+          assert_dossier_workflow_case() {
+            MATCHES=$(grep -Ec "^[[:space:]]*--- PASS: $1 " /tmp/it.log || true)
+            if [ "$MATCHES" -ne 1 ]; then
+              echo "六步报告真库场景缺失或重复：$1"; exit 1
+            fi
+          }
+          WORKFLOW_BASE=TestIntegrationAIReportDossierWorkflow
+          for group in '' Recovery FifthStepGuard Schema Process FinalUse; do
+            assert_dossier_workflow_case "$WORKFLOW_BASE$group"
+            for level in Read_Committed Repeatable_Read; do
+              assert_dossier_workflow_case "$WORKFLOW_BASE$group/$level"
+            done
+          done
+          for level in Read_Committed Repeatable_Read; do
+            for kind in 1 2; do
+              assert_dossier_workflow_case "$WORKFLOW_BASE/$level/$kind"
+              assert_dossier_workflow_case "${WORKFLOW_BASE}Process/$level/$kind"
+              for phase in supported partial unsupported uncertain entailment semantic malformed transport; do
+                assert_dossier_workflow_case "$WORKFLOW_BASE/$level/$kind/$phase"
+              done
+            done
+            for phase in budget4 start4 finish4 capture4 checkpoint4 capture6 commit6 capture_new_fence use_after_call; do
+              assert_dossier_workflow_case "${WORKFLOW_BASE}Recovery/$level/$phase"
+            done
+            for phase in current legacy_step missing_profile_guard; do
+              assert_dossier_workflow_case "${WORKFLOW_BASE}Schema/$level/$phase"
+            done
+          done
+          # 专题六步报告真库门禁结束
+
 
           # 保留原1073项，追加问答HTTP/结构45项及启动10项。
           # 原1128，新增实际API/独立worker的1根、2级别与4个轻深用例。
@@ -1121,7 +1182,8 @@ jobs:
           # 引用结构11叶、独立API6叶各含1根，H5只转发边界另增1根。
           # 专题字段单步执行：4根、8隔离父组、4步位父组及52具体场景，共68项。
           # 核验登记与资料只读权限增加5根、10隔离父组及104具体场景，共119项。
-          MIN=1529
+          # 专题完整六步报告增加6根、12隔离子组、4轻深父组及60具体场景，共82项。
+          MIN=1611
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项，低于下限 $MIN —— 要么没跑，要么有测试被删。"; exit 1
           fi

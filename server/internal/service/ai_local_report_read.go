@@ -83,7 +83,26 @@ func (c *AILocalReportReadControl) policy(ctx context.Context, p localPublicatio
 	if digest != p.plan.ExecutionDigest {
 		return nil, finalreport.ErrUnavailable
 	}
-	policy, err := pendingPolicy(execution.Policy)
+	var policy *finalreport.Policy
+	if execution.ReportProfile == task.DossierReportProfile {
+		err = c.admission.evidence.WithinReportTx(ctx, func(tx finalreport.Tx) error {
+			current, e := lockOwnedTask(ctx, tx, p.task.UserID, p.task.ID)
+			if e != nil {
+				return e
+			}
+			commit, e := tx.ReportCommit(ctx, current.UserID, current.ID)
+			if e != nil {
+				return e
+			}
+			if commit.Validate() != nil || commit.Status != task.Succeeded || commit.ContentDigest != p.publication.ReportDigest || commit.PolicyDigest != p.publication.PolicyDigest {
+				return finalreport.ErrUnavailable
+			}
+			policy, e = loadDossierReportPolicy(ctx, tx, current, execution, commit.Payload)
+			return e
+		})
+	} else {
+		policy, err = pendingPolicy(execution.Policy)
+	}
 	if err != nil {
 		return nil, err
 	}

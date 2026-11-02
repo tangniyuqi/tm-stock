@@ -8,6 +8,7 @@ import (
 
 	"github.com/tangniyuqi/tm-stock/server/internal/agents"
 	"github.com/tangniyuqi/tm-stock/server/internal/ai/agenttask"
+	"github.com/tangniyuqi/tm-stock/server/internal/ai/dossier"
 	"github.com/tangniyuqi/tm-stock/server/internal/ai/finalreport"
 	"github.com/tangniyuqi/tm-stock/server/internal/ai/task"
 	"github.com/tangniyuqi/tm-stock/server/internal/points"
@@ -25,7 +26,10 @@ type AIL1ReportPlan struct {
 	Snapshots []sources.Snapshot
 	Companies *finalreport.CompanyDraft `json:"-"`
 	// AnalysisType 0 保留既有 L1 编码；2 为深度报告，必须与任务、终检策略同时为 2。
-	AnalysisType int `json:",omitempty"`
+	AnalysisType  int                  `json:",omitempty"`
+	ReportProfile string               `json:",omitempty"`
+	SupportUnits  *task.Units          `json:",omitempty"`
+	Dossier       *dossier.SupportPlan `json:"-"`
 }
 
 func (p AIL1ReportPlan) String() string {
@@ -58,6 +62,7 @@ type AIL1ReportWorker struct {
 	checks    AIReportCheckControl
 	owner     string
 	opts      agenttask.Options
+	support   AIDossierSupportControl
 }
 
 func NewAIL1ReportWorker(tasks recoveryTasks, store l1ReportStore, ledger *PointsService, agent taskAgentClient, payloads agents.PayloadReader, model *provider.OpenAICompat, planner AIL1ReportPlanner, selection AIReportSelectionControl, checks AIReportCheckControl, owner string, o agenttask.Options) (*AIL1ReportWorker, error) {
@@ -67,7 +72,37 @@ func NewAIL1ReportWorker(tasks recoveryTasks, store l1ReportStore, ledger *Point
 	if o.Enabled {
 		planner = admittedL1Planner{planner, store}
 	}
-	return &AIL1ReportWorker{tasks, store, ledger, agent, payloads, model, planner, selection, checks, owner, o}, nil
+	return &AIL1ReportWorker{tasks: tasks, store: store, ledger: ledger, agent: agent, payloads: payloads, model: model, planner: planner, selection: selection, checks: checks, owner: owner, opts: o}, nil
+}
+
+// 新六步编排必须显式提供当前核验控制器；旧构造器不隐式开放新能力。
+func NewAIDossierReportWorker(tasks recoveryTasks, store l1ReportStore, ledger *PointsService, agent taskAgentClient, payloads agents.PayloadReader, model *provider.OpenAICompat, planner AIL1ReportPlanner, selection AIReportSelectionControl, checks AIReportCheckControl, support AIDossierSupportControl, owner string, o agenttask.Options) (*AIL1ReportWorker, error) {
+	if o.Enabled && support == nil {
+		return nil, points.ErrInvalid
+	}
+	w, err := NewAIL1ReportWorker(tasks, store, ledger, agent, payloads, model, planner, selection, checks, owner, o)
+	if err != nil {
+		return nil, err
+	}
+	w.support = support
+	return w, nil
+}
+
+func (p AIL1ReportPlan) pendingPolicy() (*finalreport.Policy, error) {
+	if p.ReportProfile == "" {
+		if p.SupportUnits != nil || p.Dossier != nil || p.Policy.DossierSupportDigest != "" {
+			return nil, points.ErrInvalid
+		}
+		return pendingPolicy(p.Policy, p.Companies)
+	}
+	if p.ReportProfile != task.DossierReportProfile || !p.Dossier.Valid() || p.Dossier.StepNo() != 4 || p.SupportUnits == nil || *p.SupportUnits != p.Dossier.Units() {
+		return nil, points.ErrInvalid
+	}
+	e := func(context.Context, finalreport.EntailmentInput) (finalreport.Verdict, error) {
+		return finalreport.Uncertain, nil
+	}
+	s := func(context.Context, string) (finalreport.Verdict, error) { return finalreport.Uncertain, nil }
+	return finalreport.NewDossierPolicy(p.Policy, p.Dossier, e, s, p.Companies)
 }
 
 // pendingPolicy 只用于构造/绑定候选，所有未捕获判定均为不明，绝无默认通过。
@@ -112,9 +147,12 @@ func (p AIL1ReportPlan) validate(v task.Task, model *provider.OpenAICompat) (*fi
 	if err := p.preflightBudget(v.Budget); err != nil {
 		return nil, err
 	}
-	policy, err := pendingPolicy(p.Policy, p.Companies)
+	policy, err := p.pendingPolicy()
 	if err != nil {
 		return nil, err
+	}
+	if p.Dossier != nil && (!p.Dossier.MatchesTask(v) || p.Dossier.Config().Model != p.Model.Model || p.Dossier.Config().ProfileDigest != p.Model.ProfileDigest) {
+		return nil, points.ErrIdempotency
 	}
 	if _, err := finalreport.NewSelectionStage(policy, v.No, v.SubjectID, p.ThemeName, p.Snapshots); err != nil {
 		return nil, err
@@ -128,6 +166,17 @@ func (p AIL1ReportPlan) preflightBudget(budget task.Budget) error {
 		return err
 	}
 	units, err := p.Agent.Units.Add(task.Units{Calls: 4, Tokens: 3*p.Model.MaxInputTokens + int64(p.Model.SelectionTokens()) + 2*int64(p.Model.CheckTokens()) + 1})
+	if err != nil {
+		return task.ErrBudget
+	}
+	if p.ReportProfile != "" {
+		if p.ReportProfile != task.DossierReportProfile || p.SupportUnits == nil || p.SupportUnits.Calls != 1 || p.SupportUnits.Pages != 0 || p.SupportUnits.Validate() != nil || !finalreport.ValidDigest(p.Policy.DossierSupportDigest) {
+			return points.ErrInvalid
+		}
+		units, err = units.Add(*p.SupportUnits)
+	} else if p.SupportUnits != nil || p.Policy.DossierSupportDigest != "" {
+		return points.ErrInvalid
+	}
 	if err != nil || units.Validate() != nil || !units.Fits(budget.Limits()) {
 		return task.ErrBudget
 	}
@@ -137,6 +186,19 @@ func (p AIL1ReportPlan) preflightBudget(budget task.Budget) error {
 type l1AgentPlanner struct {
 	planner AIL1ReportPlanner
 	plan    AIL1ReportPlan
+}
+
+type admittedDossierControl struct {
+	AIDossierSupportControl
+	planner AIL1ReportPlanner
+	plan    AIL1ReportPlan
+}
+
+func (c admittedDossierControl) Recheck(ctx context.Context, v task.Task, p *dossier.SupportPlan) error {
+	if err := c.planner.Recheck(ctx, v, c.plan); err != nil {
+		return err
+	}
+	return c.AIDossierSupportControl.Recheck(ctx, v, p)
 }
 
 func (l1AgentPlanner) admittedTaskPlan() {}
@@ -191,6 +253,9 @@ func (w *AIL1ReportWorker) Run(parent context.Context, uid, id int64) (AIL1Repor
 			return w.rejectKnown(ctx, v)
 		}
 		return AIL1ReportReceipt{}, err
+	}
+	if p.ReportProfile != "" && w.support == nil {
+		return AIL1ReportReceipt{}, finalreport.ErrDisabled
 	}
 	policy, err := p.validate(v, w.model)
 	if err != nil {
@@ -336,18 +401,42 @@ func (w *AIL1ReportWorker) runOwned(ctx context.Context, v task.Task, p AIL1Repo
 		return AIL1ReportReceipt{Task: ent.Task}, nil
 	}
 	var sem AIReportCheckReceipt
+	var support AIDossierSupportReceipt
 	if ent.Evidence.Decision().Verdict == finalreport.Pass {
-		mp, err := finalreport.NewSemanticCheck(p.Model, v.No, visible)
-		if err != nil {
-			return AIL1ReportReceipt{}, err
+		semanticStep := 4
+		if p.ReportProfile == task.DossierReportProfile {
+			worker, err := NewAIDossierSupportWorker(w.tasks, w.store, w.model, admittedDossierControl{AIDossierSupportControl: w.support, planner: w.planner, plan: p}, w.owner, options)
+			if err != nil {
+				return AIL1ReportReceipt{}, err
+			}
+			last = l1Stage(v, w.owner, "judge", 4, p.Dossier.OperationKey(v, 4), p.Dossier.InputDigest())
+			support, err = worker.RunOwned(ctx, last, p.Dossier)
+			if err != nil {
+				return AIL1ReportReceipt{}, err
+			}
+			if support.Review == nil {
+				return AIL1ReportReceipt{Task: support.Task}, nil
+			}
+			visible, err = finalreport.DossierVisible(visible, p.Dossier, support.Review)
+			if err != nil {
+				return AIL1ReportReceipt{}, err
+			}
+			semanticStep = 5
 		}
-		last = l1Stage(v, w.owner, "judge", 4, mp.OperationKey(v, 4), mp.InputDigest())
-		sem, err = cw.RunOwned(ctx, last, mp)
-		if err != nil {
-			return AIL1ReportReceipt{}, err
-		}
-		if sem.Evidence == nil {
-			return AIL1ReportReceipt{Task: sem.Task}, nil
+		// 全部资料不足时保留字段存证，直接沿终检失败释放，不制造语义调用。
+		if p.ReportProfile == "" || support.Review.ResolvedCount() > 0 {
+			mp, err := finalreport.NewSemanticCheck(p.Model, v.No, visible)
+			if err != nil {
+				return AIL1ReportReceipt{}, err
+			}
+			last = l1Stage(v, w.owner, "judge", semanticStep, mp.OperationKey(v, semanticStep), mp.InputDigest())
+			sem, err = cw.RunOwned(ctx, last, mp)
+			if err != nil {
+				return AIL1ReportReceipt{}, err
+			}
+			if sem.Evidence == nil {
+				return AIL1ReportReceipt{Task: sem.Task}, nil
+			}
 		}
 	}
 	// 语义判定提交后必须刷新任务步号；否则最终阶段可能按旧 current_step 预留失败。
@@ -355,7 +444,12 @@ func (w *AIL1ReportWorker) runOwned(ctx context.Context, v task.Task, p AIL1Repo
 	if err != nil {
 		return AIL1ReportReceipt{}, err
 	}
-	finalPolicy, err := finalreport.NewCapturedPolicy(p.Policy, ent.Evidence, sem.Evidence, p.Companies)
+	var finalPolicy *finalreport.Policy
+	if p.ReportProfile == task.DossierReportProfile {
+		finalPolicy, err = finalreport.NewDossierCapturedPolicy(p.Policy, p.Dossier, support.Review, ent.Evidence, sem.Evidence, p.Companies)
+	} else {
+		finalPolicy, err = finalreport.NewCapturedPolicy(p.Policy, ent.Evidence, sem.Evidence, p.Companies)
+	}
 	if err != nil {
 		return AIL1ReportReceipt{}, err
 	}
@@ -363,11 +457,17 @@ func (w *AIL1ReportWorker) runOwned(ctx context.Context, v task.Task, p AIL1Repo
 	if err != nil {
 		return AIL1ReportReceipt{}, err
 	}
-	b, err := json.Marshal([]any{"l1-final-input-v1", draft.InputDigest, ent.Checkpoint, sem.Checkpoint})
+	finalInput := []any{"l1-final-input-v1", draft.InputDigest, ent.Checkpoint, sem.Checkpoint}
+	finalKey := []any{"l1-final-operation-v1", v.UserID, v.ID, v.No}
+	if p.ReportProfile == task.DossierReportProfile {
+		finalInput = []any{task.DossierReportProfile, draft.InputDigest, ent.Checkpoint, support.Checkpoint, sem.Checkpoint}
+		finalKey = []any{task.DossierReportProfile, v.UserID, v.ID, v.No}
+	}
+	b, err := json.Marshal(finalInput)
 	if err != nil {
 		return AIL1ReportReceipt{}, err
 	}
-	key, err := json.Marshal([]any{"l1-final-operation-v1", v.UserID, v.ID, v.No})
+	key, err := json.Marshal(finalKey)
 	if err != nil {
 		return AIL1ReportReceipt{}, err
 	}

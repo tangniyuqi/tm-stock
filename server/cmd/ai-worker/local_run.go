@@ -176,7 +176,11 @@ func runLocalReportMode(parent context.Context, args []string, input io.ReadClos
 	db.SetMaxOpenConns(8)
 	db.SetMaxIdleConns(4)
 	repo := repository.NewAITaskRepo(db)
-	admission, err := service.NewAILocalAdmissionControl(plans, repository.NewAILocalInstanceVerifier(db), repo)
+	registry, err := service.NewAIDossierSupportRegistryService(repository.NewAIDossierSupportRepo(db, sql.LevelReadCommitted), false)
+	if err != nil {
+		return fail()
+	}
+	admission, err := service.NewAILocalAdmissionControl(plans, repository.NewAILocalInstanceVerifier(db), repo, registry)
 	if err != nil {
 		return fail()
 	}
@@ -243,7 +247,11 @@ func runLocalReportMode(parent context.Context, args []string, input io.ReadClos
 		return fail()
 	}
 	owner := "local_worker_" + hex.EncodeToString(ownerID[:])
-	worker, err := service.NewAIL1ReportWorker(tasks, repo, ledger, agent, payloads, model, guard, selection, checks, owner, agenttask.Options{Enabled: true, Lease: c.RecoveryOptions(), PollInterval: time.Duration(c.AgentPollMS) * time.Millisecond})
+	support, err := service.NewAIDossierSupportExecutionControl(registry, repo, admission, audit)
+	if err != nil {
+		return fail()
+	}
+	worker, err := service.NewAIDossierReportWorker(tasks, repo, ledger, agent, payloads, model, guard, selection, checks, support, owner, agenttask.Options{Enabled: true, Lease: c.RecoveryOptions(), PollInterval: time.Duration(c.AgentPollMS) * time.Millisecond})
 	if err != nil {
 		return fail()
 	}

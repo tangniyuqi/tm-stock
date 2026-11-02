@@ -12,6 +12,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/tangniyuqi/tm-stock/server/internal/ai/dossier"
 	"github.com/tangniyuqi/tm-stock/server/internal/ai/guard"
 	"github.com/tangniyuqi/tm-stock/server/internal/ai/render"
 	"github.com/tangniyuqi/tm-stock/server/internal/ai/task"
@@ -50,8 +51,9 @@ type Config struct {
 	AllowedDomains                                               []string
 	CompanyDigest                                                string `json:",omitempty"`
 	// AnalysisType 0 表示既有 L1 编码（摘要不变）；2 表示深度报告，必须显式声明最少引文数。
-	AnalysisType int `json:",omitempty"`
-	MinQuotes    int `json:",omitempty"`
+	AnalysisType         int    `json:",omitempty"`
+	MinQuotes            int    `json:",omitempty"`
+	DossierSupportDigest string `json:",omitempty"`
 }
 
 // EntailmentInput 的字符串是独立不可变副本；不含账户、许可归档或其他任务正文。
@@ -61,15 +63,18 @@ type SemanticCheck func(context.Context, string) (Verdict, error)
 
 // Policy 的回调必须是可信、受限的纯校验器；没有模型调用、工具或默认放行实现。
 type Policy struct {
-	cfg        Config
-	digest     string
-	entailment EntailmentCheck
-	semantic   SemanticCheck
-	companies  *CompanyDraft
+	cfg               Config
+	digest            string
+	entailment        EntailmentCheck
+	semantic          SemanticCheck
+	companies         *CompanyDraft
+	dossierPlan       *dossier.SupportPlan
+	dossierReview     *dossier.SupportReview
+	dossierBaseDigest string
 }
 
 func NewPolicy(c Config, entailment EntailmentCheck, semantic SemanticCheck) (*Policy, error) {
-	if c.CompanyDigest != "" {
+	if c.CompanyDigest != "" || c.DossierSupportDigest != "" {
 		return nil, points.ErrInvalid
 	}
 	if c.AnalysisType != 0 && c.AnalysisType != 2 || c.MinQuotes < 0 || c.MinQuotes > 64 || (c.AnalysisType == 2 && c.MinQuotes < 6) || (c.AnalysisType != 2 && c.MinQuotes != 0) {
@@ -293,6 +298,9 @@ func (p *Policy) Review(ctx context.Context, raw string, v Proposal, snaps []sou
 	if e != Pass {
 		return e, Uncertain, "entailment", nil
 	}
+	if p.dossierPlan != nil && !p.dossierDeliverable() {
+		return Uncertain, Uncertain, "evidence", nil
+	}
 	s, err := p.semantic(ctx, visible)
 	if ctx.Err() != nil {
 		return e, Uncertain, "", ctx.Err()
@@ -346,5 +354,13 @@ func (p *Policy) reviewInputs(raw string, v Proposal, snaps []sources.Snapshot) 
 			}
 		}
 	}
-	return EntailmentInput{raw, string(b)}, strings.Join(text, "\n"), nil
+	visible := strings.Join(text, "\n")
+	if p.dossierReview != nil {
+		full, err := DossierVisible(visible, p.dossierPlan, p.dossierReview)
+		if err != nil {
+			return EntailmentInput{}, "", err
+		}
+		visible = full
+	}
+	return EntailmentInput{raw, string(b)}, visible, nil
 }

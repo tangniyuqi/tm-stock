@@ -10,6 +10,7 @@ import (
 
 	"github.com/tangniyuqi/tm-stock/server/internal/agents"
 	"github.com/tangniyuqi/tm-stock/server/internal/ai/agenttask"
+	"github.com/tangniyuqi/tm-stock/server/internal/ai/dossier"
 	"github.com/tangniyuqi/tm-stock/server/internal/ai/finalreport"
 	"github.com/tangniyuqi/tm-stock/server/internal/ai/task"
 	"github.com/tangniyuqi/tm-stock/server/internal/config"
@@ -85,12 +86,15 @@ func newAILocalReportModelControls(admission *AILocalAdmissionControl, ledger *P
 // expected 亲自回取原隔离Agent及已捕获选句，不信任调用方提供的提示或判定正文。
 // 只读转换仍经过原准入/检查点/当前资料核验，不执行模型或账务操作。
 func (c *localReportModelControl) expected(ctx context.Context, v task.Task, step int) (finalreport.ModelStep, error) {
-	if c == nil || ctx == nil || step < 2 || step > 4 {
+	if c == nil || ctx == nil || step < 2 || step > 5 {
 		return nil, points.ErrInvalid
 	}
 	p, err := c.admission.ExecutionPlan(ctx, v)
 	if err != nil {
 		return nil, err
+	}
+	if step == 5 && p.ReportProfile != task.DossierReportProfile || step == 4 && p.ReportProfile == task.DossierReportProfile {
+		return nil, points.ErrInvalid
 	}
 	// 本地装配不接管无首次准入的历史开发任务。
 	if err := c.store.WithinAdmissionTx(ctx, func(tx task.AdmissionReadTx) error {
@@ -161,6 +165,21 @@ func (c *localReportModelControl) expected(ctx context.Context, v task.Task, ste
 	if step == 3 {
 		return finalreport.NewEntailmentCheck(p.Model, in)
 	}
+	if step == 5 {
+		var review *dossier.SupportReview
+		err = c.store.WithinStageTx(ctx, func(tx task.StageTx) error {
+			var e error
+			review, e = dossierCapturedReview(ctx, tx, v, p.Dossier)
+			return e
+		})
+		if err != nil {
+			return nil, err
+		}
+		visible, err = finalreport.DossierVisible(visible, p.Dossier, review)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return finalreport.NewSemanticCheck(p.Model, v.No, visible)
 }
 
@@ -193,12 +212,19 @@ func (c *AILocalReportCheckControl) Recheck(ctx context.Context, v task.Task, p 
 	step := 3
 	if p.Kind() == finalreport.CheckSemantic {
 		step = 4
+		plan, err := c.core.admission.ExecutionPlan(ctx, v)
+		if err != nil {
+			return err
+		}
+		if plan.ReportProfile == task.DossierReportProfile {
+			step = 5
+		}
 	}
 	return c.core.recheck(ctx, v, p, step)
 }
 
 func (c *localReportModelControl) start(parent context.Context, r task.StageRequest, req provider.Request) error {
-	if parent == nil || r.Validate() != nil || r.StepNo < 2 || r.StepNo > 4 {
+	if parent == nil || r.Validate() != nil || r.StepNo < 2 || r.StepNo > 5 {
 		return points.ErrInvalid
 	}
 	ctx, cancel := context.WithTimeout(parent, 10*time.Second)
@@ -237,7 +263,7 @@ func (c *AILocalReportSelectionControl) Start(ctx context.Context, r task.StageR
 	return c.core.start(ctx, r, req)
 }
 func (c *AILocalReportCheckControl) Start(ctx context.Context, r task.StageRequest, req provider.Request) error {
-	if c == nil || c.core == nil || (r.StepNo != 3 && r.StepNo != 4) || r.Stage != "judge" {
+	if c == nil || c.core == nil || (r.StepNo != 3 && r.StepNo != 4 && r.StepNo != 5) || r.Stage != "judge" {
 		return points.ErrInvalid
 	}
 	return c.core.start(ctx, r, req)
@@ -251,7 +277,7 @@ func (c *AILocalReportSelectionControl) Finish(ctx context.Context, r task.Stage
 	return c.core.audit.Finish(ctx, r, out, callErr)
 }
 func (c *AILocalReportCheckControl) Finish(ctx context.Context, r task.StageRequest, out provider.Response, callErr error) error {
-	if c == nil || c.core == nil || ctx == nil || r.Validate() != nil || (r.StepNo != 3 && r.StepNo != 4) || r.Stage != "judge" {
+	if c == nil || c.core == nil || ctx == nil || r.Validate() != nil || (r.StepNo != 3 && r.StepNo != 4 && r.StepNo != 5) || r.Stage != "judge" {
 		return points.ErrInvalid
 	}
 	return c.core.audit.Finish(ctx, r, out, callErr)

@@ -247,6 +247,18 @@ func (p *SupportPreparation) Materials() []task.AdmissionMaterial {
 	}
 	return slices.Clone(p.materials)
 }
+func (p *SupportPreparation) Config() SupportConfig {
+	if !p.Valid() {
+		return SupportConfig{}
+	}
+	return p.cfg
+}
+func (p *SupportPreparation) Units() task.Units {
+	if !p.Valid() {
+		return task.Units{}
+	}
+	return task.Units{Calls: 1, Tokens: p.cfg.MaxInputTokens + int64(p.cfg.MaxOutputTokens)}
+}
 func (p *SupportPreparation) ComponentDigest(kind int) (string, error) {
 	if !p.Valid() || kind != 1 && kind != 2 {
 		return "", ErrSupportReview

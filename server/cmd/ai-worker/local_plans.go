@@ -43,7 +43,11 @@ func checkLocalPlans(ctx context.Context, args []string, output io.Writer) int {
 	defer db.Close()
 	db.SetMaxOpenConns(2)
 	db.SetMaxIdleConns(2)
-	control, err := service.NewAILocalAdmissionControl(source, repository.NewAILocalInstanceVerifier(db), repository.NewAITaskRepo(db))
+	registry, err := service.NewAIDossierSupportRegistryService(repository.NewAIDossierSupportRepo(db, sql.LevelReadCommitted), false)
+	if err != nil {
+		return fail()
+	}
+	control, err := service.NewAILocalAdmissionControl(source, repository.NewAILocalInstanceVerifier(db), repository.NewAITaskRepo(db), registry)
 	stage = 3
 	if err != nil {
 		return fail()

@@ -84,6 +84,10 @@ func probeAdmissionConstraints(ctx context.Context, tx *sql.Tx) error {
 
 // 回调仅供同一回滚事务的后续保护探针使用，不返回可供执行的业务批准。
 func probeAdmissionTask(ctx context.Context, tx *sql.Tx, action func(task.Task, task.AdmissionRecord) error) error {
+	return probeAdmissionTaskWithDossier(ctx, tx, false, action)
+}
+
+func probeAdmissionTaskWithDossier(ctx context.Context, tx *sql.Tx, dossier bool, action func(task.Task, task.AdmissionRecord) error) error {
 	// 这些行仅为保护探针，全部回滚，绝不代表模型/来源/定价批准。
 	base, err := budgetProbeTask(ctx, tx)
 	if err != nil {
@@ -99,6 +103,11 @@ func probeAdmissionTask(ctx context.Context, tx *sql.Tx, action func(task.Task, 
 	}
 	p := task.AdmissionPlan{Scope: task.AdmissionScope{UserID: base.UserID, AnalysisType: 1, SubjectType: task.Theme, SubjectID: 1}, Price: points.Price{Version: "probe", Points: 7}, Budget: base.Budget, SubjectName: "结构探针题材", ModelName: "结构探针模型", FilingNo: "probe-only", ProfileDigest: strings.Repeat("a", 64), ExecutionDigest: strings.Repeat("b", 64), ApprovalRef: "probe-only", QualityRef: "probe-only", HardBudgetRef: "probe-only", PriceRef: "probe-only", SourceRef: "probe-only", Materials: []task.AdmissionMaterial{{SnapshotID: 1, Digest: strings.Repeat("c", 64), Domain: "admission.example.test", Category: sources.CategoryAnnouncement, URL: "https://admission.example.test/probe", CollectedAt: now.Add(-time.Hour)}}}
 	p.Budget.MaxCalls = 5
+	if dossier {
+		p.Budget.MaxCalls = 6
+		p.ReportProfile = task.DossierReportProfile
+		p.DossierSupportDigest = strings.Repeat("d", 64)
+	}
 	no := fmt.Sprintf("%032x", base.UserID+1)
 	key := "admission_probe_" + no
 	txn, err := a.Points().InsertTransaction(ctx, points.Transaction{UserID: base.UserID, Key: key, Hash: strings.Repeat("0", 64), Kind: "freeze", BizType: "ai_task", BizID: "task:" + no})
