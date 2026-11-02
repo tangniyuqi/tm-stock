@@ -1,0 +1,42 @@
+import { AIDossierQuote, isDossierQuote } from './ai-dossier.uts'
+import { isSafeAIId } from './ai-number.uts'
+
+export type AIReportDossierField = { cardKey : string, section : string, field : string, verdict : string, reason : string, checked : AIDossierQuote, statement : AIDossierQuote }
+export type AIReportDossierReview = { version : number, compiledAt : number, notice : string, items : AIReportDossierField[] }
+export const reportDossierNotice = '仅核对本次获授权资料；所核内容为候选字段，不代表已证实事实。未列字段未在本次核验范围内。'
+const reviewFields : string[] = ['section','subject','publishedDate','effectiveDate','period','scope','stage','basis','unit']
+const exactReviewKeys = (value : string[], expected : string[]) : boolean => value.length == expected.length && value.every((s : string) : boolean => expected.includes(s))
+const sameReviewQuote = (a : AIDossierQuote, b : AIDossierQuote) : boolean => a.text == b.text && a.context == b.context && a.sourceType == b.sourceType && a.sourceUrl == b.sourceUrl && a.collectedAt == b.collectedAt && a.snapshotId == b.snapshotId && a.sentence == b.sentence && a.startByte == b.startByte && a.endByte == b.endByte
+const validReviewReason = (field : string, verdict : string, reason : string) : boolean => {
+	if (verdict == 'supported') return reason == 'direct_support'
+	if (verdict == 'partial') return reason == 'partial_support'
+	if (verdict == 'uncertain') return reason == 'insufficient_context'
+	if (verdict != 'unsupported') return false
+	if (reason == 'not_supported') return true
+	if (['publishedDate','effectiveDate','period'].includes(field)) return reason == 'time_mismatch'
+	return reason == field + '_mismatch'
+}
+export const isAIReportDossierReview = (value : AIReportDossierReview | null, generatedAt : number) : boolean => {
+	if (value == null || typeof value != 'object' || Array.isArray(value) || !exactReviewKeys(Object.keys(value),['version','compiledAt','notice','items']) || !isSafeAIId(value.version) || !isSafeAIId(value.compiledAt) || value.compiledAt > generatedAt || typeof value.notice != 'string' || value.notice != reportDossierNotice || !Array.isArray(value.items) || value.items.length < 1 || value.items.length > 36) return false
+	let previousCard : string = ''; let previousField : number = -1; let cardCount : number = 0; let resolved : boolean = false
+	let statement : AIDossierQuote | null = null; let section : string = ''
+	for (const item of value.items) {
+		if (item == null || typeof item != 'object' || !exactReviewKeys(Object.keys(item),['cardKey','section','field','verdict','reason','checked','statement']) || typeof item.cardKey != 'string' || !/^[a-z][a-z0-9_]{0,31}$/.test(item.cardKey) || !['definition','chain','policy','progress','membership'].includes(item.section) || !validReviewReason(item.field,item.verdict,item.reason) || !isDossierQuote(item.checked) || !isDossierQuote(item.statement)) return false
+		const index : number = reviewFields.indexOf(item.field)
+		if (index < 0 || typeof item.field != 'string' || typeof item.verdict != 'string' || typeof item.reason != 'string') return false
+		if (item.cardKey != previousCard) {
+			if (item.cardKey < previousCard || index != 0) return false
+			cardCount++; previousField = -1; statement = item.statement; section = item.section
+		}
+		if (cardCount > 4 || index <= previousField || item.section != section || !sameReviewQuote(item.statement,statement!) || item.field == 'section' && !sameReviewQuote(item.checked,item.statement)) return false
+		if (item.verdict != 'uncertain') resolved = true
+		previousCard = item.cardKey; previousField = index
+	}
+	return resolved
+}
+export const reportDossierVerdict = (v : string) : string => v == 'supported' ? '原文完整支持' : v == 'partial' ? '原文部分支持' : v == 'unsupported' ? '原文不支持' : v == 'uncertain' ? '资料不足' : ''
+export const reportDossierReason = (v : string) : string => {
+	const codes : string[] = ['direct_support','partial_support','not_supported','insufficient_context','section_mismatch','subject_mismatch','time_mismatch','scope_mismatch','stage_mismatch','basis_mismatch','unit_mismatch']
+	const index : number = codes.indexOf(v)
+	return index < 0 ? '' : ['原文直接支持','原文仅支持部分含义','缺少原文支持','语境或证据不足','章节含义不符','主体不符','时间口径不符','适用范围不符','阶段不符','统计口径不符','单位不符'][index]
+}

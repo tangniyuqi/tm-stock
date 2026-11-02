@@ -1,0 +1,3 @@
+// JSON编号与时点的基础整数校验，供报告与专题协议共用。
+export const isSafeAIInteger = (value : number) : boolean => typeof value == 'number' && value >= 0 && value <= 9007199254740991 && Math.floor(value) == value
+export const isSafeAIId = (value : number) : boolean => isSafeAIInteger(value) && value > 0

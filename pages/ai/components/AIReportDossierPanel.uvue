@@ -1,0 +1,46 @@
+<script lang="ts" setup>
+import { computed } from 'vue'
+import { AIReportDossierReview, isAIReportDossierReview, reportDossierVerdict, reportDossierReason } from '../../libs/ai-report-dossier.uts'
+import { dossierSectionLabel, dossierFieldLabel } from '../../libs/ai-dossier.uts'
+import { aiSourceTypeLabel } from '../../libs/ai-qa.uts'
+import { formatMillis } from '../../libs/theme.uts'
+import { openSafeExternalUrl } from '../../libs/external-link.uts'
+
+type ReviewProps = { review : AIReportDossierReview, generatedAt : number }
+defineOptions({ name: 'AIReportDossierPanel' })
+const props = defineProps<ReviewProps>()
+const safeReview = computed(() : AIReportDossierReview | null => isAIReportDossierReview(props.review,props.generatedAt) ? props.review : null)
+const fieldLabel = (key : string) : string => key == 'section' ? '章节含义' : dossierFieldLabel(key)
+const openSource = (url : string) : void => { openSafeExternalUrl(url) }
+</script>
+
+<template>
+	<x-sheet v-if="safeReview != null" :margin="16" :padding="16" :round="12" dark-color="#ffffff">
+		<text class="review-title text-weight-b">专题字段原文核验</text>
+		<text class="review-meta mt-8">档案版本 {{ safeReview!.version }} · 编制于 {{ formatMillis(safeReview!.compiledAt) }}</text>
+		<text class="review-meta mt-8">{{ safeReview!.notice }}</text>
+		<view v-for="item in safeReview!.items" :key="item.cardKey + ':' + item.field" class="review-item mt-16">
+			<text class="review-title text-weight-b">{{ fieldLabel(item.field) }} · {{ reportDossierVerdict(item.verdict) }}</text>
+			<text class="review-meta mt-8">资料栏目：{{ dossierSectionLabel(item.section) }}</text>
+			<text class="review-meta mt-8">所核内容（候选）</text>
+			<text class="review-quote mt-4">{{ item.checked.text }}</text>
+			<text class="review-meta mt-8">判定依据：{{ reportDossierReason(item.reason) }}</text>
+			<text class="review-meta mt-8">字段原文语境：{{ item.checked.context }}</text>
+			<text class="review-meta mt-8">{{ aiSourceTypeLabel(item.checked.sourceType) }} · 采集于 {{ formatMillis(item.checked.collectedAt) }} · 原文第 {{ item.checked.sentence }} 句</text>
+			<x-button class="mt-8" skin="outline" height="44" :block="true" @click="openSource(item.checked.sourceUrl)">查看字段原文</x-button>
+			<view v-if="item.field != 'section'" class="mt-12">
+				<text class="review-meta">所属资料卡原句</text>
+				<text class="review-quote mt-4">{{ item.statement.text }}</text>
+				<text class="review-meta mt-8">{{ aiSourceTypeLabel(item.statement.sourceType) }} · 采集于 {{ formatMillis(item.statement.collectedAt) }} · 原文第 {{ item.statement.sentence }} 句</text>
+				<x-button class="mt-8" skin="outline" height="44" :block="true" @click="openSource(item.statement.sourceUrl)">查看资料卡原文</x-button>
+			</view>
+		</view>
+	</x-sheet>
+</template>
+
+<style scoped>
+.review-title { color: #30343c; font-size: 16px; line-height: 24px; }
+.review-meta { color: #586174; font-size: 13px; line-height: 20px; }
+.review-quote { color: #30343c; font-size: 15px; line-height: 24px; white-space: pre-wrap; }
+.review-item { border-top: 1px solid #e5e7eb; padding-top: 16px; }
+</style>

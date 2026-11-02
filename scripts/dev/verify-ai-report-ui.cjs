@@ -135,6 +135,33 @@ function mount(component, props = {}) {
 }
 const flush = async () => { for (let i = 0; i < 8; i++) { await Promise.resolve(); await vue.nextTick(); } };
 
+async function dossierReportReview() {
+  const env=environment(), rules=env.load('pages/libs/ai.uts'), contract=env.load('pages/libs/ai-report-dossier.uts');
+  const make=()=>{
+    const r=report(), text='测试示例题材：字段核验合成原文，非实际资料。';
+    const q={text,context:text,sourceType:'announcement',sourceUrl:'https://example.test/field-review',collectedAt:now-1000,snapshotId:1,sentence:1,startByte:0,endByte:Buffer.byteLength(text)};
+    r.dossierReview={version:1,compiledAt:now,notice:contract.reportDossierNotice,items:[{cardKey:'example',section:'progress',field:'section',verdict:'partial',reason:'partial_support',checked:q,statement:clone(q)}]};return r;
+  };
+  assert.equal(rules.isValidAIReport(report(),9),true);
+  assert.equal(rules.isValidAIReport(make(),9),true);
+  for(const [verdict,reason,label] of [['supported','direct_support','原文完整支持'],['partial','partial_support','原文部分支持'],['unsupported','not_supported','原文不支持']]){
+    const r=make();Object.assign(r.dossierReview.items[0],{verdict,reason});
+    assert.equal(rules.isValidAIReport(r,9),true);
+    const ui=mount(env.load('pages/ai/components/AIReportPanel.uvue').default,{report:r,sessionToken:memberToken(1)});
+    ui.click('专题字段核验');await flush();assert.ok(ui.text().includes(label));assert.ok(ui.text().includes('所核内容（候选）'));assert.ok(ui.text().includes('原文第 1 句'));
+    ui.click('查看字段原文');assert.equal(env.opened.length,0);env.modals.shift().success({confirm:true});assert.equal(env.opened.pop().url,'https://example.test/field-review');ui.app.unmount();
+  }
+  const mixed=make();mixed.dossierReview.items.push({...clone(mixed.dossierReview.items[0]),field:'subject',verdict:'uncertain',reason:'insufficient_context'});assert.equal(rules.isValidAIReport(mixed,9),true);assert.equal(contract.reportDossierVerdict('uncertain'),'资料不足');
+  for(const change of [r=>r.dossierReview=null,r=>r.dossierReview.version=0,r=>r.dossierReview.compiledAt=now+1,r=>r.dossierReview.notice='自行批准',r=>r.dossierReview.notice=[contract.reportDossierNotice],r=>r.dossierReview.items[0].verdict=['partial'],r=>r.dossierReview.items[0].reason=['partial_support'],r=>r.dossierReview.raw='内部回执',r=>r.dossierReview.items=[],r=>r.dossierReview.items.push(clone(r.dossierReview.items[0])),r=>r.dossierReview.items[0].reason='自由解释',r=>r.dossierReview.items[0].checked.sourceUrl='javascript:alert(1)',r=>r.dossierReview.items[0].statement.text='原文被替换',r=>r.dossierReview.items[0].field='subject',r=>Object.assign(r.dossierReview.items[0],{verdict:'uncertain',reason:'insufficient_context'}),r=>r.dossierReview.items[0].checked.endByte=1]){
+    const r=make();change(r);assert.equal(rules.isValidAIReport(r,9),false,'坏核验数据必须拒绝整份报告');
+  }
+  const props=vue.reactive({report:make(),sessionToken:memberToken(1)}),component=env.load('pages/ai/components/AIReportPanel.uvue').default,ui=mount({render:()=>vue.h(component,props)});
+  ui.click('专题字段核验');await flush();assert.ok(ui.text().includes('字段核验合成原文'));
+  props.report=report(10);props.sessionToken=memberToken(2);await flush();assert.ok(!ui.text().includes('字段核验合成原文'));assert.ok(!ui.text().includes('专题字段核验'));ui.app.unmount();
+  assert.equal(env.requests.length,0,'展示/切换/原文确认不新建任务或计费');
+  console.log('通过：报告核验固定标签/原文跳转、闭集格式反例、全部不确定拒绝、旧报告兼容与切账号清理；模拟组件证据，不替代H5。');
+}
+
 async function validators() {
   const env = environment(), rules = env.load('pages/libs/ai.uts');
   assert.equal(rules.isValidAIReport(report(), 9), true);
@@ -1375,7 +1402,7 @@ process.once('beforeExit', () => {
   if (!completed) { console.error('源码验收尚未完成，不得以退出0计通过：'+currentCase); process.exitCode=1; }
 });
 (async () => {
-  for (const check of [validators, conversationResponsiveLayout, conversationCreatedList, conversationTaskFrontend, api, historyReportPermission, taskOutcomeFeedback, page, panel, reportPresentation, reportTools, feedbackContracts, feedbackPanel, entry, submissionContracts, submissionPage, memberFlow, creationHistoryFlow, cancellationContracts, cancellationPanel, cancellationMemberFlow, shellTabs, reportQuestionPageAccess, conversationFrontend, conversationRefreshDuringEdit]) {
+  for (const check of [validators, dossierReportReview, conversationResponsiveLayout, conversationCreatedList, conversationTaskFrontend, api, historyReportPermission, taskOutcomeFeedback, page, panel, reportPresentation, reportTools, feedbackContracts, feedbackPanel, entry, submissionContracts, submissionPage, memberFlow, creationHistoryFlow, cancellationContracts, cancellationPanel, cancellationMemberFlow, shellTabs, reportQuestionPageAccess, conversationFrontend, conversationRefreshDuringEdit]) {
     currentCase=check.name; await check();
   }
   currentCase='conversationLateMessages'; await conversationLateMessages();

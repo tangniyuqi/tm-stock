@@ -181,6 +181,10 @@ func (s *AIReportReadService) load(ctx context.Context, uid, id int64) (reportRe
 			}
 			out.report.Sections = append(out.report.Sections, item)
 		}
+		out.report.DossierReview, err = reportDossierReview(ctx, tx, v, base.policy)
+		if err != nil {
+			return err
+		}
 		return nil
 	})
 	if err != nil {

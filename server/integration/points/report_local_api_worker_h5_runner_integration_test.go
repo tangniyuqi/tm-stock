@@ -30,6 +30,7 @@ func runLocalProcessH5(t *testing.T, depth, origin string, scenario *localProces
 	}
 	live := scenario != nil && scenario.external
 	assistant := scenario != nil && scenario.qa
+	dossierReport := scenario != nil && scenario.dossier
 	duration, lifetime := 5*time.Minute, 10*time.Minute
 	if live {
 		duration, lifetime = 15*time.Minute, 18*time.Minute
@@ -78,7 +79,7 @@ func runLocalProcessH5(t *testing.T, depth, origin string, scenario *localProces
 	write(runtimeFile, f.runtime)
 	cc, mc := e.agentConfig, workflowModelConfig(e.server.URL())
 	execution := config.AILocalExecution{Version: 1, InstanceID: f.runtime.InstanceID, Revision: "v1", Scope: "synthetic-loopback-only", IssuedAtMS: time.Now().UnixMilli() - 1000, ExpiresAtMS: f.file.ExpiresAtMS, Model: config.AILocalExecutionModel{Name: mc.Name, BaseURL: mc.BaseURL, Model: mc.Model, TimeoutMS: mc.TimeoutMS}, Agent: config.AILocalExecutionAgent{BaseURL: cc.BaseURL, ApprovalRef: cc.ApprovalRef, LicenseRef: cc.LicenseRef, QuickModel: cc.QuickModel, DeepModel: cc.DeepModel, TimeoutMS: int(cc.Timeout / time.Millisecond), MaxSubmissions: cc.MaxSubmissions}, LeaseMS: 60000, HeartbeatMS: 1000, WorkerTimeoutMS: 300000, AgentPollMS: 50}
-	if live {
+	if live || dossierReport {
 		scenario.configure(t, f, &execution)
 		f.file.Plans = []config.AILocalPlan{f.spec}
 		write(f.path, f.file)
@@ -88,6 +89,9 @@ func runLocalProcessH5(t *testing.T, depth, origin string, scenario *localProces
 	defer client.CloseIdleConnections()
 	base := "http://" + f.runtime.Listen
 	dsn := localAPIDSN(t, e, assistant)
+	if dossierReport {
+		grantDossierProcessPermissions(t, e, dsn)
+	}
 	var a *localH5Assistant
 	qaPath := ""
 	if assistant {
@@ -97,7 +101,11 @@ func runLocalProcessH5(t *testing.T, depth, origin string, scenario *localProces
 		a = &localH5Assistant{env: e, qa: q, peer: peer, client: client}
 	}
 	startLocalAPIWithQA(t, e, api, dsn, signing, runtimeFile, f.path, client, base, kind == 2, qaPath, assistant)
-	child := startLocalWorkerChild(t, e, worker, localWorkerDSN(t, e), runtimeFile, f.path, executionFile, e.modelSession)
+	workerDSN := localWorkerDSN(t, e)
+	if dossierReport {
+		grantDossierProcessPermissions(t, e, workerDSN)
+	}
+	child := startLocalWorkerChild(t, e, worker, workerDSN, runtimeFile, f.path, executionFile, e.modelSession)
 	child.waitReady(t)
 	g := newLocalAPIWorkerH5GatewayWithAssistant(t, origin, base, bridge, func() bool {
 		if e.agentPolls.Load() == 0 {
@@ -154,14 +162,21 @@ func runLocalProcessH5(t *testing.T, depth, origin string, scenario *localProces
 		t.Fatal("没有原持久准入任务")
 	}
 	v, err := e.tasks.Inspect(ctx, 1, taskID)
-	if err != nil || v.Status != 3 || v.CurrentStep != 5 {
+	wantSteps, wantAudits := 5, 6
+	if dossierReport {
+		wantSteps, wantAudits = 6, 8
+	}
+	if err != nil || v.Status != 3 || v.CurrentStep != wantSteps {
 		t.Fatal("页面交付未对应原终检成功任务")
 	}
 	wantAgent, wantModel := int32(1), 3
+	if dossierReport {
+		wantModel = 4
+	}
 	if live {
 		wantAgent, wantModel = 0, 0
 	}
-	if e.queryInt(`SELECT COUNT(*) FROM tm_ai_task_admissions`) != 1 || e.queryInt(`SELECT COUNT(*) FROM tm_ai_conversation_messages WHERE user_id=1 AND kind='task' AND task_id>0`) != 1 || e.queryInt(`SELECT COUNT(*) FROM tm_ai_conversation_messages WHERE user_id=2`) != 0 || e.queryInt(`SELECT COUNT(*) FROM tm_ai_report_commits`) != 1 || e.queryInt(`SELECT COUNT(*) FROM tm_points_txns WHERE kind='settle'`) != 1 || e.queryInt(`SELECT COUNT(*) FROM tm_ai_report_call_audits`) != 6 || e.queryInt(`SELECT avail FROM tm_points_accounts WHERE user_id=1`) != 60-int(f.spec.PricePoints) || e.queryInt(`SELECT frozen FROM tm_points_accounts WHERE user_id=1`) != 0 || e.queryInt(`SELECT COUNT(*) FROM tm_points_accounts WHERE user_id=2`) != 0 || e.submits.Load() != wantAgent || len(e.server.Requests()) != wantModel {
+	if e.queryInt(`SELECT COUNT(*) FROM tm_ai_task_admissions`) != 1 || e.queryInt(`SELECT COUNT(*) FROM tm_ai_conversation_messages WHERE user_id=1 AND kind='task' AND task_id>0`) != 1 || e.queryInt(`SELECT COUNT(*) FROM tm_ai_conversation_messages WHERE user_id=2`) != 0 || e.queryInt(`SELECT COUNT(*) FROM tm_ai_report_commits`) != 1 || e.queryInt(`SELECT COUNT(*) FROM tm_points_txns WHERE kind='settle'`) != 1 || e.queryInt(`SELECT COUNT(*) FROM tm_ai_report_call_audits`) != wantAudits || e.queryInt(`SELECT avail FROM tm_points_accounts WHERE user_id=1`) != 60-int(f.spec.PricePoints) || e.queryInt(`SELECT frozen FROM tm_points_accounts WHERE user_id=1`) != 0 || e.queryInt(`SELECT COUNT(*) FROM tm_points_accounts WHERE user_id=2`) != 0 || e.submits.Load() != wantAgent || len(e.server.Requests()) != wantModel {
 		t.Fatal("实际进程H5报告、积分或调用次数不符")
 	}
 	if _, err := io.WriteString(child.input, "stop\n"); err != nil {

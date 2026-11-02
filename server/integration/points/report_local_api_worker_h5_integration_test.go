@@ -3,6 +3,7 @@
 package points_test
 
 import (
+	"github.com/tangniyuqi/tm-stock/server/internal/config"
 	"os"
 	"testing"
 )
@@ -16,6 +17,17 @@ func TestIntegrationAIReportLocalAPIWorkerH5(t *testing.T) {
 		if os.Getenv(key) != "" {
 			t.Fatal("正式进程H5不能混用真实调用或其它浏览器专项")
 		}
+	}
+	marker := os.Getenv("TM_TEST_AI_H5_DOSSIER_REVIEW")
+	if marker != "" {
+		if marker != "local-fixture-only" {
+			t.Fatal("专题报告H5仅允许显式合成隔离模式")
+		}
+		runLocalProcessH5(t, depth, origin, &localProcessCase{dossier: true, configure: func(t *testing.T, f *localPublicationFixture, c *config.AILocalExecution) {
+			configureDossierLocalFixture(t, f, "partial")
+			c.Model.BaseURL = f.env.server.URL()
+		}})
+		return
 	}
 	runLocalProcessH5(t, depth, origin, nil)
 }

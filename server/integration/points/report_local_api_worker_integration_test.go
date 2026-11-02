@@ -70,18 +70,19 @@ func buildLocalReportBinaries(t *testing.T) (api, worker, login string) {
 }
 
 type localAPIData struct {
-	ID              int64                 `json:"id"`
-	TaskID          int64                 `json:"taskId"`
-	MessageSeq      int64                 `json:"messageSeq"`
-	State           string                `json:"state"`
-	Status          int                   `json:"status"`
-	EventSeq        int64                 `json:"eventSeq"`
-	ReportAvailable bool                  `json:"reportAvailable"`
-	PricePoints     int64                 `json:"pricePoints"`
-	PriceVersion    string                `json:"priceVersion"`
-	AvailablePoints int64                 `json:"availablePoints"`
-	FrozenPoints    int64                 `json:"frozenPoints"`
-	Sections        []dto.AIReportSection `json:"sections"`
+	ID              int64                      `json:"id"`
+	TaskID          int64                      `json:"taskId"`
+	MessageSeq      int64                      `json:"messageSeq"`
+	State           string                     `json:"state"`
+	Status          int                        `json:"status"`
+	EventSeq        int64                      `json:"eventSeq"`
+	ReportAvailable bool                       `json:"reportAvailable"`
+	PricePoints     int64                      `json:"pricePoints"`
+	PriceVersion    string                     `json:"priceVersion"`
+	AvailablePoints int64                      `json:"availablePoints"`
+	FrozenPoints    int64                      `json:"frozenPoints"`
+	Sections        []dto.AIReportSection      `json:"sections"`
+	DossierReview   *dto.AIReportDossierReview `json:"dossierReview"`
 	Items           []struct {
 		Seq    int64  `json:"seq"`
 		TaskID int64  `json:"taskId"`
@@ -471,6 +472,13 @@ func verifyLocalAPIWorker(t *testing.T, level sql.IsolationLevel, kind int, api,
 		v := call("GET", taskPath+"/report", tokens[0], "", "", 200)
 		if v.TaskID != linked.TaskID || len(v.Sections) != 4 {
 			t.Fatal("报告任务归属或章节不符")
+		}
+		if dossierReport {
+			if v.DossierReview == nil || v.DossierReview.Version != 1 || len(v.DossierReview.Items) != 1 || v.DossierReview.Items[0].Verdict != "partial" || v.DossierReview.Items[0].Checked.SourceURL == "" {
+				t.Fatal("原密码HTTP报告未返回白名单核验结果")
+			}
+		} else if v.DossierReview != nil {
+			t.Fatal("旧五步报告被补造核验结果")
 		}
 		quotes := 0
 		for _, s := range v.Sections {

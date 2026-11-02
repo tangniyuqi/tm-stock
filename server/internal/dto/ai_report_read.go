@@ -2,13 +2,14 @@ package dto
 
 // AIReport 是会员可见白名单，不复用内部渲染/证据/结算结构。
 type AIReport struct {
-	TaskID      int64              `json:"taskId"`
-	SubjectType string             `json:"subjectType"`
-	SubjectID   int64              `json:"subjectId"`
-	SubjectName string             `json:"subjectName"`
-	GeneratedAt int64              `json:"generatedAt"`
-	Disclosure  AIReportDisclosure `json:"disclosure"`
-	Sections    []AIReportSection  `json:"sections"`
+	TaskID        int64                  `json:"taskId"`
+	SubjectType   string                 `json:"subjectType"`
+	SubjectID     int64                  `json:"subjectId"`
+	SubjectName   string                 `json:"subjectName"`
+	GeneratedAt   int64                  `json:"generatedAt"`
+	Disclosure    AIReportDisclosure     `json:"disclosure"`
+	Sections      []AIReportSection      `json:"sections"`
+	DossierReview *AIReportDossierReview `json:"dossierReview,omitempty"`
 }
 type AIReportDisclosure struct {
 	AIGenerated bool   `json:"aiGenerated"`

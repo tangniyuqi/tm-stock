@@ -1,4 +1,4 @@
-import { isSafeAIId, isSafeAIInteger } from './ai.uts'
+import { isSafeAIId, isSafeAIInteger } from './ai-number.uts'
 import { isSafeExternalUrl } from './external-link.uts'
 
 export type AIDossierVersionItem = { version : number, compiledAt : number }

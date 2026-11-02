@@ -1,4 +1,6 @@
 import { isSafeExternalUrl } from './external-link.uts'
+import { isSafeAIInteger as safeInteger, isSafeAIId as safeId } from './ai-number.uts'
+import { AIReportDossierReview, isAIReportDossierReview } from './ai-report-dossier.uts'
 
 export type AITaskSummary = {
 	id : number, analysisType : number, subjectType : string, subjectId : number,
@@ -17,14 +19,12 @@ export type AIReportCompany = { name : string, code : string, node : string, evi
 export type AIReportSection = { key : string, title : string, aiGenerated : boolean, quotes : AIReportQuote[], companies ?: AIReportCompany[] }
 export type AIReport = {
 	taskId : number, subjectType : string, subjectId : number, subjectName : string,
-	generatedAt : number, disclosure : AIReportDisclosure, sections : AIReportSection[]
+	generatedAt : number, disclosure : AIReportDisclosure, sections : AIReportSection[], dossierReview? : AIReportDossierReview
 }
 
 // JSON数字超出精确整数范围时整份拒绝，不能用取整后的编号查询另一个任务。
-export const isSafeAIInteger = (value : number) : boolean => {
-	return typeof value == 'number' && value >= 0 && value <= 9007199254740991 && Math.floor(value) == value
-}
-export const isSafeAIId = (value : number) : boolean => isSafeAIInteger(value) && value > 0
+export const isSafeAIInteger = (value : number) : boolean => safeInteger(value)
+export const isSafeAIId = (value : number) : boolean => safeId(value)
 const isAITimestamp = (value : number) : boolean => isSafeAIId(value) && value <= 8640000000000000
 const isAIStatus = (value : number) : boolean => isSafeAIId(value) && value <= 6
 const isAIScope = (analysisType : number, subjectType : string, subjectId : number) : boolean => {
@@ -86,6 +86,7 @@ export const isValidAIReport = (report : AIReport | null, id : number) : boolean
 		|| !isAIText(report.subjectName, 64) || !isAITimestamp(report.generatedAt) || report.disclosure == null
 		|| typeof report.disclosure.aiGenerated != 'boolean' || report.disclosure.aiGenerated != true || !isAIText(report.disclosure.modelName, 128) || !isAIText(report.disclosure.filingNo, 128)
 		|| !Array.isArray(report.sections) || report.sections.length != 4) return false
+	if (Object.keys(report).includes('dossierReview') && !isAIReportDossierReview(report.dossierReview!, report.generatedAt)) return false
 	const keys : string[] = ['definition', 'timeline', 'segment', 'companies']
 	const titles : string[] = ['题材定义', '事件时间线', '环节说明', '披露公司']
 	let total : number = 0

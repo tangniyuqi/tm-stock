@@ -5,6 +5,7 @@ import { AIReportSourceEntry, aiReportSources } from '../../libs/ai-report-prese
 import { formatMillis } from '../../libs/theme.uts'
 import { openSafeExternalUrl } from '../../libs/external-link.uts'
 import AIReportTools from './AIReportTools.uvue'
+import AIReportDossierPanel from './AIReportDossierPanel.uvue'
 
 type AIReportPanelProps = { report : AIReport, sessionToken ?: string }
 defineOptions({ name: 'AIReportPanel' })
@@ -20,7 +21,7 @@ const visibleSections = computed(() : AIReportSection[] => {
 })
 const sources = computed(() : AIReportSourceEntry[] => safeReport.value == null ? [] as AIReportSourceEntry[] : aiReportSources(safeReport.value!))
 const selectSection = (key : string) : void => {
-	if (['all', 'definition', 'timeline', 'segment', 'companies', 'sources'].includes(key)) sectionKey.value = key
+	if (['all', 'definition', 'timeline', 'segment', 'companies', 'sources', 'dossier'].includes(key)) sectionKey.value = key
 }
 const openSource = (url : string) : void => { openSafeExternalUrl(url) }
 watch(() : AIReport => props.report, () => { sectionKey.value = 'all' }, { flush: 'sync' })
@@ -38,6 +39,7 @@ watch(() : string => props.sessionToken, () => { sectionKey.value = 'all' }, { f
 			<x-button class="mt-8" height="44" :block="true" :skin="sectionKey == 'all' ? 'thin' : 'outline'" @click="selectSection('all')">全部章节</x-button>
 			<x-button v-for="section in safeReport!.sections" :key="section.key" class="mt-8" height="44" :block="true" :skin="sectionKey == section.key ? 'thin' : 'outline'" @click="selectSection(section.key)">{{ section.title }}</x-button>
 			<x-button class="mt-8" height="44" :block="true" :skin="sectionKey == 'sources' ? 'thin' : 'outline'" @click="selectSection('sources')">来源清单</x-button>
+			<x-button v-if="safeReport!.dossierReview != null" class="mt-8" height="44" :block="true" :skin="sectionKey == 'dossier' ? 'thin' : 'outline'" @click="selectSection('dossier')">专题字段核验</x-button>
 		</x-sheet>
 		<x-sheet v-for="section in visibleSections" :key="section.key" :margin="16" :padding="16" :round="12" dark-color="#ffffff">
 			<text class="report-heading text-size-g text-weight-b">{{ section.title }}</text>
@@ -63,13 +65,14 @@ watch(() : string => props.sessionToken, () => { sectionKey.value = 'all' }, { f
 		</x-sheet>
 		<x-sheet v-if="sectionKey == 'sources'" :margin="16" :padding="16" :round="12" dark-color="#ffffff">
 			<text class="report-heading text-weight-b">出处条目 {{ sources.length }} 项</text>
-			<text class="report-meta mt-8">按报告出现顺序归集；来源类型、链接和采集时点相同才合并。条目数不代表独立发布者数量，也不代表核验结论。</text>
+			<text class="report-meta mt-8">按报告正文出现顺序归集；字段核验的出处另见各核验项。来源类型、链接和采集时点相同才合并，条目数不代表独立发布者数量或核验结论。</text>
 			<view v-for="(source, index) in sources" :key="index" class="mt-16">
 				<text class="report-meta">{{ index + 1 }} · {{ source.sourceType }} · 采集时点：{{ formatMillis(source.collectedAt) }}</text>
 				<text class="report-meta mt-4">本报告引用 {{ source.references }} 处</text>
 				<x-button class="mt-8" height="44" :block="true" skin="outline" @click="openSource(source.sourceUrl)">查看该出处原文</x-button>
 			</view>
 		</x-sheet>
+		<AIReportDossierPanel v-if="safeReport!.dossierReview != null && (sectionKey == 'all' || sectionKey == 'dossier')" :review="safeReport!.dossierReview!" :generated-at="safeReport!.generatedAt"></AIReportDossierPanel>
 		<AIReportTools :report="safeReport!" :session-token="sessionToken"></AIReportTools>
 	</view>
 	<view v-else class="pa-16"><text class="report-meta">报告格式暂不可用，请重新核对。</text></view>
