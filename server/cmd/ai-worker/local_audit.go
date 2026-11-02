@@ -13,12 +13,24 @@ import (
 
 // 仅受控隔离库的DML回滚自检；不能当作只读命令或执行批准。
 func checkLocalAudit(ctx context.Context, args []string, output io.Writer) int {
+	return checkLocalAuditWith(ctx, args, output, verifyLocalWorkerInstance, func(ctx context.Context, db *sql.DB) error {
+		return repository.NewAIReportCallAuditSchemaVerifier(db).Verify(ctx)
+	})
+}
+
+type localInstanceVerifier func(context.Context, *sql.DB, string) error
+
+func verifyLocalWorkerInstance(ctx context.Context, db *sql.DB, instance string) error {
+	return repository.NewAILocalInstanceVerifier(db).Verify(ctx, instance)
+}
+
+func checkLocalAuditWith(ctx context.Context, args []string, output io.Writer, instance localInstanceVerifier, audit func(context.Context, *sql.DB) error) int {
 	stage := 1
 	fail := func() int {
 		_, _ = fmt.Fprintf(output, "本地调用审计启动核验失败（阶段%d，详情已隐藏），未启动队列或模型。\n", stage)
 		return 1
 	}
-	if ctx == nil || len(args) != 2 || args[0] != "-config" {
+	if ctx == nil || instance == nil || audit == nil || len(args) != 2 || args[0] != "-config" {
 		return fail()
 	}
 	if ctx.Err() != nil {
@@ -38,14 +50,14 @@ func checkLocalAudit(ctx context.Context, args []string, output io.Writer) int {
 	db.SetMaxOpenConns(2)
 	db.SetMaxIdleConns(2)
 	stage = 3
-	if err := repository.NewAILocalInstanceVerifier(db).Verify(ctx, runtime.InstanceID); err != nil {
+	if err := instance(ctx, db, runtime.InstanceID); err != nil {
 		if ctx.Err() != nil {
 			return 130
 		}
 		return fail()
 	}
 	stage = 4
-	if err := repository.NewAIReportCallAuditSchemaVerifier(db).Verify(ctx); err != nil {
+	if err := audit(ctx, db); err != nil {
 		if ctx.Err() != nil {
 			return 130
 		}

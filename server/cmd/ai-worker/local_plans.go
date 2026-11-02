@@ -15,12 +15,16 @@ import (
 
 // 显式检查同一份计划和当前资料，不启动队列或模型；任一缺项整体拒绝。
 func checkLocalPlans(ctx context.Context, args []string, output io.Writer) int {
+	return checkLocalPlansWith(ctx, args, output, func(ctx context.Context, c *service.AILocalAdmissionControl) error { return c.Ready(ctx) })
+}
+
+func checkLocalPlansWith(ctx context.Context, args []string, output io.Writer, ready func(context.Context, *service.AILocalAdmissionControl) error) int {
 	stage := 1
 	fail := func() int {
 		_, _ = fmt.Fprintf(output, "本地合成资料计划核验失败（阶段%d，详情已隐藏），未启动任务或真实调用。\n", stage)
 		return 1
 	}
-	if ctx == nil || len(args) != 4 || args[0] != "-config" || args[2] != "-plans" {
+	if ctx == nil || ready == nil || len(args) != 4 || args[0] != "-config" || args[2] != "-plans" {
 		return fail()
 	}
 	if ctx.Err() != nil {
@@ -54,7 +58,7 @@ func checkLocalPlans(ctx context.Context, args []string, output io.Writer) int {
 	}
 	checkCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
-	err = control.Ready(checkCtx)
+	err = ready(checkCtx, control)
 	stage = 4
 	if ctx.Err() != nil {
 		return 130

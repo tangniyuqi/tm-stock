@@ -118,7 +118,8 @@ jobs:
           # 逐字段核验内部计划/捕获/回放新增113节点，不代表真实模型准确率。
           # 准入准备、可选组件兼容、封闭适配和单步执行增加83项，旧执行拒绝新组件另增2项。
           # 核验清单规范与登记控制增加61个普通节点。
-          MIN=1900
+          # Worker守卫和命令生命周期新增5根54子节点，默认CLI不开放核验替换开关。
+          MIN=1959
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项测试，低于下限 $MIN —— 要么测试没被执行，要么有测试被删。"
             exit 1
@@ -392,6 +393,17 @@ jobs:
             if [ "$MATCHES" -ne 1 ]; then echo "核验展示协议场景缺失或重复：$phase"; exit 1; fi
           done
           # 报告核验展示协议门禁结束
+
+          # Worker命令生命周期门禁开始
+          WORKER_ROOTS=$(grep -Ec '^--- PASS: TestLocalWorker(Guard|Command|Checks)[^ /]* ' /tmp/gotest.log || true)
+          WORKER_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestLocalWorker(Guard|Command|Checks)[^ /]*/' /tmp/gotest.log || true)
+          WORKER_SKIPS=$(grep -Ec '^[[:space:]]*--- SKIP: TestLocalWorker(Guard|Command|Checks)' /tmp/gotest.log || true)
+          if [ "$WORKER_ROOTS" -ne 5 ] || [ "$WORKER_CASES" -ne 54 ] || [ "$WORKER_SKIPS" -ne 0 ]; then echo "Worker命令验收漏跑"; exit 1; fi
+          for phase in TestLocalWorkerGuardForwarding TestLocalWorkerGuardRejectsBeforeForwarding{,/execution_removed,/plans_removed,/execution_changed,/plans_changed,/execution_lifetime,/model_name,/model_profile,/agent_profile,/worker_timeout,/lease_timeout,/cancelled} TestLocalWorkerCommandLifecycle{,/stop,/eof,/bad_input,/long_input,/read_error,/queue_error,/queue_nil,/parent_cancel,/ready_write_error,/stop_write_error,/reason_write_error,/startup_admission_error,/startup_schema_error,/startup_cancel,/session,/resume_other_member} TestLocalWorkerCommandFilesBeforeStartup{,/runtime,/plans,/execution,/session,/missing_input,/nil_verifier,/nil_runner,/default_verifier} TestLocalWorkerChecksLifecycle{,/config,/audit,/plans} TestLocalWorkerChecksLifecycle/config/{success,verify_error,cancel,writer_error,config_only_writer_error} TestLocalWorkerChecksLifecycle/audit/{success,instance_error,audit_error,instance_cancel,audit_cancel,writer_error} TestLocalWorkerChecksLifecycle/plans/{success,ready_error,parent_cancel,read_changed,writer_error}; do
+            MATCHES=$(grep -Ec "^[[:space:]]*--- PASS: $phase " /tmp/gotest.log || true)
+            if [ "$MATCHES" -ne 1 ]; then echo "Worker命令场景缺失或重复：$phase"; exit 1; fi
+          done
+          # Worker命令生命周期门禁结束
 
 
       - name: 受限问答执行核必跑（不调用真实模型）

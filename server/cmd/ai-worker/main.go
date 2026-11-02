@@ -173,12 +173,19 @@ func runCommand(ctx context.Context, args []string, output io.Writer) int {
 
 // 只验证隔离启动配置，不连接数据库、不构造模型，也不启动队列。
 func checkLocalConfig(ctx context.Context, args []string, output io.Writer, verifyDatabase bool) int {
+	return checkLocalConfigWith(ctx, args, output, verifyDatabase, verifyLocalWorkerInstance)
+}
+
+func checkLocalConfigWith(ctx context.Context, args []string, output io.Writer, verifyDatabase bool, verify localInstanceVerifier) int {
 	fail := func() int {
 		_, _ = io.WriteString(output, "本地启动配置预检未通过（详情已隐藏），未启动任务。\n")
 		return 1
 	}
 	if ctx == nil || ctx.Err() != nil {
 		return 130
+	}
+	if verifyDatabase && verify == nil {
+		return fail()
 	}
 	fs := flag.NewFlagSet("ai-worker check-local", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
@@ -196,7 +203,7 @@ func checkLocalConfig(ctx context.Context, args []string, output io.Writer, veri
 			return fail()
 		}
 		defer db.Close()
-		if err := repository.NewAILocalInstanceVerifier(db).Verify(ctx, c.InstanceID); err != nil {
+		if err := verify(ctx, db, c.InstanceID); err != nil {
 			if ctx.Err() != nil {
 				return 130
 			}

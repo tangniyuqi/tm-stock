@@ -1,5 +1,11 @@
 # AI 内部操作手册（L0 审核与隔离 Agent 执行）
 
+## Worker命令层门禁（2026-11-02）
+
+在server目录用PowerShell执行`go test -race -count=1 -v -coverprofile="$env:TEMP/tm-stock-worker-command.cover" ./cmd/ai-worker`，然后用原覆盖率门禁核cmd/ai-worker登记85%。新增Guard/Command/Checks三个前缀共5根54子节点，须逐项唯一、零跳过。覆盖运行文件移除/合法版本替换、配置时点与身份/时限拒绝、五个入口拒绝后零转发、失效后仍保存已返回回执、启动核验顺序、stop/EOF/非法/过长/读取错误、父取消、输出错误与阻塞输入收尾、队列错误/无终态以及恢复范围拒绝。普通测试使用真实文件解析、原工厂与取消态下的原轻深队列验证；外部核验和循环使用包内替身，不据此证明SQL保护、实际任务或真实调用。
+
+CLI入口始终固定原实例/准入/结构/审计核验和原轻深循环，没有环境变量或文件绕过选项。真库复验用下节原生MySQL8/9入口，选择器`^TestIntegrationAIReport(DossierWorkflowProcess|CallAuditStartup|LocalInstance)$`，串行运行并等父脚本退出及实例清理。DossierWorkflowProcess按RC/RR、轻深4例执行新构建API/worker；启动队列前，同一个受限worker账号的check-local-plans须在当前用途有效时成功、撤回后阶段4拒绝，恢复才允许运行。CallAuditStartup另验实际check-local-audit的保护正反，LocalInstance另验check-local-db。不得用普通测试的核验替身代替这些默认CLI实测，也不能把进程覆盖率替换普通单测门槛。
+
 ## 成功报告字段核验展示（2026-11-02，仅本地隔离）
 
 原成功报告GET响应可选附带dossierReview；旧报告没有该键。该结果只投影已终检的原字段计划和固定回执，不外发模型自由输出、内部摘要或批准。读取仍在原事务中重取精确版本、当前用途/发布/会员/来源和原文坐标，任一失效整份拒读；曾成功结算不授予永久读取权，复读不生成任务或扣分。前端在原报告增加“专题字段核验”，所核内容明确为候选，逐项显示支持范围、理由码、原文语境和来源；来源按钮沿原确认流程。

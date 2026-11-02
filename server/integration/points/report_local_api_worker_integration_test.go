@@ -440,6 +440,19 @@ func verifyLocalAPIWorker(t *testing.T, level sql.IsolationLevel, kind int, api,
 	workerDSN := localWorkerDSN(t, e)
 	if dossierReport {
 		grantDossierProcessPermissions(t, e, workerDSN)
+		// 默认CLI必须经过原真实Ready：当前用途撤回不能被命令层测试接缝绕过。
+		checkPlans := func(want bool) {
+			cmd := exec.CommandContext(e.ctx, worker, "check-local-plans", "-config", runtimeFile, "-plans", f.path)
+			cmd.Env = localWorkerEnvironment(workerDSN, e.agentConfig.Bearer)
+			out, err := cmd.CombinedOutput()
+			if (err == nil) != want || want && !strings.Contains(string(out), "计划与当前来源授权核验通过") || !want && !strings.Contains(string(out), "阶段4") {
+				t.Fatal("原worker计划命令当前用途核验不符；内部输出已隐藏")
+			}
+		}
+		checkPlans(true)
+		e.mustExec(`UPDATE tm_ai_dossier_support_uses SET enabled=0`)
+		checkPlans(false)
+		e.mustExec(`UPDATE tm_ai_dossier_support_uses SET enabled=1`)
 	}
 	child := startLocalWorkerChild(t, e, worker, workerDSN, runtimeFile, f.path, executionFile, e.modelSession)
 	child.waitReady(t)

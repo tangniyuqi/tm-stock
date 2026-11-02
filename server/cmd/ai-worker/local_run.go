@@ -29,9 +29,9 @@ import (
 type localExecutionGuard struct {
 	execution                             *config.AILocalExecutionSource
 	plans                                 *config.AILocalPlanSource
-	planner                               *service.AILocalReportPlanner
-	repo                                  *repository.AITaskRepo
-	audit                                 *service.AIReportCallAuditService
+	planner                               service.AIL1ReportPlanner
+	repo                                  task.MemberQueueScanner
+	audit                                 service.AIReportCallAudit
 	modelProfile, modelName, agentProfile string
 }
 
@@ -124,6 +124,27 @@ func runLocalReports(parent context.Context, args []string, input io.ReadCloser,
 }
 
 func runLocalReportMode(parent context.Context, args []string, input io.ReadCloser, output io.Writer, target *localReportTarget) int {
+	return runLocalReportModeWith(parent, args, input, output, target, verifyLocalReportStartup, service.RunAIReportQueues)
+}
+
+type localReportStartupVerifier func(context.Context, *service.AILocalAdmissionControl, *sql.DB, *repository.AIAgentRepo) (int, error)
+type localReportQueueRunner func(context.Context, *service.AIL1ReportQueue, *service.AIL1ReportQueue, int, time.Duration) error
+
+// CLI固定使用原真实核验及队列；包内注入只用于验证命令生命周期，不能由文件/环境关闭核验。
+func verifyLocalReportStartup(ctx context.Context, admission *service.AILocalAdmissionControl, db *sql.DB, payloads *repository.AIAgentRepo) (int, error) {
+	if err := admission.Ready(ctx); err != nil {
+		return 2, err
+	}
+	if err := repository.NewAIReportSchemaVerifier(db).VerifyWithDeep(ctx); err != nil {
+		return 3, err
+	}
+	if err := repository.NewAIReportCallAuditSchemaVerifier(db).Verify(ctx); err != nil {
+		return 3, err
+	}
+	return 3, payloads.VerifySchema(ctx)
+}
+
+func runLocalReportModeWith(parent context.Context, args []string, input io.ReadCloser, output io.Writer, target *localReportTarget, verify localReportStartupVerifier, run localReportQueueRunner) int {
 	stage := 1
 	fail := func() int {
 		_, _ = fmt.Fprintf(output, "本地报告worker未完成（阶段%d，详情已隐藏）；未知调用保留原键，不自动重发或释放。\n", stage)
@@ -132,7 +153,7 @@ func runLocalReportMode(parent context.Context, args []string, input io.ReadClos
 		}
 		return 1
 	}
-	if parent == nil || (len(args) != 6 && len(args) != 7) || args[0] != "-config" || args[2] != "-plans" || args[4] != "-execution" || len(args) == 7 && args[6] != "-stop-on-stdin" {
+	if parent == nil || verify == nil || run == nil || (len(args) != 6 && len(args) != 7) || args[0] != "-config" || args[2] != "-plans" || args[4] != "-execution" || len(args) == 7 && args[6] != "-stop-on-stdin" {
 		return fail()
 	}
 	if parent.Err() != nil {
@@ -186,18 +207,9 @@ func runLocalReportMode(parent context.Context, args []string, input io.ReadClos
 	}
 	startCtx, startCancel := context.WithTimeout(parent, 90*time.Second)
 	defer startCancel()
-	if err := admission.Ready(startCtx); err != nil {
-		return fail()
-	}
-	stage = 3
-	if err := repository.NewAIReportSchemaVerifier(db).VerifyWithDeep(startCtx); err != nil {
-		return fail()
-	}
-	if err := repository.NewAIReportCallAuditSchemaVerifier(db).Verify(startCtx); err != nil {
-		return fail()
-	}
 	payloads := repository.NewAIAgentRepo(db)
-	if err := payloads.VerifySchema(startCtx); err != nil {
+	stage, err = verify(startCtx, admission, db, payloads)
+	if err != nil {
 		return fail()
 	}
 	stage = 4
@@ -306,7 +318,7 @@ func runLocalReportMode(parent context.Context, args []string, input io.ReadClos
 		cancel(err)
 		return 1
 	}
-	err = service.RunAIReportQueues(ctx, light, deep, runtime.BatchSize, time.Duration(runtime.PollIntervalMS)*time.Millisecond)
+	err = run(ctx, light, deep, runtime.BatchSize, time.Duration(runtime.PollIntervalMS)*time.Millisecond)
 	cause := context.Cause(ctx)
 	cancel(err)
 	if errors.Is(cause, errLocalWorkerStop) && errors.Is(err, context.Canceled) {
