@@ -2,10 +2,24 @@ package dto
 
 // 专题响应只包含固定标签、获授权原文及定位；不序列化内部候选、许可或批准记录。
 type AIDossierView struct {
-	ThemeID    int64                `json:"themeId"`
-	Notice     string               `json:"notice"`
-	Versions   []AIDossierVersion   `json:"versions"`
-	Comparison *AIDossierComparison `json:"comparison,omitempty"`
+	ThemeID         int64                    `json:"themeId"`
+	Notice          string                   `json:"notice"`
+	Versions        []AIDossierVersion       `json:"versions"`
+	Comparison      *AIDossierComparison     `json:"comparison,omitempty"`
+	SourceRelations AIDossierSourceRelations `json:"sourceRelations"`
+}
+
+// 分组仅描述当前可读存档的元数据关系，不推断转载方向、原始发布者或事实更正。
+type AIDossierSourceRelations struct {
+	Notice             string                 `json:"notice"`
+	Independence       string                 `json:"independence"`
+	ReprintChain       string                 `json:"reprintChain"`
+	ExplicitCorrection string                 `json:"explicitCorrection"`
+	Groups             []AIDossierSourceGroup `json:"groups"`
+}
+type AIDossierSourceGroup struct {
+	Kind        string  `json:"kind"`
+	SnapshotIDs []int64 `json:"snapshotIds"`
 }
 
 type AIDossierComparison struct {

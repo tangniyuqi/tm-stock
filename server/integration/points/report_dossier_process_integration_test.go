@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -176,6 +177,9 @@ func TestIntegrationAIReportDossierProcess(t *testing.T) {
 		if err != nil || len(body) > 1048576 {
 			t.Fatal("原API响应无效")
 		}
+		if res.StatusCode != 200 && (strings.Contains(string(body), `"sourceRelations"`) || strings.Contains(string(body), `"groups"`)) {
+			t.Fatal("拒绝响应泄漏来源关系或数量")
+		}
 		return res.StatusCode, body
 	}
 	t.Run("原登录与版本目录", func(t *testing.T) {
@@ -195,6 +199,9 @@ func TestIntegrationAIReportDossierProcess(t *testing.T) {
 		if status != 200 || json.Unmarshal(body, &out) != nil || len(out.Data.Versions) != 1 || out.Data.Versions[0].Cards[0].Quote.SourceURL != "https://dossier.example.test/synthetic-only" {
 			t.Fatal("正式进程原文读取失败", status)
 		}
+		if r := out.Data.SourceRelations; r.Groups == nil || len(r.Groups) != 0 || r.Independence != "unverified" || r.ReprintChain != "unverified" || r.ExplicitCorrection != "unverified" {
+			t.Fatal("单份资料被虚构来源独立或更正结论")
+		}
 	})
 	t.Run("双版摘录对照", func(t *testing.T) {
 		status, body := call(tokens[0], "/api/v1/ai/themes/1/dossiers/1?compareVersion=2")
@@ -203,6 +210,15 @@ func TestIntegrationAIReportDossierProcess(t *testing.T) {
 		}
 		if status != 200 || json.Unmarshal(body, &out) != nil || out.Data.Comparison == nil || len(out.Data.Comparison.Changed) != 1 || !out.Data.Comparison.Changed[0].QuoteChanged {
 			t.Fatal("正式进程对照失败", status)
+		}
+		r := out.Data.SourceRelations
+		if len(r.Groups) != 2 || r.Groups[0].Kind != "same_url" || r.Groups[1].Kind != "same_registered_source" || r.ExplicitCorrection != "unverified" {
+			t.Fatal("不同正文误判相同或摘录变化误判更正")
+		}
+		for _, g := range r.Groups {
+			if len(g.SnapshotIDs) != 2 || g.SnapshotIDs[0] != out.Data.Versions[0].Cards[0].Quote.SnapshotID || g.SnapshotIDs[1] != out.Data.Versions[1].Cards[0].Quote.SnapshotID {
+				t.Fatal("来源组越出当前授权引文")
+			}
 		}
 	})
 	t.Run("跨会员与匿名拒绝", func(t *testing.T) {
@@ -220,6 +236,23 @@ func TestIntegrationAIReportDossierProcess(t *testing.T) {
 			t.Fatal("撤权后泄露原文")
 		}
 		e.mustExec(`UPDATE tm_ai_dossier_publications SET enabled=1 WHERE version_no=1`)
+	})
+	t.Run("来源与第二版读取许可撤回恢复", func(t *testing.T) {
+		for _, statement := range []string{`UPDATE tm_ai_sources SET enabled=%d WHERE domain='dossier.example.test'`, `UPDATE tm_ai_dossier_grants SET enabled=%d WHERE version_no=2`} {
+			e.mustExec(fmt.Sprintf(statement, 0))
+			status, _ := call(tokens[0], "/api/v1/ai/themes/1/dossiers/1?compareVersion=2")
+			if status != 404 {
+				t.Fatal("撤回后来源关系仍可读取")
+			}
+			e.mustExec(fmt.Sprintf(statement, 1))
+			status, body := call(tokens[0], "/api/v1/ai/themes/1/dossiers/1?compareVersion=2")
+			var out struct {
+				Data dto.AIDossierView `json:"data"`
+			}
+			if status != 200 || json.Unmarshal(body, &out) != nil || len(out.Data.SourceRelations.Groups) != 2 {
+				t.Fatal("恢复后未重建当前来源关系")
+			}
+		}
 	})
 	p.verifyNoGeneration(t)
 	p.login.finishAs(t, e.ctx, false)

@@ -2,6 +2,16 @@
 
 ## 深度资料研究样板 · 当前推进矩阵（2026-11-03）
 
+**专题来源关系原API与页面（2026-11-03，design13.27）**：原单/双版读取新增必需sourceRelations，只从已公开引用的当前授权Origin分组；相同链接、归档正文摘要及登记来源分别表达，字段独有出处纳入、跨版本同一快照去重，同编号冲突整份拒绝。内部SourceID/Hash不出DTO；独立性、转载链和明确更正均为unverified，不产生独立证据数或推断更正。Draft/计划/摘要、原数据库权限及收费链路未改，前端/API须同步更新。
+
+普通新增一根十子例共11个唯一PASS；原登录/独立API、档案Store及会话引用进程在MySQL8/9各59个唯一PASS、零失败/跳过，父进程退出0且原生65项/清理通过。新增来源许可及第二版读取许可撤回/恢复，旧发布撤回、跨会员/匿名均核不返回关系及数量；原任务/积分/报告/模型/Agent计数不增加。日志tm-stock-dossier-sources-{unit,mysql8,mysql9}-20261103.log。CI普通2327→2338、集成1785→1786，实际普通日志一正16反、双版进程各一正12反、YAML/29段Shell语法通过，日志tm-stock-dossier-sources-ci-20261103.log。
+
+红白TMUI来源面板默认收起，展开只读现有DTO；按钮复用原出处二次核对，字段出处保留原对象。宿主新增25类畸形/类型/范围与冲突反例，单/双版去重、字段原文事件、展开零网络、换版本收起及原父面板出处复验通过，日志tm-stock-dossier-sources-ui-final-20261103.log。上述存档关系不是完整转载链、发布者核验、显式更正、真实题材质量或实际H5点击验收，R3/R4完整目标继续推进。第三次独立短请求tm-stock-deepseek-transport-jIXVEf仍确认HTTP503，未知用量/费用保留，不重跑整图或重放旧未知调用。
+
+官方HBuilderX5.26整包退出0、Build complete与新index可核，目录tm-stock-dossier-sources-h5-4a7d10d62ba2454abe006f8626c07126，日志tm-stock-dossier-sources-h5-build-20261103.log。新页入口含AIDossierSources及未核实标签，实际导入的共享ai模块含sourceRelations/分组枚举/固定声明；首次产物断言误要求枚举位于同一页chunk，按实际依赖核查后确认，没有修改业务代码迁就检查。新组件/父组件/UTS模块零新增诊断，原生命周期、Sass及cmark外置提示保留。浏览器工具仍禁用，已请求用户启用，当前不计真实页面、窄屏或设备通过。
+
+完整harness-checks.sh --with-coverage退出0，日志tm-stock-dossier-sources-harness-20261103.log；Go全仓编译/vet/竞态与原覆盖率门槛、GVA核心及反馈配置/90.4%覆盖、合规38/迁移探测23/密钥42项自测、架构、离线评测27与网关52项通过。最终CI复核日志tm-stock-dossier-sources-ci-final-20261103.log保持普通一正16反、双版各一正12反、YAML/29段Shell语法；没有降低原门槛。上述通过范围仍不含实际浏览器、完整转载链/明确更正或独立质量评测。
+
 **真实输入复验与传输阶段排查（2026-11-03，design13.26增量）**：独立任务tm-stock-tradingcn-live-wwffew已终态failed，227.55秒；16次请求、15次确认、1次trader_v2结果未知，完整链路未通过。发送前日志及部分档案保存16次原请求、15确认/1未知，complete=false且无完整input-audit.json；不重放旧任务，也不补造完整成功。
 
 SDK双token上限归一为max_tokens，冲突/非法别名拒绝，仍限2048；新增单次HTTPS封闭阶段、总90秒期限、正文中断/超限/无效JSON、尝试发送后的本地异常和写盘失败反例。52项无网络自测通过，日志tm-stock-agent-transport-node-final-20261103.log。本机观察时间在事件发生时采集，不代表服务商推理或完整任务耗时。完整harness-checks.sh --with-coverage退出0，日志tm-stock-agent-transport-harness-20261103.log；编译/vet/全仓竞态、原覆盖率棘轮、GVA核心/反馈配置及90.4%覆盖、合规38/迁移探测23/密钥42项自测、架构、离线评测27及网关52项通过，未降低门槛。

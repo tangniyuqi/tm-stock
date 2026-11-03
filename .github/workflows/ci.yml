@@ -127,11 +127,31 @@ jobs:
           # 原问题资料/调用复核新增4根18子节点；服务页面接线沿原入口验证。
           # 正式资料问答配置/嵌套闭集/证明绑定新增3根43子节点。
           # 原Agent完整输入/原任务读取新增8根60子节点，保留原问答门禁。
-          MIN=2327
+          # 专题当前引用来源关系投影新增1根10子节点。
+          MIN=2338
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项测试，低于下限 $MIN —— 要么测试没被执行，要么有测试被删。"
             exit 1
           fi
+
+          # 专题来源关系普通门禁开始
+          DOSSIER_SOURCE_ACTUAL=$(sed -nE 's/^[[:space:]]*--- PASS: (TestDossierSourceRelationsProjection[^ ]*) .*/\1/p' /tmp/gotest.log | LC_ALL=C sort)
+          DOSSIER_SOURCE_EXPECTED=$(printf '%s\n' \
+            'TestDossierSourceRelationsProjection' \
+            'TestDossierSourceRelationsProjection/三个相同关系' \
+            'TestDossierSourceRelationsProjection/同链接正文变化' \
+            'TestDossierSourceRelationsProjection/不同链接同正文' \
+            'TestDossierSourceRelationsProjection/同登记来源不同文档' \
+            'TestDossierSourceRelationsProjection/不同存档不判独立' \
+            'TestDossierSourceRelationsProjection/多组顺序稳定' \
+            'TestDossierSourceRelationsProjection/字段独有原文也纳入' \
+            'TestDossierSourceRelationsProjection/两版相同快照去重' \
+            'TestDossierSourceRelationsProjection/同编号元数据冲突整份拒绝' \
+            'TestDossierSourceRelationsProjection/仅缺口无关系' | LC_ALL=C sort)
+          if [ "$DOSSIER_SOURCE_ACTUAL" != "$DOSSIER_SOURCE_EXPECTED" ] || grep -Eq '^[[:space:]]*--- (FAIL|SKIP): TestDossierSourceRelationsProjection' /tmp/gotest.log; then
+            echo '::error::专题来源关系/当前可读引文投影验收缺失、重复、失败或跳过'; exit 1
+          fi
+          # 专题来源关系普通门禁结束
 
           # 原Agent完整输入普通门禁开始
           AGENT_INPUT_UNIT_ACTUAL=$(sed -nE 's/^[[:space:]]*--- PASS: (Test(AgentInputAudit|HintExcludesCompletePrivateInputs|RequiredAgentInputsCannotDowngrade|AILocalPlansAgentInputRequirement|AIReportInputs)[^ ]*) .*/\1/p' /tmp/gotest.log | LC_ALL=C sort)
@@ -1108,10 +1128,10 @@ jobs:
           DOSSIER_PROCESS_ROOT=$(grep -Ec '^--- PASS: TestIntegrationAIReportDossierProcess ' /tmp/it.log || true)
           DOSSIER_PROCESS_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportDossierProcess/' /tmp/it.log || true)
           DOSSIER_PROCESS_SKIPS=$(grep -Ec '^[[:space:]]*--- SKIP: TestIntegrationAIReportDossierProcess([ /]|$)' /tmp/it.log || true)
-          if [ "$DOSSIER_PROCESS_ROOT" -ne 1 ] || [ "$DOSSIER_PROCESS_CASES" -ne 5 ] || [ "$DOSSIER_PROCESS_SKIPS" -ne 0 ]; then
+          if [ "$DOSSIER_PROCESS_ROOT" -ne 1 ] || [ "$DOSSIER_PROCESS_CASES" -ne 6 ] || [ "$DOSSIER_PROCESS_SKIPS" -ne 0 ]; then
             echo "专题独立进程与原密码登录验收漏跑"; exit 1
           fi
-          for phase in 原登录与版本目录 单版与原文出处 双版摘录对照 跨会员与匿名拒绝 撤权后不返回旧原文; do
+          for phase in 原登录与版本目录 单版与原文出处 双版摘录对照 跨会员与匿名拒绝 撤权后不返回旧原文 来源与第二版读取许可撤回恢复; do
             MATCHES=$(grep -Ec "^[[:space:]]+--- PASS: TestIntegrationAIReportDossierProcess/$phase " /tmp/it.log || true)
             if [ "$MATCHES" -ne 1 ]; then
               echo "专题独立进程场景缺失或重复：$phase"; exit 1
@@ -1866,7 +1886,8 @@ jobs:
           # 正式机关原文节选三个开发题材经原API读取新增1根3子节点。
           # 正式资料问答受控装配与执行中撤回新增1根，常规CI只用回环协议。
           # 原Agent完整输入独立API进程新增1根2隔离子节点。
-          MIN=1785
+          # 原专题进程增加来源及第二版读取许可撤回恢复1子节点。
+          MIN=1786
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项，低于下限 $MIN —— 要么没跑，要么有测试被删。"; exit 1
           fi

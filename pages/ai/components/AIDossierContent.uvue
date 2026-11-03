@@ -4,6 +4,7 @@ import { computed } from 'vue'
 import { AIDossierView, AIDossierCardChange, dossierSectionLabel, dossierFieldLabel, dossierGapLabel } from '../../libs/ai-dossier.uts'
 import { formatMillis } from '../../libs/theme.uts'
 import { aiSourceTypeLabel } from '../../libs/ai-qa.uts'
+import AIDossierSources from './AIDossierSources.uvue'
 type DossierContentProps = { value : AIDossierView, busy? : boolean }
 defineOptions({name:'AIDossierContent'})
 const props = withDefaults(defineProps<DossierContentProps>(), {busy:false})
@@ -16,6 +17,7 @@ const changeQuote = (key : string, newer : boolean) : string => { if (view.value
 <template>
 			<view v-if="view != null" class="mt-12">
 				<text class="dossier-copy">{{ view!.notice }}</text>
+				<AIDossierSources :value="view!" :busy="busy" @copy="copySource"></AIDossierSources>
 				<view v-if="view!.comparison != null" class="dossier-version mt-12">
 					<text class="dossier-title text-weight-b">档案摘录变化</text><text class="dossier-copy mt-4">{{ view!.comparison!.notice }}</text>
 					<text v-if="view!.comparison!.quotedSentenceOrderChanged" class="dossier-copy mt-8">已引用原句的相对顺序发生变化。</text>

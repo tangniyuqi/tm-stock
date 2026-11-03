@@ -1,0 +1,41 @@
+<script lang="ts" setup>
+import { computed, ref, watch } from 'vue'
+import { aiMutedColor } from '../ai-theme.uts'
+import { AIDossierView, AIDossierSourceGroup, AIDossierSourceItem, dossierSourceItems, dossierSourceGroupLabel } from '../../libs/ai-dossier.uts'
+import { aiSourceTypeLabel } from '../../libs/ai-qa.uts'
+import { formatMillis } from '../../libs/theme.uts'
+type SourceProps = { value : AIDossierView, busy? : boolean }
+defineOptions({name:'AIDossierSources'})
+const props = withDefaults(defineProps<SourceProps>(),{busy:false})
+const emit = defineEmits<{copy:[version : number,key : string,field : string]}>()
+const expanded = ref<boolean>(false)
+const items = computed<AIDossierSourceItem[]>(() : AIDossierSourceItem[] => dossierSourceItems(props.value))
+const groupMembers = (group : AIDossierSourceGroup) : string => group.snapshotIds.map((id : number) : string => { const n : number = items.value.findIndex((item : AIDossierSourceItem) : boolean => item.snapshotId == id); return '资料 '+(n+1).toString() }).join('、')
+watch(() => props.value,() : void => {expanded.value=false})
+</script>
+<template>
+	<view class="dossier-sources mt-12">
+		<text class="dossier-title text-weight-b">来源关系</text>
+		<text class="dossier-copy mt-4">来源独立性：未核实 · 转载链：未核实 · 明确更正：未核实</text>
+		<x-button :color="aiMutedColor" class="mt-8" height="44" :block="true" skin="text" round="10" font-size="14" :disabled="busy" @click="expanded=!expanded">{{ expanded ? '收起来源关系' : '查看来源关系与原文' }}</x-button>
+		<view v-if="expanded">
+			<text class="dossier-copy mt-8">{{ value.sourceRelations.notice }}</text>
+			<text v-if="items.length == 0" class="dossier-copy mt-8">所选档案没有可展示的原文关系。</text>
+			<text v-else-if="value.sourceRelations.groups.length == 0" class="dossier-copy mt-8">当前资料未检出这三类相同存档关系；仍需核实原始来源和转载关系。</text>
+			<view v-for="(group,index) in value.sourceRelations.groups" :key="index" class="mt-12">
+				<text class="dossier-title">{{ dossierSourceGroupLabel(group.kind) }}</text>
+				<text class="dossier-copy mt-4">{{ groupMembers(group) }}</text>
+			</view>
+			<view v-for="(item,index) in items" :key="item.snapshotId" class="mt-12">
+				<text class="dossier-copy">资料 {{ index+1 }} · {{ aiSourceTypeLabel(item.quote.sourceType) }} · 采集于 {{ formatMillis(item.quote.collectedAt) }}</text>
+				<x-button :color="aiMutedColor" class="mt-4" height="44" :block="true" skin="text" round="10" font-size="14" :disabled="busy" @click="emit('copy',item.version,item.key,item.field)">资料 {{ index+1 }}：核对原文链接</x-button>
+			</view>
+		</view>
+	</view>
+</template>
+<style lang="scss" scoped>
+@import "../ai-theme.scss";
+.dossier-sources { padding: 12px; background-color: #ffffff; border-radius: 8px; min-width: 0; }
+.dossier-title { color: #1f2329; font-size: 15px; font-weight: 600; line-height: 24px; }
+.dossier-copy { color: #6b7280; font-size: 14px; line-height: 23px; }
+</style>

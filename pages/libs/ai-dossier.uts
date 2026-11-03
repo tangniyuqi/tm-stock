@@ -11,12 +11,25 @@ export type AIDossierVersion = { version : number, compiledAt : number, cards : 
 export type AIDossierCardChange = { beforeKey : string, afterKey : string, quoteChanged : boolean, sourceChanged : boolean, referenceChanged : boolean, sectionChanged : boolean, fields : string[] }
 export type AIDossierGapChange = { beforeKey : string, afterKey : string }
 export type AIDossierComparison = { notice : string, added : string[], notPresent : string[], changed : AIDossierCardChange[], gaps : AIDossierGapChange[], quotedSentenceOrderChanged : boolean }
-export type AIDossierView = { themeId : number, notice : string, versions : AIDossierVersion[], comparison? : AIDossierComparison }
+export type AIDossierSourceGroup = { kind : string, snapshotIds : number[] }
+export type AIDossierSourceRelations = { notice : string, independence : string, reprintChain : string, explicitCorrection : string, groups : AIDossierSourceGroup[] }
+export type AIDossierView = { themeId : number, notice : string, versions : AIDossierVersion[], sourceRelations : AIDossierSourceRelations, comparison? : AIDossierComparison }
+export type AIDossierSourceItem = { snapshotId : number, version : number, key : string, field : string, quote : AIDossierQuote }
 
 export const dossierQuoteFor = (v : AIDossierView, version : number, key : string, field : string) : AIDossierQuote | null => { for (const row of v.versions) { if (row.version != version) continue; for (const card of row.cards) { if (card.key != key) continue; if (field == '') return card.quote; for (const item of card.fields) if (item.key == field && item.state == 'known') return item.quote ?? null } }; return null }
 
 export const dossierNotice = '以下为所选版本的资料摘录；引用存在不等于已核实表述，未知字段表示资料不足。'
 export const dossierComparisonNotice = '仅比较档案中已引用的原句、字段和资料缺口；本版未出现不表示事实撤回，摘录调整不等于事实更正。'
+export const dossierSourceNotice = '仅核对所选档案已引用资料的存档关系；相同链接可能有不同采集版本，相同正文不证明转载方向，同一登记来源不等于同一原始发布者。未分组不表示来源独立，未核实不表示不存在。'
+const sourceKinds : string[] = ['same_url','duplicate_body','same_registered_source']
+export const dossierSourceGroupLabel = (kind : string) : string => { const n : number = sourceKinds.indexOf(kind); return n >= 0 ? ['相同原文链接','相同归档正文','同一登记来源'][n] : '存档关系' }
+export const dossierSourceItems = (v : AIDossierView) : AIDossierSourceItem[] => {
+	let items : AIDossierSourceItem[] = [] as AIDossierSourceItem[]
+	const add = (version : number, key : string, field : string, quote : AIDossierQuote) : void => { if (!items.some((item : AIDossierSourceItem) : boolean => item.snapshotId == quote.snapshotId)) items.push({snapshotId:quote.snapshotId,version:version,key:key,field:field,quote:quote}) }
+	for (const row of v.versions) for (const card of row.cards) { add(row.version,card.key,'',card.quote); for (const field of card.fields) if (field.state == 'known' && field.quote != null) add(row.version,card.key,field.key,field.quote!) }
+	items.sort((a : AIDossierSourceItem, b : AIDossierSourceItem) : number => a.snapshotId-b.snapshotId)
+	return items
+}
 export const dossierFieldKeys : string[] = ['subject','publishedDate','effectiveDate','period','scope','stage','basis','unit']
 const sections : string[] = ['definition','chain','policy','progress','membership']
 const reasons : string[] = ['source_missing','subject_unverified','time_unverified','basis_unverified','stage_unverified','unit_unverified','scope_unverified']
@@ -25,6 +38,26 @@ const time = (n : number) : boolean => isSafeAIId(n) && n <= 8640000000000000
 const plain = (s : string, max : number) : boolean => typeof s == 'string' && s.trim().length > 0 && [...s].length <= max && !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f\ud800-\udfff]/u.test(s)
 const key = (s : string) : boolean => typeof s == 'string' && /^[a-z][a-z0-9_]{0,31}$/.test(s)
 const bytes = (s : string) : number => { let count : number = 0; for (const c of [...s]) count += c.length == 2 ? 4 : c.charCodeAt(0) <= 127 ? 1 : c.charCodeAt(0) <= 2047 ? 2 : 3; return count }
+const sourceRelationsValid = (v : AIDossierView, quotes : AIDossierQuote[]) : boolean => {
+	const s = v.sourceRelations
+	if (s == null || typeof s != 'object' || Array.isArray(s) || !keys(Object.keys(s),['notice','independence','reprintChain','explicitCorrection','groups']) || typeof s.notice != 'string' || s.notice != dossierSourceNotice || typeof s.independence != 'string' || s.independence != 'unverified' || typeof s.reprintChain != 'string' || s.reprintChain != 'unverified' || typeof s.explicitCorrection != 'string' || s.explicitCorrection != 'unverified' || !Array.isArray(s.groups) || s.groups.length > 96 || quotes.length > 64) return false
+	let used : string[] = [] as string[]
+	let lastKind : number = -1; let lastFirst : number = 0
+	for (const group of s.groups) {
+		if (group == null || typeof group != 'object' || Array.isArray(group) || !keys(Object.keys(group),['kind','snapshotIds']) || typeof group.kind != 'string' || !sourceKinds.includes(group.kind) || !Array.isArray(group.snapshotIds) || group.snapshotIds.length < 2 || group.snapshotIds.length > quotes.length) return false
+		const rank : number = sourceKinds.indexOf(group.kind)
+		if (rank < lastKind || rank == lastKind && group.snapshotIds[0] <= lastFirst) return false
+		let previous : number = 0; let url : string = ''
+		for (const id of group.snapshotIds) {
+			if (!isSafeAIId(id) || id <= previous || used.includes(group.kind+':'+id.toString())) return false
+			const candidates = quotes.filter((q : AIDossierQuote) : boolean => q.snapshotId == id)
+			if (candidates.length != 1 || group.kind == 'same_url' && url != '' && url != candidates[0].sourceUrl) return false
+			url = candidates[0].sourceUrl; previous = id; used.push(group.kind+':'+id.toString())
+		}
+		lastKind = rank; lastFirst = group.snapshotIds[0]
+	}
+	return true
+}
 export const isDossierQuote = (q : AIDossierQuote | null) : boolean => q != null && typeof q == 'object' && !Array.isArray(q) && keys(Object.keys(q),['text','context','sourceType','sourceUrl','collectedAt','snapshotId','sentence','startByte','endByte']) && plain(q.text,1000) && plain(q.context,1000) && q.context.includes(q.text) && ['announcement','annual_report','prospectus','official_catalog','interactive_qa'].includes(q.sourceType) && typeof q.sourceUrl == 'string' && isSafeExternalUrl(q.sourceUrl) && time(q.collectedAt) && isSafeAIId(q.snapshotId) && isSafeAIId(q.sentence) && q.sentence <= 4096 && isSafeAIInteger(q.startByte) && isSafeAIId(q.endByte) && q.endByte <= 1048576 && bytes(q.text) == q.endByte-q.startByte
 export const isDossierList = (v : AIDossierVersionList | null, theme : number, before : number) : boolean => {
 	if (v == null || typeof v != 'object' || Array.isArray(v) || !keys(Object.keys(v),['themeId','items','hasMore','nextBeforeVersion']) || v.themeId != theme || !Array.isArray(v.items) || v.items.length > 10 || typeof v.hasMore != 'boolean' || !isSafeAIInteger(v.nextBeforeVersion)) return false
@@ -33,18 +66,21 @@ export const isDossierList = (v : AIDossierVersionList | null, theme : number, b
 	return v.hasMore ? v.items.length == 10 && v.nextBeforeVersion == last : v.nextBeforeVersion == 0
 }
 export const isDossierView = (v : AIDossierView | null, theme : number, version : number, compare : number) : boolean => {
-	if (v == null || typeof v != 'object' || Array.isArray(v) || !keys(Object.keys(v),compare > 0 ? ['themeId','notice','versions','comparison'] : ['themeId','notice','versions']) || v.themeId != theme || v.notice != dossierNotice || !Array.isArray(v.versions) || v.versions.length != (compare > 0 ? 2 : 1)) return false
+	if (v == null || typeof v != 'object' || Array.isArray(v) || !keys(Object.keys(v),compare > 0 ? ['themeId','notice','versions','sourceRelations','comparison'] : ['themeId','notice','versions','sourceRelations']) || !isSafeAIId(v.themeId) || v.themeId != theme || typeof v.notice != 'string' || v.notice != dossierNotice || !Array.isArray(v.versions) || v.versions.length != (compare > 0 ? 2 : 1)) return false
+	let quotes : AIDossierQuote[] = [] as AIDossierQuote[]
+	const register = (q : AIDossierQuote) : boolean => { for (const old of quotes) if (old.snapshotId == q.snapshotId) return old.sourceType == q.sourceType && old.sourceUrl == q.sourceUrl && old.collectedAt == q.collectedAt; quotes.push(q); return true }
 	for (let i = 0; i < v.versions.length; i++) {
 		const row = v.versions[i]
-		if (row == null || typeof row != 'object' || !keys(Object.keys(row),['version','compiledAt','cards','gaps']) || row.version != (i == 0 ? version : compare) || !time(row.compiledAt) || i > 0 && row.compiledAt <= v.versions[0].compiledAt || !Array.isArray(row.cards) || !Array.isArray(row.gaps) || row.cards.length > 64 || row.gaps.length > 64 || row.cards.length+row.gaps.length == 0) return false
+		if (row == null || typeof row != 'object' || Array.isArray(row) || !keys(Object.keys(row),['version','compiledAt','cards','gaps']) || !isSafeAIId(row.version) || row.version != (i == 0 ? version : compare) || !time(row.compiledAt) || i > 0 && row.compiledAt <= v.versions[0].compiledAt || !Array.isArray(row.cards) || !Array.isArray(row.gaps) || row.cards.length > 64 || row.gaps.length > 64 || row.cards.length+row.gaps.length == 0) return false
 		let used : string[] = [] as string[]
 		for (const c of row.cards) {
-			if (c == null || typeof c != 'object' || !keys(Object.keys(c),['key','section','quote','fields']) || !key(c.key) || used.includes(c.key) || !sections.includes(c.section) || !isDossierQuote(c.quote) || c.quote.text != c.quote.context || c.quote.collectedAt > row.compiledAt || !Array.isArray(c.fields) || c.fields.length != 8) return false
+			if (c == null || typeof c != 'object' || Array.isArray(c) || !keys(Object.keys(c),['key','section','quote','fields']) || !key(c.key) || used.includes(c.key) || !sections.includes(c.section) || !isDossierQuote(c.quote) || c.quote.text != c.quote.context || c.quote.collectedAt > row.compiledAt || !Array.isArray(c.fields) || c.fields.length != 8 || !register(c.quote)) return false
 			used.push(c.key)
-			for (let n = 0; n < c.fields.length; n++) { const f = c.fields[n]; if (f == null || typeof f != 'object' || f.key != dossierFieldKeys[n] || !['known','unknown'].includes(f.state) || !keys(Object.keys(f), f.state == 'known' ? ['key','state','quote'] : ['key','state'])) return false; if (f.state == 'known' && (!isDossierQuote(f.quote) || f.quote!.collectedAt > row.compiledAt || [...f.quote!.text].length > 200)) return false }
+			for (let n = 0; n < c.fields.length; n++) { const f = c.fields[n]; if (f == null || typeof f != 'object' || Array.isArray(f) || typeof f.key != 'string' || f.key != dossierFieldKeys[n] || !['known','unknown'].includes(f.state) || !keys(Object.keys(f), f.state == 'known' ? ['key','state','quote'] : ['key','state'])) return false; if (f.state == 'known' && (!isDossierQuote(f.quote) || f.quote!.collectedAt > row.compiledAt || [...f.quote!.text].length > 200 || !register(f.quote!))) return false }
 		}
 		for (const g of row.gaps) { if (g == null || typeof g != 'object' || !keys(Object.keys(g),['key','section','reason']) || !key(g.key) || used.includes(g.key) || !sections.includes(g.section) || !reasons.includes(g.reason)) return false; used.push(g.key) }
 	}
+	if (!sourceRelationsValid(v,quotes)) return false
 	if (compare == 0) return true
 	const d = v.comparison
 	if (d == null || typeof d != 'object' || !keys(Object.keys(d),['notice','added','notPresent','changed','gaps','quotedSentenceOrderChanged']) || d.notice != dossierComparisonNotice || typeof d.quotedSentenceOrderChanged != 'boolean' || !Array.isArray(d.added) || !Array.isArray(d.notPresent) || !Array.isArray(d.changed) || !Array.isArray(d.gaps) || d.added.length > 64 || d.notPresent.length > 64 || d.changed.length > 64 || d.gaps.length > 128) return false

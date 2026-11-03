@@ -27,6 +27,7 @@ func dossierView(versions []*dossier.BoundDraft) (dto.AIDossierView, error) {
 	if len(versions) < 1 || len(versions) > 2 {
 		return dto.AIDossierView{}, dossier.ErrInvalidDraft
 	}
+	visibleOrigins := map[int64]dossier.Origin{}
 	for _, bound := range versions {
 		identity := bound.Identity()
 		if identity.ThemeID <= 0 || identity.Version <= 0 || identity.CreatedAt <= 0 || out.ThemeID != 0 && out.ThemeID != identity.ThemeID {
@@ -42,6 +43,10 @@ func dossierView(versions []*dossier.BoundDraft) (dto.AIDossierView, error) {
 			if !ok || o.Hash != ref.Hash {
 				return dto.AIDossierQuote{}, dossier.ErrInvalidDraft
 			}
+			if previous, exists := visibleOrigins[o.SnapshotID]; exists && previous != o {
+				return dto.AIDossierQuote{}, dossier.ErrInvalidDraft
+			}
+			visibleOrigins[o.SnapshotID] = o
 			return dto.AIDossierQuote{Text: text, Context: context, SourceType: o.Category, SourceURL: o.URL, CollectedAt: o.FetchedAt, SnapshotID: ref.SnapshotID, Sentence: ref.Number, StartByte: ref.StartByte, EndByte: ref.EndByte}, nil
 		}
 		v := dto.AIDossierVersion{Version: identity.Version, CompiledAt: identity.CreatedAt, Cards: []dto.AIDossierCard{}, Gaps: []dto.AIDossierGap{}}
@@ -88,5 +93,6 @@ func dossierView(versions []*dossier.BoundDraft) (dto.AIDossierView, error) {
 		}
 		out.Comparison = comparison
 	}
+	out.SourceRelations = dossierSourceRelations(visibleOrigins)
 	return out, nil
 }

@@ -672,9 +672,30 @@ function dossierFixture(version=1,compare=0) {
   const q = {text:'仅测试：甲资料。',context:'仅测试：甲资料。',sourceType:'official_catalog',sourceUrl:'https://evidence.example.test/1',collectedAt:now,snapshotId:1,sentence:1,startByte:0,endByte:Buffer.byteLength('仅测试：甲资料。')};
   const fields=['subject','publishedDate','effectiveDate','period','scope','stage','basis','unit'].map(key=>({key,state:key==='subject'?'known':'unknown',...(key==='subject'?{quote:{...q}}:{})}));
   const row=v=>({version:v,compiledAt:now+v,cards:[{key:'a',section:'progress',quote:{...q},fields:JSON.parse(JSON.stringify(fields))}],gaps:[]});
-  return {themeId:7,notice:'以下为所选版本的资料摘录；引用存在不等于已核实表述，未知字段表示资料不足。',versions:compare?[row(version),row(compare)]:[row(version)],...(compare?{comparison:{notice:'仅比较档案中已引用的原句、字段和资料缺口；本版未出现不表示事实撤回，摘录调整不等于事实更正。',added:[],notPresent:[],changed:[],gaps:[],quotedSentenceOrderChanged:false}}:{})};
+  return {themeId:7,notice:'以下为所选版本的资料摘录；引用存在不等于已核实表述，未知字段表示资料不足。',versions:compare?[row(version),row(compare)]:[row(version)],sourceRelations:{notice:'仅核对所选档案已引用资料的存档关系；相同链接可能有不同采集版本，相同正文不证明转载方向，同一登记来源不等于同一原始发布者。未分组不表示来源独立，未核实不表示不存在。',independence:'unverified',reprintChain:'unverified',explicitCorrection:'unverified',groups:[]},...(compare?{comparison:{notice:'仅比较档案中已引用的原句、字段和资料缺口；本版未出现不表示事实撤回，摘录调整不等于事实更正。',added:[],notPresent:[],changed:[],gaps:[],quotedSentenceOrderChanged:false}}:{})};
 }
 const dossierList=()=>({themeId:7,items:[{version:2,compiledAt:now+2},{version:1,compiledAt:now+1}],hasMore:false,nextBeforeVersion:0});
+function dossierSourcesFixture() {
+  const value=dossierFixture();const next=JSON.parse(JSON.stringify(value.versions[0].cards[0]));next.key='b';next.quote.snapshotId=2;next.quote.collectedAt=now-1;next.fields[0].quote={...next.quote};value.versions[0].cards.push(next);
+  value.sourceRelations.groups=['same_url','duplicate_body','same_registered_source'].map(kind=>({kind,snapshotIds:[1,2]}));return value;
+}
+async function dossierSourceRelations() {
+  const env=environment(),types=env.load('pages/libs/ai-dossier.uts');const value=dossierSourcesFixture();
+  assert.equal(types.isDossierView(value,7,1,0),true);
+  assert.deepEqual(Array.from(types.dossierSourceItems(value),x=>x.snapshotId),[1,2]);
+  const fieldOnly=dossierSourcesFixture();fieldOnly.versions[0].cards[0].fields[0].quote={...fieldOnly.versions[0].cards[1].quote};fieldOnly.versions[0].cards.pop();
+  assert.equal(types.isDossierView(fieldOnly,7,1,0),true);assert.equal(types.dossierSourceItems(fieldOnly)[1].field,'subject');
+  for(const mutate of [v=>delete v.sourceRelations,v=>v.sourceRelations=null,v=>v.sourceRelations=Object.assign([],{...v.sourceRelations}),v=>v.sourceRelations.independence='independent',v=>v.sourceRelations.independence=['unverified'],v=>v.sourceRelations.reprintChain=true,v=>v.sourceRelations.explicitCorrection='confirmed',v=>v.sourceRelations.rawHash='hidden',v=>v.sourceRelations.groups=null,v=>v.sourceRelations.groups[0]=Object.assign([],{...v.sourceRelations.groups[0]}),v=>v.sourceRelations.groups[0].kind=['same_url'],v=>v.sourceRelations.groups[0].kind='independent',v=>v.sourceRelations.groups[0].snapshotIds=[1],v=>v.sourceRelations.groups[0].snapshotIds=['1',2],v=>v.sourceRelations.groups[0].snapshotIds=[1,1],v=>v.sourceRelations.groups[0].snapshotIds=[2,1],v=>v.sourceRelations.groups[0].snapshotIds=[1,3],v=>v.sourceRelations.groups[0].snapshotIds=[0,2],v=>v.sourceRelations.groups.push({...v.sourceRelations.groups[0]}),v=>v.sourceRelations.groups.reverse(),v=>{v.versions[0].cards[1].quote.sourceUrl='https://example.test/different';v.versions[0].cards[1].fields[0].quote.sourceUrl='https://example.test/different'},v=>v.versions[0].cards[1].quote.snapshotId=1,v=>v.themeId='7',v=>v.versions[0].version='1',v=>v.versions[0].cards[0].fields[1]=Object.assign([],{key:'publishedDate',state:'unknown'})]) {
+    const changed=dossierSourcesFixture();mutate(changed);assert.equal(types.isDossierView(changed,7,1,0),false,'来源关系畸形或越出当前引文范围未拒绝');
+  }
+  const copied=[];const ui=mount(env.load('pages/ai/components/AIDossierSources.uvue').default,{value:fieldOnly,onCopy:(...args)=>copied.push(args)});await flush();
+  assert.ok(ui.text().includes('来源独立性：未核实'));assert.ok(!ui.text().includes('相同归档正文'));assert.equal(env.requests.length,0);
+  ui.click('查看来源关系与原文');await flush();assert.ok(ui.text().includes('相同归档正文'));assert.ok(ui.text().includes('资料 1、资料 2'));assert.equal(env.requests.length,0);
+  ui.click('资料 2：核对原文链接');await flush();assert.deepEqual(copied,[[1,'a','subject']]);assert.equal(env.requests.length,0);
+  ui.updateProps({value:dossierFixture(1,2)});await flush();assert.ok(!ui.text().includes('相同归档正文'));assert.ok(!ui.text().includes('资料 2：核对原文链接'));
+  ui.click('查看来源关系与原文');await flush();assert.ok(ui.text().includes('当前资料未检出这三类相同存档关系'));assert.ok(ui.text().includes('明确更正：未核实'));ui.app.unmount();
+  console.log('通过：来源关系闭集/实际类型/范围与冲突反例、字段出处、原文事件绑定、展开零网络及换版本收起清理。');
+}
 async function dossierContracts() {
   const env=environment(),types=env.load('pages/libs/ai-dossier.uts');
   assert.equal(types.isDossierList(dossierList(),7,0),true);
@@ -703,6 +724,7 @@ async function dossierPanel() {
   assert.equal(copied.length,0);assert.ok(!ui.text().includes('仅测试：甲资料。'));
   assert.ok(!ui.text().includes('阅读此版本'));ui.click('重新核对可读版本');env.reply(env.requests.shift(),dossierList());await flush();
   ui.click('阅读此版本',1);env.reply(env.requests.shift(),dossierFixture());await flush();ui.click('核对并复制原文链接');env.reply(env.requests.shift(),dossierFixture());await flush();assert.equal(copied[0],'https://evidence.example.test/1');
+  const beforeSource=env.requests.length;ui.click('查看来源关系与原文');await flush();assert.equal(env.requests.length,beforeSource);ui.click('资料 1：核对原文链接');assert.equal(copied.length,1);env.reply(env.requests.shift(),dossierFixture());await flush();assert.equal(copied.length,2);assert.equal(copied[1],'https://evidence.example.test/1');
   ui.click('加入对照',0);await flush();ui.click('加入对照',0);await flush();ui.click('对照所选的两个版本（2/2）');env.reply(env.requests.shift(),dossierFixture(1,2));await flush();assert.ok(ui.text().includes('档案摘录变化'));
   ui.click('重新核对可读版本');const late=env.requests.shift();ui.updateProps({enabled:false});await flush();env.reply(late,dossierList());await flush();assert.ok(!ui.text().includes('阅读此版本'));
   ui.updateProps({enabled:true});await flush();ui.click('查询可读档案版本');env.reply(env.requests.shift(),dossierList());await flush();ui.click('阅读此版本',1);const stale=env.requests.shift();ui.updateProps({themeId:8});await flush();env.reply(stale,dossierFixture());await flush();assert.ok(!ui.text().includes('仅测试：甲资料。'));
@@ -757,6 +779,7 @@ process.once('beforeExit',()=>{if(!completed){console.error('问答源码验收�
   await panelAnswer();
   await isolation();
   await dossierContracts();
+  await dossierSourceRelations();
   await dossierPanel();
   await savedDossierContracts();
   await savedDossierPanels();
