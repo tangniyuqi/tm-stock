@@ -8,9 +8,13 @@
 
 真库专项verify-ai-source-native.ps1 -ReportsOnly -ReportPattern '^TestIntegrationAIReportAgentInputsProcess$' -RunCount 1在MySQL8/9串行执行，各预期一根两隔离子节点共3个唯一PASS。原密码HTTP登录→独立API/worker→原报告终检/一次开发结算后，调用GET tasks/{id}/report/inputs；重复读取、跨账号、无令牌、撤回来源及Agent表SELECT、恢复均核无额外任务/积分/模型副作用。API账号仅新增tm_ai_agent_runs/events的SELECT，不加Agent写权限；原任务第一步实际回执须与当前隔离记录的请求/远端/模型配置/结果摘要相同。
 
-原报告页“上游调用记录”按需挂载，复用红白TMUI，默认不请求；重查先清旧内容，换任务/报告/章节/账号及卸载清空，迟到响应不回填。声明的合成包与各调用完整输入分开说明，完整内部上下文不公开。组件宿主脚本verify-ai-qa-ui.cjs检查闭集实际类型和状态隔离；HBuilderX整包与实际浏览器/设备另记。50项网关/异步桥/正式问答无网络自测进入harness/CI，不把它们算作真实模型结果。
+原报告页“上游调用记录”按需挂载，复用红白TMUI，默认不请求；重查先清旧内容，换任务/报告/章节/账号及卸载清空，迟到响应不回填。声明的合成包与各调用完整输入分开说明，完整内部上下文不公开。组件宿主脚本verify-ai-qa-ui.cjs检查闭集实际类型和状态隔离；HBuilderX整包与实际浏览器/设备另记。52项网关/异步桥/正式问答无网络自测进入harness/CI，不把它们算作真实模型结果。
 
 本轮真实复验目录tm-stock-tradingcn-live-8zFzhq保留：8次发出、6次HTTP确认、2次结果未知，ReadTimeout/APITimeoutError后停止后续发送；原任务failed、frozen=0、报告/成功结算均0，实例212f23577d0943bba58a8ddac22fb76a已停止保留。该轮失败前原输入只在内存，未取得完整输入档案，不能事后重建冒充原始证据。此后补发送前日志、部分档案及写盘失败门禁，已做无网络反例；未自动重发原任务，真实完整成功仍待独立复验。安全配置仅由父进程读取，既有被修改的上游源码保持，使用独立干净51060a7源及Python3.11.17。
+
+后续独立任务tm-stock-tradingcn-live-wwffew为16次请求/15次确认/1次未知，227.55秒失败；input-events.jsonl及input-audit-partial.json已保存全部16次实际请求，complete=false且没有input-audit.json，不得升级成完整成功。原未知调用不重放。随后发现SDK同时发送两种token上限字段，已归一为供应商max_tokens；15次同形请求曾成功，不能断言这就是超时原因。
+
+排查新核心调用时查看observed_at_ms及request_dispatched、response_headers、response_complete、response_received/response_unknown，时间在事件发生时采集后排队落盘。headers_deadline为总期限内没有响应头，response_deadline为已收头但正文未完成；response_error/aborted/closed、invalid_json、response_too_large、transport_error/local_write_error和journal_error分别保留未知，不记录错误正文或补零。只有local_transport_error且尚未尝试写入可标not_sent。阶段时间只描述本机观察，不能冒充服务商处理时长。两个独立短连接探测tm-stock-deepseek-transport-wuPdqL/w5PAN0均收到HTTP503，实际用量/费用未知，不是Agent成功，也不能用它恢复旧未知结果；只读/models仍200并列出deepseek-flash/deepseek-v4-pro，不能代替完成请求。服务不可用时不循环重跑整图。
 
 ## 正式资料的原问答API与真实模型（2026-11-03）
 

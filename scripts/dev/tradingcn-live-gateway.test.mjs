@@ -1,7 +1,10 @@
 // 只测纯守卫，不启动子进程、不使用真实Key、不访问模型服务。
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { validateEvaluationRequest, recordReceipt, evaluationRoute, evaluationBody, evaluationReportCalls, evaluationInputCall, evaluationInputBundle, createInputJournal } from './tradingcn-live-gateway.mjs'
+import { validateEvaluationRequest, recordReceipt, evaluationRoute, evaluationBody, evaluationReportCalls, evaluationInputCall, evaluationInputBundle, createInputJournal, evaluationHTTPS } from './tradingcn-live-gateway.mjs'
+import { EventEmitter } from 'node:events'
+import { PassThrough, Readable } from 'node:stream'
+import { randomBytes } from 'node:crypto'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -43,6 +46,52 @@ const valid = () => ({ execute: true, method: 'POST', url: '/v1/chat/completions
   headers: { authorization: 'Bearer test-session', 'content-type': 'application/json' },
   session: 'test-session', requests: 0,
   data: { model: 'deepseek-flash', messages: [{ role: 'user', content: '仅测试' }], max_tokens: 8, stream: false } })
+
+test('HTTPS单次传输区分响应头/正文超时及故障，写盘失败不确认、不重试', async () => {
+  for (const mode of ['confirmed','headers_deadline','response_deadline','transport_error','response_error','response_aborted','response_closed','invalid_json','http_rejected','journal_error','response_too_large','local_transport_error','local_write_error']) {
+    let sends=0;const events=[];const credential=randomBytes(32).toString('hex');const body=Buffer.from(JSON.stringify(valid().data))
+    const request=(options,callback)=>{
+      if(mode==='local_transport_error')throw new Error('仅测试本地错误')
+      assert.equal(options.hostname,'api.deepseek.com');assert.equal(options.rejectUnauthorized,true);assert.equal(options.headers.Authorization,'Bearer '+credential)
+      const req=new EventEmitter();req.destroy=()=>{}
+      req.end=(wire,written)=>{
+        sends++;assert.deepEqual(wire,body);written()
+        if(mode==='local_write_error')throw new Error('仅测试已尝试写出的错误')
+        if(mode==='headers_deadline')return
+        if(mode==='transport_error'){queueMicrotask(()=>req.emit('error',new Error('仅测试敏感地址')));return}
+        const status=mode==='http_rejected'?503:200
+        const bytes=mode==='invalid_json'?Buffer.from('仅测试非法响应'):mode==='response_too_large'?Buffer.alloc(4*1024*1024+1):Buffer.from(JSON.stringify({model:'deepseek-flash',usage:{prompt_tokens:1,completion_tokens:2}}))
+        const incoming=['response_deadline','response_error','response_aborted','response_closed'].includes(mode)?new PassThrough():Readable.from([bytes])
+        incoming.statusCode=status;callback(incoming)
+        if(mode==='response_error')queueMicrotask(()=>incoming.emit('error',new Error('仅测试私有正文')))
+        if(mode==='response_aborted')queueMicrotask(()=>incoming.emit('aborted'))
+        if(mode==='response_closed')queueMicrotask(()=>incoming.emit('close'))
+      }
+      return req
+    }
+    const result=await evaluationHTTPS({route:evaluationRoute(),credential,body,request,timeoutMS:30,onEvent:async(phase,reason,status,observedAtMS)=>{events.push({phase,reason,status,observedAtMS});if(mode==='journal_error'&&phase==='response_headers')throw new Error('仅测试写盘失败')}})
+    assert.equal(sends,mode==='local_transport_error'?0:1,mode)
+    assert.equal(result.state,['confirmed','http_rejected'].includes(mode)?'confirmed':mode==='local_transport_error'?'not_sent':'response_unknown',mode)
+    assert.equal(result.reason,mode==='confirmed'?'http_ok':mode,mode)
+    assert.equal(JSON.stringify(events).includes(credential),false)
+    assert.ok(events.every(e=>!JSON.stringify(e).includes('敏感')&&!JSON.stringify(e).includes('私有')))
+    assert.ok(events.every(e=>Number.isSafeInteger(e.observedAtMS)&&e.observedAtMS>0&&e.observedAtMS<=Date.now()),mode)
+    if(result.state==='confirmed')assert.deepEqual(events.map(e=>e.phase),['request_dispatched','response_headers','response_complete'],mode)
+    assert.equal(events.filter(e=>['response_complete','response_unknown'].includes(e.phase)).length,mode==='journal_error'?0:1,mode)
+  }
+  await assert.rejects(()=>evaluationHTTPS({route:{...evaluationRoute(),hostname:'example.test'},credential:randomBytes(32).toString('hex'),body:Buffer.from('{}')}))
+})
+
+test('SDK两种输出上限只归一成max_tokens，冲突或非法别名拒绝', () => {
+  const input=valid();delete input.data.max_tokens;input.data.max_completion_tokens=32
+  const result=validateEvaluationRequest(input)
+  assert.equal(result.max_tokens,32);assert.equal(Object.hasOwn(result,'max_completion_tokens'),false)
+  assert.equal(input.data.max_completion_tokens,32)
+  input.data.max_tokens=32;assert.equal(validateEvaluationRequest(input).max_tokens,32)
+  input.data.max_tokens=31;assert.equal(validateEvaluationRequest(input),null)
+  for(const value of[-1,0,1.5,'32',true]){const x=valid();delete x.data.max_tokens;x.data.max_completion_tokens=value;assert.equal(validateEvaluationRequest(x),null)}
+  input.data.max_tokens=4096;input.data.max_completion_tokens=4096;assert.equal(validateEvaluationRequest(input).max_tokens,2048)
+})
 
 test('报告调用数只能选择旧三次或七步五次', () => {
   assert.equal(evaluationReportCalls(), 3)

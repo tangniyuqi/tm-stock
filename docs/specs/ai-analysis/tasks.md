@@ -2,6 +2,12 @@
 
 ## 深度资料研究样板 · 当前推进矩阵（2026-11-03）
 
+**真实输入复验与传输阶段排查（2026-11-03，design13.26增量）**：独立任务tm-stock-tradingcn-live-wwffew已终态failed，227.55秒；16次请求、15次确认、1次trader_v2结果未知，完整链路未通过。发送前日志及部分档案保存16次原请求、15确认/1未知，complete=false且无完整input-audit.json；不重放旧任务，也不补造完整成功。
+
+SDK双token上限归一为max_tokens，冲突/非法别名拒绝，仍限2048；新增单次HTTPS封闭阶段、总90秒期限、正文中断/超限/无效JSON、尝试发送后的本地异常和写盘失败反例。52项无网络自测通过，日志tm-stock-agent-transport-node-final-20261103.log。本机观察时间在事件发生时采集，不代表服务商推理或完整任务耗时。完整harness-checks.sh --with-coverage退出0，日志tm-stock-agent-transport-harness-20261103.log；编译/vet/全仓竞态、原覆盖率棘轮、GVA核心/反馈配置及90.4%覆盖、合规38/迁移探测23/密钥42项自测、架构、离线评测27及网关52项通过，未降低门槛。
+
+独立短请求tm-stock-deepseek-transport-wuPdqL/w5PAN0两次确认HTTP503、用量/费用未知，当前不再启动整套图；只读/models仍200且保留deepseek-flash/deepseek-v4-pro，不能代替完成调用或反推历史超时原因。浏览器控制再次明确禁用，未绕过，完整真实成功与实际H5仍未验。
+
 **原上游完整输入隔离存证与本人报告读取（2026-11-03，design13.26）**：原工厂调用上下文/UUID经httpx钩子绑定父网关实际发送字节，完整请求、消息摘要、返回模型和确认用量独立校验。可由原计划显式要求输入审计，进入执行/输入摘要，旧空值编码与原请求键保持；新任务缺失/损坏或保留键别名不能回退。完整私有审计另限2MiB，原4MiB隔离结果/256KiB线索上限不变，剥离后才交选择器。原报告GET /report/inputs两次当前读取和第一步回执核原任务/操作人/请求/远端/模型配置/结果摘要，公开DTO不含原请求、内部上下文、调用UUID或批准引用。API只新增Agent两表SELECT，原页签按需挂载且复用红白TMUI，固定合成资料包的声明不冒充每次实际输入或本项目真实候选。
 
 真实复验未通过：目录tm-stock-tradingcn-live-8zFzhq，原十四Agent执行尝试后父网关8次发出、6次HTTP确认、2次未知，原任务180.59秒失败、冻结归零、报告0/成功结算0；provider-receipt.json的用量汇总保持null，成本未知，不重提。evaluation-summary缺九个成功节点，不能把18次本地_generate尝试当18次HTTP成功。失败实例212f23577d0943bba58a8ddac22fb76a已停止保留。首次临时runner的Windows ESM路径错误发生在任何调用前；修正file URL后才启动该次真实试跑，既有原上游setup.py修改未动，采用独立干净51060a7源。只读/models复查200仅说明当前可达，不证明未知输出可恢复。

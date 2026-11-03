@@ -1250,6 +1250,10 @@ Worker命令守卫验收补充：计划、复核、队列范围/分页及调用�
 
 ### 13.26 原多Agent完整输入隔离存证与本人读取
 
+传输出口在原90秒单次总期限内区分请求本地写完、响应头、正文完成及确认元数据落盘；事件附本机observed_at_ms和封闭原因，不记录供应商错误正文。本地写完不是供应商收到/完成的证明，本机观察间隔也不是供应商推理或用户完整任务耗时。response_complete只证明JSON对象正文收齐；原response_received仍在模型与用量填入后追加。正文中断、超限、无效JSON、发送后异常和写盘失败均不能确认成功，不自动重试；只有尝试写入前的本地构造失败可标not_sent。SDK的max_completion_tokens先校验为正整数，与max_tokens同时存在须相同，再只发送max_tokens并保留2048上限；不能据此认定历史超时原因。
+
+供应商依据见[DeepSeek官方兼容说明](https://github.com/deepseek-ai/awesome-deepseek-agent/blob/main/docs/oh-my-pi.md)的maxTokensField和[官方错误码](https://api-docs.deepseek.com/quick_start/error_codes/)；503仅说明本次HTTP被拒，不证明旧未知调用的终态或实际费用。
+
 先补固定社区版V2十四原Agent的真实输入证据。原_generate观测上下文只添加内部调用UUID/原Agent标签；httpx请求钩子把同一身份送至父网关，模型调用及响应仍沿原实现。父网关记录真正发出的HTTP请求UTF-8字节、请求/消息摘要、请求与返回模型、确认状态和实际token，并与原工厂全部调用双向对应；不能用_generate入参、日志数量或摘要列表冒充实际输入。未知用量为null，不重试或将未知认作零。父网关不把内部标签或凭据头复制到存证，正文命中真Key/临时桥凭据即拒绝发送/归档。
 
 input_audit使用独立tm-stock-agent-inputs-v1闭集，限定synthetic-fixture-only、固定51060a7上游、当前唯一明确合成资料包。十四原节点至少各有一次对应的完整确认调用，序号/调用ID/原始请求与消息摘要/返回模型逐项核；重复、缺失、别名、null、未知字段、未知节点或模型、用量缺失均拒绝整包。它保存完整输入，但公开资料声明只覆盖该合成包；输入中的系统提示、工具声明及先前模型生成的上下文仍是隔离内容，不能声称等于本项目原授权快照或真实题材覆盖。

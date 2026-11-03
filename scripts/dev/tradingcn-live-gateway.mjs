@@ -56,11 +56,14 @@ export function validateEvaluationRequest({ execute, method, url, headers, data,
     || !['deepseek-flash', 'qwen3.7-plus'].includes(model) || !data || data.model !== model || data.stream === true
     || !Array.isArray(data.messages) || data.messages.length < 1 || data.messages.length > 128
     || !Number.isSafeInteger(requests) || requests < 0 || requests >= 128) return null
-  const max = data.max_tokens ?? 2048
-  if (!Number.isSafeInteger(max) || max < 1) return null
+  const supplied = [data.max_tokens, data.max_completion_tokens].filter(value => value != null)
+  if (supplied.some(value => !Number.isSafeInteger(value) || value < 1) || supplied.length === 2 && supplied[0] !== supplied[1]) return null
+  const max = supplied[0] ?? 2048
   if (data.messages.some(message => !message || !['system', 'user', 'assistant', 'tool'].includes(message.role)
     || message.content !== null && typeof message.content !== 'string')) return null
   const body = { ...data, thinking: { type: 'disabled' }, max_tokens: Math.min(max, 2048) }
+  // 现代SDK把max_tokens改名；受控出口只发送供应商支持的单一字段。
+  delete body.max_completion_tokens
   delete body.reasoning_effort
   return body
 }
@@ -86,6 +89,54 @@ export function evaluationReportCalls(reportProfile = '') {
   throw new Error('真实联调报告编排不受支持')
 }
 
+// 单次HTTPS出口：只返回封闭失败原因，不重试、不把供应商错误正文带入日志。
+// request/timeoutMS供无网络故障注入；真实入口沿固定路由与原90秒上限。
+export async function evaluationHTTPS({ route, credential, body, onEvent = async () => {}, request = https.request, timeoutMS = 90000 }) {
+  if (JSON.stringify(evaluationRoute(route?.provider)) !== JSON.stringify(route) || !Buffer.isBuffer(body) || body.length > 512 * 1024
+    || typeof credential !== 'string' || credential.length < 32 || credential.length > 8192 || /\s/.test(credential)
+    || !Number.isSafeInteger(timeoutMS) || timeoutMS < 1 || timeoutMS > 90000) throw new Error('单次模型出口参数无效')
+  return new Promise(resolve => {
+    let done = false, headers = false, writeAttempted = false, timer, upstream
+    let observations = Promise.resolve()
+    const finish = async (state, reason, status = 0, answer = null) => {
+      if (done) return
+      const observedAtMS = Date.now()
+      done = true; clearTimeout(timer)
+      try { await observations; await onEvent(state === 'confirmed' ? 'response_complete' : 'response_unknown', reason, status, observedAtMS) }
+      catch { state = 'response_unknown'; reason = 'journal_error'; answer = null }
+      resolve({ state, reason, status, answer })
+    }
+    const observe = (phase, reason, status = 0) => {
+      if (done) return
+      const observedAtMS = Date.now()
+      observations = observations.then(() => onEvent(phase, reason, status, observedAtMS))
+      observations.catch(() => { finish('response_unknown', 'journal_error'); upstream?.destroy() })
+    }
+    try {
+      upstream = request({ hostname: route.hostname, port: 443, path: route.path, method: 'POST', agent: false,
+        rejectUnauthorized: true, minVersion: 'TLSv1.2', headers: { Authorization: `Bearer ${credential}`, 'Content-Type': 'application/json', 'Content-Length': body.length } }, incoming => {
+        headers = true; observe('response_headers', 'http_' + incoming.statusCode, incoming.statusCode)
+        let size = 0; const parts = []
+        incoming.on('data', chunk => { if (done) return; size += chunk.length; if (size > 4 * 1024 * 1024) { finish('response_unknown', 'response_too_large', incoming.statusCode); upstream.destroy() } else parts.push(chunk) })
+        incoming.on('end', () => {
+          if (done) return
+          let answer
+          try { answer = JSON.parse(Buffer.concat(parts).toString('utf8')) } catch { finish('response_unknown', 'invalid_json', incoming.statusCode); return }
+          if (!answer || typeof answer !== 'object' || Array.isArray(answer)) { finish('response_unknown', 'invalid_json', incoming.statusCode); return }
+          finish('confirmed', incoming.statusCode === 200 ? 'http_ok' : 'http_rejected', incoming.statusCode, answer)
+        })
+        incoming.on('error', () => finish('response_unknown', 'response_error', incoming.statusCode))
+        incoming.on('aborted', () => finish('response_unknown', 'response_aborted', incoming.statusCode))
+        incoming.on('close', () => { if (!done) finish('response_unknown', 'response_closed', incoming.statusCode) })
+      })
+      timer = setTimeout(() => { finish('response_unknown', headers ? 'response_deadline' : 'headers_deadline'); upstream.destroy() }, timeoutMS)
+      upstream.on('error', () => finish('response_unknown', 'transport_error'))
+      writeAttempted = true
+      upstream.end(body, () => observe('request_dispatched', 'local_write_complete'))
+    } catch { finish(writeAttempted ? 'response_unknown' : 'not_sent', writeAttempted ? 'local_write_error' : 'local_transport_error'); upstream?.destroy() }
+  })
+}
+
 export async function startEvaluation({ credential, source, python, execute = false, deferred = false, keepAlive = false, provider = 'deepseek', reportProfile = '' }) {
   const reportCallLimit = evaluationReportCalls(reportProfile)
   const route = evaluationRoute(provider)
@@ -107,10 +158,10 @@ export async function startEvaluation({ credential, source, python, execute = fa
   const session = randomBytes(32).toString('hex')
   const state = { output, execute, route, reportProfile, requests: 0, usage: [], inputCalls: [], child: 'waiting', summary: null, rejected: 0, unknown: false }
   const inputJournal = createInputJournal(output)
-  const persistInput = async (phase, call) => {
+  const persistInput = async (phase, call, reason = '', observed_at_ms = Date.now()) => {
     if (!call) return
     try {
-      const event = phase === 'dispatch_planned' ? { phase, call } : { phase, seq: call.seq, call_id: call.call_id, state: call.state, status: call.status, response_model: call.response_model, input_tokens: call.input_tokens, output_tokens: call.output_tokens }
+      const event = phase === 'dispatch_planned' ? { phase, observed_at_ms, call } : { phase, observed_at_ms, reason, seq: call.seq, call_id: call.call_id, state: call.state, status: call.status, response_model: call.response_model, input_tokens: call.input_tokens, output_tokens: call.output_tokens }
       await inputJournal.append(event)
     } catch { state.unknown = true; state.inputJournalError = true; throw new Error('输入日志未确认落盘') }
   }
@@ -148,37 +199,19 @@ export async function startEvaluation({ credential, source, python, execute = fa
       }
       if (report) reportRequests++
       state.requests++
-      let responseDone = false
-      let timer
-      const unknownInput = async () => {
-        if (responseDone) return
-        responseDone = true; clearTimeout(timer); state.unknown = true
-        try { await persistInput('response_unknown', inputCall) } catch { /* 写盘失败已保留未确认标记，禁止后续发送。 */ }
-        reject(502)
+      const result = await evaluationHTTPS({ route, credential: key, body, onEvent: async (phase, reason, status, observedAtMS) => {
+        if (inputCall && status) inputCall.status = status
+        await persistInput(phase, inputCall, reason, observedAtMS)
+      } })
+      if (result.state !== 'confirmed') { state.unknown = true; return reject(502) }
+      const answer = result.answer
+      state.usage.push({ phase: report ? 'report' : 'core', status: result.status, input: answer.usage?.prompt_tokens ?? null, output: answer.usage?.completion_tokens ?? null, finish: answer.choices?.[0]?.finish_reason ?? null })
+      if (inputCall) {
+        Object.assign(inputCall, { state: 'confirmed', status: result.status, response_model: answer.model ?? '', input_tokens: answer.usage?.prompt_tokens ?? null, output_tokens: answer.usage?.completion_tokens ?? null })
+        await persistInput('response_received', inputCall, result.reason)
       }
-      const upstream = https.request({ hostname: route.hostname, port: 443, path: route.path, method: 'POST', agent: false, rejectUnauthorized: true, minVersion: 'TLSv1.2', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', 'Content-Length': body.length } }, incoming => {
-        const parts = []; let bytes = 0
-        incoming.on('data', chunk => { bytes += chunk.length; if (bytes > 4 * 1024 * 1024) upstream.destroy(); else parts.push(chunk) })
-        incoming.on('end', async () => {
-          if (responseDone) return
-          responseDone = true
-          clearTimeout(timer)
-          let answer
-          try { answer = JSON.parse(Buffer.concat(parts).toString('utf8')) } catch { state.unknown = true; try { await persistInput('response_unknown', inputCall) } catch { /* 失败已标记。 */ }; return reject(502) }
-          state.usage.push({ phase: report ? 'report' : 'core', status: incoming.statusCode, input: answer.usage?.prompt_tokens ?? null, output: answer.usage?.completion_tokens ?? null, finish: answer.choices?.[0]?.finish_reason ?? null })
-          if (inputCall) {
-            Object.assign(inputCall, { state: 'confirmed', status: incoming.statusCode, response_model: answer.model ?? '', input_tokens: answer.usage?.prompt_tokens ?? null, output_tokens: answer.usage?.completion_tokens ?? null })
-            try { await persistInput('response_received', inputCall) } catch { return reject(502) }
-          }
-          // 错误不转发供应商回显；成功响应仅供隔离Agent读取，不打印内容。
-          if (incoming.statusCode !== 200) return reject(incoming.statusCode)
-          if (!res.destroyed && !res.writableEnded) { res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(answer)) }
-        })
-        incoming.on('error', unknownInput)
-      })
-      timer = setTimeout(() => { unknownInput(); upstream.destroy() }, 90000)
-      upstream.on('error', unknownInput)
-      upstream.end(body)
+      if (result.status !== 200) return reject(result.status)
+      if (!res.destroyed && !res.writableEnded) { res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(answer)) }
     } catch { reject(400) }
   })
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
