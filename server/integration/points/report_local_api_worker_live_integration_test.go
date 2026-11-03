@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tangniyuqi/tm-stock/server/internal/ai/task"
 	"github.com/tangniyuqi/tm-stock/server/internal/config"
 	"github.com/tangniyuqi/tm-stock/server/internal/provider"
 )
@@ -30,6 +31,9 @@ func TestIntegrationAIReportLocalAPIWorkerLive(t *testing.T) {
 	if depth == "deep" {
 		t.Log("TM_STOCK_LIVE_DEEP_VERIFIED")
 	}
+	if scenario.comparison {
+		t.Log("TM_STOCK_LIVE_SEVEN_STEP_VERIFIED")
+	}
 }
 func TestIntegrationAIReportLocalAPIWorkerLiveH5(t *testing.T) {
 	depth, scenario := liveLocalProcessCase(t, "^TestIntegrationAIReportLocalAPIWorkerLiveH5$")
@@ -45,6 +49,9 @@ func TestIntegrationAIReportLocalAPIWorkerLiveH5(t *testing.T) {
 	if depth == "deep" {
 		t.Log("TM_STOCK_LIVE_DEEP_VERIFIED")
 	}
+	if scenario.comparison {
+		t.Log("TM_STOCK_LIVE_SEVEN_STEP_VERIFIED")
+	}
 }
 func liveLocalProcessCase(t *testing.T, expectedRun string) (string, localProcessCase) {
 	t.Helper()
@@ -54,6 +61,11 @@ func liveLocalProcessCase(t *testing.T, expectedRun string) (string, localProces
 	depth := os.Getenv("TM_TEST_AI_H5_LOCAL_DEPTH")
 	if depth != "light" && depth != "deep" {
 		t.Fatal("必须明确轻深类型")
+	}
+	profile := os.Getenv("TM_TEST_AI_LIVE_REPORT_PROFILE")
+	comparison := profile == task.DossierComparisonReportProfile
+	if profile != "" && !comparison || comparison && depth != "deep" {
+		t.Fatal("真实资料对照只接受显式七步深度编排")
 	}
 	name := os.Getenv("TM_TEST_AI_REPORT_MODEL")
 	if name != "deepseek-flash" && name != "qwen3.7-plus" {
@@ -78,7 +90,7 @@ func liveLocalProcessCase(t *testing.T, expectedRun string) (string, localProces
 			t.Fatal("不混用浏览器替身专项")
 		}
 	}
-	return depth, localProcessCase{external: true, configure: func(t *testing.T, f *localPublicationFixture, c *config.AILocalExecution) {
+	return depth, localProcessCase{external: true, dossier: comparison, comparison: comparison, configure: func(t *testing.T, f *localPublicationFixture, c *config.AILocalExecution) {
 		c.Model = config.AILocalExecutionModel{Name: "local-eval-real-json-bridge-v1", BaseURL: modelURL, Model: name, TimeoutMS: 30000}
 		c.Agent = config.AILocalExecutionAgent{BaseURL: os.Getenv("TM_TEST_AI_AGENT_URL"), ApprovalRef: "local-eval:user-approved", LicenseRef: "local-eval:community-51060a7", QuickModel: "deepseek-flash", DeepModel: "deepseek-flash", TimeoutMS: 3000, MaxSubmissions: 1}
 		f.env.agentConfig = c.AgentConfig(os.Getenv("TM_TEST_AI_AGENT_TOKEN"))
@@ -100,10 +112,17 @@ func liveLocalProcessCase(t *testing.T, expectedRun string) (string, localProces
 		p.CheckMaxTokens = 512
 		p.ModelVersion = "local-eval:real-v1"
 		p.Budget.MaxTokens = 262144
+		if comparison {
+			p.Budget.MaxTokens = 524288 // 七步包含五次模型输入上界及Agent，先声明完整预算再准入。
+		}
 		p.Budget.MaxDurationMS = 900000
 		f.file.ExpiresAtMS = time.Now().Add(25 * time.Minute).UnixMilli()
 		c.ExpiresAtMS = f.file.ExpiresAtMS
 		c.WorkerTimeoutMS = 900000
 		c.AgentPollMS = 1000
+		if comparison {
+			// 先绑定实际模型，再建立不可变清单；不能沿用合成Provider摘要。
+			configureDossierLocalFixture(t, f, "comparison_supported", c.ModelConfig())
+		}
 	}}
 }

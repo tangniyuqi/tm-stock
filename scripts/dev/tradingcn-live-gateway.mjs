@@ -40,7 +40,15 @@ export function evaluationBody(data, route) {
   return body
 }
 
-export async function startEvaluation({ credential, source, python, execute = false, deferred = false, keepAlive = false, provider = 'deepseek' }) {
+// 调用数由显式编排确定，不能用任意数字扩大测试桥出口。
+export function evaluationReportCalls(reportProfile = '') {
+  if (reportProfile === '') return 3
+  if (reportProfile === 'dossier-comparison-report-v1') return 5
+  throw new Error('真实联调报告编排不受支持')
+}
+
+export async function startEvaluation({ credential, source, python, execute = false, deferred = false, keepAlive = false, provider = 'deepseek', reportProfile = '' }) {
+  const reportCallLimit = evaluationReportCalls(reportProfile)
   const route = evaluationRoute(provider)
   if (execute && (typeof credential !== 'string' || credential.length < 32 || credential.length > 8192 || /\s/.test(credential))) throw new Error('缺少有效的进程内模型凭据')
   const commit = execFileSync('git', ['-C', source, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
@@ -58,7 +66,7 @@ export async function startEvaluation({ credential, source, python, execute = fa
     return !stat.isSymbolicLink() && (stat.isDirectory() || tracked.has(names.join('/')))
   } })
   const session = randomBytes(32).toString('hex')
-  const state = { output, execute, route, requests: 0, usage: [], child: 'waiting', summary: null, rejected: 0, unknown: false }
+  const state = { output, execute, route, reportProfile, requests: 0, usage: [], child: 'waiting', summary: null, rejected: 0, unknown: false }
   const reportSession = randomBytes(32).toString('hex')
   let key = credential
   let reportRequests = 0
@@ -73,7 +81,7 @@ export async function startEvaluation({ credential, source, python, execute = fa
       const data = validateEvaluationRequest({ execute, method: req.method, url: req.url, headers: req.headers,
         data: JSON.parse(Buffer.concat(chunks).toString('utf8')), session: report ? reportSession : session, requests: state.requests, model: report ? route.model : 'deepseek-flash' })
       if (!data || state.unknown) return reject()
-      if (report && reportRequests >= 3) return reject(429)
+      if (report && reportRequests >= reportCallLimit) return reject(429)
       // DeepSeek Chat API提供JSON对象模式，不提供json_schema模式。仅本地桥显式翻译协议；
       // 原schema作为系统约束原样传入，Go端仍逐项严格验收，绝不改写或补齐模型响应。
       if (report && data.response_format?.type === 'json_schema') {
@@ -158,6 +166,7 @@ export async function recordReceipt(state) {
     workflow_verified: state.execute === true && state.child === 'passed' && state.summary?.verified === true && state.summary?.executed === true
       && coreCalls > 0 && coreCalls === state.summary.model_calls && complete && state.unknown !== true && state.usage.every(item => item.status === 200),
     report_model_calls: state.usage.filter(item => item.phase === 'report').length,
+    report_profile: state.reportProfile ?? '',
     requests: state.requests, confirmed_responses: state.usage.length,
     http_successes: state.usage.filter(item => item.status === 200).length,
     unknown: state.unknown === true, usage_complete: complete,

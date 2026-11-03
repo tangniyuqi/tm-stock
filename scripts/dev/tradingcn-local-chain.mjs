@@ -8,7 +8,7 @@ import { createWriteStream } from 'node:fs'
 import os from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { isDeepStrictEqual } from 'node:util'
-import { startEvaluation, recordReceipt } from './tradingcn-live-gateway.mjs'
+import { startEvaluation, recordReceipt, evaluationReportCalls } from './tradingcn-live-gateway.mjs'
 
 export function validSubmission(body) {
   return !!body && Object.keys(body).sort().join(',') === 'parameters,symbol' && body.symbol === '600001'
@@ -25,12 +25,14 @@ export async function startLocalChain(options) {
 }
 
 // 子进程只收到临时桥凭据，绝不继承真正模型Key或产品配置。
-export function chainConversationOptions({ conversation = false, loginRunner, analysisType = 'light', processes = false, processBrowser = false } = {}) {
+export function chainConversationOptions({ conversation = false, loginRunner, analysisType = 'light', processes = false, processBrowser = false, reportProfile = '' } = {}) {
+  evaluationReportCalls(reportProfile)
+  if (reportProfile !== '' && (!processes || conversation !== true || analysisType !== 'deep')) throw new Error('七步真实联调必须使用深度会话独立进程')
   if (typeof processBrowser !== 'boolean' || processBrowser && !processes) throw new Error('浏览器进程模式须明确启用进程入口')
   if (typeof processes !== 'boolean') throw new Error('进程模式必须显式布尔值')
   if (processes) {
     if (conversation !== true || loginRunner !== undefined || !['light','deep'].includes(analysisType)) throw new Error('进程验收必须明确会话及轻深，不复用预编译登录程序')
-    return {TM_TEST_AI_LIVE_PROCESS:'local-fixture-only',TM_TEST_AI_H5_LOCAL_DEPTH:analysisType,...(processBrowser?{TM_TEST_AI_LIVE_PROCESS_H5:'local-fixture-only'}:{})}
+    return {TM_TEST_AI_LIVE_PROCESS:'local-fixture-only',TM_TEST_AI_H5_LOCAL_DEPTH:analysisType,...(processBrowser?{TM_TEST_AI_LIVE_PROCESS_H5:'local-fixture-only'}:{}),...(reportProfile ? {TM_TEST_AI_LIVE_REPORT_PROFILE:reportProfile} : {})}
   }
   if (!['light', 'deep'].includes(analysisType) || (analysisType === 'deep' && !conversation)) throw new Error('深度验收必须使用显式会话模式')
   if (typeof conversation !== 'boolean' || (!conversation && loginRunner !== undefined)
@@ -58,8 +60,13 @@ export function hasProcessH5Proof(output) {
   return /^[ \t]+\S+\.go:\d+: TM_STOCK_LIVE_PROCESS_H5_VERIFIED\r?\n/m.test(output)
 }
 
-export function startChainVerification(bridge, { powershell, mysql, bash, goBin, gccBin, origin, conversation = false, loginRunner, analysisType = 'light', processes = false, processBrowser = false }) {
-  const conversationEnv = chainConversationOptions({ conversation, loginRunner, analysisType, processes, processBrowser })
+export function hasSevenStepProof(output) {
+  return /^[ \t]+\S+\.go:\d+: TM_STOCK_LIVE_SEVEN_STEP_VERIFIED\r?\n/m.test(output)
+}
+
+export function startChainVerification(bridge, { powershell, mysql, bash, goBin, gccBin, origin, conversation = false, loginRunner, analysisType = 'light', processes = false, processBrowser = false, reportProfile = '' }) {
+  const conversationEnv = chainConversationOptions({ conversation, loginRunner, analysisType, processes, processBrowser, reportProfile })
+  if ((bridge.evaluation.reportProfile ?? '') !== reportProfile) throw new Error('模型桥与实际报告编排不一致')
   if (processBrowser) {
     const u = new URL(origin)
     if (u.protocol !== 'http:' || u.hostname !== '127.0.0.1' || !u.port || u.username || u.password || u.search || u.hash || u.pathname !== '/') throw new Error('真实浏览器须完整H5字面回环源')
@@ -76,7 +83,7 @@ export function startChainVerification(bridge, { powershell, mysql, bash, goBin,
     '-MySqlBaseDir', mysql, '-RunCount', '1', '-BashPath', bash, '-ReportsOnly', '-LiveAgents', '-ReportPattern', processBrowser ? '^TestIntegrationAIReportLocalAPIWorkerLiveH5$' : processes ? '^TestIntegrationAIReportLocalAPIWorkerLive$' : '^TestIntegrationAIReportLiveAgents$'],
   { cwd: root, env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
   const log = createWriteStream(path.join(bridge.evaluation.output, 'local-chain-go.log'), { mode: 0o600 })
-  const state = { status: 'running', lines: '', conversation, conversationVerified: false, analysisType, deepVerified: false, processes, processBrowser, processH5Verified:false, processHTTPVerified:false }
+  const state = { status: 'running', lines: '', conversation, conversationVerified: false, analysisType, deepVerified: false, processes, processBrowser, processH5Verified:false, processHTTPVerified:false, reportProfile, sevenStepVerified:false }
   child.stdout.pipe(log, { end: false }); child.stderr.pipe(log, { end: false })
   child.stdout.on('data', bytes => {
     const output = state.lines + bytes.toString('utf8')
@@ -84,6 +91,7 @@ export function startChainVerification(bridge, { powershell, mysql, bash, goBin,
     state.deepVerified ||= hasDeepProof(output)
     state.processHTTPVerified ||= hasProcessHTTPProof(output)
     state.processH5Verified ||= hasProcessH5Proof(output)
+    state.sevenStepVerified ||= hasSevenStepProof(output)
     state.lines = output.slice(-16000)
   })
   state.finished = new Promise(resolve => {
@@ -99,7 +107,11 @@ export async function finishChainVerification(bridge, verification) {
     // Go启动失败时原引擎仍未启动；这是已知零调用失败，不是待执行成功回执。
     if (verification.status === 'failed' && bridge.evaluation.child === 'waiting') bridge.evaluation.child = 'failed'
     const provider = await recordReceipt(bridge.evaluation)
-    const verified = verification.status === 'passed' && verification.exit === 0 && provider.workflow_verified && provider.report_model_calls === 3
+    const reportProfile = verification.reportProfile ?? ''
+    const expectedCalls = evaluationReportCalls(reportProfile)
+    const verified = verification.status === 'passed' && verification.exit === 0 && provider.workflow_verified && provider.report_model_calls === expectedCalls
+      && (bridge.evaluation.reportProfile ?? '') === reportProfile
+      && (reportProfile === '' || verification.sevenStepVerified === true && verification.processes === true && verification.conversation === true && verification.analysisType === 'deep')
       && bridge.counts.submissions === 1 && bridge.counts.polls > 0 && bridge.counts.results === 1
       && (!verification.processBrowser || verification.processBrowser === true && verification.processes === true)
       && (!verification.conversation || verification.conversationVerified === true)
@@ -107,6 +119,7 @@ export async function finishChainVerification(bridge, verification) {
       && (verification.analysisType !== 'deep' || (verification.conversation === true && verification.deepVerified === true))
     const receipt = { scope: verification.processBrowser ? 'local_h5_process_conversation_async_real_v2_test_ledger' : verification.processes ? 'local_http_process_conversation_async_real_v2_test_ledger' : verification.conversation ? 'local_conversation_async_real_v2_test_ledger' : 'local_web_async_real_v2_test_ledger', analysis_type: verification.analysisType ?? 'light', verified, go_exit: verification.exit,
       ...(verification.processes ? {browser_verified:verification.processBrowser===true&&verification.processH5Verified===true, process_h5_verified:verification.processH5Verified===true, process_http_verified:verification.processHTTPVerified===true} : {}),
+      report_profile:reportProfile, seven_step_verified:reportProfile !== '' && verified,
       async: { ...bridge.counts }, provider, production_deployed: false, real_user_points_changed: false,
       materials: 'explicit_synthetic_fixture', upstream_web_mongo_redis_verified: false }
     await fs.writeFile(path.join(bridge.evaluation.output, 'local-chain-receipt.json'), JSON.stringify(receipt, null, 2), { mode: 0o600 })

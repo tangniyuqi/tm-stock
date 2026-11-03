@@ -1,7 +1,7 @@
 // 只测纯守卫，不启动子进程、不使用真实Key、不访问模型服务。
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { validateEvaluationRequest, recordReceipt, evaluationRoute, evaluationBody } from './tradingcn-live-gateway.mjs'
+import { validateEvaluationRequest, recordReceipt, evaluationRoute, evaluationBody, evaluationReportCalls } from './tradingcn-live-gateway.mjs'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -10,6 +10,12 @@ const valid = () => ({ execute: true, method: 'POST', url: '/v1/chat/completions
   headers: { authorization: 'Bearer test-session', 'content-type': 'application/json' },
   session: 'test-session', requests: 0,
   data: { model: 'deepseek-flash', messages: [{ role: 'user', content: '仅测试' }], max_tokens: 8, stream: false } })
+
+test('报告调用数只能选择旧三次或七步五次', () => {
+  assert.equal(evaluationReportCalls(), 3)
+  assert.equal(evaluationReportCalls('dossier-comparison-report-v1'), 5)
+  for (const profile of [null, 5, true, {}, 'dossier-report-v1', 'other']) assert.throws(() => evaluationReportCalls(profile))
+})
 
 test('千问测试路由固定目的地址与模型，拒绝任意目的地且不改输入', () => {
   assert.throws(() => evaluationRoute('https://example.com'))

@@ -471,7 +471,11 @@ func verifyLocalAPIWorker(t *testing.T, level sql.IsolationLevel, kind int, api,
 			break
 		}
 		if v.Status >= 4 {
-			t.Fatalf("实际任务未交付：status=%d；不重提、不将失败记为成功", v.Status)
+			stored, err := e.tasks.Inspect(e.ctx, 1, linked.TaskID)
+			if err != nil {
+				t.Fatal("失败任务状态读取失败；不重提")
+			}
+			t.Fatalf("实际任务未交付：status=%d step=%d code=%s frozen=%d reports=%d settle=%d；不重提", v.Status, stored.CurrentStep, stored.ErrorCode, e.queryInt(`SELECT frozen FROM tm_points_accounts WHERE user_id=1`), e.queryInt(`SELECT COUNT(*) FROM tm_ai_report_commits`), e.queryInt(`SELECT COUNT(*) FROM tm_points_txns WHERE kind='settle'`))
 		}
 		select {
 		case <-tick.C:
@@ -610,6 +614,10 @@ func verifyLocalAPIWorker(t *testing.T, level sql.IsolationLevel, kind int, api,
 	}
 	if len(cases) == 1 && cases[0].comparison {
 		wantModel, wantAudits = 5, 10
+		var steps int
+		if err := e.db.QueryRowContext(e.ctx, `SELECT COUNT(*) FROM tm_ai_task_steps WHERE task_id=?`, linked.TaskID).Scan(&steps); err != nil || steps != 7 {
+			t.Fatal("七步报告的实际阶段存证不完整")
+		}
 	}
 	if external {
 		wantAgent, wantModel = 0, 0

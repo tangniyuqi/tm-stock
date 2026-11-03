@@ -4,7 +4,30 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { createAsyncBridge, validSubmission, finishChainVerification, chainConversationOptions, hasConversationProof, hasDeepProof, hasProcessHTTPProof, hasProcessH5Proof, startChainVerification } from './tradingcn-local-chain.mjs'
+import { createAsyncBridge, validSubmission, finishChainVerification, chainConversationOptions, hasConversationProof, hasDeepProof, hasProcessHTTPProof, hasProcessH5Proof, hasSevenStepProof, startChainVerification } from './tradingcn-local-chain.mjs'
+
+test('七步仅允许深度会话独立进程，错编排在启动前拒绝', () => {
+  const reportProfile='dossier-comparison-report-v1', input={reportProfile,processes:true,conversation:true,analysisType:'deep'}
+  assert.equal(chainConversationOptions(input).TM_TEST_AI_LIVE_REPORT_PROFILE,reportProfile)
+  for(const change of [{processes:false},{conversation:false},{analysisType:'light'},{reportProfile:'other'}]) assert.throws(()=>chainConversationOptions({...input,...change}))
+  assert.throws(()=>startChainVerification({evaluation:{reportProfile:''}},input),/编排不一致/)
+  assert.equal(hasSevenStepProof('    live.go:12: TM_STOCK_LIVE_SEVEN_STEP_VERIFIED\n'),true)
+  for(const value of ['TM_STOCK_LIVE_SEVEN_STEP_VERIFIED','    live.go:12: TM_STOCK_LIVE_DEEP_VERIFIED\n','    live.go:12: TM_STOCK_LIVE_SEVEN_STEP_VERIFIED','    live.go:12: TM_STOCK_LIVE_SEVEN_STEP_VERIFIED_extra\n']) assert.equal(hasSevenStepProof(value),false)
+})
+
+test('七步回执要求五次真实报告调用和独立完成证明', async () => {
+  const output=await fs.mkdtemp(path.join(os.tmpdir(),'tm-stock-tradingcn-live-')), reportProfile='dossier-comparison-report-v1'
+  const bridge={evaluation:{output,reportProfile,execute:true,child:'passed',summary:{verified:true,executed:true,model_calls:1},requests:6,usage:[{phase:'core',status:200,input:1,output:1},...Array.from({length:5},()=>({phase:'report',status:200,input:1,output:1}))]},counts:{submissions:1,polls:1,results:1},async close(){}}
+  const verification={status:'passed',exit:0,finished:Promise.resolve(),reportProfile,sevenStepVerified:true,processes:true,conversation:true,conversationVerified:true,analysisType:'deep',deepVerified:true,processHTTPVerified:true}
+  try{
+    const receipt=await finishChainVerification(bridge,verification)
+    assert.equal(receipt.verified,true);assert.equal(receipt.seven_step_verified,true);assert.equal(receipt.provider.report_model_calls,5)
+    for(const change of [{sevenStepVerified:false},{processHTTPVerified:false},{analysisType:'light'},{reportProfile:''}]) assert.equal((await finishChainVerification(bridge,{...verification,...change})).verified,false)
+    bridge.evaluation.reportProfile='';assert.equal((await finishChainVerification(bridge,verification)).verified,false)
+    bridge.evaluation.reportProfile=reportProfile;bridge.evaluation.usage.splice(-2);bridge.evaluation.requests=4
+    assert.equal((await finishChainVerification(bridge,verification)).verified,false)
+  }finally{assert.equal(path.dirname(output),os.tmpdir());assert.match(path.basename(output),/^tm-stock-tradingcn-live-[A-Za-z0-9]{6}$/);await fs.rm(output,{recursive:true})}
+})
 
 test('实际H5进程证明独立于HTTP，入口在启动子进程前拒绝错误模式和外部源', () => {
   assert.deepEqual(chainConversationOptions({processes:true,processBrowser:true,conversation:true}),{TM_TEST_AI_LIVE_PROCESS:'local-fixture-only',TM_TEST_AI_H5_LOCAL_DEPTH:'light',TM_TEST_AI_LIVE_PROCESS_H5:'local-fixture-only'})

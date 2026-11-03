@@ -30,8 +30,11 @@ import (
 
 // 配置文件、原数据库预算/调用审计和结算均实际执行；资料、模型与CN协议为合成回环夹具。
 // 本组HTTP用测试签发JWT，原密码登录/独立进程另行验收。
-func configureDossierLocalFixture(t *testing.T, f *localPublicationFixture, mode string) *service.AIDossierSupportRegistryService {
+func configureDossierLocalFixture(t *testing.T, f *localPublicationFixture, mode string, models ...provider.Config) *service.AIDossierSupportRegistryService {
 	t.Helper()
+	if len(models) > 1 {
+		t.Fatal("每个资料样板只允许一个实际模型配置")
+	}
 	comparison := strings.HasPrefix(mode, "comparison_")
 	mode = strings.TrimPrefix(mode, "comparison_")
 	e := f.env
@@ -114,13 +117,19 @@ func configureDossierLocalFixture(t *testing.T, f *localPublicationFixture, mode
 	} else {
 		e.server = providertest.NewServer(t, providertest.Success(selection, provider.Usage{Prompt: 2, Completion: 1, Total: 3}), ent, support, sem)
 	}
-	model, err := provider.NewDirect(workflowModelConfig(e.server.URL()), true)
+	modelConfig := workflowModelConfig(e.server.URL())
+	outputTokens := 128
+	if len(models) == 1 {
+		modelConfig = models[0]
+		outputTokens = 1024 // 六项字段回执不能沿用单卡合成夹具的128令牌上限。
+	}
+	model, err := provider.NewDirect(modelConfig, true)
 	if err != nil {
 		t.Fatal(err)
 	}
 	e.model = model
 	f.spec.ModelProfileDigest = model.DirectProfileDigest()
-	sc := dossier.SupportConfig{Model: f.spec.ModelName, Version: f.spec.ModelVersion, FilingNo: f.spec.FilingNo, ApprovalRef: f.spec.ApprovalRef, QualityRef: f.spec.QualityRef, HardBudgetRef: f.spec.HardBudgetRef, ProfileDigest: f.spec.ModelProfileDigest, MaxInputTokens: f.spec.MaxInputTokens, MaxOutputTokens: 128, MaxPromptBytes: 16000, ReviewStep: 4}
+	sc := dossier.SupportConfig{Model: f.spec.ModelName, Version: f.spec.ModelVersion, FilingNo: f.spec.FilingNo, ApprovalRef: f.spec.ApprovalRef, QualityRef: f.spec.QualityRef, HardBudgetRef: f.spec.HardBudgetRef, ProfileDigest: f.spec.ModelProfileDigest, MaxInputTokens: f.spec.MaxInputTokens, MaxOutputTokens: outputTokens, MaxPromptBytes: 16000, ReviewStep: 4}
 	u := dossier.Field{State: "unknown"}
 	sentence := e.snap.Sentences[0]
 	d := dossier.Draft{Protocol: dossier.DraftVersion, ThemeID: 1, Version: 1, CreatedAt: e.snap.FetchedAt.UnixMilli(), Cards: []dossier.FactCard{{Key: "test_card", Section: "definition", Statement: dossier.SentenceRef{SnapshotID: e.snap.ID, Hash: e.snap.Hash, Number: sentence.Number, StartByte: sentence.StartByte, EndByte: sentence.EndByte}, Subject: u, PublishedDate: u, EffectiveDate: u, Period: u, Scope: u, Stage: u, Basis: u, Unit: u}}}
