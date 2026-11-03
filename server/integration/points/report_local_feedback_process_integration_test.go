@@ -148,6 +148,8 @@ func verifyLocalFeedbackProcess(t *testing.T, f *localPublicationFixture, peer *
 	t.Helper()
 	e := f.env
 	before := e.queryInt(`SELECT COUNT(*) FROM tm_points_txns`)
+	beforeAgent, beforeModel := e.submits.Load(), len(e.server.Requests())
+	beforeTasks := e.queryInt(`SELECT COUNT(*) FROM tm_ai_tasks`)
 	call := func(origin, method, path, credential, body string, want int) json.RawMessage {
 		t.Helper()
 		r, err := http.NewRequestWithContext(e.ctx, method, origin+path, strings.NewReader(body))
@@ -240,8 +242,8 @@ func verifyLocalFeedbackProcess(t *testing.T, f *localPublicationFixture, peer *
 	if json.Unmarshal(call(peer.base, "GET", internal, peer.credential, "", 200), &detail) != nil || len(detail.Events) != 3 || detail.Events[1].ActorID != 7 || detail.Events[2].ActorID != 7 {
 		t.Fatal("实际操作人或事件链不符")
 	}
-	if e.queryInt(`SELECT COUNT(*) FROM tm_ai_report_feedbacks`) != 1 || e.queryInt(`SELECT COUNT(*) FROM tm_ai_report_feedback_events`) != 3 || e.queryInt(`SELECT COUNT(*) FROM tm_points_txns`) != before || e.submits.Load() != 1 || len(e.server.Requests()) != 3 {
+	if e.queryInt(`SELECT COUNT(*) FROM tm_ai_report_feedbacks`) != 1 || e.queryInt(`SELECT COUNT(*) FROM tm_ai_report_feedback_events`) != 3 || e.queryInt(`SELECT COUNT(*) FROM tm_points_txns`) != before || e.submits.Load() != beforeAgent || len(e.server.Requests()) != beforeModel || e.queryInt(`SELECT COUNT(*) FROM tm_ai_tasks`) != beforeTasks {
 		t.Fatal("反馈处理污染模型、报告或账务")
 	}
-	t.Log("实际API反馈提交/复读→独立管理进程受理/处理→会员查询通过；默认无真实调用，零新增模型/账务")
+	t.Log("实际API反馈提交/复读→独立管理进程受理/处理→会员查询通过；反馈未新增任务、模型或账务")
 }

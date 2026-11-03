@@ -1929,6 +1929,17 @@ jobs:
           fi
           # 报告判定配对协议真库门禁结束
 
+          # 同报告追问反馈联合真库门禁开始
+          FOLLOWUP_SQL_ACTUAL=$(sed -nE 's/^[[:space:]]*--- PASS: (TestIntegrationAIReportFollowupFeedbackProcess[^ ]*) .*/\1/p' /tmp/it.log | LC_ALL=C sort)
+          FOLLOWUP_SQL_EXPECTED=$(printf '%s\n' \
+            'TestIntegrationAIReportFollowupFeedbackProcess' \
+            'TestIntegrationAIReportFollowupFeedbackProcess/Read_Committed' \
+            'TestIntegrationAIReportFollowupFeedbackProcess/Repeatable_Read' | LC_ALL=C sort)
+          if [ "$FOLLOWUP_SQL_ACTUAL" != "$FOLLOWUP_SQL_EXPECTED" ] || grep -Eq '^[[:space:]]*--- (FAIL|SKIP): TestIntegrationAIReportFollowupFeedbackProcess' /tmp/it.log; then
+            echo '::error::同一报告的问答/追问/反馈处理及零新增账务验收缺失、重复、失败或跳过'; exit 1
+          fi
+          # 同报告追问反馈联合真库门禁结束
+
           # 原Agent完整输入真库门禁开始
           AGENT_INPUT_SQL_ACTUAL=$(sed -nE 's/^[[:space:]]*--- PASS: (TestIntegrationAIReportAgentInputs(Delegation)?Process[^ ]*) .*/\1/p' /tmp/it.log | LC_ALL=C sort)
           AGENT_INPUT_SQL_EXPECTED=$(printf '%s\n' \
@@ -2291,7 +2302,7 @@ jobs:
           # 专题管理独立进程新增1根9子节点，含原登录/受限账号/撤回与回滚。
           # 明确更正声明原登录/独立会员API与管理进程新增1根7子节点。
           # 固定研究经理委派完整输入沿原登录/API/worker读取新增1根。
-          MIN=1808
+          MIN=1811
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项，低于下限 $MIN —— 要么没跑，要么有测试被删。"; exit 1
           fi
@@ -2354,7 +2365,7 @@ jobs:
         run: node scripts/dev/verify-research-eval.cjs
 
       - name: Agent本地评估网关守卫（无Key、无网络、无付费调用）
-        run: node --test scripts/dev/tradingcn-live-gateway.test.mjs scripts/dev/tradingcn-local-chain.test.mjs scripts/dev/official-materials-qa-live.test.mjs
+        run: node --test scripts/dev/tradingcn-live-gateway.test.mjs scripts/dev/tradingcn-local-chain.test.mjs scripts/dev/tradingcn-followup.test.mjs scripts/dev/official-materials-qa-live.test.mjs
 
       - name: 原Agent图与委派完整性守卫（标准库、无上游导入或模型调用）
         run: python3 -B scripts/dev/verify-tradingcn-live_test.py

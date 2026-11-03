@@ -3,13 +3,18 @@
 package points_test
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -25,9 +30,11 @@ import (
 )
 
 type localProcessQA struct {
-	path   string
-	file   config.AILocalQA
-	server *providertest.Server
+	path     string
+	file     config.AILocalQA
+	server   *providertest.Server
+	external bool
+	wire     bool
 }
 
 func TestIntegrationAIReportLocalQAProcess(t *testing.T) {
@@ -91,7 +98,7 @@ func prepareLocalQASchema(t *testing.T, f *localPublicationFixture, dsn string) 
 	}
 }
 
-func prepareLocalProcessQA(t *testing.T, f *localPublicationFixture, dsn string) *localProcessQA {
+func prepareLocalProcessQA(t *testing.T, f *localPublicationFixture, dsn string, endpoints ...string) *localProcessQA {
 	t.Helper()
 	prepareLocalQASchema(t, f, dsn)
 	e := f.env
@@ -99,6 +106,16 @@ func prepareLocalProcessQA(t *testing.T, f *localPublicationFixture, dsn string)
 	steps := append(qaSuccessSteps(snap.ID), qaSuccessSteps(1)...)
 	upstream := providertest.NewServer(t, steps...)
 	m := config.AILocalQAModel{Endpoint: config.AILocalExecutionModel{Name: "本地问答协议", BaseURL: upstream.URL(), Model: "qa-local-process", TimeoutMS: 20000}, FilingNo: "local-eval:filing", ApprovalRef: "local-eval:model", QualityRef: "local-eval:quality", BudgetRef: "local-eval:qa-budget"}
+	if len(endpoints) > 1 {
+		t.Fatal("每次问答仅允许一个明确本地模型出口")
+	}
+	external := len(endpoints) == 1
+	if external {
+		if _, err := h5TestOrigin(strings.TrimSuffix(endpoints[0], "/v1")); err != nil || !strings.HasSuffix(endpoints[0], "/v1") {
+			t.Fatal("真实问答仅接受原试跑的回环出口")
+		}
+		m.Endpoint = config.AILocalExecutionModel{Name: "本次真实问答桥", BaseURL: endpoints[0], Model: os.Getenv("TM_TEST_AI_REPORT_MODEL"), TimeoutMS: 20000}
+	}
 	direct, err := provider.NewDirect(m.ProviderConfig(), true)
 	if err != nil {
 		t.Fatal(err)
@@ -129,12 +146,14 @@ func prepareLocalProcessQA(t *testing.T, f *localPublicationFixture, dsn string)
 	if err := os.WriteFile(path, raw, 0600); err != nil {
 		t.Fatal(err)
 	}
-	return &localProcessQA{path, c, upstream}
+	return &localProcessQA{path: path, file: c, server: upstream, external: external}
 }
 func verifyLocalProcessQA(t *testing.T, f *localPublicationFixture, q *localProcessQA, client *http.Client, base, root string, taskID int64, tokens []string) {
 	t.Helper()
 	e := f.env
 	before := e.queryInt(`SELECT COUNT(*) FROM tm_points_txns`)
+	beforeAgent, beforeModel := e.submits.Load(), len(e.server.Requests())
+	beforeTasks := e.queryInt(`SELECT COUNT(*) FROM tm_ai_tasks`)
 	call := func(method, path, key, token, body string, want int) json.RawMessage {
 		t.Helper()
 		r, err := http.NewRequestWithContext(e.ctx, method, base+path, strings.NewReader(body))
@@ -150,13 +169,23 @@ func verifyLocalProcessQA(t *testing.T, f *localPublicationFixture, q *localProc
 		if body != "" {
 			r.Header.Set("Content-Type", "application/json")
 		}
-		res, err := client.Do(r)
+		// 与前端MemberApi.aiQuestion一致：提交28秒、读取10秒；服务端及模型期限不变。
+		qaClient := *client
+		qaClient.Timeout = 10 * time.Second
+		if method == http.MethodPost {
+			qaClient.Timeout = 28 * time.Second
+		}
+		started := time.Now()
+		res, err := qaClient.Do(r)
 		if err != nil {
-			t.Fatal("实际问答HTTP请求失败")
+			var network net.Error
+			// 只保留固定分类与相对路由，不能输出含凭据的请求或原始网络错误。
+			t.Fatalf("实际问答HTTP请求失败：method=%s path=%s deadline=%t canceled=%t network_timeout=%t fixture_canceled=%t elapsed_ms=%d mock_qa_calls=%d", method, path, errors.Is(err, context.DeadlineExceeded), errors.Is(err, context.Canceled), errors.As(err, &network) && network.Timeout(), e.ctx.Err() != nil, time.Since(started).Milliseconds(), q.server.Count())
 		}
 		defer res.Body.Close()
 		raw, err := io.ReadAll(io.LimitReader(res.Body, 65537))
 		if err != nil || len(raw) > 65536 || res.StatusCode != want {
+			t.Logf("原问答失败审计：requests=%d calls=%d reserved=%d invalid_metadata=%d invalid_protocol=%d failed=%d", e.queryInt(`SELECT COUNT(*) FROM tm_ai_qa_requests`), e.queryInt(`SELECT COUNT(*) FROM tm_ai_qa_calls`), e.queryInt(`SELECT COUNT(*) FROM tm_ai_qa_calls WHERE state='reserved'`), e.queryInt(`SELECT COUNT(*) FROM tm_ai_qa_calls WHERE JSON_UNQUOTE(JSON_EXTRACT(result_json,'$.Failure'))='invalid_metadata'`), e.queryInt(`SELECT COUNT(*) FROM tm_ai_qa_calls WHERE JSON_UNQUOTE(JSON_EXTRACT(result_json,'$.Failure'))='invalid_protocol'`), e.queryInt(`SELECT COUNT(*) FROM tm_ai_qa_requests WHERE state='failed'`))
 			t.Fatalf("问答HTTP不符：%s %s got=%d want=%d", method, path, res.StatusCode, want)
 		}
 		if res.Header.Get("Cache-Control") != "no-store" {
@@ -177,7 +206,7 @@ func verifyLocalProcessQA(t *testing.T, f *localPublicationFixture, q *localProc
 		return envelope.Data
 	}
 	for i, skill := range []string{"material_qa", "report_qa"} {
-		body := fmt.Sprintf(`{"version":%d,"subjectType":"theme","subjectId":1,"skill":"%s","question":"示例题材资料记载什么？"`, i+2, skill)
+		body := fmt.Sprintf(`{"version":%d,"subjectType":"theme","subjectId":1,"skill":"%s","question":"所选资料的主题是什么？"`, i+2, skill)
 		if skill == "report_qa" {
 			body += fmt.Sprintf(`,"taskId":%d`, taskID)
 		}
@@ -185,12 +214,12 @@ func verifyLocalProcessQA(t *testing.T, f *localPublicationFixture, q *localProc
 		key := fmt.Sprintf("local_process_qa_question_%d", i)
 		var status dto.AIQAStatus
 		if json.Unmarshal(call("POST", root+"/questions", key, tokens[0], body, 200), &status) != nil || status.State != "answered" || status.Seq != int64(i+2) {
-			t.Fatal("实际问答未交付")
+			t.Fatalf("实际问答未交付：skill=%s answered=%t refused=%t failed=%t seq=%d", skill, status.State == "answered", status.State == "refused", status.State == "failed", status.Seq)
 		}
 		call("POST", root+"/questions", key, tokens[0], body, 200)
 		path := fmt.Sprintf("%s/questions/%d/answer", root, status.Seq)
 		var answer dto.AIQAAnswer
-		if json.Unmarshal(call("GET", path, "", tokens[0], "", 200), &answer) != nil || len(answer.Quotes) != 1 || answer.Template == "" || !answer.AIGenerated {
+		if json.Unmarshal(call("GET", path, "", tokens[0], "", 200), &answer) != nil || len(answer.Quotes) < 1 || len(answer.Quotes) > 4 || answer.Template == "" || !answer.AIGenerated {
 			t.Fatal("实际问答缺逐字引文或模板")
 		}
 		call("GET", path, "", tokens[0], "", 200)
@@ -231,8 +260,50 @@ func verifyLocalProcessQA(t *testing.T, f *localPublicationFixture, q *localProc
 		t.Fatal("无证据未固定拒答")
 	}
 	e.mustExec(`UPDATE tm_ai_qa_scopes SET evidence_json=?,version=version+1,updated_at=UTC_TIMESTAMP(3)`, originalEvidence)
-	if q.server.Count() != 6 || e.queryInt(`SELECT COUNT(*) FROM tm_ai_qa_calls`) != 6 || e.queryInt(`SELECT COUNT(*) FROM tm_ai_qa_requests`) != 3 || e.queryInt(`SELECT COUNT(*) FROM tm_points_txns`) != before || len(e.server.Requests()) != 3 || e.submits.Load() != 1 {
+	if q.external {
+		// 导出前沿原会员接口重新读取两题的全部候选和调用；不复用撤权前缓存。
+		rows := make([]dto.AIQAEvidence, 0, 2)
+		for _, seq := range []int64{2, 3} {
+			var evidence dto.AIQAEvidence
+			path := fmt.Sprintf("%s/questions/%d/evidence", root, seq)
+			if json.Unmarshal(call("GET", path, "", tokens[0], "", 200), &evidence) != nil || evidence.Seq != seq || len(evidence.Calls) != 3 {
+				t.Fatal("导出前原问答当前权限复读失败")
+			}
+			rows = append(rows, evidence)
+		}
+		output := os.Getenv("TM_TEST_AI_FOLLOWUP_OUTPUT")
+		info, err := os.Lstat(output)
+		if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || filepath.Dir(output) != os.TempDir() || !regexp.MustCompile(`^tm-stock-tradingcn-live-[A-Za-z0-9]{6}$`).MatchString(filepath.Base(output)) {
+			t.Fatal("联合试跑证据仅能写入本次独占临时目录")
+		}
+		raw, err := json.MarshalIndent(struct {
+			Classification string             `json:"classification"`
+			TaskID         int64              `json:"taskId"`
+			ReadAtMS       int64              `json:"readAtMs"`
+			Evidence       []dto.AIQAEvidence `json:"evidence"`
+		}{"synthetic-live-current-read-evidence-not-human-gold", taskID, time.Now().UnixMilli(), rows}, "", "  ")
+		if err != nil {
+			t.Fatal("联合问答证据编码失败")
+		}
+		file, err := os.OpenFile(filepath.Join(output, "followup-api-evidence.json"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+		if err != nil {
+			t.Fatal("联合问答证据不允许覆盖或写入失败")
+		}
+		_, writeErr := file.Write(raw)
+		closeErr := file.Close()
+		if writeErr != nil || closeErr != nil {
+			t.Fatal("联合问答证据未确认落盘")
+		}
+	}
+	wantMockQA := 6
+	if q.external {
+		wantMockQA = 0
+	}
+	if q.server.Count() != wantMockQA || e.queryInt(`SELECT COUNT(*) FROM tm_ai_qa_calls`) != 6 || e.queryInt(`SELECT COUNT(*) FROM tm_ai_qa_requests`) != 3 || e.queryInt(`SELECT COUNT(*) FROM tm_points_txns`) != before || len(e.server.Requests()) != beforeModel || e.submits.Load() != beforeAgent || e.queryInt(`SELECT COUNT(*) FROM tm_ai_tasks`) != beforeTasks {
 		t.Fatal("问答重放增加调用、记录或改账")
+	}
+	if q.wire && !q.external {
+		verifyFollowupWire(t, q.server.Requests())
 	}
 	q.file.Revision = "withdrawn"
 	raw, err := json.Marshal(q.file)
@@ -244,10 +315,45 @@ func verifyLocalProcessQA(t *testing.T, f *localPublicationFixture, q *localProc
 	}
 	call("GET", root+"/questions/2/answer", "", tokens[0], "", 503)
 	call("GET", root+"/questions/3/answer", "", tokens[0], "", 503)
-	if q.server.Count() != 6 {
+	if q.server.Count() != wantMockQA {
 		t.Fatal("配置撤回引发额外调用")
 	}
 	call("GET", root+"/questions/2/evidence", "", tokens[0], "", 503)
 	call("GET", root+"/questions/3/evidence", "", tokens[0], "", 503)
-	t.Log("实际API资料问答/报告追问、原存证复读、越权与本地配置撤回拒读通过；回环模型六次、无新增任务/积分流水")
+	if q.external {
+		t.Log("TM_STOCK_LIVE_QA_FOLLOWUP_VERIFIED")
+	} else {
+		t.Log("实际API资料问答/报告追问、原存证复读、越权与本地配置撤回拒读通过；回环模型六次、无新增任务/积分流水")
+	}
+}
+
+// 共享协议样例来自原API真实发送的合成HTTP字节，不是人工质量金标。
+func verifyFollowupWire(t *testing.T, recorded []providertest.Recorded) {
+	t.Helper()
+	requests := make([]json.RawMessage, 0, len(recorded))
+	for _, row := range recorded {
+		if row.AuthDigest != "" || !json.Valid(row.Body) {
+			t.Fatal("问答协议样例含凭据或无效正文")
+		}
+		requests = append(requests, json.RawMessage(row.Body))
+	}
+	expected, err := os.ReadFile(filepath.Join("..", "..", "..", "eval", "agents", "local-followup-wire.json"))
+	var fixture []json.RawMessage
+	if err != nil || json.Unmarshal(expected, &fixture) != nil || len(fixture) != 6 || len(requests) != len(fixture) {
+		t.Fatal("原Go问答协议样例缺失或不完整")
+	}
+	for i, row := range requests {
+		var got, want any
+		if json.Unmarshal(row, &got) != nil || json.Unmarshal(fixture[i], &want) != nil || !reflect.DeepEqual(got, want) {
+			// 失败时保留实际合成请求供跨语言复核；不自动更新样例或把采集记作通过。
+			capture, err := os.MkdirTemp("", "tm-stock-qa-wire-mismatch-")
+			if err == nil {
+				raw, encodeErr := json.Marshal(requests)
+				if encodeErr == nil && os.WriteFile(filepath.Join(capture, "requests.json"), raw, 0600) == nil {
+					t.Logf("实际合成问答协议已隔离保存：%s", capture)
+				}
+			}
+			t.Fatalf("原Go实际问答HTTP请求与共同样例不符：step=%d", i+1)
+		}
+	}
 }

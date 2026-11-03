@@ -23,6 +23,10 @@ func TestIntegrationAIReportLocalAPIWorkerLive(t *testing.T) {
 		t.Fatal("HTTP根组不接受浏览器范围标记")
 	}
 	api, worker, login := buildLocalReportBinaries(t)
+	if os.Getenv("TM_TEST_AI_LIVE_FOLLOWUP") == "report-followup-feedback-v1" {
+		scenario.qa, scenario.liveFollowup = true, true
+		scenario.feedbackAdmin = buildLocalFeedbackAdmin(t)
+	}
 	kind := 1
 	if depth == "deep" {
 		kind = 2
@@ -35,6 +39,26 @@ func TestIntegrationAIReportLocalAPIWorkerLive(t *testing.T) {
 	if scenario.comparison {
 		t.Log("TM_STOCK_LIVE_SEVEN_STEP_VERIFIED")
 	}
+	if scenario.liveFollowup {
+		t.Log("TM_STOCK_LIVE_FOLLOWUP_FEEDBACK_VERIFIED")
+	}
+}
+
+// 仅问答实调：报告和Agent为合成替身，不能当作完整真实多Agent成功证据。
+func TestIntegrationAIReportFollowupQALive(t *testing.T) {
+	if os.Getenv("TM_TEST_DSN") == "" || os.Getenv("TM_TEST_AI_LIVE") != "local-fixture-only" || os.Getenv("TM_TEST_AI_QA_ONLY") != "local-fixture-only" || flag.Lookup("test.count").Value.String() != "1" || flag.Lookup("test.run").Value.String() != "^TestIntegrationAIReportFollowupQALive$" {
+		t.Fatal("仅问答实调必须独立显式单次精确入口")
+	}
+	if name := os.Getenv("TM_TEST_AI_REPORT_MODEL"); name != "deepseek-flash" && name != "qwen3.7-plus" {
+		t.Fatal("问答实调模型不在白名单")
+	}
+	api, worker, login := buildLocalReportBinaries(t)
+	verifyLocalAPIWorker(t, sql.LevelReadCommitted, 2, api, worker, login, localProcessCase{dossier: true, comparison: true, qa: true, liveFollowup: true, inputs: true, feedbackAdmin: buildLocalFeedbackAdmin(t), configure: func(t *testing.T, f *localPublicationFixture, c *config.AILocalExecution) {
+		f.spec.CheckProtocol = finalreport.PairedCheckProtocol
+		configureDossierLocalFixture(t, f, "comparison_supported")
+		c.Model.BaseURL = f.env.server.URL()
+	}})
+	t.Log("TM_STOCK_QA_ONLY_LIVE_VERIFIED")
 }
 func TestIntegrationAIReportLocalAPIWorkerLiveH5(t *testing.T) {
 	depth, scenario := liveLocalProcessCase(t, "^TestIntegrationAIReportLocalAPIWorkerLiveH5$")
@@ -65,6 +89,10 @@ func liveLocalProcessCase(t *testing.T, expectedRun string) (string, localProces
 	}
 	profile := os.Getenv("TM_TEST_AI_LIVE_REPORT_PROFILE")
 	comparison := profile == task.DossierComparisonReportProfile
+	followup := os.Getenv("TM_TEST_AI_LIVE_FOLLOWUP")
+	if followup != "" && (followup != "report-followup-feedback-v1" || !comparison || expectedRun != "^TestIntegrationAIReportLocalAPIWorkerLive$") {
+		t.Fatal("联合实跑仅接受显式七步HTTP精确入口")
+	}
 	if profile != "" && !comparison || comparison && depth != "deep" {
 		t.Fatal("真实资料对照只接受显式七步深度编排")
 	}

@@ -50,6 +50,18 @@ ai-review沿原TM_AI_ADMIN_URL及TM_AI_ADMIN_TOKEN环境变量，支持以下单
 
 产物核验沿实际chunk依赖：页入口包含来源组件与标签，共享模块包含分组枚举/校验器及固定声明，并由页入口实际导入；不能要求所有字符串均处于同一页JS文件。官方构建完成和产物依赖齐全仍不是实际页面点击证据。
 
+## 同一真实报告的追问与反馈联合验收（2026-11-04）
+
+设计13.26。常规协议回归执行verify-ai-source-native.ps1 -ReportsOnly -ReportPattern '^TestIntegrationAIReport(FollowupFeedbackProcess|LocalQAProcess|LocalFeedbackProcess|PairedCheckProcess)$' -RunCount 1，MySQL8/9串行。报告专项共20个唯一PASS，公共Go回归与原生65项另计；新联合根与RC/RR共3项须精确齐全，不接受重复、失败、跳过或缺项。联合根实际密码HTTP登录、独立API/worker、七步报告/一次结算后，沿同一会员/会话/报告执行资料问答、报告追问及独立管理进程反馈处理，复读/重放/撤权和恢复均核无额外任务、报告模型或积分流水。
+
+真实联调在已有startLocalChain和startChainVerification两端同时显式设置followup='report-followup-feedback-v1'，并保留reportProfile='dossier-comparison-report-v1'、conversation=true、analysisType='deep'、processes=true；不混用浏览器根或修改旧调用额度。仅父进程安全读取既有模型凭据；Go只接回环出口与本次输出目录。原进程确认报告/SSE后发TM_STOCK_LIVE_REPORT_READY_FOR_FOLLOWUP，网关才开放固定合成问答；资料问答/报告追问各3次、报告5次与核心调用分别计数。最终必须有TM_STOCK_LIVE_QA_FOLLOWUP_VERIFIED及TM_STOCK_LIVE_FOLLOWUP_FEEDBACK_VERIFIED、父退出0、followup_verified=true和原账本审计。失败/未知保留原任务，不盲目重跑。
+
+仅定位问答时执行node scripts/dev/tradingcn-followup-qa-live.mjs <MySQL绝对目录> <pwsh.exe绝对路径>，使用独立TestIntegrationAIReportFollowupQALive根及显式LiveAgents/QA_ONLY范围，缺标签拒绝零用例。它保留真实原密码HTTP/API/SQL/六次问答模型与反馈，但报告和Agent均为替身；qa-only-receipt.json明确分类not-full-chain，不能代替完整任务。检查qa-only-go.log、qa-only-input-events.jsonl和followup-api-evidence.json；失败保留实际已知用量，未知不补零、不自动重试。服务HTTP失败前只记原SQL调用/预约/失败分类计数，不把原响应、令牌或正文写到日志。
+
+问答JSON结构约束采用首条系统消息，保留原用户数据并给出pass/block/uncertain三类结构示例，报告翻译沿旧方式。参考[DeepSeek JSON模式说明](https://api-docs.deepseek.com/zh-cn/guides/json_mode/)（2026-11-04核验）：合法JSON仍须明确格式提示，不能代替本项目字段/配对/语义校验。私有回执只补JSON类型、空白、白名单字段名和闭集判定，额外字段、空白或未知值仍由原核拒绝；不记录自由解释、不修补响应或重试未知调用。共同协议问题为“所选资料的主题是什么？”，宽泛问题的拒答观察另保留，不能强制其通过。
+
+检查model-input-events.jsonl中11次桥接前/供应商输入及确认记录，复算两类字节摘要、闭集阶段与实际模型/用量；用followup-api-evidence.json中经原会员当前复读的两题完整候选/3次调用逐项核对实际输入。核心完整输入仍查input-audit.json及input-events.jsonl，两份日志不可互相补数。输入写盘失败须阻止发送，文件仅在本次独占临时目录新建，不能公开内部上下文或供应商Key。原QA客户端5秒不足会在第5次回环调用后取消报告追问；验收已对齐现有前端提交28秒/读取10秒，服务端/模型期限未放宽。费用无账单继续未知；这些合成资料真实模型/HTTP证据不替代真实题材、独立人工标注或H5/设备验收。
+
 ## 上游完整输入、原任务回执与会员读取（2026-11-03）
 
 设计13.26。本地计划可设置agent_input_audit=tm-stock-agent-inputs-v1，绑定执行与原输入摘要；空值保留旧配置编码，未知协议拒绝。新结果必须有完整input_audit，未知字段/别名/缺节点/重复ID/模型不符/未知用量均拒绝，不删审计降级。原256KiB线索上限不变，私有审计另限2MiB且整份隔离结果仍限4MiB。检查原结果摘要仍绑定完整隔离正文，而后续选择器只接剥离审计后的线索。
@@ -58,7 +70,7 @@ ai-review沿原TM_AI_ADMIN_URL及TM_AI_ADMIN_TOKEN环境变量，支持以下单
 
 真库专项verify-ai-source-native.ps1 -ReportsOnly -ReportPattern '^TestIntegrationAIReportAgentInputs(Delegation)?Process$' -RunCount 1在MySQL8/9串行执行，原根及两隔离子节点加声明委派根共4个唯一报告PASS。原密码HTTP登录→独立API/worker→原报告终检/一次开发结算后，调用GET tasks/{id}/report/inputs；委派根须返回15条含该委派的合成调用。重复读取、跨账号、无令牌、撤回来源及Agent表SELECT、恢复均核无额外任务/积分/模型副作用。API账号仅新增tm_ai_agent_runs/events的SELECT，不加Agent写权限；原任务第一步实际回执须与当前隔离记录的请求/远端/模型配置/结果摘要相同。父脚本另有公共Go回归与原生65项，不将4个专项节点当全父流程数量。
 
-原报告页“上游调用记录”按需挂载，复用红白TMUI，默认不请求；重查先清旧内容，换任务/报告/章节/账号及卸载清空，迟到响应不回填。声明的合成包与各调用完整输入分开说明，完整内部上下文不公开。组件宿主脚本verify-ai-qa-ui.cjs检查闭集实际类型和状态隔离；HBuilderX整包与实际浏览器/设备另记。53项网关/异步桥/正式问答无网络自测进入harness/CI，不把它们算作真实模型结果。
+原报告页“上游调用记录”按需挂载，复用红白TMUI，默认不请求；重查先清旧内容，换任务/报告/章节/账号及卸载清空，迟到响应不回填。声明的合成包与各调用完整输入分开说明，完整内部上下文不公开。组件宿主脚本verify-ai-qa-ui.cjs检查闭集实际类型和状态隔离；HBuilderX整包与实际浏览器/设备另记。含联合问答、原Go请求和结构翻译样例的63项网关/异步桥/正式问答无网络自测进入harness/CI，不把它们算作真实模型结果。
 
 固定51060a7原图须核十四主节点及research_manager_v2唯一声明的chip_distribution_analyst_v2委派；实际执行可多次调用同一节点，每次UUID/请求/用量都须对应，委派不能补足缺失主节点。原工厂拒绝未声明节点，任一实际尝试失败都不得标verified。标准库python3 -B scripts/dev/verify-tradingcn-live_test.py独立检查原图和完整调用守卫，不导入上游或联网；本机harness可通过TM_STOCK_PYTHON指定已有Python3解释器，不用跳过检查。
 

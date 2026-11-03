@@ -279,6 +279,7 @@ type localProcessCase struct {
 	feedbackAdmin         string
 	feedbackBrowserRunner string
 	qa                    bool
+	liveFollowup          bool
 	inputs                bool
 	delegatedInputs       bool // 固定声明委派的隔离输入，沿原API/worker及当前授权读取。
 }
@@ -380,7 +381,12 @@ func verifyLocalAPIWorker(t *testing.T, level sql.IsolationLevel, kind int, api,
 	}
 	var qaFixture *localProcessQA
 	if len(cases) == 1 && cases[0].qa {
-		qaFixture = prepareLocalProcessQA(t, f, dsn)
+		if cases[0].liveFollowup {
+			qaFixture = prepareLocalProcessQA(t, f, dsn, os.Getenv("TM_TEST_AI_MODEL_URL"))
+		} else {
+			qaFixture = prepareLocalProcessQA(t, f, dsn)
+		}
+		qaFixture.wire = cases[0].comparison
 	}
 	qaPath := ""
 	if qaFixture != nil {
@@ -659,6 +665,9 @@ func verifyLocalAPIWorker(t *testing.T, level sql.IsolationLevel, kind int, api,
 		}
 	}
 	if feedbackPeer != nil {
+		if external && len(cases) == 1 && cases[0].liveFollowup {
+			t.Log("TM_STOCK_LIVE_REPORT_READY_FOR_FOLLOWUP")
+		}
 		verifyLocalFeedbackProcess(t, f, feedbackPeer, client, base, taskPath, tokens)
 	}
 	// 重放与重读完成后，让两个队列再扫描两轮，检查原进程不会再提交或扣分。
@@ -694,10 +703,11 @@ func verifyLocalAPIWorker(t *testing.T, level sql.IsolationLevel, kind int, api,
 	if e.submits.Load() != wantAgent || len(e.server.Requests()) != wantModel || e.queryInt(`SELECT COUNT(*) FROM tm_ai_report_commits`) != 1 || e.queryInt(`SELECT COUNT(*) FROM tm_points_txns WHERE kind='settle'`) != 1 || e.queryInt(`SELECT COUNT(*) FROM tm_ai_report_call_audits`) != wantAudits || e.queryInt(`SELECT COUNT(*) FROM tm_points_accounts WHERE user_id=2`) != 0 {
 		t.Fatal("实际API和worker闭环重复调用、结算或污染其它会员")
 	}
-	requirePointAudit(t, e.pointsTestEnv, e.ledger)
 	if qaFixture != nil {
 		verifyLocalProcessQA(t, f, qaFixture, client, base, root, linked.TaskID, tokens)
 	}
+	balance(60-price, 0)
+	requirePointAudit(t, e.pointsTestEnv, e.ledger)
 	if len(cases) == 1 && cases[0].feedbackBrowserRunner != "" {
 		if feedbackPeer == nil {
 			t.Fatal("缺少本轮实际管理进程")
@@ -711,6 +721,8 @@ func verifyLocalAPIWorker(t *testing.T, level sql.IsolationLevel, kind int, api,
 	bridge.finishAs(t, e.ctx, false)
 	if external {
 		t.Log("TM_STOCK_LIVE_PROCESS_HTTP_VERIFIED")
+	} else if qaFixture != nil && qaFixture.external {
+		t.Log("原API/worker报告与Agent为回环替身，问答真实Provider单独验收；不是完整真实多Agent或浏览器证据")
 	} else {
 		t.Log("实际API→会话意图→队列worker→报告终检→一次结算及SSE恢复通过；回环替身，非浏览器/真实模型")
 	}

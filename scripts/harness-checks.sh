@@ -133,7 +133,7 @@ if [ -f pages.json ]; then
   # 校验 pages.json 是否合法 JSON（uni-app x 无 CLI lint，这是能自动做的最有价值检查）
   if command -v node >/dev/null 2>&1; then
     run_selftest "资料研究离线评测工具（非真实模型质量）" node scripts/dev/verify-research-eval.cjs
-    run_selftest "Agent本地评估网关与异步桥（无真实调用）" node --test scripts/dev/tradingcn-live-gateway.test.mjs scripts/dev/tradingcn-local-chain.test.mjs scripts/dev/official-materials-qa-live.test.mjs
+    run_selftest "Agent本地评估网关与异步桥（无真实调用）" node --test scripts/dev/tradingcn-live-gateway.test.mjs scripts/dev/tradingcn-local-chain.test.mjs scripts/dev/tradingcn-followup.test.mjs scripts/dev/official-materials-qa-live.test.mjs
     agent_python="${TM_STOCK_PYTHON:-python3}"
     if command -v "$agent_python" >/dev/null 2>&1; then
       run_selftest "原Agent图与委派完整性（标准库、无真实调用）" "$agent_python" -B scripts/dev/verify-tradingcn-live_test.py
