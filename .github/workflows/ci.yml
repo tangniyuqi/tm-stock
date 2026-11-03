@@ -130,7 +130,8 @@ jobs:
           # 专题当前引用来源关系投影新增1根10子节点。
           # 专题管理协议、装配、服务、HTTP与CLI新增9根125子节点。
           # 明确更正声明协议、服务、身份、HTTP、配置和CLI新增8根125子节点。
-          MIN=2605
+          # 固定上游声明委派补充8个闭集/完整覆盖反例节点。
+          MIN=2613
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项测试，低于下限 $MIN —— 要么测试没被执行，要么有测试被删。"
             exit 1
@@ -464,6 +465,14 @@ jobs:
             'TestAgentInputAuditClosedEvidence/messages' \
             'TestAgentInputAuditClosedEvidence/fixture' \
             'TestAgentInputAuditClosedEvidence/fixture_digest' \
+            'TestAgentInputAuditClosedEvidence/delegated_valid' \
+            'TestAgentInputAuditClosedEvidence/delegated_repeat' \
+            'TestAgentInputAuditClosedEvidence/delegated_substitution' \
+            'TestAgentInputAuditClosedEvidence/delegated_unknown' \
+            'TestAgentInputAuditClosedEvidence/delegated_unconfirmed' \
+            'TestAgentInputAuditClosedEvidence/delegated_identity' \
+            'TestAgentInputAuditClosedEvidence/delegated_sequence' \
+            'TestAgentInputAuditClosedEvidence/delegated_digest' \
             'TestAgentInputAuditResultProjection' \
             'TestAgentInputAuditResultProjection/valid' \
             'TestAgentInputAuditResultProjection/legacy' \
@@ -1849,12 +1858,13 @@ jobs:
           # 正式资料问答装配真库门禁结束
 
           # 原Agent完整输入真库门禁开始
-          AGENT_INPUT_SQL_ACTUAL=$(sed -nE 's/^[[:space:]]*--- PASS: (TestIntegrationAIReportAgentInputsProcess[^ ]*) .*/\1/p' /tmp/it.log | LC_ALL=C sort)
+          AGENT_INPUT_SQL_ACTUAL=$(sed -nE 's/^[[:space:]]*--- PASS: (TestIntegrationAIReportAgentInputs(Delegation)?Process[^ ]*) .*/\1/p' /tmp/it.log | LC_ALL=C sort)
           AGENT_INPUT_SQL_EXPECTED=$(printf '%s\n' \
             'TestIntegrationAIReportAgentInputsProcess' \
+            'TestIntegrationAIReportAgentInputsDelegationProcess' \
             'TestIntegrationAIReportAgentInputsProcess/Read_Committed' \
             'TestIntegrationAIReportAgentInputsProcess/Repeatable_Read' | LC_ALL=C sort)
-          if [ "$AGENT_INPUT_SQL_ACTUAL" != "$AGENT_INPUT_SQL_EXPECTED" ] || grep -Eq '^[[:space:]]*--- (FAIL|SKIP): TestIntegrationAIReportAgentInputsProcess' /tmp/it.log; then
+          if [ "$AGENT_INPUT_SQL_ACTUAL" != "$AGENT_INPUT_SQL_EXPECTED" ] || grep -Eq '^[[:space:]]*--- (FAIL|SKIP): TestIntegrationAIReportAgentInputs(Delegation)?Process' /tmp/it.log; then
             echo '::error::原Agent完整输入的原登录/API/只读权限/来源撤回/账本无副作用验收缺失、重复、失败或跳过'; exit 1
           fi
           # 原Agent完整输入真库门禁结束
@@ -2208,7 +2218,8 @@ jobs:
           # 原专题进程增加来源及第二版读取许可撤回恢复1子节点。
           # 专题管理独立进程新增1根9子节点，含原登录/受限账号/撤回与回滚。
           # 明确更正声明原登录/独立会员API与管理进程新增1根7子节点。
-          MIN=1804
+          # 固定研究经理委派完整输入沿原登录/API/worker读取新增1根。
+          MIN=1805
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项，低于下限 $MIN —— 要么没跑，要么有测试被删。"; exit 1
           fi
@@ -2272,6 +2283,9 @@ jobs:
 
       - name: Agent本地评估网关守卫（无Key、无网络、无付费调用）
         run: node --test scripts/dev/tradingcn-live-gateway.test.mjs scripts/dev/tradingcn-local-chain.test.mjs scripts/dev/official-materials-qa-live.test.mjs
+
+      - name: 原Agent图与委派完整性守卫（标准库、无上游导入或模型调用）
+        run: python3 -B scripts/dev/verify-tradingcn-live_test.py
 
       - name: 会员报告与依据展示源码测试（不替代HBuilderX）
         run: |

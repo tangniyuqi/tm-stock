@@ -15,10 +15,10 @@ export const isAIReportInputs = (v : AIReportInputs | null, taskId : number, sub
 	let seen : string[] = [] as string[]
 	for (const call of v.calls) {
 		seq++
-		if (call == null || typeof call != 'object' || Array.isArray(call) || !keys(Object.keys(call),['seq','node','model','state','requestDigest','promptDigest','inputTokens','outputTokens','costMicros']) || !isSafeAIId(call.seq) || call.seq != seq || !nodes.includes(call.node) || typeof call.model != 'string' || call.model != (v.provider == 'deepseek' ? 'deepseek-flash' : 'qwen3.7-plus') || typeof call.state != 'string' || call.state != 'confirmed' || !digest(call.requestDigest) || !digest(call.promptDigest) || !isSafeAIInteger(call.inputTokens) || !isSafeAIInteger(call.outputTokens) || call.costMicros !== null) return false
+		if (call == null || typeof call != 'object' || Array.isArray(call) || !keys(Object.keys(call),['seq','node','model','state','requestDigest','promptDigest','inputTokens','outputTokens','costMicros']) || !isSafeAIId(call.seq) || call.seq != seq || typeof call.node != 'string' || (!nodes.includes(call.node) && call.node != 'chip_distribution_analyst_v2') || typeof call.model != 'string' || call.model != (v.provider == 'deepseek' ? 'deepseek-flash' : 'qwen3.7-plus') || typeof call.state != 'string' || call.state != 'confirmed' || !digest(call.requestDigest) || !digest(call.promptDigest) || !isSafeAIInteger(call.inputTokens) || !isSafeAIInteger(call.outputTokens) || call.costMicros !== null) return false
 		if (!seen.includes(call.node)) seen.push(call.node)
 	}
-	return seen.length == nodes.length
+	return nodes.every((node : string) : boolean => seen.includes(node))
 }
 export const readAIReportInputs = async (taskId : number, subjectId : number) : Promise<MemberApiResult<AIReportInputs>> => {
 	if (!isSafeAIId(taskId) || !isSafeAIId(subjectId)) return {code:40001,message:'记录编号无效',data:null} as MemberApiResult<AIReportInputs>

@@ -15,6 +15,45 @@ import contextvars
 import uuid
 
 
+REQUIRED_INPUT_AGENTS = frozenset({
+    "bear_researcher_v2", "bull_researcher_v2", "fundamentals_analyst_v2",
+    "index_analyst_v2", "market_analyst_v2", "neutral_analyst_v2",
+    "news_analyst_v2", "research_manager_v2", "risk_manager_v2",
+    "risky_analyst_v2", "safe_analyst_v2", "sector_analyst_v2",
+    "social_analyst_v2", "trader_v2",
+})
+ALLOWED_INPUT_AGENTS = REQUIRED_INPUT_AGENTS | {"chip_distribution_analyst_v2"}
+
+
+def evaluation_plan_valid(nodes):
+    """只接受固定原图及研究经理声明的唯一委派，不修改原编排。"""
+    required = {node.id for node in nodes if node.agent_id}
+    if required != REQUIRED_INPUT_AGENTS or any(node.agent_id and node.id != node.agent_id for node in nodes):
+        return False
+    if any(not isinstance(node.config, dict) for node in nodes):
+        return False
+    delegated = {node.id: node.config["delegated_agent_ids"] for node in nodes if "delegated_agent_ids" in node.config}
+    return delegated == {"research_manager_v2": ["chip_distribution_analyst_v2"]}
+
+
+def evaluation_calls_complete(calls, node_errors):
+    """上游可能吞掉委派异常；任一实际调用失败都不能通过完整验收。"""
+    if node_errors or not isinstance(calls, list) or not 14 <= len(calls) <= 128:
+        return False
+    seen, identities = set(), set()
+    for call in calls:
+        if not isinstance(call, dict) or set(call) != {"node", "call_id", "success"}:
+            return False
+        node, identity = call["node"], call["call_id"]
+        if not isinstance(node, str) or node not in ALLOWED_INPUT_AGENTS or call["success"] is not True:
+            return False
+        if not isinstance(identity, str) or len(identity) != 32 or any(c not in "0123456789abcdef" for c in identity) or identity in identities:
+            return False
+        seen.add(node)
+        identities.add(identity)
+    return REQUIRED_INPUT_AGENTS.issubset(seen)
+
+
 def main():
     options = json.load(sys.stdin)
     root = Path(options["source"]).resolve(strict=True)
@@ -125,6 +164,8 @@ def main():
     factory_instances = []
 
     def observed_create(self, agent_id, config=None, llm=None, tool_ids=None, memory=None, **overrides):
+        if agent_id not in ALLOWED_INPUT_AGENTS:
+            raise RuntimeError("原工厂尝试创建未声明的评估Agent")
         if isinstance(llm, TrackedDeepSeek):
             llm = llm.model_copy(update={"evaluation_node": agent_id})
         agent = original_create(self, agent_id, config, llm=llm, tool_ids=tool_ids, memory=memory, **overrides)
@@ -184,6 +225,8 @@ def main():
         thinking={"type": "disabled"}, cache=False,
     )
     definition = V2_STOCK_ANALYSIS_WORKFLOW.model_copy(deep=True)
+    if not evaluation_plan_valid(definition.nodes):
+        raise RuntimeError("固定V2主节点或委派声明不匹配，禁止执行")
     engine = WorkflowEngine(
         legacy_config={"memory_enabled": False, "online_tools": False}, llm=llm,
     )
@@ -198,7 +241,7 @@ def main():
     mismatches = {agent_id: getattr(agent._llm, "evaluation_node", None) for agent_id, agent in factory_instances if getattr(agent._llm, "evaluation_node", None) != agent_id}
     if not factory_instances or mismatches:
         raise RuntimeError("未覆盖原工厂全部执行实例，不得启动真实评估: " + json.dumps(mismatches))
-    summary = {"scope": "upstream_v2_core_fixture_evaluation", "agents": classes, "factory_instances": len(factory_instances), "executed": False}
+    summary = {"scope": "upstream_v2_core_fixture_evaluation", "agents": classes, "factory_instances": len(factory_instances), "executed": False, "verified": False}
     try:
         if execute:
             inputs = {
@@ -213,8 +256,8 @@ def main():
             seen = {call["node"] for call in calls if call["success"]}
             missing = sorted(required - seen)
             summary.update(executed=True, model_calls=len(calls), tool_calls=len(tools), node_model_calls=calls, missing_agents=missing)
-            if missing or result.get("_node_errors"):
-                raise RuntimeError("存在未实调模型或失败的Agent: " + ",".join(missing))
+            if not evaluation_calls_complete(calls, result.get("_node_errors")):
+                raise RuntimeError("存在缺失、失败或未声明的Agent调用，不得标记完整成功")
         summary["verified"] = True
         print("TM_TRADINGCN_EVAL=" + json.dumps(summary, ensure_ascii=False), flush=True)
     finally:

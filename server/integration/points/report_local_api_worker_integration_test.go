@@ -280,6 +280,7 @@ type localProcessCase struct {
 	feedbackBrowserRunner string
 	qa                    bool
 	inputs                bool
+	delegatedInputs       bool // 固定声明委派的隔离输入，沿原API/worker及当前授权读取。
 }
 
 func verifyLocalAPIWorker(t *testing.T, level sql.IsolationLevel, kind int, api, worker, login string, cases ...localProcessCase) {
@@ -298,6 +299,19 @@ func verifyLocalAPIWorker(t *testing.T, level sql.IsolationLevel, kind int, api,
 		raw, err := os.ReadFile(filepath.Join("..", "..", "..", "eval", "agents", "inputs-synthetic-protocol.json"))
 		if err != nil {
 			t.Fatal(err)
+		}
+		if cases[0].delegatedInputs {
+			var audit agents.InputAudit
+			if json.Unmarshal(raw, &audit) != nil || len(audit.Calls) != 14 {
+				t.Fatal("委派输入夹具原协议无效")
+			}
+			call := audit.Calls[0]
+			call.Seq, call.Node, call.CallID = 15, "chip_distribution_analyst_v2", strings.Repeat("f", 32)
+			audit.Calls = append(audit.Calls, call)
+			raw, err = json.Marshal(audit)
+			if err != nil {
+				t.Fatal("委派输入夹具编码失败")
+			}
 		}
 		e.agentInputs.Store(raw)
 	}
@@ -501,6 +515,15 @@ func verifyLocalAPIWorker(t *testing.T, level sql.IsolationLevel, kind int, api,
 			if err != nil {
 				t.Fatal("失败任务状态读取失败；不重提")
 			}
+			// 原夹具清理会删除随机账本库；先留下闭集拒绝原因，不输出模型正文。
+			var reason, entailment, semantic string
+			if err := e.conn.QueryRowContext(e.ctx, `SELECT reason,entailment,semantic FROM tm_ai_report_commits WHERE task_id=? AND user_id=1`, linked.TaskID).Scan(&reason, &entailment, &semantic); err == nil &&
+				strings.Contains("|structure|evidence|entailment|semantic|", "|"+reason+"|") &&
+				strings.Contains("|pass|block|uncertain|", "|"+entailment+"|") && strings.Contains("|pass|block|uncertain|", "|"+semantic+"|") {
+				t.Logf("终检拒绝收据：reason=%s entailment=%s semantic=%s", reason, entailment, semantic)
+			} else {
+				t.Log("未取得闭集终检拒绝收据；不能推测模型判定原因")
+			}
 			t.Fatalf("实际任务未交付：status=%d step=%d code=%s frozen=%d reports=%d settle=%d；不重提", v.Status, stored.CurrentStep, stored.ErrorCode, e.queryInt(`SELECT frozen FROM tm_points_accounts WHERE user_id=1`), e.queryInt(`SELECT COUNT(*) FROM tm_ai_report_commits`), e.queryInt(`SELECT COUNT(*) FROM tm_points_txns WHERE kind='settle'`))
 		}
 		select {
@@ -548,7 +571,7 @@ func verifyLocalAPIWorker(t *testing.T, level sql.IsolationLevel, kind int, api,
 			t.Fatal("深度报告少于六引文")
 		}
 	}
-	verifyLocalReportInputs(t, f, client, base, taskPath, dsn, tokens, len(cases) == 1 && (cases[0].inputs || external))
+	verifyLocalReportInputs(t, f, client, base, taskPath, dsn, tokens, len(cases) == 1 && (cases[0].inputs || external), len(cases) == 1 && cases[0].delegatedInputs)
 	if v := call("POST", intent+"/confirm", tokens[0], "", `{"confirmed":true}`, 200); v.TaskID != linked.TaskID || v.MessageSeq != 1 {
 		t.Fatal("成功后确认重放另建任务")
 	}

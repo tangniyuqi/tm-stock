@@ -42,6 +42,24 @@ test('上游输入只接完整原工厂和实际网关调用的一一对应', as
   for(const edit of[x=>{x.execute=false},x=>{x.child='running'},x=>{x.unknown=true},x=>{x.summary.verified=false},x=>{x.summary.executed=false},x=>{x.summary.model_calls--},x=>{x.inputCalls.pop()},x=>{x.inputCalls[0].state='response_unknown'},x=>{x.inputCalls[0].input_tokens=null},x=>{x.inputCalls[0].response_model='other'},x=>{x.inputCalls[1].call_id=x.inputCalls[0].call_id},x=>{x.summary.node_model_calls[1]=x.summary.node_model_calls[0]},x=>{x.summary.node_model_calls[0].node='other'},x=>{x.summary.node_model_calls[0].success=false}]){const x=structuredClone(state);edit(x);assert.throws(()=>evaluationInputBundle(x,f.fixture_json))}
 })
 
+test('固定研究经理委派必须完整存证，不能顶替主节点或隐藏失败', async () => {
+  const f=JSON.parse(await fs.readFile(new URL('../../eval/agents/inputs-synthetic-protocol.json',import.meta.url),'utf8'))
+  const delegated={...f.calls[0],seq:15,node:'chip_distribution_analyst_v2',call_id:'f'.repeat(32)}
+  assert.equal(evaluationInputCall({seq:15,node:delegated.node,callId:delegated.call_id,body:Buffer.from(delegated.request_json),model:delegated.model}).node,delegated.node)
+  const calls=[...f.calls,delegated]
+  const state={execute:true,child:'passed',unknown:false,route:{provider:'deepseek'},inputCalls:calls,summary:{verified:true,executed:true,model_calls:15,node_model_calls:calls.map(c=>({node:c.node,call_id:c.call_id,success:true}))}}
+  assert.equal(evaluationInputBundle(state,f.fixture_json).calls.length,15)
+  for(const edit of[
+    x=>{x.inputCalls[0].node=delegated.node;x.summary.node_model_calls[0].node=delegated.node},
+    x=>{x.inputCalls[14].node='unknown_delegate';x.summary.node_model_calls[14].node='unknown_delegate'},
+    x=>{x.summary.node_model_calls[14].success=false},
+    x=>{x.inputCalls[14].state='response_unknown'},
+    x=>{x.inputCalls[14].input_tokens=null},
+    x=>{x.inputCalls[14].call_id=x.inputCalls[0].call_id},
+    x=>{x.summary.node_model_calls.pop()},
+  ]){const changed=structuredClone(state);edit(changed);assert.throws(()=>evaluationInputBundle(changed,f.fixture_json))}
+})
+
 const valid = () => ({ execute: true, method: 'POST', url: '/v1/chat/completions',
   headers: { authorization: 'Bearer test-session', 'content-type': 'application/json' },
   session: 'test-session', requests: 0,

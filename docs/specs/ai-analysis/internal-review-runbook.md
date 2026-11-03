@@ -56,9 +56,13 @@ ai-review沿原TM_AI_ADMIN_URL及TM_AI_ADMIN_TOKEN环境变量，支持以下单
 
 父网关在实际发送前串行追加并flush输入日志input-events.jsonl，回包后追加确认元数据；网络失败/超时保留未知，不重发。结束保留input-audit-partial.json，完整成功另有不可覆盖的input-audit.json；部分档案complete=false不可当成完整证据。原工厂每次_generate的上下文UUID/节点必须与父网关实际请求一一对应，模型响应原文不入日志。归档失败先阻止成功回执，不遗留verified=true。GET /models只检验只读可达性，不能代替模型完成或恢复未知响应。
 
-真库专项verify-ai-source-native.ps1 -ReportsOnly -ReportPattern '^TestIntegrationAIReportAgentInputsProcess$' -RunCount 1在MySQL8/9串行执行，各预期一根两隔离子节点共3个唯一PASS。原密码HTTP登录→独立API/worker→原报告终检/一次开发结算后，调用GET tasks/{id}/report/inputs；重复读取、跨账号、无令牌、撤回来源及Agent表SELECT、恢复均核无额外任务/积分/模型副作用。API账号仅新增tm_ai_agent_runs/events的SELECT，不加Agent写权限；原任务第一步实际回执须与当前隔离记录的请求/远端/模型配置/结果摘要相同。
+真库专项verify-ai-source-native.ps1 -ReportsOnly -ReportPattern '^TestIntegrationAIReportAgentInputs(Delegation)?Process$' -RunCount 1在MySQL8/9串行执行，原根及两隔离子节点加声明委派根共4个唯一报告PASS。原密码HTTP登录→独立API/worker→原报告终检/一次开发结算后，调用GET tasks/{id}/report/inputs；委派根须返回15条含该委派的合成调用。重复读取、跨账号、无令牌、撤回来源及Agent表SELECT、恢复均核无额外任务/积分/模型副作用。API账号仅新增tm_ai_agent_runs/events的SELECT，不加Agent写权限；原任务第一步实际回执须与当前隔离记录的请求/远端/模型配置/结果摘要相同。父脚本另有公共Go回归与原生65项，不将4个专项节点当全父流程数量。
 
-原报告页“上游调用记录”按需挂载，复用红白TMUI，默认不请求；重查先清旧内容，换任务/报告/章节/账号及卸载清空，迟到响应不回填。声明的合成包与各调用完整输入分开说明，完整内部上下文不公开。组件宿主脚本verify-ai-qa-ui.cjs检查闭集实际类型和状态隔离；HBuilderX整包与实际浏览器/设备另记。52项网关/异步桥/正式问答无网络自测进入harness/CI，不把它们算作真实模型结果。
+原报告页“上游调用记录”按需挂载，复用红白TMUI，默认不请求；重查先清旧内容，换任务/报告/章节/账号及卸载清空，迟到响应不回填。声明的合成包与各调用完整输入分开说明，完整内部上下文不公开。组件宿主脚本verify-ai-qa-ui.cjs检查闭集实际类型和状态隔离；HBuilderX整包与实际浏览器/设备另记。53项网关/异步桥/正式问答无网络自测进入harness/CI，不把它们算作真实模型结果。
+
+固定51060a7原图须核十四主节点及research_manager_v2唯一声明的chip_distribution_analyst_v2委派；实际执行可多次调用同一节点，每次UUID/请求/用量都须对应，委派不能补足缺失主节点。原工厂拒绝未声明节点，任一实际尝试失败都不得标verified。标准库python3 -B scripts/dev/verify-tradingcn-live_test.py独立检查原图和完整调用守卫，不导入上游或联网；本机harness可通过TM_STOCK_PYTHON指定已有Python3解释器，不用跳过检查。
+
+失败原任务先核原回执与发送前日志，不重提。原生脚本保留失败实例目录不代表Go夹具随机业务库仍在：fixture_test.go的原清理会删除该库。独立进程失败路径已补在清理前输出闭集终检reason/entailment/semantic，不输出模型正文；旧失败若未记录，不推测或伪造判定细因。
 
 本轮真实复验目录tm-stock-tradingcn-live-8zFzhq保留：8次发出、6次HTTP确认、2次结果未知，ReadTimeout/APITimeoutError后停止后续发送；原任务failed、frozen=0、报告/成功结算均0，实例212f23577d0943bba58a8ddac22fb76a已停止保留。该轮失败前原输入只在内存，未取得完整输入档案，不能事后重建冒充原始证据。此后补发送前日志、部分档案及写盘失败门禁，已做无网络反例；未自动重发原任务，真实完整成功仍待独立复验。安全配置仅由父进程读取，既有被修改的上游源码保持，使用独立干净51060a7源及Python3.11.17。
 

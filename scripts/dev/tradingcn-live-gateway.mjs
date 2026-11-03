@@ -9,7 +9,9 @@ import { fileURLToPath } from 'node:url'
 import { randomBytes, createHash } from 'node:crypto'
 import { spawn, execFileSync } from 'node:child_process'
 
-const inputNodes = new Set(['bear_researcher_v2','bull_researcher_v2','fundamentals_analyst_v2','index_analyst_v2','market_analyst_v2','neutral_analyst_v2','news_analyst_v2','research_manager_v2','risk_manager_v2','risky_analyst_v2','safe_analyst_v2','sector_analyst_v2','social_analyst_v2','trader_v2'])
+const requiredInputNodes = new Set(['bear_researcher_v2','bull_researcher_v2','fundamentals_analyst_v2','index_analyst_v2','market_analyst_v2','neutral_analyst_v2','news_analyst_v2','research_manager_v2','risk_manager_v2','risky_analyst_v2','safe_analyst_v2','sector_analyst_v2','social_analyst_v2','trader_v2'])
+// 固定51060a7的研究经理显式声明此委派；并非允许任意已注册Agent。
+const inputNodes = new Set([...requiredInputNodes, 'chip_distribution_analyst_v2'])
 const digest = value => createHash('sha256').update(value).digest('hex')
 
 // 请求体为父网关真正发出的字节，不使用_generate入参猜测。完整正文只进入隔离结果。
@@ -26,9 +28,9 @@ export function evaluationInputBundle(state, fixtureJSON) {
   const calls = state.inputCalls
   const observed = state.summary?.node_model_calls
   if (state.execute !== true || state.child !== 'passed' || state.summary?.verified !== true || state.summary?.executed !== true || state.unknown || !Array.isArray(calls) || !Array.isArray(observed) || calls.length !== observed.length || state.summary.model_calls !== calls.length
-    || calls.length < inputNodes.size || calls.some(c => c.state !== 'confirmed' || c.status !== 200 || c.response_model !== c.model
+    || calls.length < requiredInputNodes.size || calls.some(c => !inputNodes.has(c.node) || c.state !== 'confirmed' || c.status !== 200 || c.response_model !== c.model
       || !Number.isSafeInteger(c.input_tokens) || c.input_tokens < 0 || !Number.isSafeInteger(c.output_tokens) || c.output_tokens < 0)
-    || new Set(calls.map(c => c.call_id)).size !== calls.length || new Set(observed.map(c => c.call_id)).size !== observed.length || new Set(calls.map(c => c.node)).size !== inputNodes.size
+    || new Set(calls.map(c => c.call_id)).size !== calls.length || new Set(observed.map(c => c.call_id)).size !== observed.length || [...requiredInputNodes].some(node => !calls.some(c => c.node === node))
     || observed.some(c => !c.success || !calls.some(w => w.call_id === c.call_id && w.node === c.node))) throw new Error('原Agent和实际网关调用无法完整对应')
   const bundle = { schema: 'tm-stock-agent-inputs-v1', scope: 'synthetic-fixture-only', upstream_commit: '51060a7682cf51810b4bc3a704829438d18cd8dc',
     provider: state.route.provider, fixture_json: fixtureJSON, fixture_digest: digest(fixtureJSON), calls }

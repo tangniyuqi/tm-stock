@@ -823,14 +823,17 @@ async function reportInputEvidence() {
   const fixture=JSON.parse(fs.readFileSync(path.join(root,'eval/agents/inputs-synthetic-protocol.json'),'utf8'));
   const value=()=>({taskId:9,subjectId:7,schema:fixture.schema,scope:fixture.scope,upstreamCommit:fixture.upstream_commit,provider:fixture.provider,fixtureDigest:fixture.fixture_digest,fixtureSubject:JSON.parse(fixture.fixture_json).subject,fixtureNotice:JSON.parse(fixture.fixture_json).notice,facts:JSON.parse(fixture.fixture_json).facts,calls:fixture.calls.map(c=>({seq:c.seq,node:c.node,model:c.model,state:c.state,requestDigest:c.request_digest,promptDigest:c.prompt_digest,inputTokens:c.input_tokens,outputTokens:c.output_tokens,costMicros:null}))});
   assert.equal(mod.isAIReportInputs(value(),9,7),true);
+  const delegated=value();delegated.calls.push({...delegated.calls[0],seq:15,node:'chip_distribution_analyst_v2'});
+  assert.equal(mod.isAIReportInputs(delegated,9,7),true);
+  for(const edit of[v=>{v.calls[0].node='chip_distribution_analyst_v2'},v=>{v.calls[14].node='unknown_delegate'},v=>{v.calls[14].node=['chip_distribution_analyst_v2']},v=>{v.calls[14].state='response_unknown'},v=>{v.calls[14].inputTokens=null}]){const v=structuredClone(delegated);edit(v);assert.equal(mod.isAIReportInputs(v,9,7),false)}
   for(const edit of[v=>{v.taskId='9'},v=>{v.subjectId=8},v=>{v.scope='real-materials'},v=>{v.schema=['tm-stock-agent-inputs-v1']},v=>{v.facts[0].text='other'},v=>{v.calls[0].seq='1'},v=>{v.calls[0].inputTokens='1'},v=>{v.calls[0].costMicros=0},v=>{v.calls[0].state='response_unknown'},v=>{v.calls[0].request_json='private'},v=>{v.calls[0].node='unknown'},v=>{v.calls.pop()},v=>{v.calls[1].node=v.calls[0].node},v=>{v.extra='private'}]){const v=value();edit(v);assert.equal(mod.isAIReportInputs(v,9,7),false)}
   for(const key of Object.keys(value())){const v=value();delete v[key];assert.equal(mod.isAIReportInputs(v,9,7),false)}
   const ui=mount(env.load('pages/ai/components/AIReportInputPanel.uvue').default,{taskId:9,subjectId:7,sessionToken:token});await flush();
   assert.equal(env.requests.length,1);let request=env.requests.shift();assert.equal(request.method,'GET');assert.ok(request.url.endsWith('/tasks/9/report/inputs'));assert.equal(request.timeout,22000);
-  env.reply(request,value());await flush();assert.ok(ui.text().includes('合成接线资料'));assert.ok(ui.text().includes('14 次已确认调用'));assert.ok(!ui.text().includes('隔离提示私有标记'));
+  env.reply(request,delegated);await flush();assert.ok(ui.text().includes('合成接线资料'));assert.ok(ui.text().includes('15 次已确认调用'));assert.ok(!ui.text().includes('隔离提示私有标记'));
   ui.click('重新核对当前记录');await flush();assert.ok(!ui.text().includes('测试设备用于处理样例数据。'));request=env.requests.shift();
   ui.updateProps({taskId:10});await flush();env.reply(request,value());await flush();assert.ok(!ui.text().includes('测试设备用于处理样例数据。'),'迟到原任务响应不得回填');
-  ui.updateProps({sessionToken:''});await flush();assert.ok(!ui.text().includes('14 次已确认调用'));ui.app.unmount();
+  ui.updateProps({sessionToken:''});await flush();assert.ok(!ui.text().includes('15 次已确认调用'));ui.app.unmount();
   assert.equal(env.requests.length,0);
   console.log('通过：上游输入闭集DTO/实际类型、限定GET/超时、同任务绑定、合成标识及换任务/账号迟到响应隔离。');
 }

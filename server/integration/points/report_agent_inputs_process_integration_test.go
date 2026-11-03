@@ -27,7 +27,15 @@ func TestIntegrationAIReportAgentInputsProcess(t *testing.T) {
 	}
 }
 
-func verifyLocalReportInputs(t *testing.T, f *localPublicationFixture, client *http.Client, base, path, dsn string, tokens []string, wantInputs bool) {
+func TestIntegrationAIReportAgentInputsDelegationProcess(t *testing.T) {
+	if os.Getenv("TM_TEST_DSN") == "" {
+		t.Skip("需要隔离MySQL")
+	}
+	api, worker, login := buildLocalReportBinaries(t)
+	verifyLocalAPIWorker(t, sql.LevelReadCommitted, 1, api, worker, login, localProcessCase{inputs: true, delegatedInputs: true})
+}
+
+func verifyLocalReportInputs(t *testing.T, f *localPublicationFixture, client *http.Client, base, path, dsn string, tokens []string, wantInputs, wantDelegation bool) {
 	t.Helper()
 	e := f.env
 	beforeTasks, beforeTxns, beforeCalls := e.queryInt(`SELECT COUNT(*) FROM tm_ai_tasks`), e.queryInt(`SELECT COUNT(*) FROM tm_points_txns`), e.queryInt(`SELECT COUNT(*) FROM tm_ai_report_call_audits`)
@@ -70,6 +78,9 @@ func verifyLocalReportInputs(t *testing.T, f *localPublicationFixture, client *h
 		var view dto.AIReportInputs
 		if json.Unmarshal(out.Data, &view) != nil || len(view.Calls) < 14 || len(view.Facts) != 1 || view.Scope != "synthetic-fixture-only" || view.Calls[0].CostMicros != nil {
 			t.Fatal("输入记录投影不符")
+		}
+		if wantDelegation && (len(view.Calls) != 15 || view.Calls[14].Node != "chip_distribution_analyst_v2") {
+			t.Fatal("声明的委派调用未沿当前授权API完整读取")
 		}
 		return view
 	}

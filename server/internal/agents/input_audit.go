@@ -16,6 +16,9 @@ const MaxInputAuditBytes = 2 << 20
 
 var inputNodes = []string{"bear_researcher_v2", "bull_researcher_v2", "fundamentals_analyst_v2", "index_analyst_v2", "market_analyst_v2", "neutral_analyst_v2", "news_analyst_v2", "research_manager_v2", "risk_manager_v2", "risky_analyst_v2", "safe_analyst_v2", "sector_analyst_v2", "social_analyst_v2", "trader_v2"}
 
+// 固定上游研究经理声明的唯一可选委派，不替代十四个必需节点。
+const delegatedInputNode = "chip_distribution_analyst_v2"
+
 // 完整请求只在原隔离结果内保存；不得序列化到会员DTO、日志或下一模型的线索中。
 type InputAudit struct {
 	Schema         string      `json:"schema"`
@@ -174,7 +177,7 @@ func ParseInputAudit(raw []byte) (*InputAudit, error) {
 		if a.Provider == "qwen-token-plan" {
 			model = "qwen3.7-plus"
 		}
-		if c.Seq != i+1 || len(c.CallID) != 32 || strings.Trim(c.CallID, "0123456789abcdef") != "" || ids[c.CallID] || !slices.Contains(inputNodes, c.Node) || c.Model != model || c.ResponseModel != c.Model || c.State != "confirmed" || c.Status != 200 || c.InputTokens < 0 || c.OutputTokens < 0 || len(c.RequestJSON) > 512<<10 || !inputUnique([]byte(c.RequestJSON)) || inputDigest([]byte(c.RequestJSON)) != c.RequestDigest || json.Unmarshal([]byte(c.RequestJSON), &request) != nil || request.Model != c.Model || request.MaxTokens < 1 || request.MaxTokens > 2048 || len(request.Messages) == 0 || request.Messages[0] != '[' || inputDigest(request.Messages) != c.PromptDigest {
+		if c.Seq != i+1 || len(c.CallID) != 32 || strings.Trim(c.CallID, "0123456789abcdef") != "" || ids[c.CallID] || (!slices.Contains(inputNodes, c.Node) && c.Node != delegatedInputNode) || c.Model != model || c.ResponseModel != c.Model || c.State != "confirmed" || c.Status != 200 || c.InputTokens < 0 || c.OutputTokens < 0 || len(c.RequestJSON) > 512<<10 || !inputUnique([]byte(c.RequestJSON)) || inputDigest([]byte(c.RequestJSON)) != c.RequestDigest || json.Unmarshal([]byte(c.RequestJSON), &request) != nil || request.Model != c.Model || request.MaxTokens < 1 || request.MaxTokens > 2048 || len(request.Messages) == 0 || request.Messages[0] != '[' || inputDigest(request.Messages) != c.PromptDigest {
 			return nil, ErrInvalid
 		}
 		var messages []struct {
@@ -193,8 +196,10 @@ func ParseInputAudit(raw []byte) (*InputAudit, error) {
 		ids[c.CallID] = true
 		nodes[c.Node] = true
 	}
-	if len(nodes) != len(inputNodes) {
-		return nil, ErrInvalid
+	for _, required := range inputNodes {
+		if !nodes[required] {
+			return nil, ErrInvalid
+		}
 	}
 	return &a, nil
 }

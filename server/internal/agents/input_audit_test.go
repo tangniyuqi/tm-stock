@@ -19,11 +19,33 @@ func auditFixture(t *testing.T) []byte {
 	return raw
 }
 func TestAgentInputAuditClosedEvidence(t *testing.T) {
-	for _, mode := range []string{"valid", "scope", "commit", "provider", "empty", "missing_node", "unknown_node", "sequence", "call_id", "duplicate_call", "model", "response_model", "unknown_response", "http", "input_usage", "output_usage", "wire", "prompt", "wire_model", "messages", "fixture", "fixture_digest"} {
+	for _, mode := range []string{"valid", "scope", "commit", "provider", "empty", "missing_node", "unknown_node", "sequence", "call_id", "duplicate_call", "model", "response_model", "unknown_response", "http", "input_usage", "output_usage", "wire", "prompt", "wire_model", "messages", "fixture", "fixture_digest", "delegated_valid", "delegated_repeat", "delegated_substitution", "delegated_unknown", "delegated_unconfirmed", "delegated_identity", "delegated_sequence", "delegated_digest"} {
 		t.Run(mode, func(t *testing.T) {
 			a, err := ParseInputAudit(auditFixture(t))
 			if err != nil {
 				t.Fatal(err)
+			}
+			if strings.HasPrefix(mode, "delegated_") {
+				call := a.Calls[0]
+				call.Seq, call.Node, call.CallID = len(a.Calls)+1, delegatedInputNode, strings.Repeat("f", 32)
+				a.Calls = append(a.Calls, call)
+				switch mode {
+				case "delegated_repeat":
+					call.Seq, call.CallID = len(a.Calls)+1, strings.Repeat("e", 32)
+					a.Calls = append(a.Calls, call)
+				case "delegated_substitution":
+					a.Calls[0].Node = delegatedInputNode
+				case "delegated_unknown":
+					a.Calls[len(a.Calls)-1].Node = "unknown_delegate"
+				case "delegated_unconfirmed":
+					a.Calls[len(a.Calls)-1].State = "response_unknown"
+				case "delegated_identity":
+					a.Calls[len(a.Calls)-1].CallID = a.Calls[0].CallID
+				case "delegated_sequence":
+					a.Calls[len(a.Calls)-1].Seq = 1
+				case "delegated_digest":
+					a.Calls[len(a.Calls)-1].RequestDigest = strings.Repeat("a", 64)
+				}
 			}
 			switch mode {
 			case "scope":
@@ -78,7 +100,7 @@ func TestAgentInputAuditClosedEvidence(t *testing.T) {
 				t.Fatal(err)
 			}
 			got, err := ParseInputAudit(raw)
-			if (err == nil) != (mode == "valid") {
+			if (err == nil) != (mode == "valid" || mode == "delegated_valid" || mode == "delegated_repeat") {
 				t.Fatal("上游输入存证边界不符")
 			}
 			if got != nil && strings.Contains(fmt.Sprintf("%+v %#v %+v", got, got, got.Calls[0]), "隔离提示私有标记") {
