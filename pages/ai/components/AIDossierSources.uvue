@@ -17,6 +17,7 @@ watch(() => props.value,() : void => {expanded.value=false})
 	<view class="dossier-sources mt-12">
 		<text class="dossier-title text-weight-b">来源关系</text>
 		<text class="dossier-copy mt-4">来源独立性：未核实 · 转载链：未核实 · 明确更正：未核实</text>
+		<text v-if="value.versions.length == 2" class="dossier-copy mt-4">上述分组不判断更正语义，可在下方单独查询已审核的明确更正声明。</text>
 		<x-button :color="aiMutedColor" class="mt-8" height="44" :block="true" skin="text" round="10" font-size="14" :disabled="busy" @click="expanded=!expanded">{{ expanded ? '收起来源关系' : '查看来源关系与原文' }}</x-button>
 		<view v-if="expanded">
 			<text class="dossier-copy mt-8">{{ value.sourceRelations.notice }}</text>

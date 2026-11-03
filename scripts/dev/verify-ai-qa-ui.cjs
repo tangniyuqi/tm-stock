@@ -675,6 +675,7 @@ function dossierFixture(version=1,compare=0) {
   return {themeId:7,notice:'以下为所选版本的资料摘录；引用存在不等于已核实表述，未知字段表示资料不足。',versions:compare?[row(version),row(compare)]:[row(version)],sourceRelations:{notice:'仅核对所选档案已引用资料的存档关系；相同链接可能有不同采集版本，相同正文不证明转载方向，同一登记来源不等于同一原始发布者。未分组不表示来源独立，未核实不表示不存在。',independence:'unverified',reprintChain:'unverified',explicitCorrection:'unverified',groups:[]},...(compare?{comparison:{notice:'仅比较档案中已引用的原句、字段和资料缺口；本版未出现不表示事实撤回，摘录调整不等于事实更正。',added:[],notPresent:[],changed:[],gaps:[],quotedSentenceOrderChanged:false}}:{})};
 }
 const dossierList=()=>({themeId:7,items:[{version:2,compiledAt:now+2},{version:1,compiledAt:now+1}],hasMore:false,nextBeforeVersion:0});
+function dossierCorrectionFixture(view=dossierFixture(1,2)) { return {themeId:7,beforeVersion:1,afterVersion:2,notice:'仅展示所选版本中经操作人审核的明确更正声明及双方引文；不代表事实本身或全部变化均已核实。未展示声明不表示不存在更正。',state:'reviewed_declaration',items:[{before:{version:1,key:'a',field:'',quote:{...view.versions[0].cards[0].quote}},after:{version:2,key:'a',field:'',quote:{...view.versions[1].cards[0].quote}},statement:{version:2,key:'a',field:'',quote:{...view.versions[1].cards[0].quote}}}]}; }
 function dossierSourcesFixture() {
   const value=dossierFixture();const next=JSON.parse(JSON.stringify(value.versions[0].cards[0]));next.key='b';next.quote.snapshotId=2;next.quote.collectedAt=now-1;next.fields[0].quote={...next.quote};value.versions[0].cards.push(next);
   value.sourceRelations.groups=['same_url','duplicate_body','same_registered_source'].map(kind=>({kind,snapshotIds:[1,2]}));return value;
@@ -726,6 +727,9 @@ async function dossierPanel() {
   ui.click('阅读此版本',1);env.reply(env.requests.shift(),dossierFixture());await flush();ui.click('核对并复制原文链接');env.reply(env.requests.shift(),dossierFixture());await flush();assert.equal(copied[0],'https://evidence.example.test/1');
   const beforeSource=env.requests.length;ui.click('查看来源关系与原文');await flush();assert.equal(env.requests.length,beforeSource);ui.click('资料 1：核对原文链接');assert.equal(copied.length,1);env.reply(env.requests.shift(),dossierFixture());await flush();assert.equal(copied.length,2);assert.equal(copied[1],'https://evidence.example.test/1');
   ui.click('加入对照',0);await flush();ui.click('加入对照',0);await flush();ui.click('对照所选的两个版本（2/2）');env.reply(env.requests.shift(),dossierFixture(1,2));await flush();assert.ok(ui.text().includes('档案摘录变化'));
+  ui.click('查询已审核的更正声明');await flush();assert.ok(env.requests[0].url.includes('/dossier-corrections?'));env.reply(env.requests.shift(),dossierCorrectionFixture());await flush();
+  ui.click('核对更正声明原文');await flush();assert.ok(env.requests[0].url.includes('/dossier-corrections?'));env.reply(env.requests.shift(),dossierCorrectionFixture());await flush();assert.equal(copied.length,2,'审核复验不能替代原出处权限复验');assert.ok(env.requests[0].url.endsWith('/dossiers/1?compareVersion=2'));env.reply(env.requests.shift(),dossierFixture(1,2));await flush();assert.equal(copied.length,3);
+  ui.click('查询已审核的更正声明');await flush();env.reply(env.requests.shift(),null,404,40404);await flush();assert.ok(!ui.text().includes('仅测试：甲资料。'),'声明读取发现撤权须清父面板正文');assert.ok(!ui.text().includes('已审核声明 1'));
   ui.click('重新核对可读版本');const late=env.requests.shift();ui.updateProps({enabled:false});await flush();env.reply(late,dossierList());await flush();assert.ok(!ui.text().includes('阅读此版本'));
   ui.updateProps({enabled:true});await flush();ui.click('查询可读档案版本');env.reply(env.requests.shift(),dossierList());await flush();ui.click('阅读此版本',1);const stale=env.requests.shift();ui.updateProps({themeId:8});await flush();env.reply(stale,dossierFixture());await flush();assert.ok(!ui.text().includes('仅测试：甲资料。'));
   ui.app.unmount();
@@ -780,6 +784,7 @@ process.once('beforeExit',()=>{if(!completed){console.error('问答源码验收�
   await isolation();
   await dossierContracts();
   await dossierSourceRelations();
+  await dossierCorrections();
   await dossierPanel();
   await savedDossierContracts();
   await savedDossierPanels();
@@ -788,6 +793,29 @@ process.once('beforeExit',()=>{if(!completed){console.error('问答源码验收�
   completed=true;
   console.log('本脚本不覆盖：真实 UTS/uni-app x 整体构建、真实模型质量、浏览器布局与生产开关；须另做实际 H5 与浏览器验收。');
 })().catch(error => { completed=true; console.error(error); process.exitCode=1; });
+
+async function dossierCorrections() {
+  const env=environment();env.storage.set('token',token);
+  const mod=env.load('pages/libs/ai-dossier-corrections.uts'),view=dossierFixture(1,2);
+  const value=()=>dossierCorrectionFixture(view);
+  assert.equal(mod.isDossierCorrections(value(),view),true);
+  assert.equal(mod.isDossierCorrections({...value(),state:'unverified',items:[]},view),true);
+  for(const edit of[v=>{v.themeId='7'},v=>{v.beforeVersion='1'},v=>{v.afterVersion=1},v=>{v.notice='free'},v=>{v.state=['reviewed_declaration']},v=>{v.items=[]},v=>{v.items=null},v=>{v.items.push(v.items[0])},v=>{v.state='unverified'},v=>{v.actorId=7},v=>{v.items[0].before.version='1'},v=>{v.items[0].after.version=1},v=>{v.items[0].statement.field='subject'},v=>{v.items[0].before.key='missing'},v=>{v.items[0].after.field='unit'},v=>{v.items[0].statement.quote.text='伪造更正'},v=>{v.items[0].statement.quote.sourceUrl='https://other.test'},v=>{v.items[0].after.quote.snapshotId='1'},v=>{v.items[0].before.field=['']},v=>{v.items[0].reviewReference='private'},v=>{v.items[0].before.private='private'},v=>{v.items[0].statement.quote.extra='private'}]){const v=value();edit(v);assert.equal(mod.isDossierCorrections(v,view),false,'更正字段、类型或原对象绑定未拒绝')}
+  for(const k of Object.keys(value())){const v=value();delete v[k];assert.equal(mod.isDossierCorrections(v,view),false)}
+  for(const invalid of[null,{},[],dossierFixture()]){assert.equal(mod.isDossierCorrections(value(),invalid),false);assert.equal((await mod.AIDossierCorrectionApi.read(invalid)).code,40001)}
+  assert.equal(env.requests.length,0);
+  const copied=[],unavailable=[];
+  const ui=mount(env.load('pages/ai/components/AIDossierCorrections.uvue').default,{value:view,sessionToken:token,onCopy:(...args)=>copied.push(args),onUnavailable:c=>unavailable.push(c)});await flush();assert.equal(env.requests.length,0,'更正不得自动请求');
+  ui.click('查询已审核的更正声明');await flush();let request=env.requests.shift();assert.equal(request.method,'GET');assert.equal(request.timeout,10000);assert.ok(request.url.endsWith('/themes/7/dossier-corrections?beforeVersion=1&afterVersion=2'));
+  env.reply(request,value());await flush();assert.ok(ui.text().includes('已审核声明 1'));assert.ok(ui.text().includes('较早版本原文'));assert.ok(ui.text().includes('较新版本原文'));
+  ui.click('核对较早版本原文');await flush();assert.ok(!ui.text().includes('已审核声明 1'),'复核开始先清旧内容');request=env.requests.shift();env.reply(request,{...value(),state:'unverified',items:[]});await flush();assert.equal(copied.length,0);assert.ok(ui.text().includes('审核记录已变化'));
+  ui.click('重新核对更正声明');await flush();env.reply(env.requests.shift(),value());await flush();ui.click('核对更正声明原文');await flush();env.reply(env.requests.shift(),value());await flush();assert.deepEqual(copied,[[2,'a','']]);
+  ui.click('重新核对更正声明');await flush();request=env.requests.shift();ui.updateProps({sessionToken:''});await flush();env.reply(request,value());await flush();assert.ok(!ui.text().includes('已审核声明 1'),'换账号拒绝迟到审核');
+  ui.updateProps({sessionToken:token});await flush();ui.click('查询已审核的更正声明');await flush();env.reply(env.requests.shift(),null,404,40404);await flush();assert.deepEqual(unavailable,[40404]);assert.ok(!ui.text().includes('已审核声明 1'));
+  ui.click('查询已审核的更正声明');await flush();const fields=value();fields.items[0].before.field='subject';fields.items[0].after.field='subject';env.reply(env.requests.shift(),fields);await flush();assert.ok(ui.text().includes('所核字段原文：'));assert.ok(ui.text().includes('主体'));
+  ui.click('重新核对更正声明');await flush();request=env.requests.shift();ui.updateProps({value:dossierFixture(1,3)});await flush();env.reply(request,value());await flush();assert.ok(!ui.text().includes('已审核声明 1'),'换版本拒绝迟到审核');ui.app.unmount();assert.equal(env.requests.length,0);
+  console.log('通过：更正声明闭集/实际类型与双方原文绑定、按需GET、复制前当前审核复核、撤回清空及换账号/版本迟到响应隔离。');
+}
 
 async function reportInputEvidence() {
   const env=environment();env.storage.set('token',token);

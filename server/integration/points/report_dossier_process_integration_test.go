@@ -44,8 +44,12 @@ func newDossierProcessFixture(t *testing.T, lifetime time.Duration, references .
 	return newDossierProcessWithQA(t, lifetime, saved, nil)
 }
 
-func newDossierProcessWithQA(t *testing.T, lifetime time.Duration, saved bool, prepareQA func(*localPublicationFixture, string) string) *dossierProcessFixture {
+func newDossierProcessWithQA(t *testing.T, lifetime time.Duration, saved bool, prepareQA func(*localPublicationFixture, string) string, corrections ...bool) *dossierProcessFixture {
 	t.Helper()
+	if len(corrections) > 1 {
+		t.Fatal("更正读取夹具配置重复")
+	}
+	correctionsEnabled := len(corrections) == 1 && corrections[0]
 	api, _, login := buildLocalReportBinaries(t)
 	f := newLocalPublicationFixture(t, sql.LevelReadCommitted, 1, "local")
 	e := f.env
@@ -55,6 +59,13 @@ func newDossierProcessWithQA(t *testing.T, lifetime time.Duration, saved bool, p
 	localAPISchema(t, e)
 	e.mustExec(`ALTER TABLE addon_quant_theme ADD code varchar(32) NULL, ADD level tinyint NOT NULL DEFAULT 1, ADD parent_id bigint NOT NULL DEFAULT 0, ADD description text, ADD sort int NOT NULL DEFAULT 0, ADD updated_at datetime(3) NULL, ADD created_at datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)`)
 	reportDDL(t, e.pointsTestEnv, "20261030_create_tm_ai_dossiers.sql")
+	if correctionsEnabled {
+		reportDDL(t, e.pointsTestEnv, "20261103_create_tm_ai_dossier_management.sql")
+		reportDDL(t, e.pointsTestEnv, "20261103_create_tm_ai_dossier_corrections.sql")
+		if err := repository.NewAIDossierCorrectionSchemaVerifier(e.db).Verify(e.ctx); err != nil {
+			t.Fatal("更正结构及实际探针失败", err)
+		}
+	}
 	if saved {
 		reportDDL(t, e.pointsTestEnv, "20261030_link_tm_ai_conversation_dossiers.sql")
 	}
@@ -82,6 +93,9 @@ func newDossierProcessWithQA(t *testing.T, lifetime time.Duration, saved bool, p
 	}
 	at := time.Now().UTC().Add(-time.Minute).Truncate(time.Millisecond)
 	for i, body := range []string{"仅测试：样本主体甲的样品处于送样阶段。", "仅测试：样本主体甲的样品处于验证阶段。"} {
+		if correctionsEnabled && i == 1 {
+			body = "仅测试：更正声明将样本主体甲的样品阶段由送样更正为验证。"
+		}
 		snap, er := sources.BuildSnapshot(source, "https://dossier.example.test/synthetic-only", sources.MediaPlain, []byte(body), at.Add(time.Duration(i)*time.Second), 4096)
 		if er != nil {
 			t.Fatal(er)
@@ -114,6 +128,23 @@ func newDossierProcessWithQA(t *testing.T, lifetime time.Duration, saved bool, p
 	for _, table := range []string{"tm_ai_dossier_versions", "tm_ai_dossier_evidence", "tm_ai_dossier_publications", "tm_ai_dossier_grants"} {
 		e.mustExec("GRANT SELECT ON " + e.database + "." + table + " TO '" + cfg.User + "'@'127.0.0.1'")
 	}
+	if correctionsEnabled {
+		if err := repository.NewAIDossierManagementSchemaVerifier(e.db).Verify(e.ctx); err != nil {
+			t.Fatal("更正读取管理结构前置失败", err)
+		}
+		for _, table := range []string{"tm_ai_dossier_management_heads", "tm_ai_dossier_management_events", "tm_ai_dossier_correction_events"} {
+			e.mustExec("GRANT SELECT ON " + e.database + "." + table + " TO '" + cfg.User + "'@'127.0.0.1'")
+		}
+		readDB, err := sql.Open("mysql", dsn)
+		if err != nil {
+			t.Fatal("更正读取连接失败")
+		}
+		accessErr := repository.NewAIDossierCorrectionRepo(readDB).VerifyAccess(e.ctx, false)
+		closeErr := readDB.Close()
+		if accessErr != nil || closeErr != nil {
+			t.Fatal("更正实际读取账号权限失败", accessErr)
+		}
+	}
 	if saved {
 		e.mustExec("GRANT SELECT,INSERT ON " + e.database + ".tm_ai_conversation_dossiers TO '" + cfg.User + "'@'127.0.0.1'")
 	}
@@ -145,7 +176,7 @@ func newDossierProcessWithQA(t *testing.T, lifetime time.Duration, saved bool, p
 	client := &http.Client{Transport: &http.Transport{Proxy: nil}, Timeout: requestTimeout, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	t.Cleanup(client.CloseIdleConnections)
 	base := "http://" + f.runtime.Listen
-	startLocalAPIConfigured(t, e, api, dsn, signing, runtimeFile, f.path, client, base, false, qaFile, false, prepare.FormatDSN(), saved)
+	startLocalAPIConfigured(t, e, api, dsn, signing, runtimeFile, f.path, client, base, false, qaFile, false, prepare.FormatDSN(), saved, correctionsEnabled)
 	return &dossierProcessFixture{f: f, login: bridge, client: client, base: base, apiUser: cfg.User, baselineTasks: e.queryInt(`SELECT COUNT(*) FROM tm_ai_tasks`), baselineTxns: e.queryInt(`SELECT COUNT(*) FROM tm_points_txns`)}
 }
 func (p *dossierProcessFixture) verifyNoGeneration(t *testing.T) {

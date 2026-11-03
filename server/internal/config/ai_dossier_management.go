@@ -10,8 +10,9 @@ import (
 )
 
 type AIDossierManagementConfig struct {
-	Actors     []int64
-	PrepareDSN string
+	Actors      []int64
+	PrepareDSN  string
+	Corrections bool
 }
 
 func (AIDossierManagementConfig) String() string {
@@ -27,8 +28,12 @@ func LoadAIDossierManagement(reviewers []AIAdminReviewer, dsn string) (*AIDossie
 	}
 	raw := os.Getenv("TM_AI_DOSSIER_MANAGEMENT_ACTORS")
 	prepare := os.Getenv("TM_AI_DOSSIER_MANAGEMENT_PREPARE_DSN")
+	corrections, err := feedbackFlag("TM_AI_DOSSIER_CORRECTIONS_ADMIN_ENABLED")
+	if err != nil {
+		return nil, err
+	}
 	if !on {
-		if raw != "" || prepare != "" {
+		if raw != "" || prepare != "" || corrections {
 			return nil, fmt.Errorf("专题管理装配只能与显式管理开关共同配置")
 		}
 		return nil, nil
@@ -58,5 +63,16 @@ func LoadAIDossierManagement(reviewers []AIAdminReviewer, dsn string) (*AIDossie
 	if prepare == "" || e1 != nil || e2 != nil || current.Net != "tcp" || owner.Net != "tcp" || current.Addr != owner.Addr || current.DBName == "" || current.DBName != owner.DBName || current.User == "" || owner.User == "" || current.User == owner.User {
 		return nil, fmt.Errorf("专题管理结构准备连接须显式指向同一数据库实例")
 	}
-	return &AIDossierManagementConfig{Actors: ids, PrepareDSN: prepare}, nil
+	return &AIDossierManagementConfig{Actors: ids, PrepareDSN: prepare, Corrections: corrections}, nil
+}
+
+func LoadAILocalDossierCorrections(dossiersEnabled bool) (bool, error) {
+	on, err := feedbackFlag("TM_AI_LOCAL_DOSSIER_CORRECTIONS_ENABLED")
+	if err != nil {
+		return false, err
+	}
+	if on && !dossiersEnabled {
+		return false, fmt.Errorf("更正声明读取需要已有专题读取入口")
+	}
+	return on, nil
 }

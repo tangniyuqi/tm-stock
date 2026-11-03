@@ -5,10 +5,11 @@ import { AIDossierView, AIDossierCardChange, dossierSectionLabel, dossierFieldLa
 import { formatMillis } from '../../libs/theme.uts'
 import { aiSourceTypeLabel } from '../../libs/ai-qa.uts'
 import AIDossierSources from './AIDossierSources.uvue'
-type DossierContentProps = { value : AIDossierView, busy? : boolean }
+import AIDossierCorrections from './AIDossierCorrections.uvue'
+type DossierContentProps = { value : AIDossierView, busy? : boolean, sessionToken? : string }
 defineOptions({name:'AIDossierContent'})
-const props = withDefaults(defineProps<DossierContentProps>(), {busy:false})
-const emit = defineEmits<{copy: [version : number, key : string, field : string]}>()
+const props = withDefaults(defineProps<DossierContentProps>(), {busy:false,sessionToken:''})
+const emit = defineEmits<{copy: [version : number, key : string, field : string],unavailable:[code : number]}>()
 const view = computed<AIDossierView>(() : AIDossierView => props.value)
 const copySource = (version : number, key : string, field : string) : void => { emit('copy',version,key,field) }
 const changeLabel = (c : AIDossierCardChange) : string => { let parts : string[] = [] as string[]; if (c.quoteChanged) parts.push('摘录文字调整'); if (c.sourceChanged) parts.push('原文出处调整'); if (c.referenceChanged) parts.push('引用位置或采集版本调整'); if (c.sectionChanged) parts.push('资料栏目调整'); if (c.beforeKey != c.afterKey) parts.push('资料卡标识调整'); if (c.fields.length > 0) parts.push('字段值或引用调整：' + c.fields.map((s : string) : string => dossierFieldLabel(s)).join('、')); return parts.join('；') }
@@ -18,6 +19,7 @@ const changeQuote = (key : string, newer : boolean) : string => { if (view.value
 			<view v-if="view != null" class="mt-12">
 				<text class="dossier-copy">{{ view!.notice }}</text>
 				<AIDossierSources :value="view!" :busy="busy" @copy="copySource"></AIDossierSources>
+					<AIDossierCorrections v-if="view!.versions.length == 2" :value="view!" :session-token="sessionToken" :busy="busy" @copy="copySource" @unavailable="emit('unavailable',$event)"></AIDossierCorrections>
 				<view v-if="view!.comparison != null" class="dossier-version mt-12">
 					<text class="dossier-title text-weight-b">档案摘录变化</text><text class="dossier-copy mt-4">{{ view!.comparison!.notice }}</text>
 					<text v-if="view!.comparison!.quotedSentenceOrderChanged" class="dossier-copy mt-8">已引用原句的相对顺序发生变化。</text>

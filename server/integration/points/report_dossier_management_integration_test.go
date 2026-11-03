@@ -59,7 +59,7 @@ func dossierManagementTestDSN(t *testing.T, p *dossierProcessFixture) (string, s
 	})
 	return dsn, owner.FormatDSN(), db
 }
-func startDossierManagementTestProcess(t *testing.T, p *dossierProcessFixture, dsn, prepare string) (string, []string) {
+func startDossierManagementTestProcess(t *testing.T, p *dossierProcessFixture, dsn, prepare string, corrections ...bool) (string, []string) {
 	t.Helper()
 	binary := buildLocalFeedbackAdmin(t)
 	e := p.f.env
@@ -89,6 +89,9 @@ func startDossierManagementTestProcess(t *testing.T, p *dossierProcessFixture, d
 	ctx, cancel := context.WithCancel(e.ctx)
 	command := exec.CommandContext(ctx, binary)
 	command.Env = append(localWorkerEnvironment(dsn, ""), "TM_AI_ADMIN_ADDR="+addr, "TM_AI_ADMIN_REVIEWERS="+string(raw), "TM_AI_DOSSIER_MANAGEMENT_ADMIN_ENABLED=true", "TM_AI_DOSSIER_MANAGEMENT_ACTORS=71,73", "TM_AI_DOSSIER_MANAGEMENT_PREPARE_DSN="+prepare, "TM_AI_L0_ENABLED=true")
+	if len(corrections) == 1 && corrections[0] {
+		command.Env = append(command.Env, "TM_AI_DOSSIER_CORRECTIONS_ADMIN_ENABLED=true")
+	}
 	var output bytes.Buffer
 	command.Stdout = &output
 	command.Stderr = &output

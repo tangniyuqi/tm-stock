@@ -129,11 +129,153 @@ jobs:
           # 原Agent完整输入/原任务读取新增8根60子节点，保留原问答门禁。
           # 专题当前引用来源关系投影新增1根10子节点。
           # 专题管理协议、装配、服务、HTTP与CLI新增9根125子节点。
-          MIN=2472
+          # 明确更正声明协议、服务、身份、HTTP、配置和CLI新增8根125子节点。
+          MIN=2605
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项测试，低于下限 $MIN —— 要么测试没被执行，要么有测试被删。"
             exit 1
           fi
+
+          # 明确更正普通门禁开始
+          CORRECTION_UNIT_ACTUAL=$(sed -nE 's/^[[:space:]]*--- PASS: (TestDossierCorrection[^ ]*) .*/\1/p' /tmp/gotest.log | LC_ALL=C sort)
+          CORRECTION_UNIT_EXPECTED=$(printf '%s\n' \
+            'TestDossierCorrectionCLI' \
+            'TestDossierCorrectionCLI/apply' \
+            'TestDossierCorrectionCLI/bad_digest' \
+            'TestDossierCorrectionCLI/extra_private' \
+            'TestDossierCorrectionCLI/free_notice' \
+            'TestDossierCorrectionCLI/inspect' \
+            'TestDossierCorrectionCLI/missing_boolean' \
+            'TestDossierCorrectionCLI/null_boolean' \
+            'TestDossierCorrectionCLI/request' \
+            'TestDossierCorrectionCLI/string_version' \
+            'TestDossierCorrectionCLI/unknown_result' \
+            'TestDossierCorrectionCLI/wrong_pair' \
+            'TestDossierCorrectionCLI/wrong_request' \
+            'TestDossierCorrectionCLI/wrong_revision' \
+            'TestDossierCorrectionEventProtocol' \
+            'TestDossierCorrectionEventProtocol/actor' \
+            'TestDossierCorrectionEventProtocol/bad_bytes' \
+            'TestDossierCorrectionEventProtocol/expired' \
+            'TestDossierCorrectionEventProtocol/first_previous' \
+            'TestDossierCorrectionEventProtocol/first_withdraw' \
+            'TestDossierCorrectionEventProtocol/missing_previous' \
+            'TestDossierCorrectionEventProtocol/null_previous' \
+            'TestDossierCorrectionEventProtocol/protocol' \
+            'TestDossierCorrectionEventProtocol/reorder' \
+            'TestDossierCorrectionEventProtocol/revision' \
+            'TestDossierCorrectionEventProtocol/time' \
+            'TestDossierCorrectionEventProtocol/time_overflow' \
+            'TestDossierCorrectionEventProtocol/unknown' \
+            'TestDossierCorrectionFlags' \
+            'TestDossierCorrectionFlags/admin_true' \
+            'TestDossierCorrectionFlags/admin_unknown' \
+            'TestDossierCorrectionFlags/bad_flag' \
+            'TestDossierCorrectionFlags/default' \
+            'TestDossierCorrectionFlags/enabled' \
+            'TestDossierCorrectionFlags/false' \
+            'TestDossierCorrectionFlags/missing_parent' \
+            'TestDossierCorrectionHTTPBoundary' \
+            'TestDossierCorrectionHTTPBoundary/anonymous' \
+            'TestDossierCorrectionHTTPBoundary/apply' \
+            'TestDossierCorrectionHTTPBoundary/body' \
+            'TestDossierCorrectionHTTPBoundary/duplicate_media' \
+            'TestDossierCorrectionHTTPBoundary/empty_origin' \
+            'TestDossierCorrectionHTTPBoundary/encoding' \
+            'TestDossierCorrectionHTTPBoundary/error_专题版本不可用' \
+            'TestDossierCorrectionHTTPBoundary/error_专题管理存证未通过核验' \
+            'TestDossierCorrectionHTTPBoundary/error_专题管理请求或存证无效' \
+            'TestDossierCorrectionHTTPBoundary/error_专题管理修订或原请求冲突' \
+            'TestDossierCorrectionHTTPBoundary/error_private-diagnostic' \
+            'TestDossierCorrectionHTTPBoundary/head' \
+            'TestDossierCorrectionHTTPBoundary/inspect' \
+            'TestDossierCorrectionHTTPBoundary/member' \
+            'TestDossierCorrectionHTTPBoundary/member_anonymous' \
+            'TestDossierCorrectionHTTPBoundary/member_extra' \
+            'TestDossierCorrectionHTTPBoundary/member_reverse' \
+            'TestDossierCorrectionHTTPBoundary/missing_version' \
+            'TestDossierCorrectionHTTPBoundary/null_enabled' \
+            'TestDossierCorrectionHTTPBoundary/origin' \
+            'TestDossierCorrectionHTTPBoundary/oversize' \
+            'TestDossierCorrectionHTTPBoundary/query_duplicate' \
+            'TestDossierCorrectionHTTPBoundary/query_extra' \
+            'TestDossierCorrectionHTTPBoundary/request' \
+            'TestDossierCorrectionHTTPBoundary/request_query' \
+            'TestDossierCorrectionHTTPBoundary/second_key' \
+            'TestDossierCorrectionHTTPBoundary/wrong_media' \
+            'TestDossierCorrectionInspectAndIdentity' \
+            'TestDossierCorrectionInspectAndIdentity/actor' \
+            'TestDossierCorrectionInspectAndIdentity/clock' \
+            'TestDossierCorrectionInspectAndIdentity/latest' \
+            'TestDossierCorrectionInspectAndIdentity/missing_head' \
+            'TestDossierCorrectionInspectAndIdentity/missing_version' \
+            'TestDossierCorrectionInspectAndIdentity/pair' \
+            'TestDossierCorrectionInspectAndIdentity/read_lock' \
+            'TestDossierCorrectionInspectAndIdentity/receipt_and_identity_guards' \
+            'TestDossierCorrectionInspectAndIdentity/source' \
+            'TestDossierCorrectionInspectAndIdentity/source_expiry' \
+            'TestDossierCorrectionInspectAndIdentity/version' \
+            'TestDossierCorrectionRequestProtocol' \
+            'TestDossierCorrectionRequestProtocol/actor_spoof' \
+            'TestDossierCorrectionRequestProtocol/alias' \
+            'TestDossierCorrectionRequestProtocol/array' \
+            'TestDossierCorrectionRequestProtocol/bad_digest' \
+            'TestDossierCorrectionRequestProtocol/bad_reference' \
+            'TestDossierCorrectionRequestProtocol/duplicate' \
+            'TestDossierCorrectionRequestProtocol/duplicate_relation' \
+            'TestDossierCorrectionRequestProtocol/empty_enabled' \
+            'TestDossierCorrectionRequestProtocol/invalid_utf8' \
+            'TestDossierCorrectionRequestProtocol/missing_enabled' \
+            'TestDossierCorrectionRequestProtocol/null_declarations' \
+            'TestDossierCorrectionRequestProtocol/null_enabled' \
+            'TestDossierCorrectionRequestProtocol/null_statement' \
+            'TestDossierCorrectionRequestProtocol/object_extra' \
+            'TestDossierCorrectionRequestProtocol/overflow_revision' \
+            'TestDossierCorrectionRequestProtocol/overflow_time' \
+            'TestDossierCorrectionRequestProtocol/oversize' \
+            'TestDossierCorrectionRequestProtocol/private_field' \
+            'TestDossierCorrectionRequestProtocol/reverse_version' \
+            'TestDossierCorrectionRequestProtocol/string_enabled' \
+            'TestDossierCorrectionRequestProtocol/string_version' \
+            'TestDossierCorrectionRequestProtocol/trailing' \
+            'TestDossierCorrectionRequestProtocol/unknown_field' \
+            'TestDossierCorrectionServiceFailures' \
+            'TestDossierCorrectionServiceFailures/actor' \
+            'TestDossierCorrectionServiceFailures/append' \
+            'TestDossierCorrectionServiceFailures/beyond_publication' \
+            'TestDossierCorrectionServiceFailures/clock' \
+            'TestDossierCorrectionServiceFailures/commit_before' \
+            'TestDossierCorrectionServiceFailures/digest' \
+            'TestDossierCorrectionServiceFailures/event' \
+            'TestDossierCorrectionServiceFailures/expired' \
+            'TestDossierCorrectionServiceFailures/head' \
+            'TestDossierCorrectionServiceFailures/latest' \
+            'TestDossierCorrectionServiceFailures/missing_card' \
+            'TestDossierCorrectionServiceFailures/missing_withdraw' \
+            'TestDossierCorrectionServiceFailures/publication_withdrawn' \
+            'TestDossierCorrectionServiceFailures/read_auth_after' \
+            'TestDossierCorrectionServiceFailures/read_auth_before' \
+            'TestDossierCorrectionServiceFailures/read_grant' \
+            'TestDossierCorrectionServiceFailures/read_latest' \
+            'TestDossierCorrectionServiceFailures/read_missing_head' \
+            'TestDossierCorrectionServiceFailures/read_natural_expiry' \
+            'TestDossierCorrectionServiceFailures/read_publication' \
+            'TestDossierCorrectionServiceFailures/read_read_lock' \
+            'TestDossierCorrectionServiceFailures/read_source' \
+            'TestDossierCorrectionServiceFailures/revision' \
+            'TestDossierCorrectionServiceFailures/source' \
+            'TestDossierCorrectionServiceFailures/unknown_field' \
+            'TestDossierCorrectionServiceFailures/version' \
+            'TestDossierCorrectionServiceLifecycle' \
+            'TestDossierCorrectionServiceLifecycle/committed_unknown_receipt' \
+            'TestDossierCorrectionServiceLifecycle/expired_review_is_not_no_correction' \
+            'TestDossierCorrectionServiceLifecycle/known_fields_keep_original_context' \
+            'TestDossierCorrectionServiceLifecycle/preview_review_read_replay_withdraw' \
+            'TestDossierCorrectionServiceLifecycle/review_expires_during_read' | LC_ALL=C sort)
+          if [ "$CORRECTION_UNIT_ACTUAL" != "$CORRECTION_UNIT_EXPECTED" ] || grep -Eq '^[[:space:]]*--- (FAIL|SKIP): TestDossierCorrection' /tmp/gotest.log; then
+            echo '::error::明确更正声明的当前授权、审核、原请求及撤回验收缺失、重复、失败或跳过'; exit 1
+          fi
+          # 明确更正普通门禁结束
 
           # 专题管理普通门禁开始
           DOSSIER_MANAGEMENT_UNIT_ACTUAL=$(sed -nE 's/^[[:space:]]*--- PASS: (TestDossierManagement[^ ]*) .*/\1/p' /tmp/gotest.log | LC_ALL=C sort)
@@ -1267,6 +1409,22 @@ jobs:
             fi
           done
           # 专题读取接口门禁结束
+          # 明确更正进程门禁开始
+          CORRECTION_PROCESS_ACTUAL=$(sed -nE 's/^[[:space:]]*--- PASS: (TestIntegrationAIReportDossierCorrections[^ ]*) .*/\1/p' /tmp/it.log | LC_ALL=C sort)
+          CORRECTION_PROCESS_EXPECTED=$(printf '%s\n' \
+            'TestIntegrationAIReportDossierCorrections' \
+            'TestIntegrationAIReportDossierCorrections/原登录与独立审核读取' \
+            'TestIntegrationAIReportDossierCorrections/原请求与异体角色隔离' \
+            'TestIntegrationAIReportDossierCorrections/双方许可与来源撤回恢复' \
+            'TestIntegrationAIReportDossierCorrections/失效来源可撤回且旧请求不恢复' \
+            'TestIntegrationAIReportDossierCorrections/并发修订恰好一次' \
+            'TestIntegrationAIReportDossierCorrections/审计权限故障原子拒绝' \
+            'TestIntegrationAIReportDossierCorrections/不可变保护及同名失效拒绝' | LC_ALL=C sort)
+          if [ "$CORRECTION_PROCESS_ACTUAL" != "$CORRECTION_PROCESS_EXPECTED" ] || grep -Eq '^[[:space:]]*--- (FAIL|SKIP): TestIntegrationAIReportDossierCorrections' /tmp/it.log; then
+            echo '::error::明确更正声明的当前授权、审核、原请求及撤回验收缺失、重复、失败或跳过'; exit 1
+          fi
+          # 明确更正进程门禁结束
+
           # 专题管理进程门禁开始
           DOSSIER_MANAGEMENT_PROCESS_ACTUAL=$(sed -nE 's/^[[:space:]]*--- PASS: (TestIntegrationAIReportDossierManagement[^ ]*) .*/\1/p' /tmp/it.log | LC_ALL=C sort)
           DOSSIER_MANAGEMENT_PROCESS_EXPECTED=$(printf '%s\n' \
@@ -2049,7 +2207,8 @@ jobs:
           # 原Agent完整输入独立API进程新增1根2隔离子节点。
           # 原专题进程增加来源及第二版读取许可撤回恢复1子节点。
           # 专题管理独立进程新增1根9子节点，含原登录/受限账号/撤回与回滚。
-          MIN=1796
+          # 明确更正声明原登录/独立会员API与管理进程新增1根7子节点。
+          MIN=1804
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项，低于下限 $MIN —— 要么没跑，要么有测试被删。"; exit 1
           fi

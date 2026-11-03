@@ -31,6 +31,9 @@ func startDossierManagementAdmin(ctx context.Context, cfg *config.AIAdminConfig,
 		return fmt.Errorf("专题管理结构准备连接无效")
 	}
 	checkErr := repository.NewAIDossierManagementSchemaVerifier(prepare).Verify(ctx)
+	if checkErr == nil && management.Corrections {
+		checkErr = repository.NewAIDossierCorrectionSchemaVerifier(prepare).Verify(ctx)
+	}
 	closeErr := prepare.Close()
 	if checkErr != nil || closeErr != nil {
 		return fmt.Errorf("专题管理结构保护未通过")
@@ -45,6 +48,17 @@ func startDossierManagementAdmin(ctx context.Context, cfg *config.AIAdminConfig,
 	}
 	mux := http.NewServeMux()
 	handler.NewAIDossierManagementHandler(svc).Register(mux)
+	if management.Corrections {
+		corrections := repository.NewAIDossierCorrectionRepo(db)
+		if err = corrections.VerifyAccess(ctx, true); err != nil {
+			return fmt.Errorf("更正声明管理运行权限未通过")
+		}
+		correctionSvc, e := service.NewAIDossierCorrectionService(corrections, svc, nil)
+		if e != nil {
+			return e
+		}
+		handler.NewAIDossierCorrectionHandler(correctionSvc).RegisterInternal(mux)
+	}
 	server := &http.Server{Addr: cfg.Addr, Handler: auth(mux), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16384}
 	return serve(ctx, server)
 }

@@ -1,5 +1,25 @@
 # AI 内部操作手册（L0 审核与隔离 Agent 执行）
 
+## 明确更正声明的审核与会员读取（2026-11-03）
+
+设计13.29。先执行专题基础、管理及20261103_create_tm_ai_dossier_corrections.sql迁移；新表只追加，不改旧Draft、版本摘要或发布许可。迁移顺序仍按文件名序数排序；同日更正表不引用管理头，完整启动时再共同核验管理保护。旧未启用配置不访问更正表。
+
+管理服务沿原独立专题模式、准备/运行DSN和操作人白名单，另设置TM_AI_DOSSIER_CORRECTIONS_ADMIN_ENABLED=true。准备身份校验新表列/唯一索引/双方摘要外键、完整不可变触发器及实际错误哈希/修改/删除探针，探针统一回滚。运行身份仅新增tm_ai_dossier_correction_events的SELECT/INSERT，不授UPDATE/DELETE/DDL；串行化使用原较新版publication管理头，不改变其发布修订或自动接管许可。
+
+ai-review新增以下命令，凭据沿原环境变量，输入从标准输入读，失败或未知不自动重试：
+
+- correction-inspect：输入themeId/beforeVersion/afterVersion（正安全整数，前者版本须小于后者），返回双方摘要、当前更正修订及内部预览；来源失效时不返回正文。预览不是事实支持、来源独立性或正式发布批准。
+- correction-apply：闭集requestId/object/beforeDigest/afterDigest/expectedRevision/enabled/validUntil/declarations/reviewReference。object为上述三字段；declarations每组含before/after（各为key/field）及statementKey。key须为原资料卡，field为空表示整句，非空须为该卡已知字段；statementKey引用较新版资料卡的完整声明原句。操作人须实际核对明确更正关系，不以关键词命中或调用成功代替审核。启用时1—16组、不可重复，期限不得超过双方当前发布许可；撤回时期限为0、数组为[]，失效来源不阻碍撤回。
+- correction-request：输入原requestId，只查原操作人的不可变收据。超时/503先查原请求；原请求同人同体重放不改后来状态，同键异体/他人/旧修订或并发竞争拒绝。审核引用、操作人和事件全文不交给会员或后续模型。
+
+会员API沿原本地档案读取再设置TM_AI_LOCAL_DOSSIER_CORRECTIONS_ENABLED=true，复用原独立准备连接；运行账号只新增更正事件与管理头/事件表的SELECT。GET /api/v1/ai/themes/{id}/dossier-corrections?beforeVersion=&afterVersion=在同一事务复核两版、原文和当前审核，仍使用共享锁协调撤回，不能把MySQL事务设成READ ONLY来代替受限账号。原读取最后统一核验时点也用于审核期限判断；权限、来源或结构失败返回空错误响应，不回退旧声明。当前无有效声明只返回固定unverified/空集合，不能解释为事实不存在。
+
+原双版档案及已保存会话引用的红白面板增加按需查询，首次展开不自动请求。核对旧/新/声明原文按钮须先重读当前审核，再触发原父面板出处复验；声明撤回或改动不复制旧记录，权限拒绝清空父级正文，换账号/版本/卸载不接收旧回包。查询和复制不创建任务、模型或积分流水。
+
+先运行普通TestDossierCorrection系列、原verify-ai-qa-ui.cjs宿主及官方HBuilderX整包；再在MySQL8/9串行运行verify-ai-source-native.ps1 -ReportsOnly -ReportPattern '^TestIntegrationAIReport(DossierCorrections|DossierManagement|DossierStore|DossierProcess|ConversationDossierProcess)$' -RunCount 1。更正根一根七子例共8节点，连旧回归应77个唯一PASS、零失败/跳过；父进程退出0、原生65项与实例清理必须单独核。原密码登录/实际API与管理进程证明接线，合成资料不能作真实语义质量或独立人工金标；宿主、构建与实际浏览器/设备分别记录。
+
+HBuilderX5.26本机CLI使用其plugins/node/node.exe（已核v22.22.2）及uniapp-cli-vite/node_modules/@dcloudio/vite-plugin-uni/bin/uni.js。HX_APP_ROOT设为HBuilderX根目录；运行时会追加plugins，不能再传plugins目录造成双层路径。UNI_INPUT_DIR指向工程、UNI_OUTPUT_DIR使用全新仓库外目录，不覆盖现有产物。构建后核新index、页入口的新组件以及其实际引用的会员API模块；保留原生命周期/Sass/cmark兼容警告。浏览器被禁用时不运行外部CDP脚本绕过，也不把编译通过计为点击验收。
+
 ## 专题发布、撤回与会员读取许可管理（2026-11-03）
 
 设计13.28。先由迁移所有者执行20261103_create_tm_ai_dossier_management.sql；不在启动时自动迁移或接管旧许可。此入口只管理指定不可变版本的发布和会员读取，不能代替资料AI用途、明确更正的语义审核、独立人工标注或正式上线批准。

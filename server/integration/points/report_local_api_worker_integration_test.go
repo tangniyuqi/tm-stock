@@ -200,7 +200,7 @@ func startLocalAPIWithQA(t *testing.T, e *workflowEnv, binary, dsn, signing, run
 
 func startLocalAPIConfigured(t *testing.T, e *workflowEnv, binary, dsn, signing, runtimeFile, plansFile string, client *http.Client, base string, deep bool, qaFile string, feedback bool, dossierPrepareDSN string, references ...bool) {
 	t.Helper()
-	if len(references) > 1 || len(references) == 1 && references[0] && dossierPrepareDSN == "" {
+	if len(references) > 2 || len(references) >= 1 && references[0] && dossierPrepareDSN == "" || len(references) == 2 && references[1] && dossierPrepareDSN == "" {
 		t.Fatal("引用进程配置不完整")
 	}
 	ctx, cancel := context.WithCancel(e.ctx)
@@ -221,8 +221,11 @@ func startLocalAPIConfigured(t *testing.T, e *workflowEnv, binary, dsn, signing,
 	if dossierPrepareDSN != "" {
 		cmd.Env = append(cmd.Env, "TM_AI_LOCAL_DOSSIER_READ_ENABLED=true", "TM_AI_LOCAL_DOSSIER_PREPARE_DSN="+dossierPrepareDSN)
 	}
-	if len(references) == 1 && references[0] {
+	if len(references) >= 1 && references[0] {
 		cmd.Env = append(cmd.Env, "TM_AI_LOCAL_CONVERSATION_DOSSIER_ENABLED=true")
+	}
+	if len(references) == 2 && references[1] {
+		cmd.Env = append(cmd.Env, "TM_AI_LOCAL_DOSSIER_CORRECTIONS_ENABLED=true")
 	}
 	if err := cmd.Start(); err != nil {
 		cancel()

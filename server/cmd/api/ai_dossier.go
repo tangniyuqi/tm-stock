@@ -32,6 +32,10 @@ func registerAILocalDossiers(ctx context.Context, mux *http.ServeMux, db *sql.DB
 	if err != nil {
 		return err
 	}
+	correctionsEnabled, err := config.LoadAILocalDossierCorrections(enabled)
+	if err != nil {
+		return err
+	}
 	if !enabled {
 		return nil
 	}
@@ -67,6 +71,9 @@ func registerAILocalDossiers(ctx context.Context, mux *http.ServeMux, db *sql.DB
 	if referencesEnabled && repository.NewAIConversationDossierSchemaVerifier(prepare).Verify(checkCtx) != nil {
 		return memberauth.ErrUnavailable
 	}
+	if correctionsEnabled && (repository.NewAIDossierManagementSchemaVerifier(prepare).Verify(checkCtx) != nil || repository.NewAIDossierCorrectionSchemaVerifier(prepare).Verify(checkCtx) != nil) {
+		return memberauth.ErrUnavailable
+	}
 	if err = prepare.Close(); err != nil {
 		return memberauth.ErrUnavailable
 	}
@@ -94,6 +101,17 @@ func registerAILocalDossiers(ctx context.Context, mux *http.ServeMux, db *sql.DB
 	if err != nil {
 		return err
 	}
+	var correctionSvc *service.AIDossierCorrectionService
+	if correctionsEnabled {
+		corrections := repository.NewAIDossierCorrectionRepo(db)
+		if corrections.VerifyAccess(checkCtx, false) != nil {
+			return memberauth.ErrUnavailable
+		}
+		correctionSvc, err = service.NewAIDossierCorrectionService(corrections, nil, sessions)
+		if err != nil {
+			return err
+		}
+	}
 	if err = checkCtx.Err(); err != nil {
 		return memberauth.ErrUnavailable
 	}
@@ -105,6 +123,9 @@ func registerAILocalDossiers(ctx context.Context, mux *http.ServeMux, db *sql.DB
 		}
 	}
 	handler.NewAIDossierHandler(svc).Register(mux, auth)
+	if correctionSvc != nil {
+		handler.NewAIDossierCorrectionHandler(correctionSvc).RegisterPublic(mux, auth)
+	}
 	if saved != nil {
 		handler.NewAIConversationDossierHandler(saved).Register(mux, auth)
 	}

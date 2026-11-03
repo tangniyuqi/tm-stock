@@ -26,6 +26,7 @@ let refreshPending : boolean = false
 const current = (round : number, token : string) : boolean => alive && props.enabled && expanded.value && props.conversationId > 0 && round == generation && token.length > 0 && token == props.sessionToken && token == currentAIMemberToken()
 const reset = () : void => { generation++; refreshPending = false; expanded.value = false; busy.value = false; ready.value = false; rows.value = [] as AISavedDossier[]; view.value = null; chosen.value = null; message.value = ''; nextBefore.value = 0; hasMore.value = false; emit('expanded',false) }
 const accept = (code : number) : boolean => { if (code == 40100 || code == 40101 || code == 40301) { reset(); emit('unauthorized'); return false }; return true }
+const correctionUnavailable = (code : number) : void => { if (!current(generation,props.sessionToken) || !accept(code)) return; view.value=null; chosen.value=null; message.value=savedDossierError(code) }
 const load = async (more : boolean) : Promise<void> => {
 	if (busy.value || !current(generation,props.sessionToken) || more && !hasMore.value) return
 	const round : number = ++generation; const token : string = props.sessionToken; const before : number = more ? nextBefore.value : 0
@@ -78,7 +79,7 @@ onBeforeUnmount(() => { alive = false; reset() })
 			<x-button :color="aiMutedColor" v-if="hasMore" class="mt-8" height="44" :block="true" skin="text" :disabled="busy" @click="load(true)" round="10" font-size="14">读取更早保存的档案</x-button>
 			<x-button :color="aiMutedColor" class="mt-8" height="44" :block="true" skin="text" :disabled="busy" @click="load(false)" round="10" font-size="14">刷新本会话保存记录</x-button>
 			<text v-if="message != ''" class="saved-copy mt-12">{{ message }}</text>
-			<AIDossierContent v-if="view != null" :value="view!.dossier" :busy="busy" @copy="copySource"></AIDossierContent>
+			<AIDossierContent v-if="view != null" :value="view!.dossier" :session-token="sessionToken" :busy="busy" @copy="copySource" @unavailable="correctionUnavailable"></AIDossierContent>
 		</view>
 	</view>
 </template>

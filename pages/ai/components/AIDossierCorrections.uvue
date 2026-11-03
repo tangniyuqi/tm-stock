@@ -1,0 +1,72 @@
+<script lang="ts" setup>
+import { ref, watch, onBeforeUnmount } from 'vue'
+import { aiMutedColor } from '../ai-theme.uts'
+import { AIDossierView, dossierError, dossierFieldLabel } from '../../libs/ai-dossier.uts'
+import { AIDossierCorrections, AIDossierCorrectionItem, AIDossierCorrectionQuote, AIDossierCorrectionApi, dossierCorrectionNotice, sameDossierCorrection } from '../../libs/ai-dossier-corrections.uts'
+import { currentAIMemberToken } from '../../libs/ai-session.uts'
+import { formatMillis } from '../../libs/theme.uts'
+
+type CorrectionProps = { value : AIDossierView, sessionToken : string, busy? : boolean }
+defineOptions({name:'AIDossierCorrections'})
+const props = withDefaults(defineProps<CorrectionProps>(),{busy:false})
+const emit = defineEmits<{copy:[version : number,key : string,field : string],unavailable:[code : number]}>()
+const data = ref<AIDossierCorrections | null>(null)
+const loading = ref<boolean>(false)
+const message = ref<string>('')
+let alive : boolean = true
+let generation : number = 0
+const reset = () : void => { generation++; data.value=null; loading.value=false; message.value='' }
+const current = (round : number, token : string) : boolean => alive && !props.busy && generation == round && token.length > 0 && token == props.sessionToken && token == currentAIMemberToken()
+const load = async () : Promise<AIDossierCorrections | null> => {
+	if (loading.value || props.busy || !current(generation,props.sessionToken) || props.value.versions.length != 2) return null
+	const round : number = ++generation; const token : string = props.sessionToken
+	data.value=null; loading.value=true; message.value=''
+	try {
+		const r = await AIDossierCorrectionApi.read(props.value)
+		if (!current(round,token)) return null
+		loading.value=false
+		if (r.code != 0 || r.data == null) { message.value=dossierError(r.code); if ([40100,40101,40301,40404].includes(r.code)) emit('unavailable',r.code); return null }
+		data.value=r.data!; return r.data!
+	} catch (_) { if (current(round,token)) { loading.value=false; message.value=dossierError(50001) }; return null }
+}
+const copy = async (item : AIDossierCorrectionItem, part : string) : Promise<void> => {
+	const fresh = await load()
+	if (fresh == null) return
+	const match = fresh!.items.find((candidate : AIDossierCorrectionItem) : boolean => sameDossierCorrection(candidate,item))
+	if (match == null) { message.value='审核记录已变化，请核对当前声明后再操作'; return }
+	const ref : AIDossierCorrectionQuote = part == 'before' ? match!.before : part == 'after' ? match!.after : match!.statement
+	emit('copy',ref.version,ref.key,ref.field)
+}
+watch(() : AIDossierView => props.value,() : void => { reset() })
+watch(() : string => props.sessionToken,() : void => { reset() })
+watch(() : boolean => props.busy,(value : boolean) : void => { if (value) reset() })
+onBeforeUnmount(() : void => { alive=false; reset() })
+</script>
+<template>
+	<view v-if="value.versions.length == 2" class="correction-panel mt-12">
+		<text class="correction-title text-weight-b">明确更正声明</text>
+		<text class="correction-copy mt-4">{{ dossierCorrectionNotice }}</text>
+		<x-button :color="aiMutedColor" class="mt-8" height="44" :block="true" skin="text" round="10" font-size="14" :disabled="busy || loading || sessionToken == ''" @click="load">{{ data == null ? '查询已审核的更正声明' : '重新核对更正声明' }}</x-button>
+		<text v-if="loading" class="correction-copy mt-8">正在核对双方版本、原文和当前审核记录…</text>
+		<text v-if="message != ''" class="correction-copy mt-8">{{ message }}</text>
+		<text v-if="data != null && data!.state == 'unverified'" class="correction-copy mt-8">当前没有可展示的有效审核声明，不表示资料不存在更正。</text>
+		<view v-if="data != null" v-for="(item,index) in data!.items" :key="index" class="mt-12">
+			<text class="correction-title">已审核声明 {{ index+1 }}</text>
+			<text class="correction-copy mt-8">较早版本原文 · 版本 {{ item.before.version }} · {{ item.before.field == '' ? '资料卡整句' : dossierFieldLabel(item.before.field) }}</text>
+			<text v-if="item.before.field != ''" class="correction-copy mt-4">所核字段原文：{{ item.before.quote.text }}</text><text class="correction-quote mt-4">{{ item.before.quote.context }}</text>
+			<x-button :color="aiMutedColor" class="mt-4" height="44" :block="true" skin="text" round="10" font-size="14" :disabled="busy || loading" @click="copy(item,'before')">核对较早版本原文</x-button>
+			<text class="correction-copy mt-8">较新版本原文 · 版本 {{ item.after.version }} · {{ item.after.field == '' ? '资料卡整句' : dossierFieldLabel(item.after.field) }}</text>
+			<text v-if="item.after.field != ''" class="correction-copy mt-4">所核字段原文：{{ item.after.quote.text }}</text><text class="correction-quote mt-4">{{ item.after.quote.context }}</text>
+			<x-button :color="aiMutedColor" class="mt-4" height="44" :block="true" skin="text" round="10" font-size="14" :disabled="busy || loading" @click="copy(item,'after')">核对较新版本原文</x-button>
+			<text class="correction-copy mt-8">明确更正声明原文 · 采集于 {{ formatMillis(item.statement.quote.collectedAt) }}</text><text class="correction-quote mt-4">{{ item.statement.quote.text }}</text>
+			<x-button :color="aiMutedColor" class="mt-4" height="44" :block="true" skin="text" round="10" font-size="14" :disabled="busy || loading" @click="copy(item,'statement')">核对更正声明原文</x-button>
+		</view>
+	</view>
+</template>
+<style lang="scss" scoped>
+@import "../ai-theme.scss";
+.correction-panel { padding: 12px; background-color: #ffffff; border-radius: 8px; min-width: 0; }
+.correction-title { color: #1f2329; font-size: 15px; font-weight: 600; line-height: 24px; }
+.correction-copy { color: #6b7280; font-size: 14px; line-height: 23px; }
+.correction-quote { color: #1f2329; font-size: 14px; line-height: 25px; white-space: pre-wrap; }
+</style>

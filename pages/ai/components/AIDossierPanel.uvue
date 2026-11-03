@@ -30,6 +30,7 @@ const current = (round : number, token : string) : boolean => alive && props.ena
 const reset = () : void => { generation++; expanded.value = false; busy.value = false; ready.value = false; versions.value = [] as AIDossierVersionItem[]; picked.value = [] as number[]; hasMore.value = false; nextBefore.value = 0; view.value = null; pendingSelection.value = null; message.value = ''; emit('expanded',false) }
 const discardResults = () : void => { view.value = null; versions.value = [] as AIDossierVersionItem[]; picked.value = [] as number[]; ready.value = false; hasMore.value = false; nextBefore.value = 0 }
 const accept = (code : number) : boolean => { if (code == 40100 || code == 40101 || code == 40301) { reset(); emit('unauthorized'); return false }; return true }
+const correctionUnavailable = (code : number) : void => { if (!current(generation,props.sessionToken) || !accept(code)) return; discardResults(); message.value=dossierError(code) }
 const loadVersions = async (more : boolean) : Promise<void> => {
 	if (busy.value || !current(generation,props.sessionToken) || more && !hasMore.value) return
 	if (!more) { generation++; versions.value = [] as AIDossierVersionItem[]; picked.value = [] as number[]; view.value = null; ready.value = false; hasMore.value = false; nextBefore.value = 0 }
@@ -115,7 +116,7 @@ onBeforeUnmount(() => { alive = false; reset() })
 			<text v-if="message != ''" class="dossier-copy mt-12">{{ message }}</text>
 			<x-button :color="aiMutedColor" v-if="pendingSelection != null" class="mt-8" height="44" :block="true" skin="text" :disabled="busy" @click="checkSaved" round="10" font-size="14">查询原组合保存收据</x-button>
 			<x-button :color="aiMutedColor" v-if="view != null && conversationId > 0 && !archived" class="mt-8" height="44" :block="true" skin="text" :disabled="busy || pendingSelection != null" @click="save" round="10" font-size="14">保存当前档案到本会话（不扣积分）</x-button>
-			<AIDossierContent v-if="view != null" :value="view!" :busy="busy" @copy="copySource"></AIDossierContent>
+			<AIDossierContent v-if="view != null" :value="view!" :session-token="sessionToken" :busy="busy" @copy="copySource" @unavailable="correctionUnavailable"></AIDossierContent>
 		</view>
 	</view>
 </template>

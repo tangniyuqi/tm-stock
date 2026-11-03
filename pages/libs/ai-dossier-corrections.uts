@@ -1,0 +1,37 @@
+import { MemberApi, MemberApiResult } from './member-api.uts'
+import { isSafeAIId } from './ai-number.uts'
+import { AIDossierView, AIDossierQuote, dossierQuoteFor, dossierFieldKeys, isDossierQuote, isDossierView, dossierError } from './ai-dossier.uts'
+
+export type AIDossierCorrectionQuote = { version : number, key : string, field : string, quote : AIDossierQuote }
+export type AIDossierCorrectionItem = { before : AIDossierCorrectionQuote, after : AIDossierCorrectionQuote, statement : AIDossierCorrectionQuote }
+export type AIDossierCorrections = { themeId : number, beforeVersion : number, afterVersion : number, notice : string, state : string, items : AIDossierCorrectionItem[] }
+export const dossierCorrectionNotice = '仅展示所选版本中经操作人审核的明确更正声明及双方引文；不代表事实本身或全部变化均已核实。未展示声明不表示不存在更正。'
+const exact = (v : string[], names : string[]) : boolean => v.length == names.length && v.every((k : string) : boolean => names.includes(k))
+const sameQuote = (a : AIDossierQuote, b : AIDossierQuote) : boolean => a.text == b.text && a.context == b.context && a.sourceType == b.sourceType && a.sourceUrl == b.sourceUrl && a.collectedAt == b.collectedAt && a.snapshotId == b.snapshotId && a.sentence == b.sentence && a.startByte == b.startByte && a.endByte == b.endByte
+const sameReference = (a : AIDossierCorrectionQuote, b : AIDossierCorrectionQuote) : boolean => a.version == b.version && a.key == b.key && a.field == b.field && sameQuote(a.quote,b.quote)
+export const sameDossierCorrection = (a : AIDossierCorrectionItem, b : AIDossierCorrectionItem) : boolean => sameReference(a.before,b.before) && sameReference(a.after,b.after) && sameReference(a.statement,b.statement)
+const referenceValid = (r : AIDossierCorrectionQuote, version : number, view : AIDossierView) : boolean => {
+	if (r == null || typeof r != 'object' || Array.isArray(r) || !exact(Object.keys(r),['version','key','field','quote']) || !isSafeAIId(r.version) || r.version != version || typeof r.key != 'string' || !/^[a-z][a-z0-9_]{0,31}$/.test(r.key) || typeof r.field != 'string' || r.field != '' && !dossierFieldKeys.includes(r.field) || !isDossierQuote(r.quote)) return false
+	const original = dossierQuoteFor(view,version,r.key,r.field)
+	return original != null && sameQuote(r.quote,original!)
+}
+const correctionView = (view : AIDossierView | null) : boolean => view != null && typeof view == 'object' && !Array.isArray(view) && Array.isArray(view.versions) && view.versions.length == 2 && view.versions[0] != null && view.versions[1] != null && isDossierView(view,view.themeId,view.versions[0].version,view.versions[1].version)
+export const isDossierCorrections = (v : AIDossierCorrections | null, view : AIDossierView) : boolean => {
+	if (!correctionView(view)) return false
+	if (v == null || typeof v != 'object' || Array.isArray(v) || !exact(Object.keys(v),['themeId','beforeVersion','afterVersion','notice','state','items']) || !isSafeAIId(v.themeId) || v.themeId != view.themeId || !isSafeAIId(v.beforeVersion) || v.beforeVersion != view.versions[0].version || !isSafeAIId(v.afterVersion) || v.afterVersion != view.versions[1].version || typeof v.notice != 'string' || v.notice != dossierCorrectionNotice || typeof v.state != 'string' || !['unverified','reviewed_declaration'].includes(v.state) || !Array.isArray(v.items) || v.items.length > 16 || v.state == 'unverified' && v.items.length != 0 || v.state == 'reviewed_declaration' && v.items.length == 0) return false
+	let used : string[] = [] as string[]
+	for (const item of v.items) {
+		if (item == null || typeof item != 'object' || Array.isArray(item) || !exact(Object.keys(item),['before','after','statement']) || !referenceValid(item.before,v.beforeVersion,view) || !referenceValid(item.after,v.afterVersion,view) || !referenceValid(item.statement,v.afterVersion,view) || item.statement.field != '') return false
+		const key : string = item.before.key+'/'+item.before.field+'/'+item.after.key+'/'+item.after.field
+		if (used.includes(key)) return false
+		used.push(key)
+	}
+	return true
+}
+export class AIDossierCorrectionApi {
+	public static async read(view : AIDossierView) : Promise<MemberApiResult<AIDossierCorrections>> {
+		if (!correctionView(view)) return {code:40001,message:dossierError(40001),data:null} as MemberApiResult<AIDossierCorrections>
+		const r = await MemberApi.aiDossierCorrections<AIDossierCorrections>(view.themeId,view.versions[0].version,view.versions[1].version)
+		return r.code != 0 ? {code:r.code,message:dossierError(r.code),data:null} as MemberApiResult<AIDossierCorrections> : isDossierCorrections(r.data,view) ? r : {code:50001,message:dossierError(50001),data:null} as MemberApiResult<AIDossierCorrections>
+	}
+}

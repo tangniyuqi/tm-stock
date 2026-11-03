@@ -142,6 +142,11 @@ export class MemberApi {
 		else if (before > 0) path += '?beforeVersion=' + before.toString()
 		return requestWithToken<T>(path,'GET',{} as UTSJSONObject,true,currentAIMemberToken())
 	}
+	public static aiDossierCorrections<T>(theme : number, before : number, after : number) : Promise<MemberApiResult<T>> {
+		for (const n of [theme,before,after]) if (typeof n != 'number' || n <= 0 || n > 9007199254740991 || Math.floor(n) != n) return Promise.resolve(failure<T>(40001,'更正声明范围无效'))
+		if (before >= after) return Promise.resolve(failure<T>(40001,'更正声明版本无效'))
+		return requestWithToken<T>('/api/v1/ai/themes/'+theme.toString()+'/dossier-corrections?beforeVersion='+before.toString()+'&afterVersion='+after.toString(),'GET',{} as UTSJSONObject,true,currentAIMemberToken())
+	}
 	// 问答只开放固定端点；仅提交使用28秒，其余与既有接口保持10秒。
 	public static aiQuestion<T>(operation : string, cid : number, seq : number, body : UTSJSONObject, key : string) : Promise<MemberApiResult<T>> {
 		if (typeof cid != 'number' || cid <= 0 || cid > 9007199254740991 || Math.floor(cid) != cid || typeof seq != 'number' || seq < 0 || seq > 9007199254740991 || Math.floor(seq) != seq) return Promise.resolve(failure<T>(40001,'问题编号无效'))
