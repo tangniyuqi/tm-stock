@@ -128,11 +128,154 @@ jobs:
           # 正式资料问答配置/嵌套闭集/证明绑定新增3根43子节点。
           # 原Agent完整输入/原任务读取新增8根60子节点，保留原问答门禁。
           # 专题当前引用来源关系投影新增1根10子节点。
-          MIN=2338
+          # 专题管理协议、装配、服务、HTTP与CLI新增9根125子节点。
+          MIN=2472
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项测试，低于下限 $MIN —— 要么测试没被执行，要么有测试被删。"
             exit 1
           fi
+
+          # 专题管理普通门禁开始
+          DOSSIER_MANAGEMENT_UNIT_ACTUAL=$(sed -nE 's/^[[:space:]]*--- PASS: (TestDossierManagement[^ ]*) .*/\1/p' /tmp/gotest.log | LC_ALL=C sort)
+          DOSSIER_MANAGEMENT_UNIT_EXPECTED=$(printf '%s\n' \
+            'TestDossierManagementActorConfiguration' \
+            'TestDossierManagementActorConfiguration/default' \
+            'TestDossierManagementActorConfiguration/duplicate' \
+            'TestDossierManagementActorConfiguration/enabled' \
+            'TestDossierManagementActorConfiguration/flag' \
+            'TestDossierManagementActorConfiguration/implicit_actors' \
+            'TestDossierManagementActorConfiguration/implicit_prepare' \
+            'TestDossierManagementActorConfiguration/missing_actors' \
+            'TestDossierManagementActorConfiguration/missing_prepare' \
+            'TestDossierManagementActorConfiguration/noncanonical' \
+            'TestDossierManagementActorConfiguration/same_account' \
+            'TestDossierManagementActorConfiguration/subset' \
+            'TestDossierManagementActorConfiguration/unregistered' \
+            'TestDossierManagementActorConfiguration/whitespace' \
+            'TestDossierManagementActorConfiguration/wrong_database' \
+            'TestDossierManagementActorConfiguration/wrong_instance' \
+            'TestDossierManagementAssembly' \
+            'TestDossierManagementAssembly/invalid_operator' \
+            'TestDossierManagementAssembly/local_feedback_conflict' \
+            'TestDossierManagementAssembly/missing_dependencies' \
+            'TestDossierManagementCLI' \
+            'TestDossierManagementCLI/apply' \
+            'TestDossierManagementCLI/bad_digest' \
+            'TestDossierManagementCLI/free_notice' \
+            'TestDossierManagementCLI/inspect' \
+            'TestDossierManagementCLI/invalid_input_zero_requests' \
+            'TestDossierManagementCLI/known_failure' \
+            'TestDossierManagementCLI/missing_boolean' \
+            'TestDossierManagementCLI/null_boolean' \
+            'TestDossierManagementCLI/null_managed' \
+            'TestDossierManagementCLI/null_zero_id' \
+            'TestDossierManagementCLI/private_extra' \
+            'TestDossierManagementCLI/request' \
+            'TestDossierManagementCLI/string_boolean' \
+            'TestDossierManagementCLI/wrong_request' \
+            'TestDossierManagementCLI/wrong_revision' \
+            'TestDossierManagementEventProtocol' \
+            'TestDossierManagementEventProtocol/actor' \
+            'TestDossierManagementEventProtocol/approval_projection' \
+            'TestDossierManagementEventProtocol/bad_before' \
+            'TestDossierManagementEventProtocol/case_alias' \
+            'TestDossierManagementEventProtocol/digest' \
+            'TestDossierManagementEventProtocol/digest_mismatch' \
+            'TestDossierManagementEventProtocol/disable_preserves_history' \
+            'TestDossierManagementEventProtocol/disable_without_before' \
+            'TestDossierManagementEventProtocol/duplicate' \
+            'TestDossierManagementEventProtocol/expiry' \
+            'TestDossierManagementEventProtocol/missing_before' \
+            'TestDossierManagementEventProtocol/null_number' \
+            'TestDossierManagementEventProtocol/protocol' \
+            'TestDossierManagementEventProtocol/reference' \
+            'TestDossierManagementEventProtocol/revision' \
+            'TestDossierManagementEventProtocol/state' \
+            'TestDossierManagementEventProtocol/time' \
+            'TestDossierManagementEventProtocol/unknown' \
+            'TestDossierManagementEventProtocol/whitespace' \
+            'TestDossierManagementFailures' \
+            'TestDossierManagementFailures/advance' \
+            'TestDossierManagementFailures/append' \
+            'TestDossierManagementFailures/authorization_and_cancel' \
+            'TestDossierManagementFailures/clock' \
+            'TestDossierManagementFailures/commit_before' \
+            'TestDossierManagementFailures/digest' \
+            'TestDossierManagementFailures/event' \
+            'TestDossierManagementFailures/final_expiry' \
+            'TestDossierManagementFailures/head' \
+            'TestDossierManagementFailures/member' \
+            'TestDossierManagementFailures/metadata_tamper' \
+            'TestDossierManagementFailures/missing_revoke' \
+            'TestDossierManagementFailures/over_publication' \
+            'TestDossierManagementFailures/permission' \
+            'TestDossierManagementFailures/preview_natural_expiry' \
+            'TestDossierManagementFailures/publication' \
+            'TestDossierManagementFailures/revision' \
+            'TestDossierManagementFailures/source' \
+            'TestDossierManagementFailures/version' \
+            'TestDossierManagementFailures/write' \
+            'TestDossierManagementHTTPBoundary' \
+            'TestDossierManagementHTTPBoundary/actor_spoof' \
+            'TestDossierManagementHTTPBoundary/anonymous' \
+            'TestDossierManagementHTTPBoundary/apply' \
+            'TestDossierManagementHTTPBoundary/closed_failures' \
+            'TestDossierManagementHTTPBoundary/content_type' \
+            'TestDossierManagementHTTPBoundary/duplicate_type' \
+            'TestDossierManagementHTTPBoundary/empty_origin' \
+            'TestDossierManagementHTTPBoundary/encoding' \
+            'TestDossierManagementHTTPBoundary/get_body' \
+            'TestDossierManagementHTTPBoundary/head' \
+            'TestDossierManagementHTTPBoundary/inspect' \
+            'TestDossierManagementHTTPBoundary/member' \
+            'TestDossierManagementHTTPBoundary/null_enabled' \
+            'TestDossierManagementHTTPBoundary/origin' \
+            'TestDossierManagementHTTPBoundary/oversized' \
+            'TestDossierManagementHTTPBoundary/query_duplicate' \
+            'TestDossierManagementHTTPBoundary/query_extra' \
+            'TestDossierManagementHTTPBoundary/query_missing' \
+            'TestDossierManagementHTTPBoundary/request' \
+            'TestDossierManagementHTTPBoundary/request_query' \
+            'TestDossierManagementHTTPBoundary/second_key' \
+            'TestDossierManagementLifecycle' \
+            'TestDossierManagementLifecycle/legacy_takeover' \
+            'TestDossierManagementLifecycle/member_boundary' \
+            'TestDossierManagementLifecycle/publish_replay_revoke' \
+            'TestDossierManagementLifecycle/unknown_commit_is_queryable' \
+            'TestDossierManagementMigrationPolicy' \
+            'TestDossierManagementRequestProtocol' \
+            'TestDossierManagementRequestProtocol/actor_spoof' \
+            'TestDossierManagementRequestProtocol/case_duplicate' \
+            'TestDossierManagementRequestProtocol/digest' \
+            'TestDossierManagementRequestProtocol/disable_until' \
+            'TestDossierManagementRequestProtocol/duplicate' \
+            'TestDossierManagementRequestProtocol/float_version' \
+            'TestDossierManagementRequestProtocol/invalid_utf8' \
+            'TestDossierManagementRequestProtocol/kind' \
+            'TestDossierManagementRequestProtocol/member_and_disable' \
+            'TestDossierManagementRequestProtocol/member_user' \
+            'TestDossierManagementRequestProtocol/missing_enabled' \
+            'TestDossierManagementRequestProtocol/null_enabled' \
+            'TestDossierManagementRequestProtocol/null_user' \
+            'TestDossierManagementRequestProtocol/oversized' \
+            'TestDossierManagementRequestProtocol/publication_user' \
+            'TestDossierManagementRequestProtocol/reference' \
+            'TestDossierManagementRequestProtocol/request_id' \
+            'TestDossierManagementRequestProtocol/revision' \
+            'TestDossierManagementRequestProtocol/revision_overflow' \
+            'TestDossierManagementRequestProtocol/root_array' \
+            'TestDossierManagementRequestProtocol/string_enabled' \
+            'TestDossierManagementRequestProtocol/string_user' \
+            'TestDossierManagementRequestProtocol/target_extra' \
+            'TestDossierManagementRequestProtocol/theme' \
+            'TestDossierManagementRequestProtocol/trailing' \
+            'TestDossierManagementRequestProtocol/until_overflow' \
+            'TestDossierManagementRequestProtocol/until_zero' \
+            'TestDossierManagementRequestProtocol/version' | LC_ALL=C sort)
+          if [ "$DOSSIER_MANAGEMENT_UNIT_ACTUAL" != "$DOSSIER_MANAGEMENT_UNIT_EXPECTED" ] || grep -Eq '^[[:space:]]*--- (FAIL|SKIP): TestDossierManagement' /tmp/gotest.log; then
+            echo '::error::专题管理身份、原请求、审计及当前权限验收缺失、重复、失败或跳过'; exit 1
+          fi
+          # 专题管理普通门禁结束
 
           # 专题来源关系普通门禁开始
           DOSSIER_SOURCE_ACTUAL=$(sed -nE 's/^[[:space:]]*--- PASS: (TestDossierSourceRelationsProjection[^ ]*) .*/\1/p' /tmp/gotest.log | LC_ALL=C sort)
@@ -1124,6 +1267,24 @@ jobs:
             fi
           done
           # 专题读取接口门禁结束
+          # 专题管理进程门禁开始
+          DOSSIER_MANAGEMENT_PROCESS_ACTUAL=$(sed -nE 's/^[[:space:]]*--- PASS: (TestIntegrationAIReportDossierManagement[^ ]*) .*/\1/p' /tmp/it.log | LC_ALL=C sort)
+          DOSSIER_MANAGEMENT_PROCESS_EXPECTED=$(printf '%s\n' \
+            'TestIntegrationAIReportDossierManagement' \
+            'TestIntegrationAIReportDossierManagement/独立角色与候选预览' \
+            'TestIntegrationAIReportDossierManagement/发布接管与原请求重放' \
+            'TestIntegrationAIReportDossierManagement/来源撤回拒批但可撤回发布' \
+            'TestIntegrationAIReportDossierManagement/授予与撤回第二会员' \
+            'TestIntegrationAIReportDossierManagement/并发修订仅一次' \
+            'TestIntegrationAIReportDossierManagement/运行账号无业务及审计删除权限' \
+            'TestIntegrationAIReportDossierManagement/审计写权限失败原子回滚' \
+            'TestIntegrationAIReportDossierManagement/会员读取依赖撤回恢复' \
+            'TestIntegrationAIReportDossierManagement/许可旁路及失效保护拒绝' | LC_ALL=C sort)
+          if [ "$DOSSIER_MANAGEMENT_PROCESS_ACTUAL" != "$DOSSIER_MANAGEMENT_PROCESS_EXPECTED" ] || grep -Eq '^[[:space:]]*--- (FAIL|SKIP): TestIntegrationAIReportDossierManagement' /tmp/it.log; then
+            echo '::error::专题管理身份、原请求、审计及当前权限验收缺失、重复、失败或跳过'; exit 1
+          fi
+          # 专题管理进程门禁结束
+
           # 专题进程门禁开始
           DOSSIER_PROCESS_ROOT=$(grep -Ec '^--- PASS: TestIntegrationAIReportDossierProcess ' /tmp/it.log || true)
           DOSSIER_PROCESS_CASES=$(grep -Ec '^[[:space:]]+--- PASS: TestIntegrationAIReportDossierProcess/' /tmp/it.log || true)
@@ -1887,7 +2048,8 @@ jobs:
           # 正式资料问答受控装配与执行中撤回新增1根，常规CI只用回环协议。
           # 原Agent完整输入独立API进程新增1根2隔离子节点。
           # 原专题进程增加来源及第二版读取许可撤回恢复1子节点。
-          MIN=1786
+          # 专题管理独立进程新增1根9子节点，含原登录/受限账号/撤回与回滚。
+          MIN=1796
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项，低于下限 $MIN —— 要么没跑，要么有测试被删。"; exit 1
           fi

@@ -1,5 +1,25 @@
 # AI 内部操作手册（L0 审核与隔离 Agent 执行）
 
+## 专题发布、撤回与会员读取许可管理（2026-11-03）
+
+设计13.28。先由迁移所有者执行20261103_create_tm_ai_dossier_management.sql；不在启动时自动迁移或接管旧许可。此入口只管理指定不可变版本的发布和会员读取，不能代替资料AI用途、明确更正的语义审核、独立人工标注或正式上线批准。
+
+ai-admin启用独立专题模式：安全注入原TM_DB_DSN、审核凭据及TM_AI_DOSSIER_MANAGEMENT_PREPARE_DSN，显式设置TM_AI_DOSSIER_MANAGEMENT_ADMIN_ENABLED=true和TM_AI_DOSSIER_MANAGEMENT_ACTORS。操作人须为原reviewers的明确子集；准备/运行DSN须同实例、同库、不同SQL用户。服务在原回环地址只挂专题三个接口，不兼开本地反馈、L0或来源管理。准备连接完成结构核验和回滚探针后关闭，不能把准备账号交给会员API或持续运行服务。
+
+运行账号只读原资料、正文、不可变版本/证据、题材及会员必要状态列；对tm_ai_dossier_publications、tm_ai_dossier_grants、tm_ai_dossier_management_heads授SELECT/INSERT/UPDATE，对tm_ai_dossier_management_events授SELECT/INSERT。会员API原读取账号另授heads/events的SELECT，保持零新增写权限。管理账号不能读会员密码或改资料、版本、任务、报告、积分，不能改/删审计或删除管理头。启动零行探针不是最小权限证明，须另以实际受限账号核允许/禁止路径。
+
+ai-review沿原TM_AI_ADMIN_URL及TM_AI_ADMIN_TOKEN环境变量，支持以下单次命令，输入均从标准输入读闭集JSON；不把凭据放入参数或文件。请求文件如需保留应在仓库外安全位置，包含内部审核依据的内容不进入会员页面或评测输出。
+
+- dossier-inspect：输入kind/userId/themeId/version。publication的userId必须0；member_read须为明确会员。返回版本摘要、当前管理修订和许可状态；候选预览仅在全部当前来源可读时提供，固定内部候选提示不能删除。
+- dossier-apply：输入requestId、object、expectedRevision、versionDigest、enabled、validUntil、reviewReference。object为上述四字段；requestId为16—64位ASCII字母数字/下划线/连字符，摘要须用inspect读得的原版本值。审核依据须对应实际核对，不以测试占位引用冒充人工审查。enabled=true时毫秒期限须在当前有效区间；会员读取不得超过当前发布期限。enabled=false时validUntil必须0，保留原许可历史期限，资料撤回不阻碍撤回许可。
+- dossier-request：输入唯一requestId。超时或503时先查询原请求，只返回原操作人的历史收据，不重新生成请求编号自动重提。原请求同人同体重放只读原收据，即使此后已经撤回，也不会重新开启旧许可；同键异体/他人重用、旧修订和并发竞争返回冲突。
+
+所有接口拒绝浏览器Origin、客户端actor声明、额外字段、重复键、缺失或null布尔值；命令行对响应也做字段、实际类型及原请求绑定核验，失败不输出部分正文。当前状态以重新inspect及原会员实际读取为准，历史收据不代表当前许可仍有效。已管理许可不能剥离引用回退手工SQL，也不能直接删除；使用新请求和当前修订明确撤回。
+
+领域提交、审计和管理响应均以object表示原四字段许可对象；两者须完整匹配，不接受别名混用，不扩大原AI领域或DTO字段豁免。
+
+真库验收沿verify-ai-source-native.ps1 -ReportsOnly -ReportPattern '^TestIntegrationAIReport(DossierManagement|DossierStore|DossierProcess|ConversationDossierProcess)$' -RunCount 1，MySQL8/9串行执行。管理根应有九个子例：独立角色预览、发布接管/重放、来源撤回拒批但可撤回、会员授予/撤回、并发修订、运行账号越权、审计写失败回滚、会员审计读取撤回/恢复、许可旁路及同名失效触发器拒绝；合计10个管理节点，连原回归为69个唯一PASS。父进程还核原生65项及实例清理，原密码登录与独立管理/会员API均须实际运行；核零额外模型、任务、报告和积分。这不计明确更正完成、真实资料质量或实际页面验收。
+
 ## 专题来源关系读取（2026-11-03）
 
 设计13.27。前端/API同步构建部署到开发环境，原档案GET新增必需sourceRelations；不修改旧Draft、计划或数据库权限。检查三类组仅含当前引文实际使用的快照，known字段独有原文不能遗漏，双版重复同一快照不能扩成两份来源；同链接/正文/登记来源分别表达，不计算独立证据数。三个核验状态固定unverified，同编号元数据矛盾、任一版本/来源撤权均整份拒绝，不返回分组或数量。

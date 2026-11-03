@@ -31,6 +31,7 @@ type dossierProcessFixture struct {
 	login                       *h5MemberLoginBridge
 	client                      *http.Client
 	base                        string
+	apiUser                     string
 	baselineTasks, baselineTxns int
 }
 
@@ -145,7 +146,7 @@ func newDossierProcessWithQA(t *testing.T, lifetime time.Duration, saved bool, p
 	t.Cleanup(client.CloseIdleConnections)
 	base := "http://" + f.runtime.Listen
 	startLocalAPIConfigured(t, e, api, dsn, signing, runtimeFile, f.path, client, base, false, qaFile, false, prepare.FormatDSN(), saved)
-	return &dossierProcessFixture{f: f, login: bridge, client: client, base: base, baselineTasks: e.queryInt(`SELECT COUNT(*) FROM tm_ai_tasks`), baselineTxns: e.queryInt(`SELECT COUNT(*) FROM tm_points_txns`)}
+	return &dossierProcessFixture{f: f, login: bridge, client: client, base: base, apiUser: cfg.User, baselineTasks: e.queryInt(`SELECT COUNT(*) FROM tm_ai_tasks`), baselineTxns: e.queryInt(`SELECT COUNT(*) FROM tm_points_txns`)}
 }
 func (p *dossierProcessFixture) verifyNoGeneration(t *testing.T) {
 	t.Helper()

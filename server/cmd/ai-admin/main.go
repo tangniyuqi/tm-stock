@@ -41,9 +41,14 @@ func run() error {
 	if local != nil {
 		cfg.Addr = local.Listen
 	}
-	l0Config, err := config.LoadAIL0()
-	if err != nil {
-		return err
+	var l0Config *config.AIL0Config
+	if os.Getenv("TM_AI_DOSSIER_MANAGEMENT_ADMIN_ENABLED") == "true" {
+		l0Config = &config.AIL0Config{}
+	} else {
+		l0Config, err = config.LoadAIL0()
+		if err != nil {
+			return err
+		}
 	}
 	db, err := sql.Open("mysql", cfg.DSN)
 	if err != nil {
@@ -62,6 +67,16 @@ func startAdmin(ctx context.Context, cfg *config.AIAdminConfig, l0Config *config
 }
 
 func startAdminWithLocal(ctx context.Context, cfg *config.AIAdminConfig, l0Config *config.AIL0Config, db *sql.DB, serve func(context.Context, *http.Server) error, local *config.AILocalRuntime) error {
+	managementConfig, managementErr := config.LoadAIDossierManagement(cfg.Reviewers, cfg.DSN)
+	if managementErr != nil {
+		return managementErr
+	}
+	if local != nil && managementConfig != nil {
+		return fmt.Errorf("本地反馈专用装配不开放专题管理")
+	}
+	if managementConfig != nil {
+		return startDossierManagementAdmin(ctx, cfg, managementConfig, db, serve)
+	}
 	if local != nil {
 		return startLocalFeedbackAdmin(ctx, cfg, l0Config, db, serve, local)
 	}

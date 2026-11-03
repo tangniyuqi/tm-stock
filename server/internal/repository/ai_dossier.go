@@ -162,10 +162,18 @@ func (t *aiDossierTx) Versions(ctx context.Context, user, theme, before int64, l
 	return out, nil
 }
 func (t *aiDossierTx) Publication(ctx context.Context, theme, version int64) (dossier.Approval, error) {
-	return scanDossierApproval(t.tx.QueryRowContext(ctx, `SELECT digest,approval_ref,CAST(valid_until AS CHAR),enabled FROM tm_ai_dossier_publications WHERE theme_id=? AND version_no=? FOR SHARE`, theme, version))
+	a, err := scanDossierApproval(t.tx.QueryRowContext(ctx, `SELECT digest,approval_ref,CAST(valid_until AS CHAR),enabled FROM tm_ai_dossier_publications WHERE theme_id=? AND version_no=? FOR SHARE`, theme, version))
+	if err != nil {
+		return a, err
+	}
+	return t.verifyManagedApproval(ctx, dossier.ManagementObject{Kind: "publication", ThemeID: theme, Version: version}, a)
 }
 func (t *aiDossierTx) Grant(ctx context.Context, user, theme, version int64) (dossier.Approval, error) {
-	return scanDossierApproval(t.tx.QueryRowContext(ctx, `SELECT digest,approval_ref,CAST(valid_until AS CHAR),enabled FROM tm_ai_dossier_grants WHERE user_id=? AND theme_id=? AND version_no=? FOR SHARE`, user, theme, version))
+	a, err := scanDossierApproval(t.tx.QueryRowContext(ctx, `SELECT digest,approval_ref,CAST(valid_until AS CHAR),enabled FROM tm_ai_dossier_grants WHERE user_id=? AND theme_id=? AND version_no=? FOR SHARE`, user, theme, version))
+	if err != nil {
+		return a, err
+	}
+	return t.verifyManagedApproval(ctx, dossier.ManagementObject{Kind: "member_read", UserID: user, ThemeID: theme, Version: version}, a)
 }
 func scanDossierApproval(row rowScanner) (dossier.Approval, error) {
 	var a dossier.Approval

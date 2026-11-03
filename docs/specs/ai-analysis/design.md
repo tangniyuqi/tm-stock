@@ -1271,3 +1271,21 @@ GET tasks/{id}/report/inputs沿原Bearer和本人当前可读报告，前后复�
 DTO固定notice、independence/reprintChain/explicitCorrection三个unverified及groups。组只含kind/snapshotIds，kind依次为same_url/duplicate_body/same_registered_source，每组至少两份不同快照，成员升序、同类组按首编号排序；不同类别可重叠，同类别的组不重叠。所选两版至多64份快照、96组。URL只做精确相等，Hash只说明归档正文摘要相同，SourceID只说明同一登记来源；内部Hash和SourceID不出DTO。不把未分组当独立、缺失当不存在、转载方向/发布者或更正事实交给模型猜测；明确更正和原始来源审核仍待实现。
 
 原红白TMUI档案内容增加默认收起的来源关系面板，从当前已读引文生成“资料1”等页面序号，不展示内部快照编号。展开只读现有DTO，无网络/模型/积分副作用；三项未核实状态明示。每份资料的原文按钮复用父面板copy事件及原ViewVersions出处复验，字段来源保留原version/key/field，不借相同URL绑定其他对象。新DTO、拒读清空、切题材/会话/账号及卸载沿原私有状态管理，props换值收起旧关系。UTS校验精确字段和实际类型、组顺序/成员/当前引文范围及同编号公开元数据一致性；same_url还核成员实际URL。组件宿主、双版真库/实际API及H5整包分别验证，浏览器禁用时不冒充实际点击通过。
+
+### 13.28 专题发布及会员读取许可的管理审计
+
+完整更正展示先补真实管理前置，不以版本差异或调用成功冒充更正审核。内部ai-admin增加默认关闭的专题管理入口，仅由原服务凭据识别actor，再核单独配置的操作人白名单；会员API、通用审核角色和客户端声明不能直接取得发布能力。扩展原ai-review薄客户端提供dossier-inspect/dossier-apply/dossier-request，凭据仍只从原环境变量读，提交不自动重试；未知结果按原请求查证。
+
+专题管理是ai-admin的显式独立模式：TM_AI_DOSSIER_MANAGEMENT_ADMIN_ENABLED=true，并由TM_AI_DOSSIER_MANAGEMENT_ACTORS选取原reviewers的非重复安全编号子集。只挂载GET/POST /internal/v1/ai-dossier-management及GET /internal/v1/ai-dossier-management/requests/{id}，不挂载反馈、L0或来源写接口；与原本地反馈配置冲突即拒绝启动。该模式不读取L0模型配置，不能因继承TM_AI_L0_ENABLED而启动模型。
+
+TM_AI_DOSSIER_MANAGEMENT_PREPARE_DSN与原TM_DB_DSN必须为同一TCP实例和数据库、不同SQL用户。启动时由准备连接核原档案结构、新表列/索引/外键、十一条完整触发器定义和回滚DML探针；准备连接在监听前关闭。服务仅持运行账号：原资料/会员必要列只读，publications/grants/heads仅SELECT/INSERT/UPDATE，events仅SELECT/INSERT；不授来源/不可变版本/任务/报告/积分写、会员密码、DELETE、TRIGGER或DDL。原会员API读取已管理许可时另需两张管理表SELECT，不能复用管理写账号。零行权限探针不产生管理记录；实际隔离账号的允许和禁止操作另做真库验证。
+
+对象为publication（userId=0）或member_read（明确会员），均绑定theme/version。提交闭集requestId/object/expectedRevision/versionDigest/enabled/validUntil/reviewReference；enabled=false时validUntil必须0并保留旧许可期限，不能伪造新期限，记录不存在则拒绝。开启须在同一事务核不可变版本/全部当前来源与时钟；授予读取还核当前会员及匹配的发布许可，期限不能超出发布许可。撤回不因资料已停用而被阻断。候选预览必须核当前来源，失效时只给管理状态，不给正文。读取和操作分别核原身份，内部引用不进入会员DTO。
+
+领域请求、审计、管理预览和收据均使用object表示管理对象，薄客户端严格核其四个字段与原提交匹配；字段只表示许可对象，不含证券价格目标或评价，遵守原AI领域与DTO禁用字段门禁，不增豁免。
+
+新增管理头表和不可变事件表，与原publications/grants行在同一事务更新。头表按目标行锁串行化不存在行及版本竞争，修订号只递增；事件保留可信actor、规范请求、前/后像、目标版本摘要、时点和内容摘要。原请求重放先按actor与规范请求核原事件，不回写旧状态；他人/同键异体/旧修订号冲突。管理头和事件不得删除，事件不得改，已管理许可行的新增/更新/删除须受事件与头的匹配保护，禁止剥离管理引用回退旧许可或重用旧批准恢复已撤回状态。旧未管理许可保持旧读取口径，接管必须是明确管理操作并留前像，不改旧Draft和计划摘要。
+
+管理引用固定前缀及原requestId；原仓储Publication/Grant在读取此类许可时核当前头、不可变事件规范摘要和完整后像，任何缺失/不一致/缺SELECT权限都拒绝，不回退旧读取。正常读只增加两张管理表SELECT，不授写权限。管理账号的表写入范围、结构/触发器及实际DML保护在隔离MySQL8/9验证；原来源和会员边界保留。新迁移不在启动时自动执行，不默认打开管理入口，也不扩大原本地反馈专用服务的路由范围。
+
+内外HTTP联调须覆盖发布→原会员读取→撤回拒读→恢复、授予/撤回会员许可、来源失效拒绝批准但允许撤回、重复/异体/并发/审计失败回滚和原请求查证；同时核零新增模型、任务、报告和积分。此层只证明受控管理与操作留痕，不构成更正语义已核实、生产许可或实际页面验收。

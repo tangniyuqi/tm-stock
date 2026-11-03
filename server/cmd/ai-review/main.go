@@ -37,7 +37,7 @@ func run(args []string, input io.Reader, output, status io.Writer) error {
 		return fmt.Errorf("须指定一个内部管理命令，凭据从环境变量读取")
 	}
 	switch args[0] {
-	case "export", "apply", "source-register", "source-state", "source-show", "source-audits", "snapshot-import", "snapshot-fetch", "snapshot-show", "extract", "extract-show", "inspection-create", "inspection-show", "inspection-item", "inspection-decide", "inspection-issues":
+	case "export", "apply", "source-register", "source-state", "source-show", "source-audits", "snapshot-import", "snapshot-fetch", "snapshot-show", "extract", "extract-show", "inspection-create", "inspection-show", "inspection-item", "inspection-decide", "inspection-issues", "dossier-inspect", "dossier-apply", "dossier-request":
 	default:
 		return fmt.Errorf("未知内部管理命令")
 	}
@@ -46,6 +46,9 @@ func run(args []string, input io.Reader, output, status io.Writer) error {
 		return err
 	}
 	defer client.http.CloseIdleConnections()
+	if strings.HasPrefix(args[0], "dossier-") {
+		return runDossierCommand(client, args[0], input, output)
+	}
 	if args[0] != "export" && args[0] != "apply" {
 		return runLibraryCommand(client, args[0], input, output)
 	}
