@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tangniyuqi/tm-stock/server/internal/ai/finalreport"
 	"github.com/tangniyuqi/tm-stock/server/internal/ai/task"
 	"github.com/tangniyuqi/tm-stock/server/internal/config"
 	"github.com/tangniyuqi/tm-stock/server/internal/provider"
@@ -110,6 +111,7 @@ func liveLocalProcessCase(t *testing.T, expectedRun string) (string, localProces
 		p.MaxInputTokens = 32768
 		p.SelectionMaxTokens = 2048
 		p.CheckMaxTokens = 512
+		p.CheckProtocol = finalreport.PairedCheckProtocol
 		p.ModelVersion = "local-eval:real-v1"
 		p.Budget.MaxTokens = 262144
 		if comparison {

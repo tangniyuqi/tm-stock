@@ -35,6 +35,8 @@ type CheckConfig struct {
 	// SelectionMaxTokens/CheckMaxTokens 为0时沿用默认常量；仅用于已批准模型的结构化输出预算。
 	SelectionMaxTokens int `json:",omitempty"`
 	CheckMaxTokens     int `json:",omitempty"`
+	// 空值保留旧判定协议；新协议须由可信计划显式选择并绑定摘要。
+	CheckProtocol string `json:",omitempty"`
 }
 
 func (c CheckConfig) SelectionTokens() int {
@@ -107,11 +109,13 @@ func newCheckPlan(kind CheckKind, c CheckConfig, taskNo string, themeID int64, i
 			return nil, points.ErrInvalid
 		}
 	}
+	version, rule, schema, err := checkContract(kind, c)
+	if err != nil {
+		return nil, err
+	}
 	limit := 10 << 20
-	rule := entailmentRule
 	if kind == CheckSemantic {
 		limit = task.MaxStageResultBytes
-		rule = semanticRule
 	}
 	if input == "" || len(input) > limit || !utf8.ValidString(input) || c.MaxInputTokens < 1 || c.MaxInputTokens > 1<<22 {
 		return nil, points.ErrInvalid
@@ -124,8 +128,8 @@ func newCheckPlan(kind CheckKind, c CheckConfig, taskNo string, themeID int64, i
 		return nil, points.ErrInvalid
 	}
 	zero := 0.0
-	req := provider.Request{System: checkSystem + "\n" + rule, Prompt: string(data), Model: c.Model, MaxTokens: c.CheckTokens(), Format: provider.FormatJSONSchema, Schema: json.RawMessage(checkSchema), Strict: true, Temperature: &zero, Attempt: 1}
-	b, err := json.Marshal([]any{CheckVersion, kind, c, taskNo, themeID, req})
+	req := provider.Request{System: checkSystem + "\n" + rule, Prompt: string(data), Model: c.Model, MaxTokens: c.CheckTokens(), Format: provider.FormatJSONSchema, Schema: json.RawMessage(schema), Strict: true, Temperature: &zero, Attempt: 1}
+	b, err := json.Marshal([]any{version, kind, c, taskNo, themeID, req})
 	if err != nil {
 		return nil, points.ErrInvalid
 	}
@@ -145,11 +149,11 @@ func CheckPolicyVersion(kind CheckKind, c CheckConfig) (string, error) {
 	if c.MaxInputTokens < 1 || c.MaxInputTokens > 1<<22 {
 		return "", points.ErrInvalid
 	}
-	rule := entailmentRule
-	if kind == CheckSemantic {
-		rule = semanticRule
+	version, rule, schema, err := checkContract(kind, c)
+	if err != nil {
+		return "", err
 	}
-	b, err := json.Marshal([]any{CheckVersion, kind, c, checkSystem, rule, checkSchema, c.CheckTokens(), provider.FormatJSONSchema, true, 0.0})
+	b, err := json.Marshal([]any{version, kind, c, checkSystem, rule, schema, c.CheckTokens(), provider.FormatJSONSchema, true, 0.0})
 	if err != nil {
 		return "", points.ErrInvalid
 	}
@@ -157,7 +161,7 @@ func CheckPolicyVersion(kind CheckKind, c CheckConfig) (string, error) {
 }
 
 func (p *CheckPlan) Valid() bool {
-	return p != nil && (p.kind == CheckEntailment || p.kind == CheckSemantic) && ValidDigest(p.digest)
+	return p != nil && (p.kind == CheckEntailment || p.kind == CheckSemantic) && p.cfg.protocolVersion() != "" && ValidDigest(p.digest)
 }
 func (p *CheckPlan) InputDigest() string {
 	if !p.Valid() {
@@ -214,7 +218,7 @@ func (p *CheckPlan) OperationKey(v task.Task, step int) string {
 	if !p.Valid() || v.ID <= 0 || v.UserID <= 0 || v.No != p.taskNo || !taskNoPattern.MatchString(v.No) || step < 1 || step > task.MaxSteps {
 		return ""
 	}
-	b, err := json.Marshal([]any{CheckVersion, v.ID, v.UserID, v.No, step, p.kind})
+	b, err := json.Marshal([]any{p.cfg.protocolVersion(), v.ID, v.UserID, v.No, step, p.kind})
 	if err != nil {
 		return ""
 	}
@@ -260,7 +264,7 @@ func (p *CheckPlan) StagePolicy() task.StagePolicy {
 	if !p.Valid() {
 		return task.StagePolicy{}
 	}
-	return task.StagePolicy{Digest: task.StageDigest([]byte(CheckVersion + ":" + p.digest)), Check: func(ctx context.Context, in task.StageValidationInput) error {
+	return task.StagePolicy{Digest: task.StageDigest([]byte(p.cfg.protocolVersion() + ":" + p.digest)), Check: func(ctx context.Context, in task.StageValidationInput) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}

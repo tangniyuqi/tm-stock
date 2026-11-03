@@ -524,6 +524,25 @@ func verifyLocalAPIWorker(t *testing.T, level sql.IsolationLevel, kind int, api,
 			} else {
 				t.Log("未取得闭集终检拒绝收据；不能推测模型判定原因")
 			}
+			var capture []byte
+			if err := e.conn.QueryRowContext(e.ctx, `SELECT payload FROM tm_ai_task_step_results WHERE task_id=? AND user_id=1 AND step_no=3`, linked.TaskID).Scan(&capture); err == nil {
+				var packet struct {
+					Response struct {
+						Text, FinishReason string
+						UsageEstimated     bool
+					}
+				}
+				var decision map[string]string
+				if json.Unmarshal(capture, &packet) == nil && json.Unmarshal([]byte(packet.Response.Text), &decision) == nil && len(decision) == 2 &&
+					map[string]bool{"pass": true, "block": true, "uncertain": true}[decision["verdict"]] &&
+					map[string]bool{"supported": true, "unsupported": true, "insufficient": true, "factual": true, "prohibited": true, "uncertain": true}[decision["reason"]] {
+					finish := packet.Response.FinishReason
+					if !map[string]bool{"stop": true, "length": true, "tool_calls": true}[finish] {
+						finish = "other"
+					}
+					t.Logf("原蕴含响应闭集：verdict=%s reason=%s finish=%s usage_estimated=%t", decision["verdict"], decision["reason"], finish, packet.Response.UsageEstimated)
+				}
+			}
 			t.Fatalf("实际任务未交付：status=%d step=%d code=%s frozen=%d reports=%d settle=%d；不重提", v.Status, stored.CurrentStep, stored.ErrorCode, e.queryInt(`SELECT frozen FROM tm_points_accounts WHERE user_id=1`), e.queryInt(`SELECT COUNT(*) FROM tm_ai_report_commits`), e.queryInt(`SELECT COUNT(*) FROM tm_points_txns WHERE kind='settle'`))
 		}
 		select {

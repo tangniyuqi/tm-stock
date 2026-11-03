@@ -104,9 +104,15 @@ ai-review沿原TM_AI_ADMIN_URL及TM_AI_ADMIN_TOKEN环境变量，支持以下单
 
 用户确认未上线，允许开发环境外部API、真实多Agent及开发账号真实积分操作；不重复申请、不再以旧的关闭调用/不动积分阻塞。正式对外部署和资料使用许可仍分别核验。下方历史专项的关闭标记只描述当时范围，不能撤销本次授权。
 
+报告判定协议：原AILocalPlans计划可显式增加check_protocol=paired-report-check-v2，用于新任务的蕴含/语义固定配对。空值省略时严格沿旧captured-report-check-v1，旧策略摘要已有冻结反例；不要直接替换全局旧提示或把历史任务改成新协议。更换计划协议会改变当前来源、批准及执行摘要，须在新任务创建前登记，不能挪用旧捕获或在运行中切换。新Schema限定蕴含pass/supported、block/unsupported、uncertain/insufficient，语义pass/factual、block/prohibited、uncertain/uncertain；后端仍拒绝错配、额外字段、未知用量或不完整输出，不在网关修复模型响应。
+
+无外部调用验证先运行TestReportCheckProtocol系列及原ReportModelCheck/AILocalAdmission/AILocalPlans回归；MySQL8/9串行使用-ReportsOnly -ReportPattern '^TestIntegrationAIReport(PairedCheckProcess|DossierSevenStepProcess|AgentInputs(Delegation)?Process)$' -RunCount 1。新协议根含RC/RR共3个专项节点，连旧七步及输入读取共10个专项节点，父脚本的公共Go回归、原生65项和清理另核。实际live入口选择新配对协议，仍仅一次独立原任务，不重提旧失败或未知任务；终检拒绝先查清理前的闭集reason与蕴含响应verdict/reason/finish/用量是否估计，不能以看不到旧库为由推测细因。
+
 沿startLocalChain与startChainVerification，双方显式reportProfile=dossier-comparison-report-v1，conversation=true、processes=true、analysisType=deep；Go入口仍为精确TestIntegrationAIReportLocalAPIWorkerLive，单次运行。临时模型/Agent桥凭据不含真实Key；原密码HTTP登录、API和独立worker走原SQL账本。五次报告模型与真实V2核心调用分开计，父回执须有独立七步标记、五次报告调用和实际用量，不能接受旧三次/仅deep标记。样板资料明确合成，不计真实题材覆盖或语义质量评测。浏览器控制禁用时不启动H5等待根组，HTTP实跑不算页面验收。真实账单未知时保持未知。
 
 七步联调必须在清单登记前设置实际模型策略、1024字段输出令牌及至少覆盖Agent和五次模型输入的完整令牌预算；本轮声明524288，不降低原预算核验。运行PowerShell程序使用当前可用pwsh；Windows PowerShell执行策略拒绝时不修改全局策略。2026-11-03成功证据为%TEMP%/tm-stock-tradingcn-live-qxJ2R5：十四原Agent/十八核心调用+五报告调用、二十三200、七步/十审计、一次报告/结算及余额60/0→30/30→30/0，父退出0且65项原生断言/清理完成。37965/9885为实际输入/输出令牌，不是价格或质量分；费用无账单保持未知。OS3Qqt/NXVkxk为明确零调用失败，不可计成功或与成功用量合并。
+
+后续带完整上游输入的新配对协议成功证据为tm-stock-tradingcn-live-xX1RgT：十四主节点及声明委派、16次核心+5次报告共21次HTTP200，35109/8903实际令牌，无未知；local-chain-receipt.json的HTTP/七步标记和父退出0、精确根142.57秒、原生65项及清理齐全。核input-audit.json及原日志16次身份/请求和消息摘要，独立回执independent-input-verification.json仅证明HTTP与上游输入；7阶段/10审计/一份报告/一次结算及60/0→30/30→30/0由原实际断言核验。不是H5、真实资料覆盖、全部报告模型HTTP正文存证或独立质量评测，账单未知保持null。旧OzrUIL的guard_rejected与未知任务原记录保留，不据新成功补造其判定细因。
 
 ## 成功报告两卡对照展示（2026-11-03，仅本地隔离）
 

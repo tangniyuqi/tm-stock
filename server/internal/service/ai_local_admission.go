@@ -255,7 +255,7 @@ func (c *AILocalAdmissionControl) build(ctx context.Context, spec config.AILocal
 	if price.Validate() != nil || spec.AnalysisType == 2 && price.Points != task.DeepPricePoints {
 		return invalid("定价")
 	}
-	model := finalreport.CheckConfig{Model: spec.ModelName, FilingNo: spec.FilingNo, Version: spec.ModelVersion, ApprovalRef: spec.ApprovalRef, QualityRef: spec.QualityRef, HardBudgetRef: spec.HardBudgetRef, ProfileDigest: spec.ModelProfileDigest, MaxInputTokens: spec.MaxInputTokens, SelectionMaxTokens: spec.SelectionMaxTokens, CheckMaxTokens: spec.CheckMaxTokens}
+	model := finalreport.CheckConfig{Model: spec.ModelName, FilingNo: spec.FilingNo, Version: spec.ModelVersion, ApprovalRef: spec.ApprovalRef, QualityRef: spec.QualityRef, HardBudgetRef: spec.HardBudgetRef, ProfileDigest: spec.ModelProfileDigest, MaxInputTokens: spec.MaxInputTokens, SelectionMaxTokens: spec.SelectionMaxTokens, CheckMaxTokens: spec.CheckMaxTokens, CheckProtocol: spec.CheckProtocol}
 	if spec.AnalysisType == 2 {
 		model.AnalysisType = 2
 	}

@@ -131,7 +131,7 @@ jobs:
           # 专题管理协议、装配、服务、HTTP与CLI新增9根125子节点。
           # 明确更正声明协议、服务、身份、HTTP、配置和CLI新增8根125子节点。
           # 固定上游声明委派补充8个闭集/完整覆盖反例节点。
-          MIN=2613
+          MIN=2666
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项测试，低于下限 $MIN —— 要么测试没被执行，要么有测试被删。"
             exit 1
@@ -438,6 +438,67 @@ jobs:
             echo '::error::专题来源关系/当前可读引文投影验收缺失、重复、失败或跳过'; exit 1
           fi
           # 专题来源关系普通门禁结束
+
+          # 报告判定配对协议普通门禁开始
+          CHECK_PROTOCOL_ACTUAL=$(sed -nE 's/^[[:space:]]*--- PASS: (TestReportCheckProtocol[^ ]*) .*/\1/p' /tmp/gotest.log | LC_ALL=C sort)
+          CHECK_PROTOCOL_EXPECTED=$(printf '%s\n' \
+            'TestReportCheckProtocolLegacySnapshot' \
+            'TestReportCheckProtocolPairs' \
+            'TestReportCheckProtocolPairs/entailment' \
+            'TestReportCheckProtocolPairs/entailment/pass_supported' \
+            'TestReportCheckProtocolPairs/entailment/pass_unsupported' \
+            'TestReportCheckProtocolPairs/entailment/pass_insufficient' \
+            'TestReportCheckProtocolPairs/entailment/pass_factual' \
+            'TestReportCheckProtocolPairs/entailment/pass_prohibited' \
+            'TestReportCheckProtocolPairs/entailment/pass_uncertain' \
+            'TestReportCheckProtocolPairs/entailment/block_supported' \
+            'TestReportCheckProtocolPairs/entailment/block_unsupported' \
+            'TestReportCheckProtocolPairs/entailment/block_insufficient' \
+            'TestReportCheckProtocolPairs/entailment/block_factual' \
+            'TestReportCheckProtocolPairs/entailment/block_prohibited' \
+            'TestReportCheckProtocolPairs/entailment/block_uncertain' \
+            'TestReportCheckProtocolPairs/entailment/uncertain_supported' \
+            'TestReportCheckProtocolPairs/entailment/uncertain_unsupported' \
+            'TestReportCheckProtocolPairs/entailment/uncertain_insufficient' \
+            'TestReportCheckProtocolPairs/entailment/uncertain_factual' \
+            'TestReportCheckProtocolPairs/entailment/uncertain_prohibited' \
+            'TestReportCheckProtocolPairs/entailment/uncertain_uncertain' \
+            'TestReportCheckProtocolPairs/semantic' \
+            'TestReportCheckProtocolPairs/semantic/pass_supported' \
+            'TestReportCheckProtocolPairs/semantic/pass_unsupported' \
+            'TestReportCheckProtocolPairs/semantic/pass_insufficient' \
+            'TestReportCheckProtocolPairs/semantic/pass_factual' \
+            'TestReportCheckProtocolPairs/semantic/pass_prohibited' \
+            'TestReportCheckProtocolPairs/semantic/pass_uncertain' \
+            'TestReportCheckProtocolPairs/semantic/block_supported' \
+            'TestReportCheckProtocolPairs/semantic/block_unsupported' \
+            'TestReportCheckProtocolPairs/semantic/block_insufficient' \
+            'TestReportCheckProtocolPairs/semantic/block_factual' \
+            'TestReportCheckProtocolPairs/semantic/block_prohibited' \
+            'TestReportCheckProtocolPairs/semantic/block_uncertain' \
+            'TestReportCheckProtocolPairs/semantic/uncertain_supported' \
+            'TestReportCheckProtocolPairs/semantic/uncertain_unsupported' \
+            'TestReportCheckProtocolPairs/semantic/uncertain_insufficient' \
+            'TestReportCheckProtocolPairs/semantic/uncertain_factual' \
+            'TestReportCheckProtocolPairs/semantic/uncertain_prohibited' \
+            'TestReportCheckProtocolPairs/semantic/uncertain_uncertain' \
+            'TestReportCheckProtocolBindings' \
+            'TestReportCheckProtocolLocalConfig' \
+            'TestReportCheckProtocolLocalConfig/legacy' \
+            'TestReportCheckProtocolLocalConfig/paired' \
+            'TestReportCheckProtocolLocalConfig/unknown' \
+            'TestReportCheckProtocolLocalConfig/null' \
+            'TestReportCheckProtocolLocalConfig/alias' \
+            'TestReportCheckProtocolLocalConfig/duplicate' \
+            'TestReportCheckProtocolLocalConfig/number' \
+            'TestReportCheckProtocolLocalConfig/changed' \
+            'TestReportCheckProtocolLocalAdmission' \
+            'TestReportCheckProtocolLocalAdmission/legacy' \
+            'TestReportCheckProtocolLocalAdmission/paired' | LC_ALL=C sort)
+          if [ "$CHECK_PROTOCOL_ACTUAL" != "$CHECK_PROTOCOL_EXPECTED" ] || grep -Eq '^[[:space:]]*--- (FAIL|SKIP): TestReportCheckProtocol' /tmp/gotest.log; then
+            echo '::error::报告判定配对/旧协议摘要/配置和准入绑定验收缺失、重复、失败或跳过'; exit 1
+          fi
+          # 报告判定配对协议普通门禁结束
 
           # 原Agent完整输入普通门禁开始
           AGENT_INPUT_UNIT_ACTUAL=$(sed -nE 's/^[[:space:]]*--- PASS: (Test(AgentInputAudit|HintExcludesCompletePrivateInputs|RequiredAgentInputsCannotDowngrade|AILocalPlansAgentInputRequirement|AIReportInputs)[^ ]*) .*/\1/p' /tmp/gotest.log | LC_ALL=C sort)
@@ -1857,6 +1918,17 @@ jobs:
           fi
           # 正式资料问答装配真库门禁结束
 
+          # 报告判定配对协议真库门禁开始
+          CHECK_PROTOCOL_SQL_ACTUAL=$(sed -nE 's/^[[:space:]]*--- PASS: (TestIntegrationAIReportPairedCheckProcess[^ ]*) .*/\1/p' /tmp/it.log | LC_ALL=C sort)
+          CHECK_PROTOCOL_SQL_EXPECTED=$(printf '%s\n' \
+            'TestIntegrationAIReportPairedCheckProcess' \
+            'TestIntegrationAIReportPairedCheckProcess/Read_Committed' \
+            'TestIntegrationAIReportPairedCheckProcess/Repeatable_Read' | LC_ALL=C sort)
+          if [ "$CHECK_PROTOCOL_SQL_ACTUAL" != "$CHECK_PROTOCOL_SQL_EXPECTED" ] || grep -Eq '^[[:space:]]*--- (FAIL|SKIP): TestIntegrationAIReportPairedCheckProcess' /tmp/it.log; then
+            echo '::error::配对判定协议原登录/API/worker七步报告及结算验收缺失、重复、失败或跳过'; exit 1
+          fi
+          # 报告判定配对协议真库门禁结束
+
           # 原Agent完整输入真库门禁开始
           AGENT_INPUT_SQL_ACTUAL=$(sed -nE 's/^[[:space:]]*--- PASS: (TestIntegrationAIReportAgentInputs(Delegation)?Process[^ ]*) .*/\1/p' /tmp/it.log | LC_ALL=C sort)
           AGENT_INPUT_SQL_EXPECTED=$(printf '%s\n' \
@@ -2219,7 +2291,7 @@ jobs:
           # 专题管理独立进程新增1根9子节点，含原登录/受限账号/撤回与回滚。
           # 明确更正声明原登录/独立会员API与管理进程新增1根7子节点。
           # 固定研究经理委派完整输入沿原登录/API/worker读取新增1根。
-          MIN=1805
+          MIN=1808
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项，低于下限 $MIN —— 要么没跑，要么有测试被删。"; exit 1
           fi

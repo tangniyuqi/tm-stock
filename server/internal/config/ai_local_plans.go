@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/tangniyuqi/tm-stock/server/internal/agents"
+	"github.com/tangniyuqi/tm-stock/server/internal/ai/finalreport"
 	"github.com/tangniyuqi/tm-stock/server/internal/ai/task"
 )
 
@@ -45,6 +46,7 @@ type AILocalPlan struct {
 	MaxInputTokens          int64             `json:"max_input_tokens"`
 	SelectionMaxTokens      int               `json:"selection_max_tokens"`
 	CheckMaxTokens          int               `json:"check_max_tokens"`
+	CheckProtocol           string            `json:"check_protocol,omitempty"`
 	PolicyRef               string            `json:"policy_ref"`
 	MinQuotes               int               `json:"min_quotes"`
 	AllowedDomains          []string          `json:"allowed_domains"`
@@ -195,6 +197,9 @@ func (p *AILocalPlans) validate(runtime *AILocalRuntime, now int64) error {
 	}
 	seen := map[[2]int64]bool{}
 	for _, v := range p.Plans {
+		if !finalreport.ValidCheckProtocol(v.CheckProtocol) {
+			return invalidLocalRuntime()
+		}
 		if v.AgentInputAudit != "" && v.AgentInputAudit != agents.InputAuditVersion {
 			return invalidLocalRuntime()
 		}

@@ -1252,6 +1252,8 @@ Worker命令守卫验收补充：计划、复核、队列范围/分页及调用�
 
 固定上游51060a7的V2图除十四个必需主节点外，research_manager_v2还在配置中显式委派chip_distribution_analyst_v2。启动前须核此唯一委派关系，不能只数图节点而漏掉委派实例；父网关、Go恢复及UTS投影同步接受这一枚举，但任一主节点缺失仍拒绝，委派不得顶替主节点。所有实际尝试的模型调用，包括委派及同节点多次调用，必须有唯一身份、完整确认和一一对应输入；委派失败或上游内部吞掉的调用失败同样不能标记完整成功。原网络隔离、合成资料范围和公开投影不变，不借此启用真实证券工具或展示内部证券观点。
 
+蕴含/语义判定新增显式paired-report-check-v2协议：原Schema将两类reason混合枚举，未表达后端实际要求的配对，新协议在各自Schema中只声明三组合法verdict/reason组合，并在系统规则中明示；Go响应判定不放宽，未知/错配/额外字段仍拒绝。CheckConfig和本地批准计划增加可省略check_protocol，空值严格保留旧协议请求、策略摘要和重读字节，新协议仅用于明确选择的新计划。协议参与原批准、策略、输入和操作键绑定，运行时配置变更不得挪用旧任务；旧任务不自动升级。先核旧摘要不变、两类三组配对与交叉反例，再通过原登录/API/worker双版真库和一次新真实任务验证；不从历史缺失判定记录倒推上次拒绝原因。
+
 传输出口在原90秒单次总期限内区分请求本地写完、响应头、正文完成及确认元数据落盘；事件附本机observed_at_ms和封闭原因，不记录供应商错误正文。本地写完不是供应商收到/完成的证明，本机观察间隔也不是供应商推理或用户完整任务耗时。response_complete只证明JSON对象正文收齐；原response_received仍在模型与用量填入后追加。正文中断、超限、无效JSON、发送后异常和写盘失败均不能确认成功，不自动重试；只有尝试写入前的本地构造失败可标not_sent。SDK的max_completion_tokens先校验为正整数，与max_tokens同时存在须相同，再只发送max_tokens并保留2048上限；不能据此认定历史超时原因。
 
 供应商依据见[DeepSeek官方兼容说明](https://github.com/deepseek-ai/awesome-deepseek-agent/blob/main/docs/oh-my-pi.md)的maxTokensField和[官方错误码](https://api-docs.deepseek.com/quick_start/error_codes/)；503仅说明本次HTTP被拒，不证明旧未知调用的终态或实际费用。

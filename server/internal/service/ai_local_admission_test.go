@@ -48,7 +48,7 @@ func TestAILocalAdmissionFileChangesDuringEvidenceRead(t *testing.T) {
 	}
 }
 
-func localAdmissionFixture(t *testing.T) (*AILocalAdmissionControl, *reportScript, *localIdentityFixture, string, config.AILocalPlans) {
+func localAdmissionFixture(t *testing.T, protocols ...string) (*AILocalAdmissionControl, *reportScript, *localIdentityFixture, string, config.AILocalPlans) {
 	t.Helper()
 	_, st, _ := reportFixture(t)
 	st.theme = "仅测试:合成题材"
@@ -62,6 +62,12 @@ func localAdmissionFixture(t *testing.T) (*AILocalAdmissionControl, *reportScrip
 	r := &config.AILocalRuntime{Version: 1, Environment: "local-isolated", InstanceID: strings.Repeat("a", 32), Database: "tm_ai_local_" + strings.Repeat("a", 32), Listen: "127.0.0.1:8099", PollIntervalMS: 1000, BatchSize: 10}
 	spec := config.AILocalPlan{AnalysisType: 1, SubjectID: st.v.SubjectID, SubjectName: st.theme, ActorID: 7, Symbol: "000001", AgentProfileDigest: strings.Repeat("b", 64), AgentCalls: 1, AgentTokens: 100, AgentPages: 0, ModelName: "仅测试:模型", ModelProfileDigest: strings.Repeat("c", 64), FilingNo: "仅测试:公示编号", ModelVersion: "local-eval:v1", MaxInputTokens: 32, SelectionMaxTokens: 2048, CheckMaxTokens: 64, PolicyRef: "local-eval:policy", AllowedDomains: []string{"evidence.example.test"}, ApprovalRef: "local-eval:approval", QualityRef: "local-eval:quality", HardBudgetRef: "local-eval:hard-budget", PriceRef: "local-eval:price", SourceRef: "local-eval:source", PriceVersion: "local-v1", PricePoints: 7, Budget: task.Budget{MaxAttempts: 1, MaxCalls: 6, MaxTokens: 5000, MaxPages: 10, MaxDurationMS: 60000}, Materials: []config.AILocalMaterial{{SnapshotID: snap.ID, Digest: snap.Hash, LicenseRef: snap.LicenseRef}}}
 	deep := spec
+	if len(protocols) > 1 {
+		t.Fatal("每个夹具只允许一个判定协议")
+	}
+	if len(protocols) == 1 {
+		spec.CheckProtocol, deep.CheckProtocol = protocols[0], protocols[0]
+	}
 	deep.AnalysisType = 2
 	deep.MinQuotes = 6
 	deep.PricePoints = 30
