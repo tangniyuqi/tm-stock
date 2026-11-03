@@ -105,7 +105,8 @@ test('原型属性标签不污染对象，命令行只离线输出且拒绝缺�
   for(const args of [[],['materials',corpus,'holdout'],['score',corpus,path.join(dir,'missing.json')],['materials',corpus,'development','unexpected']])assert.notEqual(spawnSync(process.execPath,[cli,...args],{encoding:'utf8'}).status,0);
 });
 test('门禁拒绝零用例、缺少通过项、跳过、取消和重复摘要',()=>{
-  const tap=Array.from({length:21},(_,i)=>'ok '+(i+1)+' - 自测'+i).join('\n')+'\n# tests 21\n# pass 21\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n';
+  const tap=Array.from({length:27},(_,i)=>'ok '+(i+1)+' - 自测'+i).join('\n')+'\n# tests 27\n# pass 27\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n';
   assert.equal(validTAP(tap),true);
-  for(const bad of ['',tap.replace('ok 1 - 自测0\n',''),tap.replace('# tests 21','# tests 0'),tap.replace('# pass 21','# pass 20'),tap.replace('# fail 0','# fail 1'),tap.replace('# skipped 0','# skipped 1'),tap.replace('# cancelled 0','# cancelled 1'),tap.replace('# todo 0','# todo 1'),tap+'# tests 21\n'])assert.equal(validTAP(bad),false);
+  const previous=Array.from({length:21},(_,i)=>'ok '+(i+1)+' - 旧自测'+i).join('\n')+'\n# tests 21\n# pass 21\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n';
+  for(const bad of ['',previous,tap.replace('ok 1 - 自测0\n',''),tap.replace('# tests 27','# tests 0'),tap.replace('# pass 27','# pass 26'),tap.replace('# fail 0','# fail 1'),tap.replace('# skipped 0','# skipped 1'),tap.replace('# cancelled 0','# cancelled 1'),tap.replace('# todo 0','# todo 1'),tap+'# tests 27\n'])assert.equal(validTAP(bad),false);
 });

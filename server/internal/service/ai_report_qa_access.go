@@ -35,19 +35,25 @@ func (a *AIReportQAAccess) ScopeForRead(ctx context.Context, proof qa.Proof) (qa
 }
 
 func (a *AIReportQAAccess) scope(ctx context.Context, proof qa.Proof, read bool) (qa.Scope, error) {
+	scope, _, err := a.scopeEvidence(ctx, proof, read)
+	return scope, err
+}
+
+// 范围与配置使用同一次当前报告读取；后续存证回放仍重新核验授权，不缓存报告。
+func (a *AIReportQAAccess) scopeEvidence(ctx context.Context, proof qa.Proof, read bool) (qa.Scope, qa.ReportEvidence, error) {
 	if a == nil || a.source == nil || ctx == nil || proof.Identity.UserID <= 0 {
-		return qa.Scope{}, qa.ErrInvalid
+		return qa.Scope{}, qa.ReportEvidence{}, qa.ErrInvalid
 	}
 	taskID, digest, ok := qa.ParseReportApproval(proof.ScopeApproval)
 	if !ok {
-		return qa.Scope{}, qa.ErrInvalid
+		return qa.Scope{}, qa.ReportEvidence{}, qa.ErrInvalid
 	}
 	evidence, err := a.source.ForQA(ctx, proof.Identity.UserID, taskID)
 	if err != nil {
-		return qa.Scope{}, err
+		return qa.Scope{}, qa.ReportEvidence{}, err
 	}
 	if evidence.TaskID != taskID || evidence.Digest != digest {
-		return qa.Scope{}, qa.ErrUnavailable
+		return qa.Scope{}, qa.ReportEvidence{}, qa.ErrUnavailable
 	}
 	build := qa.BuildReportScopeUntil
 	if read {
@@ -55,10 +61,10 @@ func (a *AIReportQAAccess) scope(ctx context.Context, proof qa.Proof, read bool)
 	}
 	scope, err := build(evidence, a.now().UTC().Truncate(time.Millisecond), proof.ValidUntil)
 	if err != nil {
-		return qa.Scope{}, err
+		return qa.Scope{}, qa.ReportEvidence{}, err
 	}
 	if scope.ApprovalRef != proof.ScopeApproval {
-		return qa.Scope{}, qa.ErrUnavailable
+		return qa.Scope{}, qa.ReportEvidence{}, qa.ErrUnavailable
 	}
-	return scope, nil
+	return scope, evidence, nil
 }

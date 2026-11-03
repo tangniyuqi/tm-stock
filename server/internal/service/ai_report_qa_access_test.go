@@ -83,6 +83,31 @@ func TestAIReportQAAccessRebuildsExactScope(t *testing.T) {
 	}
 }
 
+func TestAIReportQAAccessScopeEvidenceUsesOneCurrentRead(t *testing.T) {
+	now := time.Date(2026, 10, 22, 5, 0, 0, 0, time.UTC)
+	plan, evidence := reportAccessPlan(t, now)
+	source := &fakeReportEvidenceSource{evidence: evidence}
+	access, err := NewAIReportQAAccess(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	access.now = func() time.Time { return now }
+	scope, current, err := access.scopeEvidence(context.Background(), plan.Proof(), true)
+	expected, buildErr := qa.BuildReportReadScope(evidence, now, plan.Proof().ValidUntil)
+	if err != nil || buildErr != nil || source.calls != 1 || !reflect.DeepEqual(scope, expected) || !reflect.DeepEqual(current, evidence) {
+		t.Fatal("范围与报告配置没有使用同一次当前授权读取", err, buildErr)
+	}
+	source.evidence.Digest = accessDigest("updated-report")
+	if _, denied, err := access.scopeEvidence(context.Background(), plan.Proof(), true); !errors.Is(err, qa.ErrUnavailable) || len(denied.Quotes) != 0 || denied.TaskID != 0 || source.calls != 2 {
+		t.Fatal("报告变化后复用了旧报告或泄漏当前正文", err)
+	}
+	source.evidence = evidence
+	source.err = qa.ErrUnavailable
+	if _, denied, err := access.scopeEvidence(context.Background(), plan.Proof(), true); !errors.Is(err, qa.ErrUnavailable) || len(denied.Quotes) != 0 || denied.TaskID != 0 || source.calls != 3 {
+		t.Fatal("撤权后没有重新读取并失败关闭", err)
+	}
+}
+
 func TestAIReportQAAccessFailures(t *testing.T) {
 	now := time.Date(2026, 10, 22, 5, 0, 0, 0, time.UTC)
 	plan, evidence := reportAccessPlan(t, now)

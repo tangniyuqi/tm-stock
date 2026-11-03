@@ -1,5 +1,11 @@
 # AI 内部操作手册（L0 审核与隔离 Agent 执行）
 
+## 报告追问回执采集（2026-11-03）
+
+按eval/README.md的v2私有绑定使用原research-qa-capture.cjs，凭据仍仅从TM_STOCK_EVAL_TOKEN注入。原消息核taskId，再读本人当前报告；failed也不跳过当前报告。报告追问编号按原基础AI引文去重重建，companies无论AI标记真假均排除，dossierReview也不纳入。导出仍限api_capture/stored_qa，不能宣称完整输入、真实模型质量或公平对照。
+
+真库用原生脚本-ReportsOnly -ReportPattern '^TestIntegrationAIReportResearchCapture$' -RunCount 1，分别MySQL8/9；预期一根、RC/RR两级及各五/六/七步共9节点、零跳过。五步沿原进程内报告读取；六/七步使用独立原cmd/api读取同库报告，问答核/存证保留父进程竞态检测，原2秒事务/20秒引擎窗口不放宽。实际原报告执行/结算和三题追问后关闭提交/移除模型工厂，双遍22 GET，成功/拒答/failed均计入；错任务、SQL来源/发布/AI用途/会员授权撤回、发布拒绝钩子和跨会员/后台令牌反例输出为空且不加任务、消息、调用或账务。原提交503但原键回执已存预期终态时，只恢复原键、不重提模型，答案仍走当前授权。v1兼容另用-ConversationsOnly -ConversationPattern '^TestIntegrationAIConversationsResearchCapture$'；父脚本串行，均等原生65项断言和实例清理。Node工具自测27项，不能被21项旧摘要冒充。本节为合成资料/回环模型接线验收，不是原密码浏览器、真实模型质量或生产时延证明。
+
 ## 当前开发测试授权与真实七步入口（2026-11-03）
 
 用户确认未上线，允许开发环境外部API、真实多Agent及开发账号真实积分操作；不重复申请、不再以旧的关闭调用/不动积分阻塞。正式对外部署和资料使用许可仍分别核验。下方历史专项的关闭标记只描述当时范围，不能撤销本次授权。

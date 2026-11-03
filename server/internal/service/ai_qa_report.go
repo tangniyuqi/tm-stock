@@ -123,15 +123,17 @@ func (s *AIQAService) answerReport(parent context.Context, token string, uid, ci
 	if !s.reportReady() {
 		return dto.AIQAAnswer{}, qa.ErrUnavailable
 	}
+	if r.Proof.Identity.UserID != uid || r.Proof.Identity.ConversationID != cid || r.Proof.Identity.MessageSeq != seq {
+		return dto.AIQAAnswer{}, qa.ErrProtocol
+	}
 	ctx, cancel := context.WithTimeout(parent, 8*time.Second)
 	defer cancel()
-	scope, err := s.reportAccess.ScopeForRead(ctx, r.Proof)
+	scope, evidence, err := s.reportAccess.scopeEvidence(ctx, r.Proof, true)
 	if err != nil {
 		return dto.AIQAAnswer{}, reportQAError(err)
 	}
-	evidence, err := s.reportEvidence.ForQA(ctx, uid, m.Input.TaskID)
-	if err != nil {
-		return dto.AIQAAnswer{}, reportQAError(err)
+	if evidence.TaskID != m.Input.TaskID || evidence.SubjectID != m.Input.SubjectID || evidence.SubjectType != m.Input.SubjectType {
+		return dto.AIQAAnswer{}, qa.ErrProtocol
 	}
 	cfg, err := s.reportConfig.ForReport(ctx, evidence)
 	if err != nil {

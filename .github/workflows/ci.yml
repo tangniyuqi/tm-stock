@@ -123,7 +123,8 @@ jobs:
           # 两卡清单/登记闭集普通验收新增4根21子节点。
           # 七步报告新增13根81子节点，旧普通门禁保留。
           # 成功报告两卡展示投影新增5根10子节点；字段原文/旧编码门禁保留。
-          MIN=2190
+          # 报告追问范围与配置同次当前读取新增1根，撤权时不复用正文。
+          MIN=2191
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项测试，低于下限 $MIN —— 要么测试没被执行，要么有测试被删。"
             exit 1
@@ -1326,6 +1327,23 @@ jobs:
           fi
           # 研究回执采集真库门禁结束
 
+          # 报告追问回执真库门禁开始
+          REPORT_CAPTURE_ACTUAL=$(sed -nE 's/^[[:space:]]*--- PASS: (TestIntegrationAIReportResearchCapture[^ ]*) .*/\1/p' /tmp/it.log | LC_ALL=C sort)
+          REPORT_CAPTURE_EXPECTED=$(printf '%s\n' \
+            'TestIntegrationAIReportResearchCapture' \
+            'TestIntegrationAIReportResearchCapture/Read_Committed' \
+            'TestIntegrationAIReportResearchCapture/Read_Committed/five' \
+            'TestIntegrationAIReportResearchCapture/Read_Committed/six' \
+            'TestIntegrationAIReportResearchCapture/Read_Committed/seven' \
+            'TestIntegrationAIReportResearchCapture/Repeatable_Read' \
+            'TestIntegrationAIReportResearchCapture/Repeatable_Read/five' \
+            'TestIntegrationAIReportResearchCapture/Repeatable_Read/six' \
+            'TestIntegrationAIReportResearchCapture/Repeatable_Read/seven' | LC_ALL=C sort)
+          if [ "$REPORT_CAPTURE_ACTUAL" != "$REPORT_CAPTURE_EXPECTED" ] || grep -Eq '^[[:space:]]*--- (FAIL|SKIP): TestIntegrationAIReportResearchCapture' /tmp/it.log; then
+            echo '::error::报告追问原任务与当前报告采集正反例缺失、重复、跳过或失败'; exit 1
+          fi
+          # 报告追问回执真库门禁结束
+
           # 专题七步报告真库门禁开始
           SEVEN_SQL_ACTUAL=$(sed -nE 's/^[[:space:]]*--- PASS: (TestIntegrationAIReportDossier(ComparisonWorkflow|SevenStep(Schema|Process))[^ ]*) .*/\1/p' /tmp/it.log | LC_ALL=C sort)
           SEVEN_SQL_EXPECTED=$(printf '%s\n' \
@@ -1651,7 +1669,8 @@ jobs:
           # 两卡清单/授权重建真库新增5根91子节点，保留旧清单回归。
           # 七步编排/审计结构/独立进程新增3根24子节点。
           # 原问答JWT/服务/存证→只读采集→计分新增1根2隔离子节点。
-          MIN=1768
+          # 原五/六/七步报告/会话消息/JWT→追问回执新增1根8子节点。
+          MIN=1777
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项，低于下限 $MIN —— 要么没跑，要么有测试被删。"; exit 1
           fi

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/tangniyuqi/tm-stock/server/internal/ai/conversation"
 	"github.com/tangniyuqi/tm-stock/server/internal/ai/qa"
@@ -105,5 +106,22 @@ func TestReportQAAnswerRequiresDependencies(t *testing.T) {
 	record := qa.Record{}
 	if _, err := svc.answerReport(context.Background(), "token", 1, 3, 1, record, conversation.Message{}); !errors.Is(err, qa.ErrUnavailable) {
 		t.Fatal("缺少报告依赖时答案读取必须失败关闭", err)
+	}
+	plan, evidence := reportAccessPlan(t, time.Date(2026, 10, 22, 5, 0, 0, 0, time.UTC))
+	source := &fakeReportEvidenceSource{evidence: evidence}
+	owned, err := NewAIQAServiceWithReportAccess(&qaStubStore{}, nil, nil, qaStubAuth{uid: 1}, false, false, source, &fakeReportConfig{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	record.Proof = plan.Proof()
+	for _, args := range [][3]int64{{2, 3, 5}, {1, 4, 5}, {1, 3, 6}} {
+		if _, err := owned.answerReport(context.Background(), "token", args[0], args[1], args[2], record, conversation.Message{}); !errors.Is(err, qa.ErrProtocol) || source.calls != 0 {
+			t.Fatal("身份或问题定位不符时仍读取报告", err)
+		}
+	}
+	input := reportQAInput()
+	input.TaskID++
+	if _, err := owned.answerReport(context.Background(), "token", 1, 3, 5, record, conversation.Message{Input: conversation.MessageInput{Kind: "question", Skill: "report_qa", SubjectType: input.SubjectType, SubjectID: input.SubjectID, TaskID: input.TaskID, Question: input.Question}}); !errors.Is(err, qa.ErrProtocol) || source.calls != 1 {
+		t.Fatal("合并读取后没有核原消息任务绑定", err)
 	}
 }

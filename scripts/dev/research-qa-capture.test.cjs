@@ -25,6 +25,25 @@ async function fixture(t){
   t.after(()=>new Promise(r=>{server.closeAllConnections();server.close(r);}));
   return {c,responses,requests,setHook:f=>hook=f};
 }
+function enableReports(f,all=true){
+  f.c.schema='tm-stock-qa-capture-v2';
+  const labels={announcement:'公告',annual_report:'年报',prospectus:'招股书',official_catalog:'官方产业目录',interactive_qa:'互动易问答'};
+  for(const [index,b]of f.c.bindings.entries()){
+    b.skill='material_qa';b.taskId=0;if(!all&&index!==0)continue;
+    b.skill='report_qa';b.taskId=9000+index;
+    const base='/api/v1/ai/conversations/'+b.conversationId;
+    const s=f.responses.get(base+'/questions/1'),a=f.responses.get(base+'/questions/1/answer');s.skill='report_qa';
+    for(const [i,loc]of b.sources.entries()){
+      const old=loc.snapshotId;loc.snapshotId=i+1;
+      for(const q of a.quotes)if(q.snapshotId===old)q.snapshotId=loc.snapshotId;
+    }
+    const item=d.cases.find(v=>v.id===b.id),quotes=b.sources.map(loc=>({text:item.sources.find(v=>v.id===loc.ref).text,sourceType:labels[loc.sourceType],sourceUrl:loc.sourceUrl,collectedAt:loc.collectedAt}));
+    if(!quotes.length)quotes.push({text:'明确标注的工程报告资料。',sourceType:'官方产业目录',sourceUrl:'https://example.test/report',collectedAt:1793620000000});
+    f.responses.set(base+'/messages?after_seq=0&limit=1',{conversationId:b.conversationId,items:[{seq:1,kind:'question',subjectType:'theme',subjectId:b.subjectId,skill:'report_qa',question:item.question,taskId:b.taskId,createdAt:s.createdAt}],upperSeq:1,nextAfterSeq:1,hasMore:false});
+    f.responses.set('/api/v1/ai/tasks/'+b.taskId+'/report',{taskId:b.taskId,subjectType:'theme',subjectId:b.subjectId,subjectName:item.subject,generatedAt:1793620000000,disclosure:{aiGenerated:true,modelName:'synthetic-report-model',filingNo:'only-test-filing'},sections:[{key:'definition',title:'定义',aiGenerated:true,quotes},{key:'timeline',title:'时间线',aiGenerated:true,quotes:[clone(quotes[0])]},{key:'segment',title:'环节',aiGenerated:true,quotes:[clone(quotes[0])]},{key:'companies',title:'公司事实',aiGenerated:false,quotes:[{...quotes[0],text:'公司事实不能进入报告追问。'}]}],dossierReview:{candidate:'字段候选不能进入报告追问。'}});
+  }
+}
+
 test('绑定覆盖全题全物料，非回环、越权、重复与缺凭据在联网前拒绝',async t=>{
   const f=await fixture(t);assert.equal(binding(d,f.c).m.cases.length,17);
   const authority=fs.readFileSync(path.resolve(__dirname,'../../server/internal/sources/source.go'),'utf8');
@@ -35,6 +54,62 @@ test('绑定覆盖全题全物料，非回环、越权、重复与缺凭据在�
     const c=clone(f.c);mutate(c);assert.throws(()=>binding(d,c));
   }
   await assert.rejects(capture(d,f.c,''));assert.equal(f.requests.length,0);
+});
+
+test('v2明确技能和任务，旧v1仍拒绝任务字段，零端口在联网前拒绝',async t=>{
+  const f=await fixture(t);enableReports(f,false);assert.doesNotThrow(()=>binding(d,f.c));
+  for(const mutate of [c=>c.schema='tm-stock-qa-capture-v1',c=>delete c.bindings[0].skill,c=>c.bindings[0].taskId=0,c=>c.bindings[0].taskId=1.2,c=>c.bindings[1].taskId=9,c=>c.bindings[1].skill='other',c=>c.baseURL='http://127.0.0.1:0']){const c=clone(f.c);mutate(c);assert.throws(()=>binding(d,c));}
+  assert.equal(f.requests.length,0);
+  const run=await capture(d,f.c,token);assert.equal(f.requests.length,72);assert.equal(run.results.length,17);
+});
+
+test('报告引文按原顺序去重且核实际Go五类标签，不导出私有报告或放开compare',async t=>{
+  const f=await fixture(t);enableReports(f);const run=await capture(d,f.c,token);
+  assert.equal(f.requests.length,136);assert.equal(score(d,run).metrics.answerCoverage,1);assert.throws(()=>compare(d,run,run),/incomparable_runs/);
+  for(const value of ['taskId','message','reportDigest','candidate','synthetic-report-model',token,d.cases[0].sources[0].text])assert.ok(!JSON.stringify(run).includes(value));
+  const source=fs.readFileSync(path.resolve(__dirname,'../../server/internal/sources/source.go'),'utf8'),scope=fs.readFileSync(path.resolve(__dirname,'../../server/internal/ai/qa/report_scope.go'),'utf8');
+  const enums=new Map([...source.matchAll(/^\s*Category(\w+)\s*=\s*"([^"]+)"/gm)].map(v=>[v[1],v[2]]));
+  const labels=[...scope.matchAll(/case "([^"]+)":\s*return sources.Category(\w+), true/g)];assert.equal(labels.length,5);
+  const b=f.c.bindings[0],q=f.responses.get('/api/v1/ai/tasks/'+b.taskId+'/report').sections[0].quotes[0],a=f.responses.get('/api/v1/ai/conversations/'+b.conversationId+'/questions/1/answer').quotes[0];
+  for(const [,label,category]of labels){q.sourceType=label;b.sources[0].sourceType=enums.get(category);a.sourceType=enums.get(category);await capture(d,f.c,token);}
+  // 原五步公司的章节仍可能带AI标记，新事实行不带；两者始终排除在追问范围外。
+  f.responses.get('/api/v1/ai/tasks/'+b.taskId+'/report').sections[3].aiGenerated=true;await capture(d,f.c,token);
+});
+
+test('原消息任务与报告对象、字节、出处绑定不能被相同原句或另一个报告代替',async t=>{
+  const f=await fixture(t);enableReports(f);const b=f.c.bindings[0],mp='/api/v1/ai/conversations/'+b.conversationId+'/messages?after_seq=0&limit=1',rp='/api/v1/ai/tasks/'+b.taskId+'/report',original=clone(f.responses.get(mp)),r=clone(f.responses.get(rp));
+  for(const mutate of [v=>v.items[0].taskId++,v=>v.items[0].kind='task',v=>v.items[0].question+='不同',v=>v.items[0].subjectId++,v=>v.items[0].seq++,v=>v.items[0].extra=true,v=>v.items=[],v=>v.hasMore=true,v=>v.upperSeq=0]){const v=clone(original);mutate(v);f.responses.set(mp,v);await assert.rejects(capture(d,f.c,token),/invalid_message/);}
+  f.responses.set(mp,original);
+  for(const mutate of [v=>v.taskId++,v=>v.subjectId++,v=>v.subjectName+='其他',v=>v.generatedAt=original.items[0].createdAt+1,v=>v.sections[0].quotes[0].sourceUrl+='other',v=>v.sections[0].quotes[0].collectedAt--,v=>v.sections[0].quotes[0].sourceType='official_catalog',v=>v.sections[0].quotes[0].text='公司事实不能进入报告追问。',v=>v.sections[0].quotes[0].text='字段候选不能进入报告追问。',v=>v.sections[0].quotes[0].text='\u0000',v=>v.sections[0].quotes[0].sourceUrl='http://example.test/a',v=>v.sections.pop(),v=>v.privateOutput='未知字段']){const v=clone(r);mutate(v);f.responses.set(rp,v);await assert.rejects(capture(d,f.c,token),/invalid_report/);}
+  f.responses.set(rp,r);
+  const c=clone(f.c);c.bindings[0].taskId++;const other='/api/v1/ai/tasks/'+c.bindings[0].taskId+'/report';f.responses.set(other,{...clone(r),taskId:c.bindings[0].taskId});f.requests.length=0;
+  await assert.rejects(capture(d,c,token),/invalid_message/);assert.ok(!f.requests.some(v=>v.path===other));
+});
+
+test('报告双遍撤权或变化整批失败，新增无关历史不改写原问题绑定',async t=>{
+  const f=await fixture(t);enableReports(f);
+  f.setHook((req,res)=>{if(f.requests.length>68&&req.url.endsWith('/report')){res.writeHead(403);res.end('私有报告');return true;}});await assert.rejects(capture(d,f.c,token));
+  f.requests.length=0;f.setHook(req=>{if(f.requests.length>68&&req.url.endsWith('/report'))f.responses.get(req.url).disclosure.modelName='changed-report-model';});await assert.rejects(capture(d,f.c,token),/receipt_changed/);
+  f.requests.length=0;f.setHook(req=>{if(req.url.includes('/messages?')){const v=f.responses.get(req.url);v.upperSeq++;v.hasMore=true;}});assert.equal((await capture(d,f.c,token)).results.length,17);
+});
+
+test('失败报告追问仍核任务和当前报告，拒读时CLI不输出半批或私有诊断',async t=>{
+  const f=await fixture(t);enableReports(f);const b=f.c.bindings[0],qp='/api/v1/ai/conversations/'+b.conversationId+'/questions/1',rp='/api/v1/ai/tasks/'+b.taskId+'/report';f.responses.get(qp).state='failed';
+  const run=await capture(d,f.c,token);assert.equal(run.results[0].state,'failed');assert.equal(f.requests.length,134);assert.equal(f.requests.filter(r=>r.path===qp+'/answer').length,0);assert.equal(f.requests.filter(r=>r.path===rp).length,2);
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'tm-stock-report-capture-')),file=path.join(dir,'binding.json');fs.writeFileSync(file,JSON.stringify(f.c),{mode:0o600});
+  f.setHook((req,res)=>{if(req.url===rp){res.writeHead(403);res.end('private:'+token);return true;}});
+  try{await promisify(execFile)(process.execPath,[path.join(__dirname,'research-qa-capture.cjs'),corpus,file],{env:{...process.env,TM_STOCK_EVAL_TOKEN:token}});assert.fail('失败报告被放行');}catch(e){assert.equal(e.stdout,'');assert.equal(e.stderr,'问答回执采集失败（capture_unavailable），未输出评测记录。\n');}
+});
+
+test('报告答案与报告读取覆盖原8秒和10秒服务窗口，整批仍受60秒限制',async t=>{
+  const f=await fixture(t);enableReports(f,false);let answerDelayed=false,reportDelayed=false;
+  const b=f.c.bindings[0],answerPath='/api/v1/ai/conversations/'+b.conversationId+'/questions/1/answer',reportPath='/api/v1/ai/tasks/'+b.taskId+'/report';
+  f.setHook((req,res)=>{
+    let delay=0;if(req.url===answerPath&&!answerDelayed){answerDelayed=true;delay=5100;}if(req.url===reportPath&&!reportDelayed){reportDelayed=true;delay=9500;}
+    if(!delay)return false;
+    const timer=setTimeout(()=>{res.setHeader('Content-Type','application/json');res.end(JSON.stringify({code:0,msg:'',data:f.responses.get(req.url)}));},delay);t.after(()=>clearTimeout(timer));return true;
+  });
+  assert.equal((await capture(d,f.c,token)).results.length,17);assert.equal(answerDelayed,true);assert.equal(reportDelayed,true);assert.equal(f.requests.length,72);
 });
 test('双遍实际HTTP读取只归一化真实回包，不输出身份、正文、定位或令牌',async t=>{
   const f=await fixture(t),run=await capture(d,f.c,token);
