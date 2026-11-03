@@ -39,6 +39,11 @@ func newDossierProcessFixture(t *testing.T, lifetime time.Duration, references .
 		t.Fatal("引用夹具配置重复")
 	}
 	saved := len(references) == 1 && references[0]
+	return newDossierProcessWithQA(t, lifetime, saved, nil)
+}
+
+func newDossierProcessWithQA(t *testing.T, lifetime time.Duration, saved bool, prepareQA func(*localPublicationFixture, string) string) *dossierProcessFixture {
+	t.Helper()
 	api, _, login := buildLocalReportBinaries(t)
 	f := newLocalPublicationFixture(t, sql.LevelReadCommitted, 1, "local")
 	e := f.env
@@ -96,6 +101,10 @@ func newDossierProcessFixture(t *testing.T, lifetime time.Duration, references .
 	}
 	e.mustExec(`INSERT INTO tm_ai_dossier_publications SELECT theme_id,version_no,digest,'test-fixture:dossier-h5-pub',1,UTC_TIMESTAMP(3)+INTERVAL 1 HOUR,UTC_TIMESTAMP(3),UTC_TIMESTAMP(3) FROM tm_ai_dossier_versions;INSERT INTO tm_ai_dossier_grants SELECT 1,theme_id,version_no,digest,'test-fixture:dossier-h5-member',1,UTC_TIMESTAMP(3)+INTERVAL 1 HOUR,UTC_TIMESTAMP(3),UTC_TIMESTAMP(3) FROM tm_ai_dossier_versions`)
 	dsn := localAPIDSN(t, e)
+	qaFile := ""
+	if prepareQA != nil {
+		qaFile = prepareQA(f, dsn)
+	}
 	cfg, err := mysql.ParseDSN(dsn)
 	if err != nil {
 		t.Fatal("读取配置无效")
@@ -127,10 +136,14 @@ func newDossierProcessFixture(t *testing.T, lifetime time.Duration, references .
 	if err = os.WriteFile(runtimeFile, raw, 0600); err != nil {
 		t.Fatal(err)
 	}
-	client := &http.Client{Transport: &http.Transport{Proxy: nil}, Timeout: 5 * time.Second}
+	requestTimeout := 5 * time.Second
+	if prepareQA != nil {
+		requestTimeout = 28 * time.Second
+	}
+	client := &http.Client{Transport: &http.Transport{Proxy: nil}, Timeout: requestTimeout, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	t.Cleanup(client.CloseIdleConnections)
 	base := "http://" + f.runtime.Listen
-	startLocalAPIConfigured(t, e, api, dsn, signing, runtimeFile, f.path, client, base, false, "", false, prepare.FormatDSN(), saved)
+	startLocalAPIConfigured(t, e, api, dsn, signing, runtimeFile, f.path, client, base, false, qaFile, false, prepare.FormatDSN(), saved)
 	return &dossierProcessFixture{f: f, login: bridge, client: client, base: base, baselineTasks: e.queryInt(`SELECT COUNT(*) FROM tm_ai_tasks`), baselineTxns: e.queryInt(`SELECT COUNT(*) FROM tm_points_txns`)}
 }
 func (p *dossierProcessFixture) verifyNoGeneration(t *testing.T) {

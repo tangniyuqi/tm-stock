@@ -139,6 +139,8 @@ func exactLocalPlanJSON(raw json.RawMessage, typ reflect.Type) bool {
 		return false
 	}
 	switch typ.Kind() {
+	case reflect.Pointer:
+		return exactLocalPlanJSON(raw, typ.Elem())
 	case reflect.Struct:
 		var fields map[string]json.RawMessage
 		if json.Unmarshal(raw, &fields) != nil || len(fields) > typ.NumField() {

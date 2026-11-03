@@ -18,7 +18,7 @@ type Config struct {
 	TimeoutMS int
 	// JSONSchemaFallback 仅用于上游不支持 json_schema 的已批准模型：改用 json_object 并把 schema 放入提示词。
 	JSONSchemaFallback bool
-	// ReasoningEffort 可选 low/high/max；空值不发送。仅用于已批准模型降低推理开销。
+	// ReasoningEffort 由已批准模型决定，DeepSeek支持none关闭思考；空值不发送。
 	ReasoningEffort string
 }
 

@@ -67,20 +67,10 @@ func loadOfficialSamples(t *testing.T) officialSampleBundle {
 	return bundle
 }
 
-// 真实原文由固定清单重放，不在CI反复访问机关网站，不借资料使用依据自动批准发布。
-func TestIntegrationAIReportOfficialMaterialSamples(t *testing.T) {
-	if os.Getenv("TM_TEST_DSN") == "" {
-		t.Skip("需要隔离MySQL")
-	}
-	bundle := loadOfficialSamples(t)
-	p := newDossierProcessFixture(t, 4*time.Minute)
-	e := p.f.env
+func importOfficialSampleSnapshots(t *testing.T, e *workflowEnv, bundle officialSampleBundle) (map[string]sources.Snapshot, map[string]dossier.SentenceRef, map[string]officialSampleDocument) {
+	t.Helper()
 	ctx := e.ctx
 	sr := repository.NewAISourceRepo(e.db)
-	svc, err := service.NewAIDossierService(repository.NewAIDossierRepo(e.db, sql.LevelReadCommitted), dossierTestAuth{}, true)
-	if err != nil {
-		t.Fatal(err)
-	}
 	registered := map[string]sources.Source{}
 	snapshots := map[string]sources.Snapshot{}
 	passages := map[string]dossier.SentenceRef{}
@@ -137,6 +127,23 @@ func TestIntegrationAIReportOfficialMaterialSamples(t *testing.T) {
 			}
 		}
 	}
+	return snapshots, passages, documents
+}
+
+// 真实原文由固定清单重放，不在CI反复访问机关网站，不借资料使用依据自动批准发布。
+func TestIntegrationAIReportOfficialMaterialSamples(t *testing.T) {
+	if os.Getenv("TM_TEST_DSN") == "" {
+		t.Skip("需要隔离MySQL")
+	}
+	bundle := loadOfficialSamples(t)
+	p := newDossierProcessFixture(t, 4*time.Minute)
+	e := p.f.env
+	ctx := e.ctx
+	svc, err := service.NewAIDossierService(repository.NewAIDossierRepo(e.db, sql.LevelReadCommitted), dossierTestAuth{}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshots, passages, documents := importOfficialSampleSnapshots(t, e, bundle)
 	tokens, _ := localPasswordTokens(t, ctx, p.login, p.client)
 	for i, theme := range bundle.Themes {
 		t.Run(theme.Key, func(t *testing.T) {

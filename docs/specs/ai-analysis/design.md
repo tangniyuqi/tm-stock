@@ -1237,3 +1237,13 @@ Worker命令守卫验收补充：计划、复核、队列范围/分页及调用�
 首批按明确范围收录无人驾驶航空器、新型储能和分布式光伏的主管机关正式公文及客观元数据。样本清单保存原URL/附件关联、实际采集时点、HTTP原始字节哈希、媒体类型、提取方式、PDF页码或可见文本流字节范围，以及逐条原文节选。范围明示selected-passages-not-full-document，不用节选冒充全文或完整题材覆盖。使用依据只记录著作权法第五条关于正式国家机关文件及单纯事实的条文；不因gov.cn域名推定所有新闻、图片、解读均可使用，也不替代正式对外发布审核。数据明确real-official-passages-development-unreviewed，不标成合成资料或独立人工金标。
 
 导入沿原RegisterSource/BuildSnapshot/SaveSnapshot和StageInternal绑定，领域未知字段保留unknown，不根据URL日期、文号或一般常识填发布日期/生效日/阶段。来源登记、候选存储、本地开发发布及会员读取许可分别执行；不修改原synthetic问答/任务配置，不自动授予AI用途或生产发布权限。受控隔离库以原API、原密码登录及现有专题DTO读取；逐项撤回来源/发布/会员授权后整份拒读，恢复可读且零任务、模型或积分副作用。真实资料接线不等于研究深度、语义支持或真实模型质量已经验收。
+
+### 13.25 正式资料的受控开发问答装配
+
+沿用原资料问答服务、三阶段核验、SQL范围/配额/调用存证及answer/evidence接口。TM_AI_LOCAL_QA新增显式version=2、scope=official-materials-development-only，material_use必填清单摘要、开发用途批准、bounded-material-qa用途和逐题材的原范围批准/有序快照ID及Hash。会员、题材、有效期、实例标记仍受原隔离运行配置约束；正文不进入配置，文件声明不能代替数据库当前来源许可、范围和预算。嵌套闭集字段、重复键、null、别名、缺字段、重复或乱序快照都拒绝。version=1保持synthetic-loopback-only及旧摘要编码，显式提供新模型开关的false/空串也拒绝，不借旧配置消费真实资料。
+
+原ForPlan在入队前核对完整快照与范围绑定；执行的Begin/Recheck/StartCall/Complete回调重新检查原令牌和同一配置来源。答案及完整候选/调用读取在重建计划时同样验证开发用途，配置变更或撤回不能仅凭相同模型policy复用旧答案。当前v2只接material_qa，ForReport明确拒绝，不能借资料问答声明替代真实报告执行与发布批准。
+
+模型端点继续为显式字面回环；v2可显式选择JSON对象兼容与reasoning_effort=none，两者进入DirectProfileDigest绑定，不改变原模型闭集结果、语义核验和失败处理。[DeepSeek Chat接口](https://api-docs.deepseek.com/api/create-chat-completion/)的JSON对象模式由原provider添加同一schema约束，不在网关改提示词或修补响应。开发网关只向固定api.deepseek.com转发原始字节、保留请求体SHA256/确认状态/实际token；最多十次、串行、无自动重试，未知外部结果停止后续发送。真Key只在父进程内存，子进程仅接回环地址，回执不含请求体、模型原文或凭据。未取得账单时费用为null。
+
+同一原API/密码登录与隔离MySQL分别跑协议替身和真实供应商：三个有原文的问题、一个限定范围内无证据的问题；复读/重放、跨账号、来源/范围/配置撤回和恢复均不得另扣积分或新增任务。真实运行保留独立API候选证据和供应商传输回执，不将协议通过、三个样本或模型一致称为独立人工金标、完整题材覆盖或公平质量优势。常规CI只用回环替身，真实调用由单独liveagents根组和显式原生参数启动。

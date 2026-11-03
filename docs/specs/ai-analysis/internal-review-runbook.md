@@ -1,5 +1,15 @@
 # AI 内部操作手册（L0 审核与隔离 Agent 执行）
 
+## 正式资料的原问答API与真实模型（2026-11-03）
+
+设计13.25：单独使用version=2、official-materials-development-only问答文件，显式声明清单摘要、开发AI用途、会员/题材、原范围批准及全部快照ID/Hash；保留version=1原合成协议文件。所有模型仍走字面回环，JSONSchemaFallback及reasoning_effort=none须进入原ProfileDigest。原SQL范围、来源许可和配额/预算仍必须有效，文件声明不授予正式发布或真实报告执行许可。
+
+协议及回归：verify-ai-source-native.ps1 -ReportsOnly -ReportPattern '^TestIntegrationAIReport(OfficialMaterialSamples|OfficialMaterialQA|LocalQAProcess)$' -RunCount 1，MySQL8/9串行。预期三根及九个子节点共12个唯一PASS，不能用新根组替代旧v1资料/报告追问回归。新根核三个原文问题及一个范围内无证据问题、同键重放、完整候选和三阶段调用、跨账号/无令牌、来源/范围/文件撤回与恢复、合法但越出文件绑定的快照、范围外会员，以及首次回包中撤回后只保留一次确认并终止后续阶段。五条问答/十一条回环调用为协议反例计数，真实试跑仍四条/十次。全部过程不新建报告任务或积分流水。
+
+真实模型单独执行：node scripts/dev/official-materials-qa-live.mjs <MySQL绝对目录> <pwsh.exe绝对路径>。父进程只读仓库外既有.tmstock-credentials的DEEPSEEK_API_KEY并固定官方HTTPS出口；绝不将真Key传给Go/原生脚本、命令行或输出。回环网关不暴露浏览器Origin，不接任意模型/工具/流式请求，原字节转发不翻译schema、不修补模型结果。固定四题最多十次调用，无重试，未知结果停止下一次发送。子进程最小环境保留Windows PATH/PATHEXT/ComSpec等程序启动字段，不继承供应商密钥；遗漏PATHEXT会使pwsh将mysql.exe误判为管道文档，不能因此重试模型任务。
+
+检查新建tm-stock-official-qa-live-*目录中的native-go.log、provider-receipt.json及qa-api-evidence.json：父进程退出0、精确live根通过及TM_STOCK_OFFICIAL_QA_LIVE_VERIFIED、原生65项和实例清理；供应商十次HTTP200、无未知、实际token完整，API中完整候选/提示版本/逐条调用与原文一致。费用始终未知直到取得账单，不用token估价代替；API证据与网关请求体摘要不等于第三方签名。真实样本仍未独立人工审核，不能纳入金标或宣称优于通用模型，stored_qa的公平比较限制保持。真实调用不进入常规CI；网关无网络自测进入harness/CI。
+
 ## 正式机关资料开发样板（2026-11-03）
 
 设计13.24及eval/README.md：真实节选清单为eval/research/official-materials/manifest.json，保留四份原始HTTP哈希、实际采集时间、转换方法和三类题材的八张原文候选卡。仅限这里明示的正式文件/客观元数据，人工审核、全文覆盖和业务进展待办；不借gov.cn域名一并收录新闻图片或评论，不改写旧synthetic配置来消费真实数据。

@@ -2,6 +2,16 @@
 
 ## 深度资料研究样板 · 当前推进矩阵（2026-11-03）
 
+**正式资料原问答API与真实DeepSeek纵向接线（2026-11-03，design13.25）**：新增独立v2开发用途配置，绑定清单摘要、会员/题材、原范围批准及有序快照ID/Hash，v1编码与合成范围保持。原ForPlan入队前和Begin/Recheck/StartCall/Complete回调、答案/evidence重建均核同一当前配置；原SQL范围、来源许可、预算及配额继续复核。v2不授报告追问执行，模型JSON兼容/none设置绑定原Profile，网关不修改请求字节或模型响应。
+
+真实试跑父目录tm-stock-official-qa-live-CX8NIv：原密码HTTP登录→独立cmd/api→三类正式文件限定资料→真实deepseek-flash→原三阶段核验/模板引文及完整候选回执。三个answered、一个refused，十次确认HTTP200，5677输入/158输出token，父进程退出0、live根19.55秒通过、原生65项及实例清理完成。费用无账单保持null，不生成报告任务或积分流水，不是全多Agent/实际H5/独立人工质量验收，也不取消stored_qa的公平比较限制。
+
+首次实跑目录tm-stock-official-qa-live-2KpaYG因最小Windows环境遗漏PATHEXT而在启动mysql.exe时失败，供应商调用为零；失败实例d7d294db960a42869956a5bfadd7ca05已停止保留。补齐PATHEXT/ComSpec后才做上段首次实际调用，未重放未知模型任务。网关初次传输自测把Readable的模拟块构成string，Buffer.concat正确拒绝；修正测试为实际HTTP的Buffer块，未修改转发或结果校验来迁就替身。
+
+最终MySQL8/9串行回归各12个唯一PASS、零失败/跳过：旧v1资料/报告追问两种任务及RC/RR、原三题材读取、新v2限定问答。新根另核数据库合法快照越出文件绑定及范围外会员提交被拒，第一次回包中撤回只留一条确认并存failed，复读/重放/恢复不增加模型或账务。两版父进程均退出0、65项原生断言及实例清理完成，日志tm-stock-official-qa-regression-mysql{8,9}-20261103.log；真实API十次用量与父网关逐条一致，独立复核日志tm-stock-official-qa-receipt-check-20261103.log。
+
+配置/服务全普通竞态专项通过，新增三根43子例共46个精确节点；validMaterialUse与localQAMaterialProof在完整专项覆盖100%，配置read90%，额外服务恢复反例确认失效用途在读取Tx范围前即拒绝。全包覆盖不是新增语句覆盖，不将三行可选接口转接的部分覆盖称为全路径覆盖。CI普通下限2213→2259、集成1781→1782；实际日志的普通一正11反、每版集成一正7反及YAML/29段Shell语法通过，日志tm-stock-official-qa-ci-20261103.log。integration/browser/liveagents标签vet通过。完整harness-checks.sh --with-coverage退出0，日志tm-stock-official-qa-harness-20261103.log，包含全仓Go编译/vet/竞态、原覆盖棘轮、GVA核心/配置、合规38/迁移探测23/密钥42项自测、架构、离线评测27和网关协议46项；未降低原门槛或扩大扫描豁免。未新增页面/部署，实际H5/移动设备、全多Agent真实资料输入审计、独立人工金标/holdout和两类质量/成本对照仍待完成，整体目标保持进行中。
+
 **当前授权与顺序更新（2026-11-03）**：用户确认项目尚未上线，允许开发所需外部API/真实多Agent和开发账号实际积分冻结、扣除、释放、退还测试，不再保持真实调用关闭或仅模拟，不重复申请已有测试许可。先跑通前端/实际API→独立worker→真实多Agent→终检→一次结算，同时补报告追问回执/完整输入审计及质量证据；正式对外部署仍不执行。旧日期“不动真实积分/关闭调用”记录仅说明当时范围。Work本地浏览器控制当前禁用，接口/真库/真实模型不能冒充页面点击通过。七步实调按design13.21完成本轮HTTP进程验收，证据与剩余范围见下文。
 
 **三类真实机关资料受限样板（2026-11-03，design13.24）**：新增official-materials/manifest.json，明确real-official-passages-development-unreviewed及agent-source-checked-not-independent-human-gold。无人驾驶航空器限定义/分类/地域/日期、新型储能限制造业定义与方案日期、分布式光伏限通知修订和落款，共四份正式文件/客观元数据的八张候选卡。原链接/附件关联、实际HTTP200时点、原始字节SHA256、提取方法、PDF页码或可见文本流UTF-8位置均保留；不是全文、完整题材覆盖或独立金标。使用依据记录国家版权局正式著作权法第五条第一/二项，网页设计、图片及新闻解读不纳入，正式发布审查仍待完成。

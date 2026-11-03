@@ -125,11 +125,66 @@ jobs:
           # 成功报告两卡展示投影新增5根10子节点；字段原文/旧编码门禁保留。
           # 报告追问范围与配置同次当前读取新增1根，撤权时不复用正文。
           # 原问题资料/调用复核新增4根18子节点；服务页面接线沿原入口验证。
-          MIN=2213
+          # 正式资料问答配置/嵌套闭集/证明绑定新增3根43子节点。
+          MIN=2259
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项测试，低于下限 $MIN —— 要么测试没被执行，要么有测试被删。"
             exit 1
           fi
+
+          # 正式资料问答装配普通门禁开始
+          OFFICIAL_QA_UNIT_ACTUAL=$(sed -nE 's/^[[:space:]]*--- PASS: (TestAILocalQA(MaterialConfiguration|MaterialStrictShape|MaterialProofBinding)[^ ]*) .*/\1/p' /tmp/gotest.log | LC_ALL=C sort)
+          OFFICIAL_QA_UNIT_EXPECTED=$(printf '%s\n' \
+            'TestAILocalQAMaterialConfiguration' \
+            'TestAILocalQAMaterialConfiguration/valid' \
+            'TestAILocalQAMaterialConfiguration/old_version' \
+            'TestAILocalQAMaterialConfiguration/old_scope' \
+            'TestAILocalQAMaterialConfiguration/missing_use' \
+            'TestAILocalQAMaterialConfiguration/dataset' \
+            'TestAILocalQAMaterialConfiguration/approval' \
+            'TestAILocalQAMaterialConfiguration/purpose' \
+            'TestAILocalQAMaterialConfiguration/empty_binding' \
+            'TestAILocalQAMaterialConfiguration/subject' \
+            'TestAILocalQAMaterialConfiguration/scope_approval' \
+            'TestAILocalQAMaterialConfiguration/empty_evidence' \
+            'TestAILocalQAMaterialConfiguration/too_many' \
+            'TestAILocalQAMaterialConfiguration/snapshot_id' \
+            'TestAILocalQAMaterialConfiguration/large_id' \
+            'TestAILocalQAMaterialConfiguration/snapshot_hash' \
+            'TestAILocalQAMaterialConfiguration/duplicate' \
+            'TestAILocalQAMaterialConfiguration/unsorted' \
+            'TestAILocalQAMaterialConfiguration/reasoning' \
+            'TestAILocalQAMaterialConfiguration/profile' \
+            'TestAILocalQAMaterialStrictShape' \
+            'TestAILocalQAMaterialStrictShape/null' \
+            'TestAILocalQAMaterialStrictShape/unknown_use' \
+            'TestAILocalQAMaterialStrictShape/unknown_binding' \
+            'TestAILocalQAMaterialStrictShape/unknown_evidence' \
+            'TestAILocalQAMaterialStrictShape/alias' \
+            'TestAILocalQAMaterialStrictShape/missing' \
+            'TestAILocalQAMaterialStrictShape/duplicate' \
+            'TestAILocalQAMaterialStrictShape/v1_false_flag' \
+            'TestAILocalQAMaterialStrictShape/v1_empty_reasoning' \
+            'TestAILocalQAMaterialProofBinding' \
+            'TestAILocalQAMaterialProofBinding/valid' \
+            'TestAILocalQAMaterialProofBinding/readonly' \
+            'TestAILocalQAMaterialProofBinding/member' \
+            'TestAILocalQAMaterialProofBinding/subject' \
+            'TestAILocalQAMaterialProofBinding/type' \
+            'TestAILocalQAMaterialProofBinding/scope' \
+            'TestAILocalQAMaterialProofBinding/empty' \
+            'TestAILocalQAMaterialProofBinding/extra' \
+            'TestAILocalQAMaterialProofBinding/snapshot' \
+            'TestAILocalQAMaterialProofBinding/hash' \
+            'TestAILocalQAMaterialProofBinding/expired' \
+            'TestAILocalQAMaterialProofBinding/beyond_file' \
+            'TestAILocalQAMaterialProofBinding/identity' \
+            'TestAILocalQAMaterialProofBinding/revoked' \
+            'TestAILocalQAMaterialProofBinding/cancelled' | LC_ALL=C sort)
+          if [ "$OFFICIAL_QA_UNIT_ACTUAL" != "$OFFICIAL_QA_UNIT_EXPECTED" ] || grep -Eq '^[[:space:]]*--- (FAIL|SKIP): TestAILocalQA(MaterialConfiguration|MaterialStrictShape|MaterialProofBinding)' /tmp/gotest.log; then
+            echo '::error::正式资料问答的闭集配置/开发用途/快照证明验收缺失、重复、跳过或失败'; exit 1
+          fi
+          # 正式资料问答装配普通门禁结束
 
           # 问答资料调用核验普通门禁开始
           QA_EVIDENCE_ACTUAL=$(sed -nE 's/^[[:space:]]*--- PASS: (TestQAEvidence[^ ]*) .*/\1/p' /tmp/gotest.log | LC_ALL=C sort)
@@ -1370,6 +1425,13 @@ jobs:
           fi
           # 正式机关资料开发样板真库门禁结束
 
+          # 正式资料问答装配真库门禁开始
+          OFFICIAL_QA_ACTUAL=$(sed -nE 's/^[[:space:]]*--- PASS: (TestIntegrationAIReportOfficialMaterialQA[^ ]*) .*/\1/p' /tmp/it.log | LC_ALL=C sort)
+          if [ "$OFFICIAL_QA_ACTUAL" != 'TestIntegrationAIReportOfficialMaterialQA' ] || grep -Eq '^[[:space:]]*--- (FAIL|SKIP): TestIntegrationAIReportOfficialMaterialQA' /tmp/it.log; then
+            echo '::error::正式资料问答原API/范围/执行中撤回/零账务副作用验收缺失、重复、跳过或失败'; exit 1
+          fi
+          # 正式资料问答装配真库门禁结束
+
           # 报告追问回执真库门禁开始
           REPORT_CAPTURE_ACTUAL=$(sed -nE 's/^[[:space:]]*--- PASS: (TestIntegrationAIReportResearchCapture[^ ]*) .*/\1/p' /tmp/it.log | LC_ALL=C sort)
           REPORT_CAPTURE_EXPECTED=$(printf '%s\n' \
@@ -1714,7 +1776,8 @@ jobs:
           # 原问答JWT/服务/存证→只读采集→计分新增1根2隔离子节点。
           # 原五/六/七步报告/会话消息/JWT→追问回执新增1根8子节点。
           # 正式机关原文节选三个开发题材经原API读取新增1根3子节点。
-          MIN=1781
+          # 正式资料问答受控装配与执行中撤回新增1根，常规CI只用回环协议。
+          MIN=1782
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项，低于下限 $MIN —— 要么没跑，要么有测试被删。"; exit 1
           fi
@@ -1777,7 +1840,7 @@ jobs:
         run: node scripts/dev/verify-research-eval.cjs
 
       - name: Agent本地评估网关守卫（无Key、无网络、无付费调用）
-        run: node --test scripts/dev/tradingcn-live-gateway.test.mjs scripts/dev/tradingcn-local-chain.test.mjs
+        run: node --test scripts/dev/tradingcn-live-gateway.test.mjs scripts/dev/tradingcn-local-chain.test.mjs scripts/dev/official-materials-qa-live.test.mjs
 
       - name: 会员报告与依据展示源码测试（不替代HBuilderX）
         run: |

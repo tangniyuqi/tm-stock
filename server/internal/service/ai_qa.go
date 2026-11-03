@@ -17,6 +17,9 @@ import (
 type AIQAPolicies interface {
 	ForPolicy(context.Context, string) (qa.Config, error)
 }
+type AIQAProofPolicies interface {
+	ValidateProof(context.Context, qa.Proof) error
+}
 type AIQAProviders interface {
 	ForPlan(context.Context, qa.Proof) ([3]*provider.OpenAICompat, error)
 }
@@ -161,6 +164,9 @@ func (s *AIQAService) Status(ctx context.Context, token string, uid, cid, seq in
 func (s *AIQAService) restore(ctx context.Context, tx qa.AccessTx, r qa.Record, m conversation.Message) (*qa.Plan, error) {
 	if s.policies == nil {
 		return nil, qa.ErrUnavailable
+	}
+	if err := s.validateProof(ctx, r.Proof); err != nil {
+		return nil, err
 	}
 	cfg, err := s.policies.ForPolicy(ctx, r.Proof.PolicyDigest)
 	if err != nil {
@@ -332,7 +338,12 @@ func (s *AIQAService) Submit(parent context.Context, token string, uid, cid int6
 	if _, err := ctl.Enqueue(ctx, key, in.Version); err != nil {
 		return dto.AIQAStatus{}, err
 	}
-	_, err = ctl.RunChecked(ctx, engine, func(ctx context.Context) error { return s.check(ctx, token, uid) })
+	_, err = ctl.RunChecked(ctx, engine, func(ctx context.Context) error {
+		if err := s.check(ctx, token, uid); err != nil {
+			return err
+		}
+		return s.validateProof(ctx, p.Proof())
+	})
 	if check := s.check(ctx, token, uid); check != nil {
 		return dto.AIQAStatus{}, check
 	}
@@ -346,4 +357,11 @@ func (s *AIQAService) Submit(parent context.Context, token string, uid, cid int6
 		return dto.AIQAStatus{}, qa.ErrUnavailable
 	}
 	return s.Receipt(ctx, token, uid, cid, key)
+}
+
+func (s *AIQAService) validateProof(ctx context.Context, proof qa.Proof) error {
+	if p, ok := s.policies.(AIQAProofPolicies); ok {
+		return p.ValidateProof(ctx, proof)
+	}
+	return nil
 }

@@ -64,7 +64,7 @@ func (c *AILocalQAControl) ForReport(ctx context.Context, evidence qa.ReportEvid
 	if err != nil {
 		return qa.Config{}, err
 	}
-	if evidence.TaskID <= 0 || evidence.SubjectType != "theme" || !slices.Contains(p.Subjects, evidence.SubjectID) {
+	if p.Version != 1 || evidence.TaskID <= 0 || evidence.SubjectType != "theme" || !slices.Contains(p.Subjects, evidence.SubjectID) {
 		return qa.Config{}, qa.ErrUnavailable
 	}
 	return p.QAConfig()
@@ -81,6 +81,9 @@ func (c *AILocalQAControl) ForPlan(ctx context.Context, proof qa.Proof) ([3]*pro
 	if !proof.Identity.Valid() || !slices.Contains(p.Members, proof.Identity.UserID) || proof.SubjectType != "theme" || !slices.Contains(p.Subjects, proof.SubjectID) || len(proof.Models) != 3 || proof.MaxCalls != 3 || proof.MaxTokens != p.Limits.MaxTotalTokens || !proof.ValidUntil.After(time.Now()) || proof.ValidUntil.UnixMilli() > p.ExpiresAtMS {
 		return models, qa.ErrUnavailable
 	}
+	if err := localQAMaterialProof(p, proof); err != nil {
+		return models, err
+	}
 	for n, m := range p.Models {
 		if proof.Models[n] != m.Metadata() {
 			return models, qa.ErrUnavailable
@@ -91,4 +94,27 @@ func (c *AILocalQAControl) ForPlan(ctx context.Context, proof qa.Proof) ([3]*pro
 		}
 	}
 	return models, nil
+}
+
+// 读取不依赖模型实例；正式资料仍须复核原快照和开发用途，不能只匹配模型策略摘要。
+func (c *AILocalQAControl) ValidateProof(ctx context.Context, proof qa.Proof) error {
+	p, err := c.current(ctx)
+	if err != nil {
+		return err
+	}
+	return localQAMaterialProof(p, proof)
+}
+func localQAMaterialProof(p *config.AILocalQA, proof qa.Proof) error {
+	if p.Version == 1 {
+		return nil
+	}
+	if p.MaterialUse == nil || !proof.Identity.Valid() || !slices.Contains(p.Members, proof.Identity.UserID) || proof.SubjectType != "theme" || !proof.ValidUntil.After(time.Now()) || proof.ValidUntil.UnixMilli() > p.ExpiresAtMS {
+		return qa.ErrUnavailable
+	}
+	for _, b := range p.MaterialUse.Bindings {
+		if b.SubjectID == proof.SubjectID && b.ScopeApproval == proof.ScopeApproval && slices.Equal(b.Evidence, proof.Evidence) {
+			return nil
+		}
+	}
+	return qa.ErrUnavailable
 }

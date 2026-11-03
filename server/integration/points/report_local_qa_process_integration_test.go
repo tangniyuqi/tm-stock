@@ -52,7 +52,7 @@ func localQAProcedure(e *workflowEnv, body bool) {
 	}
 	e.mustExec(`CREATE PROCEDURE tm_ai_local_qa_trigger_metadata() SQL SECURITY DEFINER READS SQL DATA SELECT trigger_name,event_object_table,event_manipulation,action_timing,` + column + ` FROM information_schema.triggers WHERE trigger_schema='` + e.database + `' AND event_object_table IN ('tm_ai_qa_scopes','tm_ai_qa_limits','tm_ai_qa_quotas','tm_ai_qa_requests','tm_ai_qa_calls')`)
 }
-func prepareLocalProcessQA(t *testing.T, f *localPublicationFixture, dsn string) *localProcessQA {
+func prepareLocalQASchema(t *testing.T, f *localPublicationFixture, dsn string) {
 	t.Helper()
 	e := f.env
 	reportDDL(t, e.pointsTestEnv, "20261021_create_tm_ai_qa.sql")
@@ -89,6 +89,12 @@ func prepareLocalProcessQA(t *testing.T, f *localPublicationFixture, dsn string)
 	if err := verify.Verify(e.ctx); err != nil {
 		t.Fatal("恢复原定义未通过", err)
 	}
+}
+
+func prepareLocalProcessQA(t *testing.T, f *localPublicationFixture, dsn string) *localProcessQA {
+	t.Helper()
+	prepareLocalQASchema(t, f, dsn)
+	e := f.env
 	snap := e.planner.p.Snapshots[0]
 	steps := append(qaSuccessSteps(snap.ID), qaSuccessSteps(1)...)
 	upstream := providertest.NewServer(t, steps...)

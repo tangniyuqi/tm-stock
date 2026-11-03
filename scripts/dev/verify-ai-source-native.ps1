@@ -40,7 +40,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
-$liveReportPatterns = @('^TestIntegrationAIReportLiveAgents$', '^TestIntegrationAIReportDeepLiveAgents$', '^TestIntegrationAIReportLocalAPIWorkerLive$', '^TestIntegrationAIReportLocalAPIWorkerLiveH5$')
+$liveReportPatterns = @('^TestIntegrationAIReportLiveAgents$', '^TestIntegrationAIReportDeepLiveAgents$', '^TestIntegrationAIReportLocalAPIWorkerLive$', '^TestIntegrationAIReportLocalAPIWorkerLiveH5$', '^TestIntegrationAIReportOfficialMaterialQALive$')
 $dossierH5Pattern = '^TestIntegrationAIReportDossierH5$'
 if (-not [string]::IsNullOrEmpty($env:TM_TEST_AI_H5_DOSSIER_REFERENCES) -and (-not $DossierBrowser -or $env:TM_TEST_AI_H5_DOSSIER_REFERENCES -ne 'local-fixture-only')) { throw '会话引用H5需要专题档案浏览器单次入口与显式范围' }
 if ($ReportPattern -eq $dossierH5Pattern -and -not $DossierBrowser) { throw '专题档案H5需要显式浏览器入口，禁止零用例通过' }
