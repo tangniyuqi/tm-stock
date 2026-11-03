@@ -41,6 +41,15 @@ func TestQAServiceMissingAndIdentityBoundaries(t *testing.T) {
 		}
 	}
 	input := dto.AIQAInput{Version: 1, SubjectType: "theme", SubjectID: 1, Skill: "material_qa", Question: "测试问题"}
+	for _, ids := range [][3]int64{{1, 0, 1}, {1, 1, 0}, {2, 1, 1}, {1, 1, 1}} {
+		v, err := s.Evidence(ctx, "test", ids[0], ids[1], ids[2])
+		if err == nil || len(v.Sources) != 0 || len(v.Calls) != 0 {
+			t.Fatal("无效身份/定位或不可用存储泄漏资料记录")
+		}
+	}
+	if _, err := s.Evidence(nil, "test", 1, 1, 1); err == nil {
+		t.Fatal("空上下文读取核验记录")
+	}
 	if _, err := s.Submit(ctx, "test", 1, 1, "test_question_key_01", input); err == nil {
 		t.Fatal("关闭提交仍运行")
 	}

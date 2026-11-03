@@ -142,7 +142,7 @@ export class MemberApi {
 		else if (before > 0) path += '?beforeVersion=' + before.toString()
 		return requestWithToken<T>(path,'GET',{} as UTSJSONObject,true,currentAIMemberToken())
 	}
-	// 问答只开放四个固定端点；仅提交使用28秒，其余与既有接口保持10秒。
+	// 问答只开放固定端点；仅提交使用28秒，其余与既有接口保持10秒。
 	public static aiQuestion<T>(operation : string, cid : number, seq : number, body : UTSJSONObject, key : string) : Promise<MemberApiResult<T>> {
 		if (typeof cid != 'number' || cid <= 0 || cid > 9007199254740991 || Math.floor(cid) != cid || typeof seq != 'number' || seq < 0 || seq > 9007199254740991 || Math.floor(seq) != seq) return Promise.resolve(failure<T>(40001,'问题编号无效'))
 		const base : string = '/api/v1/ai/conversations/'+cid.toString()
@@ -150,8 +150,8 @@ export class MemberApi {
 			if (seq != 0 || !/^[A-Za-z0-9_-]{16,80}$/.test(key)) return Promise.resolve(failure<T>(40001,'原问题键无效'))
 			return requestWithToken<T>(base+(operation == 'submit' ? '/questions' : '/question-receipt'),operation == 'submit' ? 'POST' : 'GET',operation == 'submit' ? body : {} as UTSJSONObject,true,currentAIMemberToken(),key,operation == 'submit' ? 28000 : 10000)
 		}
-		if (seq <= 0 || key != '' || operation != 'status' && operation != 'answer') return Promise.resolve(failure<T>(40001,'问答操作无效'))
-		return requestWithToken<T>(base+'/questions/'+seq.toString()+(operation == 'answer' ? '/answer' : ''),'GET',{} as UTSJSONObject,true,currentAIMemberToken())
+		if (seq <= 0 || key != '' || operation != 'status' && operation != 'answer' && operation != 'evidence') return Promise.resolve(failure<T>(40001,'问答操作无效'))
+		return requestWithToken<T>(base+'/questions/'+seq.toString()+(operation == 'status' ? '' : '/'+operation),'GET',{} as UTSJSONObject,true,currentAIMemberToken())
 	}
 	// 会话任务固定门面，不开放原任务键、金额、模型参数或任意URL。
 	public static aiConversationTask<T>(operation : string, cid : number, id : number, before : number, body : UTSJSONObject, key : string) : Promise<MemberApiResult<T>> {

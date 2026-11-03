@@ -9,6 +9,7 @@ import { isSafeAIId } from '../../libs/ai.uts'
 import { formatMillis } from '../../libs/theme.uts'
 import { copySafeExternalUrl } from '../../libs/external-link.uts'
 import AIQuestionComposer from './AIQuestionComposer.uvue'
+import AIQAEvidencePanel from './AIQAEvidencePanel.uvue'
 
 type ReportQAProps = { sessionToken : string, conversationId : number, taskId : number, subjectId : number, archived : boolean, questionSeq? : number, allowDock? : boolean, dockInput? : boolean, dockLeft? : number }
 defineOptions({name: 'AIReportQuestionPanel'})
@@ -162,6 +163,7 @@ onBeforeUnmount(() => { active = false; generation++; status.value = null; answe
 			<x-button :color="aiMutedColor" class="mt-8" height="44" :block="true" skin="text" :disabled="busy" @click="readStatus(status!.seq)" round="10" font-size="14">刷新问题状态</x-button>
 			<x-button :color="aiBrandColor" v-if="status!.state == 'answered' || status!.state == 'refused'" class="mt-8" height="44" :block="true" :disabled="busy" @click="readAnswer" round="10" font-size="14">核对当前答案</x-button>
 		</view>
+		<AIQAEvidencePanel v-if="status != null && (status!.state == 'answered' || status!.state == 'refused' || status!.state == 'failed')" :session-token="sessionToken" :conversation-id="conversationId" :seq="status!.seq" :subject-id="status!.subjectId" :task-id="taskId" @unauthorized="accept(40100)"></AIQAEvidencePanel>
 		<view v-if="answer != null" class="mt-12">
 			<text class="report-qa-heading">{{ answer!.subjectName }}</text>
 			<text class="report-qa-copy mt-4">{{ answer!.template }}</text>

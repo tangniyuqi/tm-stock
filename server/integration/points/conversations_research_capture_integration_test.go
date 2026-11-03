@@ -157,6 +157,10 @@ func TestIntegrationAIConversationsResearchCapture(t *testing.T) {
 			// 采集阶段连模型工厂都不装配，仅保留原当前授权读取器。
 			readOnly := qaHTTPService(t, x, false, nil)
 			qaHTTPRoutes(t, x, readOnly, false)
+			for i, scope := range scopes {
+				v := readQAEvidenceHTTP(t, x.server.Config.Handler, token, x.conv.ID, int64(i+1), true)
+				assertQAEvidenceScope(t, v, scope, 0)
+			}
 			var reads atomic.Int64
 			var revoke atomic.Bool
 			gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

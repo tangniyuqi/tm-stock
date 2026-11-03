@@ -1,5 +1,13 @@
 # AI 内部操作手册（L0 审核与隔离 Agent 执行）
 
+## 原问题的完整候选与调用核验（2026-11-03）
+
+设计13.23：在原资料问答/报告追问终态中点击“查看本次资料与核验记录”，只GET原conversations/{id}/questions/{seq}/evidence；不提交问题、不注册新任务、不扣积分。当前会员、原消息及taskId、原批准范围或本人当前报告、模型/请求摘要和闭集存证均须通过；failed同样复核权限。公开候选仅为原批准范围内实际送入请求的完整候选句，不代表全网或所有资料库。候选摘要按原promptSource规范计算；公司章和dossierReview不进入报告追问候选。
+
+调用状态区分confirmed、unknown（仅有预约）、not_sent、response_unknown、invalid_metadata、invalid_protocol。只有已确认回包或元数据已核实而结构失败的记录投影实际token，其它用量为null；费用固定null，不能从token填账单。公开投影不包含内部批准/许可定位、Profile、供应商请求号、凭据、系统提示或原始模型输出。存证复算不是供应商签名，不能自动解除stored_qa的公平对照限制。
+
+接口专项复用原生报告ResearchCapture九节点、资料ConversationsResearchCapture三节点及LocalQAProcess七节点，分别MySQL8/9串行。后者须经过独立原API/worker及密码登录，在实际HTTP核两种问答、复读、跨账号/无令牌、来源及配置撤回，且原六次回环QA调用、任务和积分流水不增加。前端执行verify-ai-qa-ui.cjs，另用HBuilderX5.26临时输出整包构建；原页面默认不加载，收起/刷新/切换/退出清空资料，未知结果不自动重提。源码宿主、整包、实际H5和物理设备各自记录，浏览器禁用时不绕过。
+
 ## 报告追问回执采集（2026-11-03）
 
 按eval/README.md的v2私有绑定使用原research-qa-capture.cjs，凭据仍仅从TM_STOCK_EVAL_TOKEN注入。原消息核taskId，再读本人当前报告；failed也不跳过当前报告。报告追问编号按原基础AI引文去重重建，companies无论AI标记真假均排除，dossierReview也不纳入。导出仍限api_capture/stored_qa，不能宣称完整输入、真实模型质量或公平对照。

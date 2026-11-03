@@ -362,6 +362,13 @@ func TestIntegrationAIReportResearchCapture(t *testing.T) {
 					handler.NewAIQAHandler(readOnly).Register(readMux, auth, false)
 					handler.NewAIConversationHandler(convs).Register(readMux, auth)
 					handler.NewAIReportReadHandler(reader).Register(readMux, auth)
+					for seq := int64(1); seq <= 3; seq++ {
+						v := readQAEvidenceHTTP(t, readMux, token, conv.ID, seq, true)
+						assertQAEvidenceScope(t, v, scope, e.v.ID)
+						if v.State != []string{"answered", "refused", "failed"}[seq-1] {
+							t.Fatal("追问资料记录没有保留原终态")
+						}
+					}
 					var reads, revoke atomic.Int64
 					gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 						if r.Method != "GET" {
@@ -480,6 +487,7 @@ func TestIntegrationAIReportResearchCapture(t *testing.T) {
 						reads.Store(0)
 						revoke.Store(mode)
 						run(token, false)
+						readQAEvidenceHTTP(t, readMux, token, conv.ID, 1, false)
 						publication.allowed.Store(true)
 						e.mustExec(`UPDATE tm_ai_sources SET enabled=1`)
 						if profile != "five" {
@@ -491,6 +499,9 @@ func TestIntegrationAIReportResearchCapture(t *testing.T) {
 					revoke.Store(0)
 					run(web.token(t, 2, "client"), false)
 					run(web.token(t, 1, "admin"), false)
+					readQAEvidenceHTTP(t, readMux, web.token(t, 2, "client"), conv.ID, 1, false)
+					readQAEvidenceHTTP(t, readMux, web.token(t, 1, "admin"), conv.ID, 1, false)
+					readQAEvidenceHTTP(t, readMux, token, conv.ID, 4, false)
 					wantCore := map[string]int{"five": 3, "six": 4, "seven": 5}[profile]
 					if upstream.Count() != 5 || models.calls != 3 || e.server.Count() != wantCore || e.submits.Load() != 1 || e.queryInt(`SELECT COUNT(*) FROM tm_ai_qa_requests`) != 3 || e.queryInt(`SELECT COUNT(*) FROM tm_ai_conversation_messages`) != 3 || before[0] != e.queryInt(`SELECT COUNT(*) FROM tm_points_txns`) || before[1] != e.queryInt(`SELECT COUNT(*) FROM tm_ai_tasks`) || before[2] != e.queryInt(`SELECT COUNT(*) FROM tm_ai_report_commits`) || before[3] != e.queryInt(`SELECT COUNT(*) FROM tm_ai_qa_calls`) {
 						t.Fatal("采集/撤权/错绑/越权增加模型、任务、消息、报告或账务")

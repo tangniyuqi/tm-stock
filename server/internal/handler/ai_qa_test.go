@@ -35,10 +35,31 @@ func (s *qaHandlerSvc) Answer(context.Context, string, int64, int64, int64) (dto
 	s.calls++
 	return dto.AIQAAnswer{Seq: 1, State: "refused", Quotes: []dto.AIQAQuote{}}, s.err
 }
+func (s *qaHandlerSvc) Evidence(context.Context, string, int64, int64, int64) (dto.AIQAEvidence, error) {
+	s.calls++
+	return dto.AIQAEvidence{Seq: 1, State: "failed", Sources: []dto.AIQAEvidenceSource{}, Calls: []dto.AIQAEvidenceCall{}}, s.err
+}
 func (s *qaHandlerSvc) Submit(_ context.Context, _ string, _, _ int64, _ string, in dto.AIQAInput) (dto.AIQAStatus, error) {
 	s.calls++
 	s.last = in
 	return dto.AIQAStatus{Seq: 1, State: "queued"}, s.err
+}
+func TestQAEvidenceHandlerReadOnlyAndPrivateErrors(t *testing.T) {
+	mux, svc := qaHandlerFixture(t, false)
+	w := qaHandlerRequest(mux, "GET", "/api/v1/ai/conversations/1/questions/1/evidence", "")
+	if w.Code != 200 || svc.calls != 1 || w.Header().Get("Cache-Control") != "no-store" || w.Header().Get("Vary") != "Authorization" {
+		t.Fatal("只读核验路由未接通")
+	}
+	for _, target := range []string{"/api/v1/ai/conversations/1/questions/1/evidence?taskId=2", "/api/v1/ai/conversations/1/questions/0/evidence"} {
+		if got := qaHandlerRequest(mux, "GET", target, ""); got.Code != 400 || svc.calls != 1 {
+			t.Fatal("客户端扩展范围到达服务")
+		}
+	}
+	svc.err = errors.New("test-only-private-audit")
+	w = qaHandlerRequest(mux, "GET", "/api/v1/ai/conversations/1/questions/1/evidence", "")
+	if w.Code != 503 || strings.Contains(w.Body.String(), "test-only-private-audit") {
+		t.Fatal("错误泄漏或误成功")
+	}
 }
 func qaHandlerFixture(t *testing.T, writes bool) (*http.ServeMux, *qaHandlerSvc) {
 	t.Helper()

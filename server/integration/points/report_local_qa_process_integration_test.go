@@ -190,13 +190,31 @@ func verifyLocalProcessQA(t *testing.T, f *localPublicationFixture, q *localProc
 		call("GET", path, "", tokens[0], "", 200)
 		call("GET", path, "", tokens[1], "", 404)
 		call("GET", path, "", "", "", 401)
+		evidencePath := fmt.Sprintf("%s/questions/%d/evidence", root, status.Seq)
+		for repeat := 0; repeat < 2; repeat++ {
+			var evidence dto.AIQAEvidence
+			if json.Unmarshal(call("GET", evidencePath, "", tokens[0], "", 200), &evidence) != nil || evidence.Seq != status.Seq || evidence.Skill != skill || evidence.SubjectID != 1 || len(evidence.Sources) == 0 || len(evidence.Calls) != 3 || evidence.PromptVersion != qa.Version || skill == "material_qa" && evidence.TaskID != 0 || skill == "report_qa" && evidence.TaskID != taskID {
+				t.Fatal("原API候选资料/调用/任务绑定不符")
+			}
+			for _, row := range evidence.Calls {
+				if row.Status != "confirmed" || row.InputTokens == nil || row.OutputTokens == nil || row.CostMicros != nil {
+					t.Fatal("实际用量或未知账单投影不符")
+				}
+			}
+		}
+		call("GET", evidencePath, "", tokens[1], "", 404)
+		call("GET", evidencePath, "", "", "", 401)
 	}
 	e.mustExec(`UPDATE tm_ai_sources SET enabled=0`)
 	call("GET", root+"/questions/2/answer", "", tokens[0], "", 503)
 	call("GET", root+"/questions/3/answer", "", tokens[0], "", 503)
+	call("GET", root+"/questions/2/evidence", "", tokens[0], "", 503)
+	call("GET", root+"/questions/3/evidence", "", tokens[0], "", 503)
 	e.mustExec(`UPDATE tm_ai_sources SET enabled=1`)
 	call("GET", root+"/questions/2/answer", "", tokens[0], "", 200)
 	call("GET", root+"/questions/3/answer", "", tokens[0], "", 200)
+	call("GET", root+"/questions/2/evidence", "", tokens[0], "", 200)
+	call("GET", root+"/questions/3/evidence", "", tokens[0], "", 200)
 	var originalEvidence string
 	if err := e.db.QueryRowContext(e.ctx, `SELECT evidence_json FROM tm_ai_qa_scopes WHERE subject_type='theme' AND subject_id=1`).Scan(&originalEvidence); err != nil {
 		t.Fatal(err)
@@ -223,5 +241,7 @@ func verifyLocalProcessQA(t *testing.T, f *localPublicationFixture, q *localProc
 	if q.server.Count() != 6 {
 		t.Fatal("配置撤回引发额外调用")
 	}
+	call("GET", root+"/questions/2/evidence", "", tokens[0], "", 503)
+	call("GET", root+"/questions/3/evidence", "", tokens[0], "", 503)
 	t.Log("实际API资料问答/报告追问、原存证复读、越权与本地配置撤回拒读通过；回环模型六次、无新增任务/积分流水")
 }

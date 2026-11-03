@@ -1,0 +1,82 @@
+<script lang="ts" setup>
+import { ref, watch, onBeforeUnmount } from 'vue'
+import { aiMutedColor } from '../ai-theme.uts'
+import { currentAIMemberToken } from '../../libs/ai-session.uts'
+import { AIQAApi } from '../../libs/ai-qa-api.uts'
+import { AIQAEvidence, aiQAError, aiSourceTypeLabel, aiQAEvidenceStage, aiQAEvidenceStatus, aiQAEvidenceVerdict } from '../../libs/ai-qa.uts'
+import { formatMillis } from '../../libs/theme.uts'
+
+type EvidenceProps = { sessionToken : string, conversationId : number, seq : number, subjectId : number, taskId : number }
+defineOptions({name:'AIQAEvidencePanel'})
+const props = defineProps<EvidenceProps>()
+const emit = defineEmits<{unauthorized: []}>()
+const evidence = ref<AIQAEvidence | null>(null)
+const expanded = ref<boolean>(false)
+const busy = ref<boolean>(false)
+const message = ref<string>('')
+let active : boolean = true
+let generation : number = 0
+
+const clear = () => { generation++; evidence.value = null; expanded.value = false; busy.value = false; message.value = '' }
+const scope = () : string => props.conversationId.toString()+':'+props.seq.toString()+':'+props.subjectId.toString()+':'+props.taskId.toString()
+const current = (round : number, token : string, original : string) : boolean => active && round == generation && original == scope() && token.length > 0 && token == props.sessionToken && token == currentAIMemberToken()
+const load = async () : Promise<void> => {
+	if (busy.value) return
+	if (!current(generation,props.sessionToken,scope())) { clear(); return }
+	evidence.value = null; message.value = ''; expanded.value = true; busy.value = true
+	const round : number = generation; const token : string = props.sessionToken; const original : string = scope()
+	try {
+		const r = await AIQAApi.evidence(props.conversationId,props.seq,props.subjectId,props.taskId)
+		if (!current(round,token,original)) return
+		if (r.code == 40100 || r.code == 40101 || r.code == 40301) { clear(); emit('unauthorized'); return }
+		if (r.code != 0) { message.value = r.code == 50309 ? '本次资料记录当前不可读或核验未通过，请稍后重新核对；不会重新提交问题。' : aiQAError(r.code); return }
+		evidence.value = r.data
+	} catch (_) { if (current(round,token,original)) message.value = aiQAError(50001) }
+	finally { if (current(round,token,original)) busy.value = false }
+}
+const toggle = () => { if (expanded.value) clear(); else load() }
+watch(() : string => props.sessionToken+':'+props.conversationId.toString()+':'+props.seq.toString()+':'+props.subjectId.toString()+':'+props.taskId.toString(), () => { clear() })
+onBeforeUnmount(() => { active = false; clear() })
+</script>
+
+<template>
+	<view class="mt-12">
+		<x-button :color="aiMutedColor" height="44" :block="true" skin="text" round="10" font-size="14" @click="toggle">{{ expanded ? '收起并清空资料记录' : '查看本次资料与核验记录' }}</x-button>
+		<view v-if="expanded" class="ai-quote-block">
+			<text class="evidence-copy">仅展示本问题原有限定候选资料，并重新核对当前权限；不是全网检索。预约或未知结果不代表模型收到请求，调用记录不代表研究质量或实际账单。</text>
+			<text v-if="busy" class="evidence-copy mt-8">正在核对原问题、完整候选资料与调用存证…</text>
+			<text v-if="message != ''" class="evidence-copy mt-8">{{ message }}</text>
+			<x-button v-if="!busy" :color="aiMutedColor" class="mt-8" height="44" :block="true" skin="text" round="10" font-size="14" @click="load">重新核对当前资料记录</x-button>
+			<view v-if="evidence != null">
+				<text class="evidence-heading mt-12">{{ evidence!.subjectName }} · {{ evidence!.sources.length }} 份候选资料</text>
+				<text v-if="evidence!.sources.length == 0" class="evidence-copy mt-8">本次限定范围没有候选原句。</text>
+				<view v-for="source in evidence!.sources" :key="source.snapshotId" class="mt-12">
+					<text class="evidence-copy">{{ aiSourceTypeLabel(source.sourceType) }} · {{ formatMillis(source.collectedAt) }}</text>
+					<text class="evidence-copy mt-4">{{ source.sourceUrl }}</text>
+					<text v-for="sentence in source.sentences" :key="sentence.id" class="evidence-sentence mt-8">{{ sentence.id }}. {{ sentence.text }}</text>
+				</view>
+				<text class="evidence-heading mt-16">调用核验记录</text>
+				<text v-if="evidence!.calls.length == 0" class="evidence-copy mt-8">没有模型调用预约记录，不将其解释为模型执行成功。</text>
+				<view v-for="call in evidence!.calls" :key="call.step" class="mt-12">
+					<text class="evidence-heading">{{ aiQAEvidenceStage(call.stage) }} · {{ aiQAEvidenceStatus(call.status) }}</text>
+					<text class="evidence-copy mt-4">请求模型 {{ call.modelName }} · {{ aiQAEvidenceVerdict(call.verdict) }}</text>
+					<text class="evidence-copy mt-4">{{ formatMillis(call.updatedAt) }}</text>
+					<text v-if="call.inputTokens != null && call.outputTokens != null" class="evidence-copy mt-4">实际用量：输入 {{ call.inputTokens }} / 输出 {{ call.outputTokens }} token</text>
+					<text v-else class="evidence-copy mt-4">实际用量未知</text>
+				</view>
+				<text class="evidence-copy mt-12">提示协议版本：{{ evidence!.promptVersion }}。费用未知；本次查看不扣积分。</text>
+			</view>
+		</view>
+	</view>
+</template>
+
+<style lang="scss" scoped>
+@import "../ai-theme.scss";
+.evidence-heading { color: #1f2329; font-size: 14px; font-weight: 600; line-height: 24px; }
+.evidence-copy { color: #6b7280; font-size: 14px; line-height: 22px; }
+.evidence-sentence { color: #1f2329; font-size: 14px; line-height: 25px; white-space: pre-wrap; }
+/* #ifdef H5 */
+.evidence-copy { overflow-wrap: anywhere; }
+.evidence-sentence { overflow-wrap: anywhere; }
+/* #endif */
+</style>

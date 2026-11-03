@@ -124,11 +124,42 @@ jobs:
           # 七步报告新增13根81子节点，旧普通门禁保留。
           # 成功报告两卡展示投影新增5根10子节点；字段原文/旧编码门禁保留。
           # 报告追问范围与配置同次当前读取新增1根，撤权时不复用正文。
-          MIN=2191
+          # 原问题资料/调用复核新增4根18子节点；服务页面接线沿原入口验证。
+          MIN=2213
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项测试，低于下限 $MIN —— 要么测试没被执行，要么有测试被删。"
             exit 1
           fi
+
+          # 问答资料调用核验普通门禁开始
+          QA_EVIDENCE_ACTUAL=$(sed -nE 's/^[[:space:]]*--- PASS: (TestQAEvidence[^ ]*) .*/\1/p' /tmp/gotest.log | LC_ALL=C sort)
+          QA_EVIDENCE_EXPECTED=$(printf '%s\n' \
+            'TestQAEvidenceCurrentScopeAndExactRequests' \
+            'TestQAEvidenceHandlerReadOnlyAndPrivateErrors' \
+            'TestQAEvidenceFailedCallsAndTerminalRules' \
+            'TestQAEvidenceFailedCallsAndTerminalRules/queued' \
+            'TestQAEvidenceFailedCallsAndTerminalRules/before_begin' \
+            'TestQAEvidenceFailedCallsAndTerminalRules/reserved' \
+            'TestQAEvidenceFailedCallsAndTerminalRules/not_sent' \
+            'TestQAEvidenceFailedCallsAndTerminalRules/response_unknown' \
+            'TestQAEvidenceFailedCallsAndTerminalRules/invalid_metadata' \
+            'TestQAEvidenceFailedCallsAndTerminalRules/invalid_protocol' \
+            'TestQAEvidenceFailedCallsAndTerminalRules/confirmed_prefix' \
+            'TestQAEvidenceFailedCallsAndTerminalRules/tamper_request' \
+            'TestQAEvidenceFailedCallsAndTerminalRules/tamper_profile' \
+            'TestQAEvidenceFailedCallsAndTerminalRules/tamper_model' \
+            'TestQAEvidenceFailedCallsAndTerminalRules/tamper_count' \
+            'TestQAEvidenceFailedCallsAndTerminalRules/tamper_reservation' \
+            'TestQAEvidenceFailedCallsAndTerminalRules/tamper_order' \
+            'TestQAEvidenceFailedCallsAndTerminalRules/tamper_usage' \
+            'TestQAEvidenceFailedCallsAndTerminalRules/tamper_receipt' \
+            'TestQAEvidenceSecondReadRevocationAndLateResult' \
+            'TestQAEvidenceSecondReadRevocationAndLateResult/authorization' \
+            'TestQAEvidenceSecondReadRevocationAndLateResult/late_result' | LC_ALL=C sort)
+          if [ "$QA_EVIDENCE_ACTUAL" != "$QA_EVIDENCE_EXPECTED" ] || grep -Eq '^[[:space:]]*--- (FAIL|SKIP): TestQAEvidence' /tmp/gotest.log; then
+            echo '::error::问答完整候选/调用核验缺失、重复、跳过或失败'; exit 1
+          fi
+          # 问答资料调用核验普通门禁结束
 
           # 报告两卡展示普通门禁开始
           COMPARISON_VIEW_ACTUAL=$(sed -nE 's/^[[:space:]]*--- PASS: (TestReportComparison[^ ]*) .*/\1/p' /tmp/gotest.log | LC_ALL=C sort)

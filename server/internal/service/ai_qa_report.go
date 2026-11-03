@@ -118,34 +118,43 @@ func (s *AIQAService) submitReport(parent context.Context, token string, uid, ci
 	return s.Receipt(ctx, token, uid, cid, key)
 }
 
-// answerReport 每次重读当前报告并回放原存证；报告撤回/不可读时不返回旧引文。
-func (s *AIQAService) answerReport(parent context.Context, token string, uid, cid, seq int64, r qa.Record, m conversation.Message) (dto.AIQAAnswer, error) {
+// restoreReportRead每次重新读取本人当前报告，同时供答案和资料核验记录使用。
+func (s *AIQAService) restoreReportRead(ctx context.Context, uid, cid, seq int64, r qa.Record, m conversation.Message) (*qa.Plan, error) {
 	if !s.reportReady() {
-		return dto.AIQAAnswer{}, qa.ErrUnavailable
+		return nil, qa.ErrUnavailable
 	}
 	if r.Proof.Identity.UserID != uid || r.Proof.Identity.ConversationID != cid || r.Proof.Identity.MessageSeq != seq {
-		return dto.AIQAAnswer{}, qa.ErrProtocol
+		return nil, qa.ErrProtocol
 	}
-	ctx, cancel := context.WithTimeout(parent, 8*time.Second)
-	defer cancel()
 	scope, evidence, err := s.reportAccess.scopeEvidence(ctx, r.Proof, true)
 	if err != nil {
-		return dto.AIQAAnswer{}, reportQAError(err)
+		return nil, reportQAError(err)
 	}
 	if evidence.TaskID != m.Input.TaskID || evidence.SubjectID != m.Input.SubjectID || evidence.SubjectType != m.Input.SubjectType {
-		return dto.AIQAAnswer{}, qa.ErrProtocol
+		return nil, qa.ErrProtocol
 	}
 	cfg, err := s.reportConfig.ForReport(ctx, evidence)
 	if err != nil {
-		return dto.AIQAAnswer{}, reportQAError(err)
+		return nil, reportQAError(err)
 	}
 	now := time.Now().UTC().Truncate(time.Millisecond)
 	plan, err := qa.NewReportReadPlanScoped(r.Proof.Identity, m.Input, scope, cfg, now)
 	if err != nil {
-		return dto.AIQAAnswer{}, qa.ErrUnavailable
+		return nil, qa.ErrUnavailable
 	}
 	if plan.Proof().InputDigest != r.Proof.InputDigest || plan.Proof().PolicyDigest != r.Proof.PolicyDigest {
-		return dto.AIQAAnswer{}, qa.ErrProtocol
+		return nil, qa.ErrProtocol
+	}
+	return plan, nil
+}
+
+// answerReport 每次重读当前报告并回放原存证；报告撤回/不可读时不返回旧引文。
+func (s *AIQAService) answerReport(parent context.Context, token string, uid, cid, seq int64, r qa.Record, m conversation.Message) (dto.AIQAAnswer, error) {
+	ctx, cancel := context.WithTimeout(parent, 8*time.Second)
+	defer cancel()
+	plan, err := s.restoreReportRead(ctx, uid, cid, seq, r, m)
+	if err != nil {
+		return dto.AIQAAnswer{}, err
 	}
 	ctl, err := qa.NewDurableControlWithReports(s.store, plan, s.reportAccess)
 	if err != nil {

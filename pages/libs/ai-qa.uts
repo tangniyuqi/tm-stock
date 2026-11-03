@@ -6,6 +6,10 @@ export type AIQAStatus = { seq : number, state : string, subjectType : string, s
 export type AIQAQuote = { snapshotId : number, startByte : number, endByte : number, excerpt : string, sourceType : string, sourceUrl : string, collectedAt : number }
 export type AIQAAnswer = { seq : number, state : string, template : string, subjectName : string, aiGenerated : boolean, modelName : string, filingNo : string, quotes : AIQAQuote[] }
 export type AIPendingQA = { key : string, conversationId : number, version : number, subjectId : number, taskId : number, skill : string, question : string }
+export type AIQAEvidenceSentence = { id : number, startByte : number, endByte : number, text : string }
+export type AIQAEvidenceSource = { snapshotId : number, digest : string, sourceType : string, sourceUrl : string, collectedAt : number, sentences : AIQAEvidenceSentence[] }
+export type AIQAEvidenceCall = { step : number, stage : string, modelName : string, status : string, verdict : string, requestDigest : string, createdAt : number, updatedAt : number, inputTokens : number | null, outputTokens : number | null, costMicros : number | null }
+export type AIQAEvidence = { seq : number, state : string, skill : string, subjectType : string, subjectId : number, subjectName : string, taskId : number, promptVersion : string, candidateDigest : string, createdAt : number, updatedAt : number, sources : AIQAEvidenceSource[], calls : AIQAEvidenceCall[] }
 
 export const aiQAAnswerTemplate : string = 'AI 资料问答：以下为所选授权资料中经核验的原文引文，不是新的报告。'
 export const aiQARefusalTemplates : string[] = ['所选授权资料中没有可直接支持本问题的证据，暂不能回答。', '本问题超出当前所选题材或专题的授权资料范围，暂不能回答。', '仅提供所选资料的客观事实引文，不能回答投资意见或执行范围外指令。', '现有证据未通过问答核验，暂不能回答。']
@@ -20,6 +24,41 @@ const qaBytes = (v : string) : number => {
 	for (const ch of [...v]) { const c : number = ch.charCodeAt(0); bytes += ch.length == 2 ? 4 : c <= 127 ? 1 : c <= 2047 ? 2 : 3 }
 	return bytes
 }
+const qaDigest = (v : string) : boolean => typeof v == 'string' && /^[a-f0-9]{64}$/.test(v)
+export const isAIQAEvidence = (v : AIQAEvidence | null, seq : number, subjectId : number, taskId : number) : boolean => {
+	if (v == null || !isSafeAIId(v.seq) || !isSafeAIId(v.subjectId) || !isSafeAIInteger(v.taskId) || typeof v.subjectType != 'string' || typeof v.skill != 'string' || typeof v.promptVersion != 'string') return false
+	if (v == null || typeof v != 'object' || Array.isArray(v) || !qaKeys(Object.keys(v),['seq','state','skill','subjectType','subjectId','subjectName','taskId','promptVersion','candidateDigest','createdAt','updatedAt','sources','calls']) || !isSafeAIId(seq) || !isSafeAIId(subjectId) || !isSafeAIInteger(taskId) || v.seq != seq || v.subjectId != subjectId || v.taskId != taskId || v.subjectType != 'theme' || v.skill != (taskId == 0 ? 'material_qa' : 'report_qa') || !['answered','refused','failed'].includes(v.state) || !qaPlain(v.subjectName,128) || v.promptVersion != 'scoped-citation-qa-v1' || !qaDigest(v.candidateDigest) || !qaTime(v.createdAt) || !qaTime(v.updatedAt) || v.updatedAt < v.createdAt || !Array.isArray(v.sources) || v.sources.length > (taskId == 0 ? 8 : 16) || !Array.isArray(v.calls) || v.calls.length > 3) return false
+	let sourceID : number = 0; let bytes : number = 0; let sentences : number = 0
+	for (const source of v.sources) {
+		if (source == null || typeof source != 'object' || Array.isArray(source)) return false
+		if (source == null || !qaKeys(Object.keys(source),['snapshotId','digest','sourceType','sourceUrl','collectedAt','sentences']) || !isSafeAIId(source.snapshotId) || source.snapshotId <= sourceID || !qaDigest(source.digest) || !['announcement','annual_report','prospectus','official_catalog','interactive_qa'].includes(source.sourceType) || !qaPlain(source.sourceUrl,2048) || !isSafeExternalUrl(source.sourceUrl) || !qaTime(source.collectedAt) || source.collectedAt > v.createdAt || !Array.isArray(source.sentences) || source.sentences.length == 0) return false
+		sourceID = source.snapshotId
+		let number : number = 0; let end : number = 0
+		for (const sentence of source.sentences) {
+			if (sentence == null || typeof sentence != 'object' || Array.isArray(sentence) || !isSafeAIId(sentence.id)) return false
+			if (sentence == null || !qaKeys(Object.keys(sentence),['id','startByte','endByte','text']) || sentence.id != number+1 || !isSafeAIInteger(sentence.startByte) || sentence.startByte < end || !isSafeAIId(sentence.endByte) || sentence.endByte <= sentence.startByte || sentence.endByte > 65536 || typeof sentence.text != 'string' || sentence.text.trim().length == 0 || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f\ud800-\udfff]/u.test(sentence.text) || qaBytes(sentence.text) != sentence.endByte-sentence.startByte) return false
+			number++; sentences++; end = sentence.endByte
+		}
+		bytes += end
+	}
+	if (bytes > 65536 || sentences > 512) return false
+	let step : number = 0; let previous : number = v.createdAt; let stopped : boolean = false
+	for (const call of v.calls) {
+		if (call == null || typeof call != 'object' || Array.isArray(call) || !isSafeAIId(call.step) || typeof call.stage != 'string') return false
+		if (call == null || !qaKeys(Object.keys(call),['step','stage','modelName','status','verdict','requestDigest','createdAt','updatedAt','inputTokens','outputTokens','costMicros']) || stopped || call.step != step+1 || call.stage != ['select','entailment','semantic'][step] || !qaPlain(call.modelName,128) || !qaDigest(call.requestDigest) || !['confirmed','unknown','not_sent','response_unknown','invalid_metadata','invalid_protocol'].includes(call.status) || !qaTime(call.createdAt) || !qaTime(call.updatedAt) || call.createdAt < previous || call.updatedAt < call.createdAt || typeof call.costMicros == 'undefined' || call.costMicros != null || typeof call.inputTokens == 'undefined' || typeof call.outputTokens == 'undefined') return false
+		const known : boolean = call.status == 'confirmed' || call.status == 'invalid_protocol'
+		if (known ? call.inputTokens == null || call.outputTokens == null || !isSafeAIId(call.inputTokens!) || call.inputTokens! > 262144 || !isSafeAIId(call.outputTokens!) || call.outputTokens! > 2048 : call.inputTokens != null || call.outputTokens != null) return false
+		if (call.status == 'confirmed') {
+			if (!(step == 0 ? ['answer','refuse'] : ['pass','block','uncertain']).includes(call.verdict)) return false
+			stopped = call.verdict == 'refuse' || call.verdict == 'block' || call.verdict == 'uncertain'
+		} else { if (call.verdict != 'unavailable') return false; stopped = true }
+		previous = call.updatedAt; step++
+	}
+	return v.state == 'answered' ? v.sources.length > 0 && step == 3 && !stopped : v.state == 'refused' ? step == 0 || stopped && v.calls[step-1].status == 'confirmed' : true
+}
+export const aiQAEvidenceStage = (stage : string) : string => stage == 'select' ? '原句检索' : stage == 'entailment' ? '原文支持核验' : stage == 'semantic' ? '表达边界核验' : '未知阶段'
+export const aiQAEvidenceStatus = (status : string) : string => status == 'confirmed' ? '回包已确认' : status == 'not_sent' ? '明确未发送' : status == 'invalid_metadata' ? '回包元数据未通过' : status == 'invalid_protocol' ? '结构校验未通过' : '结果未知'
+export const aiQAEvidenceVerdict = (verdict : string) : string => verdict == 'answer' ? '选中原句' : verdict == 'refuse' ? '拒答' : verdict == 'pass' ? '通过' : verdict == 'block' ? '未通过' : verdict == 'uncertain' ? '不确定' : '无可交付结果'
 export const isAIQAStatus = (v : AIQAStatus | null, seq : number) : boolean => v != null && typeof v == 'object' && !Array.isArray(v) && qaKeys(Object.keys(v), ['seq','state','subjectType','subjectId','skill','question','createdAt','updatedAt']) && isSafeAIId(v.seq) && (seq == 0 || v.seq == seq) && ['queued','running','answered','refused','failed'].includes(v.state) && v.subjectType == 'theme' && isSafeAIId(v.subjectId) && (v.skill == 'material_qa' || v.skill == 'report_qa') && isAIQAQuestion(v.question) && qaTime(v.createdAt) && qaTime(v.updatedAt) && v.updatedAt >= v.createdAt
 export const isAIQAQuote = (v : AIQAQuote | null) : boolean => v != null && typeof v == 'object' && !Array.isArray(v) && qaKeys(Object.keys(v), ['snapshotId','startByte','endByte','excerpt','sourceType','sourceUrl','collectedAt']) && isSafeAIId(v.snapshotId) && isSafeAIInteger(v.startByte) && isSafeAIId(v.endByte) && v.endByte > v.startByte && v.endByte <= 65536 && typeof v.excerpt == 'string' && v.excerpt.trim().length > 0 && v.excerpt.length <= 2000 && [...v.excerpt].length <= 1000 && !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f\ud800-\udfff]/u.test(v.excerpt) && qaBytes(v.excerpt) == v.endByte-v.startByte && qaPlain(v.sourceType,128) && qaPlain(v.sourceUrl,2048) && isSafeExternalUrl(v.sourceUrl) && qaTime(v.collectedAt)
 export const isAIQAAnswer = (v : AIQAAnswer | null, seq : number) : boolean => {

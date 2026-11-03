@@ -18,13 +18,14 @@ type aiQAService interface {
 	Receipt(context.Context, string, int64, int64, string) (dto.AIQAStatus, error)
 	Status(context.Context, string, int64, int64, int64) (dto.AIQAStatus, error)
 	Answer(context.Context, string, int64, int64, int64) (dto.AIQAAnswer, error)
+	Evidence(context.Context, string, int64, int64, int64) (dto.AIQAEvidence, error)
 	Submit(context.Context, string, int64, int64, string, dto.AIQAInput) (dto.AIQAStatus, error)
 }
 type AIQAHandler struct{ svc aiQAService }
 
 func NewAIQAHandler(svc aiQAService) *AIQAHandler { return &AIQAHandler{svc} }
 func (h *AIQAHandler) Register(mux *http.ServeMux, auth func(http.Handler) http.Handler, writes bool) {
-	for _, p := range []string{"GET /api/v1/ai/conversations/{id}/question-receipt", "GET /api/v1/ai/conversations/{id}/questions/{seq}", "GET /api/v1/ai/conversations/{id}/questions/{seq}/answer"} {
+	for _, p := range []string{"GET /api/v1/ai/conversations/{id}/question-receipt", "GET /api/v1/ai/conversations/{id}/questions/{seq}", "GET /api/v1/ai/conversations/{id}/questions/{seq}/answer", "GET /api/v1/ai/conversations/{id}/questions/{seq}/evidence"} {
 		mux.Handle(p, auth(http.HandlerFunc(h.serve)))
 	}
 	if writes {
@@ -97,7 +98,9 @@ func (h *AIQAHandler) serve(w http.ResponseWriter, r *http.Request) {
 			var seq int64
 			seq, err = conversationDecimal(r.PathValue("seq"), false)
 			if err == nil {
-				if strings.HasSuffix(r.URL.Path, "/answer") {
+				if strings.HasSuffix(r.URL.Path, "/evidence") {
+					out, err = h.svc.Evidence(r.Context(), token, uid, cid, seq)
+				} else if strings.HasSuffix(r.URL.Path, "/answer") {
 					out, err = h.svc.Answer(r.Context(), token, uid, cid, seq)
 				} else {
 					out, err = h.svc.Status(r.Context(), token, uid, cid, seq)

@@ -24,6 +24,7 @@ const status = (over = {}) => ({ seq: 1, state: 'queued', subjectType: 'theme', 
 const quote = (over = {}) => ({ snapshotId: 1, startByte: 0, endByte: excerptBytes, excerpt, sourceType: '公告', sourceUrl: 'https://example.test/source', collectedAt: now, ...over });
 const answer = (over = {}) => ({ seq: 1, state: 'answered', template: 'AI 资料问答：以下为所选授权资料中经核验的原文引文，不是新的报告。', subjectName: '测试示例题材', aiGenerated: true, modelName: '测试模型（非真实调用）', filingNo: '测试编号（非备案证明）', quotes: [quote()], ...over });
 const conversation = (over = {}) => ({ id: 3, title: '测试会话', archived: false, version: 5, lastSeq: 4, createdAt: now, updatedAt: now, ...over });
+const evidenceRecord = (over = {}) => ({seq:1,state:'answered',skill:'material_qa',subjectType:'theme',subjectId:7,subjectName:'测试示例题材',taskId:0,promptVersion:'scoped-citation-qa-v1',candidateDigest:'a'.repeat(64),createdAt:now,updatedAt:now,sources:[{snapshotId:1,digest:'b'.repeat(64),sourceType:'announcement',sourceUrl:'https://example.test/source',collectedAt:now,sentences:[{id:1,startByte:0,endByte:excerptBytes,text:excerpt}]}],calls:['select','entailment','semantic'].map((stage,i)=>({step:i+1,stage,modelName:'测试模型（非真实调用）',status:'confirmed',verdict:i===0?'answer':'pass',requestDigest:'c'.repeat(64),createdAt:now,updatedAt:now,inputTokens:100,outputTokens:10,costMicros:null})),...over});
 
 function environment() {
   const cache = new Map();
@@ -101,6 +102,37 @@ function mount(component, props = {}) {
   } };
 }
 const flush = async () => { for (let i = 0; i < 10; i++) { await Promise.resolve(); await vue.nextTick(); } };
+
+async function evidenceContractsAndPanel() {
+  const env=environment();env.storage.set('token',token);const qa=env.load('pages/libs/ai-qa.uts');
+  const check=v=>qa.isAIQAEvidence(v,1,7,0);
+  assert.equal(check(evidenceRecord()),true);
+  const report=evidenceRecord({skill:'report_qa',taskId:9});assert.equal(qa.isAIQAEvidence(report,1,7,9),true);assert.equal(check(report),false);
+  for(const mutate of [v=>{v.taskId=9},v=>{v.seq=2},v=>{v.subjectId=8},v=>{v.state='running'},v=>{v.promptVersion='other'},v=>{v.candidateDigest='bad'},v=>{v.sources[0].sourceUrl='javascript:alert(1)'},v=>{v.sources[0].sentences[0].endByte--},v=>{v.sources[0].sentences[0].id=2},v=>{v.sources[0].extra='private'},v=>{v.calls[0].stage='semantic'},v=>{v.calls[0].status='reserved'},v=>{v.calls[0].costMicros=0},v=>{v.calls[0].inputTokens=null},v=>{v.calls[0].requestDigest='bad'},v=>{v.calls[0].verdict='refuse'},v=>{v.extra='private'}]) {const v=evidenceRecord();mutate(v);assert.equal(check(v),false);}
+  for(const key of Object.keys(evidenceRecord())){const v=evidenceRecord();delete v[key];assert.equal(check(v),false);}
+  for(const edit of [v=>{v.seq='1'},v=>{v.subjectId='7'},v=>{v.taskId='0'},v=>{v.subjectType=['theme']},v=>{v.promptVersion=['scoped-citation-qa-v1']},v=>{v.sources[0].sentences[0].id='1'},v=>{v.calls[0].step='1'},v=>{v.calls[0].stage=['select']},v=>{v.sources=[]},v=>{v.sources[0]=Object.assign([],v.sources[0])},v=>{v.calls[0]=Object.assign([],v.calls[0])}]){const v=evidenceRecord();edit(v);assert.equal(check(v),false,'拒绝宽松比较引入的类型混淆');}
+  for(const value of [null,undefined,[],1,'text',Object.assign([],evidenceRecord())])assert.equal(check(value),false);
+  const failed=evidenceRecord({state:'failed'});failed.calls=[{...failed.calls[0],status:'response_unknown',verdict:'unavailable',inputTokens:null,outputTokens:null}];assert.equal(check(failed),true);failed.calls[0].inputTokens=0;assert.equal(check(failed),false);
+  const api=env.load('pages/libs/ai-qa-api.uts').AIQAApi;
+  assert.notEqual((await api.evidence(3,1,0,0)).code,0);assert.equal(env.requests.length,0);
+  const ui=mount(env.load('pages/ai/components/AIQAEvidencePanel.uvue').default,{sessionToken:token,conversationId:3,seq:1,subjectId:7,taskId:0});await flush();assert.equal(env.requests.length,0,'默认不获取私有候选');
+  ui.click('查看本次资料与核验记录');await flush();let request=env.requests.shift();assert.equal(request.method,'GET');assert.ok(request.url.endsWith('/conversations/3/questions/1/evidence'));env.reply(request,evidenceRecord());await flush();assert.ok(ui.text().includes(excerpt));assert.ok(ui.text().includes('回包已确认'));assert.ok(ui.text().includes('输入 100'));
+  ui.click('收起并清空资料记录');await flush();assert.ok(!ui.text().includes(excerpt));assert.equal(ui.state.evidence,null);
+  ui.click('查看本次资料与核验记录');await flush();request=env.requests.shift();ui.updateProps({taskId:9});env.reply(request,evidenceRecord());await flush();assert.ok(!ui.text().includes(excerpt));assert.equal(ui.state.evidence,null,'任务切换拒绝迟到资料');
+  ui.click('查看本次资料与核验记录');await flush();env.reply(env.requests.shift(),report);await flush();assert.ok(ui.text().includes(excerpt));
+  ui.click('重新核对当前资料记录');await flush();assert.ok(!ui.text().includes(excerpt),'刷新即清空旧正文');env.reply(env.requests.shift(),null,503,50309);await flush();assert.equal(ui.state.evidence,null);assert.ok(!ui.text().includes(excerpt));
+  ui.click('重新核对当前资料记录');await flush();request=env.requests.shift();ui.updateProps({sessionToken:''});env.reply(request,report);await flush();assert.ok(!ui.text().includes(excerpt));ui.app.unmount();
+  assert.equal(env.requests.length,0,'读取不额外提交或请求账务');
+  for(const reportMode of [false,true]) {
+    const original=environment();original.storage.set('token',token);
+    const props={sessionToken:token,conversationId:3,archived:true,questionSeq:1,...(reportMode?{taskId:9,subjectId:7}:{})};
+    const parent=mount(original.load('pages/ai/components/'+(reportMode?'AIReportQuestionPanel':'AIQuestionPanel')+'.uvue').default,props);await flush();
+    assert.equal(original.requests.length,1);original.reply(original.requests.shift(),status({state:'answered',skill:reportMode?'report_qa':'material_qa'}));await flush();
+    parent.click('查看本次资料与核验记录');await flush();assert.equal(original.requests.length,1);assert.ok(original.requests[0].url.endsWith('/questions/1/evidence'));
+    original.reply(original.requests.shift(),reportMode?report:evidenceRecord());await flush();assert.ok(parent.text().includes(excerpt),'原问题页面实际接入资料核验面板');parent.app.unmount();
+  }
+  console.log('本次资料范围：实际UTS校验、只读GET、终态、未知用量、撤权、刷新及任务/账号迟到响应通过。');
+}
 
 async function validators() {
   const env = environment(), qa = env.load('pages/libs/ai-qa.uts');
@@ -388,7 +420,7 @@ async function api() {
   assert.equal((await AIQAApi.receipt(3, 'short')).data, null);
   promise = AIQAApi.answer(3, 1); env.requests.shift().success({ statusCode: 200, data: '<html>测试错误</html>' });
   assert.equal((await promise).data, null);
-  console.log('通过：问答四固定端点、原键仅首次提交/收据使用、28秒提交期限、当前会员令牌及回执不一致拒绝。');
+  console.log('通过：问答固定端点、原键仅首次提交/收据使用、28秒提交期限、当前会员令牌及回执不一致拒绝。');
 }
 
 async function panelSubmit() {
@@ -728,6 +760,7 @@ process.once('beforeExit',()=>{if(!completed){console.error('问答源码验收�
   await dossierPanel();
   await savedDossierContracts();
   await savedDossierPanels();
+  await evidenceContractsAndPanel();
   completed=true;
   console.log('本脚本不覆盖：真实 UTS/uni-app x 整体构建、真实模型质量、浏览器布局与生产开关；须另做实际 H5 与浏览器验收。');
 })().catch(error => { completed=true; console.error(error); process.exitCode=1; });

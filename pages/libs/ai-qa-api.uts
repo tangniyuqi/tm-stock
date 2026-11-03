@@ -1,10 +1,15 @@
 import { MemberApi, MemberApiResult } from './member-api.uts'
-import { isSafeAIId } from './ai.uts'
+import { isSafeAIId, isSafeAIInteger } from './ai.uts'
 import { isAIRequestKey } from './ai-submission.uts'
-import { AIQAStatus, AIQAAnswer, AIPendingQA, isAIQAStatus, isAIQAAnswer, isAIPendingQA, qaMatchesPending, aiQAError } from './ai-qa.uts'
+import { AIQAStatus, AIQAAnswer, AIQAEvidence, AIPendingQA, isAIQAStatus, isAIQAAnswer, isAIQAEvidence, isAIPendingQA, qaMatchesPending, aiQAError } from './ai-qa.uts'
 
 const failure = <T>(code : number) : MemberApiResult<T> => ({code:code,message:aiQAError(code),data:null} as MemberApiResult<T>)
 export class AIQAApi {
+	public static async evidence(cid : number, seq : number, subjectId : number, taskId : number) : Promise<MemberApiResult<AIQAEvidence>> {
+		if (!isSafeAIId(cid) || !isSafeAIId(seq) || !isSafeAIId(subjectId) || !isSafeAIInteger(taskId)) return failure<AIQAEvidence>(40001)
+		const r = await MemberApi.aiQuestion<AIQAEvidence>('evidence',cid,seq,{} as UTSJSONObject,'')
+		return r.code != 0 ? failure<AIQAEvidence>(r.code) : isAIQAEvidence(r.data,seq,subjectId,taskId) ? r : failure<AIQAEvidence>(50001)
+	}
 	public static async submit(p : AIPendingQA) : Promise<MemberApiResult<AIQAStatus>> {
 		if (!isAIPendingQA(p)) return failure<AIQAStatus>(40001)
 		const r = await MemberApi.aiQuestion<AIQAStatus>('submit',p.conversationId,0,{version:p.version,subjectType:'theme',subjectId:p.subjectId,skill:p.skill,taskId:p.taskId,question:p.question} as UTSJSONObject,p.key)
