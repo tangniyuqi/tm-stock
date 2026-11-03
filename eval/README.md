@@ -1,5 +1,15 @@
 # eval/ · AI 护栏与资料研究评测夹具
 
+## 正式机关文件开发节选（2026-11-03）
+
+`research/official-materials/manifest.json`是三类题材、四份正式文件/客观元数据的八张原文候选卡，分类为`real-official-passages-development-unreviewed`，不属于下方合成反例，也不是独立人工金标或完整题材覆盖。无人机样板限定义、分类、地域和日期；新型储能限制造业定义与方案日期；分布式光伏限主管部门通知中的修订事实和落款，正文附件尚未纳入。
+
+来源为[民航局法规原文](https://www.caac.gov.cn/XXGK/XXGK/FLFG/202401/t20240115_222642.html)、[工信部通知](https://www.miit.gov.cn/jgsj/dzs/wjfb/art/2025/art_269983a459934b72a51261cb7b1de958.html)及其正式方案附件、[国家能源局通知](https://www.nea.gov.cn/20250123/112c5b199c5f45dd8e7ac93c9f5e4eaf/c.html)。使用依据记录[著作权法第五条](https://www.ncac.gov.cn/xxfb/flfg/flfg_532/202103/t20210309_50530.html)第一项、第二项；只覆盖这里的正式公文和客观元数据，不外推网页设计、图片、新闻解读或第三方评论，不代表正式对外发布审核完成。
+
+清单保存实际HTTP200采集时点、原始响应字节数/SHA256、来源及附件关联、提取方法、PDF页码、可见文本流或PDF软换行拼接流中的UTF-8位置和原文。HTML提取忽略script/style，块边界保留换行、空白归一，位置以逻辑LF行尾的UTF-8流计算，不能直接套在Windows落盘CRLF字节上；PDF只提取已目视核对的第一页定义段并拼接排版软换行。原始HTML/PDF、提取文本和首页图保留在本机临时捕获目录tm-stock-official-materials-20261103；清单不是供应商签名或永续原始归档。取回同一URL不保证同一版本，复验须比原始哈希，变化不得覆盖旧记录。当前窗口明确selected-passages-not-full-document，不把节选当全文。
+
+原生专项`^TestIntegrationAIReportOfficialMaterialSamples$`通过原RegisterSource/BuildSnapshot/SaveSnapshot及StageInternal绑定，再由原密码登录和独立cmd/api读取现有专题DTO；本地发布和会员授权独立且标注开发、非正式审核。卡片按原键核对，未知字段保持unknown，来源/发布/会员撤回均整份拒读，读目录/原文不生成报告或账务。原synthetic问答和执行文件不消费这些真实数据；后续AI用途准入、全任务审计、人工金标/holdout与真实质量对照仍须完成。
+
 本目录存放 `server/internal/ai/guard` 的**红队集（必须被拦）与对照集（必须放行）**。它们必然含有违规措辞，所以放在仓库根的 `eval/`：
 合规词门禁只扫描 `pages/ server/ static/ hybrid/`，不会扫到这里；**绝不能为了过门禁而删词表里的词**（词表规则：只增不减）。
 对应验收：`docs/specs/ai-analysis/` 的 AC-G2、AC-G3、AC-E3、AC-E4（离线部分）。

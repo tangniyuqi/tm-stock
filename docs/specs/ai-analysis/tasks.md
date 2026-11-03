@@ -4,6 +4,16 @@
 
 **当前授权与顺序更新（2026-11-03）**：用户确认项目尚未上线，允许开发所需外部API/真实多Agent和开发账号实际积分冻结、扣除、释放、退还测试，不再保持真实调用关闭或仅模拟，不重复申请已有测试许可。先跑通前端/实际API→独立worker→真实多Agent→终检→一次结算，同时补报告追问回执/完整输入审计及质量证据；正式对外部署仍不执行。旧日期“不动真实积分/关闭调用”记录仅说明当时范围。Work本地浏览器控制当前禁用，接口/真库/真实模型不能冒充页面点击通过。七步实调按design13.21完成本轮HTTP进程验收，证据与剩余范围见下文。
 
+**三类真实机关资料受限样板（2026-11-03，design13.24）**：新增official-materials/manifest.json，明确real-official-passages-development-unreviewed及agent-source-checked-not-independent-human-gold。无人驾驶航空器限定义/分类/地域/日期、新型储能限制造业定义与方案日期、分布式光伏限通知修订和落款，共四份正式文件/客观元数据的八张候选卡。原链接/附件关联、实际HTTP200时点、原始字节SHA256、提取方法、PDF页码或可见文本流UTF-8位置均保留；不是全文、完整题材覆盖或独立金标。使用依据记录国家版权局正式著作权法第五条第一/二项，网页设计、图片及新闻解读不纳入，正式发布审查仍待完成。
+
+原RegisterSource/BuildSnapshot/SaveSnapshot及StageInternal真实保存候选，再由独立原API与原密码HTTP登录读取既有专题DTO。MySQL8/9各一根三子共4个唯一PASS、零失败/跳过，两父流程均退出0、65项原生断言及实例清理完成，日志tm-stock-official-materials-mysql8-final-20261103.log、tm-stock-official-materials-mysql9-final-20261103.log。逐项核字段/原文/出处/采集时间，未知不推填，日期不混同；跨会员/匿名、来源/发布/会员撤回整份拒读，恢复可读，零模型/Agent/任务/报告/积分副作用。本地发布和读取许可单独标明开发，不修改原synthetic问答/执行范围或自动授予AI用途。
+
+首轮MySQL8中储能/光伏通过，无人机断言误按清单输入位置比较卡片；原BindDraft按卡片键规范排序。改为原键映射并额外查重复/遗漏，未改业务排序或放松原文/字段检查。失败日志tm-stock-official-materials-mysql8-20261103.log与已停止实例0b07fd9b3e2c43e981ac5812a4d001ba保留，不计通过。PDF第一页定义段已渲染目视核对，HTML/PDF与提取过程保留本机临时捕获；临时原始档案不代表永续归档或供应商签名。CI集成下限1777→1781，精确四节点，两版实际日志各一正九反及YAML/29段Shell语法通过，日志tm-stock-official-materials-ci-final-20261103.log。真实模型消费这些新材料、语义核验/人工金标、全面题材研究、多Agent全输入审计和实际H5仍待完成，整体目标进行中。
+
+另从四份实际原始捕获独立重算HTTP字节数/SHA256，再核十段节选的UTF-8位置及文字，全部通过，日志tm-stock-official-materials-provenance-final-20261103.log。首次校验误把Windows落盘CRLF当作清单约定的逻辑LF文本流，失败日志保留；明确LF坐标后复验未改节选或来源哈希。Work本地浏览器控制再次返回disabled，未使用其它自动化绕过，真实页面/窄屏/设备验收继续保留。
+
+完整harness-checks.sh退出0（tm-stock-official-materials-harness-20261103.log）：Go编译/vet/普通全量竞态、GVA关键包/配置、合规38/迁移探测23/密钥42项、架构、原Node27项评测与异步桥检查通过。integration/browser/liveagents标签vet通过；本轮未改生产Go/页面，不重复覆盖率棘轮、H5整包或真实模型调用，未运行可选全量lint/远端CI，未部署。当前不确定性为资料语义适配和未经独立人工复核；最大遗漏为完整业务资料覆盖、AI用途准入/模型评测及永续原始归档。影响范围限开发资料清单、实际API验收与文档/CI，未放宽任何业务准入。
+
 **问答候选与调用核验纵向增量（2026-11-03，design13.23）**：原资料问答及报告追问增加/evidence只读接口，原问题下方按需展示完整限定候选句、出处/采集时点、三阶段闭集判定及可确认的实际token。先重建原范围/任务，再复算原请求摘要及模型配置，两个短事务核同一记录/调用与当前授权；failed也不能跳过。预约、未发送、回包未知和无效元数据独立保留，用量未知不补零、费用固定null，不返回内部批准/许可/Profile/请求号/模型原文。展开、收起、刷新、切题/任务/会话/账号和迟到响应均沿原私有状态隔离，不触发提交、模型或积分。
 
 新增4根18子节点共22个唯一普通竞态PASS、零失败/跳过；原服务身份及报告绑定两根另回归通过。新核心validateEvidenceCalls覆盖率87.2%、ReadEvidence90.0%，是专项profile函数范围，不能当整包或实际模型质量。日志tm-stock-qa-evidence-unit-final-20261103.log与profile tm-stock-qa-evidence-unit-20261103.out保留。实际UTS/UVue宿主验证严格类型/字段闭集、完整来源、未知用量与账单、刷新/撤权清理、迟到隔离，且从两种原问题父页面实际点到新面板；日志tm-stock-qa-evidence-ui-final-20261103.log。CI普通下限2191→2213，新增精确22节点；实际日志一正12反、两版报告门禁各一正9反及YAML/29段Shell语法通过，日志tm-stock-qa-evidence-ci-final-20261103.log。

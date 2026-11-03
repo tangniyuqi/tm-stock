@@ -1,0 +1,256 @@
+{
+  "schema": "tm-stock-official-research-samples-v1",
+  "classification": "real-official-passages-development-unreviewed",
+  "reviewStatus": "agent-source-checked-not-independent-human-gold",
+  "usageBasis": {
+    "kind": "official-administrative-text-and-plain-factual-metadata",
+    "lawURL": "https://www.ncac.gov.cn/xxfb/flfg/flfg_532/202103/t20210309_50530.html",
+    "article": "第五条第一项、第二项",
+    "scope": "仅正式公文及客观元数据；不包含网页设计、图片、新闻解读或第三方评论，不代替正式发布审核"
+  },
+  "documents": [
+    {
+      "key": "uav-regulation-761",
+      "title": "无人驾驶航空器飞行管理暂行条例",
+      "url": "https://www.caac.gov.cn/XXGK/XXGK/FLFG/202401/t20240115_222642.html",
+      "noticeUrl": "https://www.caac.gov.cn/XXGK/XXGK/FLFG/202401/t20240115_222642.html",
+      "sourceType": "announcement",
+      "collectedAt": 1793690164497,
+      "rawSha256": "303694851c8d9e21cfc7c1eedb52b1282524bdfa4e815e917c2fe04fc3420d23",
+      "rawBytes": 87936,
+      "sourceMediaType": "text/html",
+      "extraction": "html-visible-text-blocks-v1",
+      "page": null,
+      "coverage": "selected-passages-not-full-document",
+      "passages": [
+        {
+          "key": "definition",
+          "text": "本条例所称无人驾驶航空器，是指没有机载驾驶员、自备动力系统的航空器。",
+          "startByte": 1991,
+          "endByte": 2093
+        },
+        {
+          "key": "classification",
+          "text": "无人驾驶航空器按照性能指标分为微型、轻型、小型、中型和大型。",
+          "startByte": 2096,
+          "endByte": 2186
+        },
+        {
+          "key": "territorial_scope",
+          "text": "第二条 在中华人民共和国境内从事无人驾驶航空器飞行以及有关活动，应当遵守本条例。",
+          "startByte": 1870,
+          "endByte": 1988
+        },
+        {
+          "key": "effective_date",
+          "text": "第六十三条 本条例自2024年1月1日起施行。",
+          "startByte": 36935,
+          "endByte": 36990
+        },
+        {
+          "key": "published_date",
+          "text": "发文日期：2023-06-28",
+          "startByte": 1256,
+          "endByte": 1281
+        }
+      ]
+    },
+    {
+      "key": "storage-manufacturing-plan",
+      "title": "新型储能制造业高质量发展行动方案",
+      "url": "https://www.miit.gov.cn/cms_files/filemanager/1226211233/attach/20252/408edf011d224d73a889c03c70b180d3.pdf",
+      "noticeUrl": "https://www.miit.gov.cn/jgsj/dzs/wjfb/art/2025/art_269983a459934b72a51261cb7b1de958.html",
+      "sourceType": "announcement",
+      "collectedAt": 1793690165047,
+      "rawSha256": "9654923e1c033925f7275135c6f76ac7848090db29e9ee402ccc111101dbee4f",
+      "rawBytes": 359288,
+      "sourceMediaType": "application/pdf",
+      "extraction": "pdfplumber-page-text-joined-soft-lines-v1",
+      "page": 1,
+      "coverage": "selected-passages-not-full-document",
+      "passages": [
+        {
+          "key": "definition",
+          "text": "新型储能制造业是为新型储能提供能量存储、信息处理、安全控制等产品的制造业的总称，以新型电池等蓄能产品和各类新型储能技术为主要领域，也包括电源管理芯片、电力电子器件、热管理和能量控制系统等环节。",
+          "startByte": 48,
+          "endByte": 336
+        }
+      ]
+    },
+    {
+      "key": "storage-plan-notice",
+      "title": "工业和信息化部等八部门关于印发新型储能制造业高质量发展行动方案的通知",
+      "url": "https://www.miit.gov.cn/jgsj/dzs/wjfb/art/2025/art_269983a459934b72a51261cb7b1de958.html",
+      "noticeUrl": "https://www.miit.gov.cn/jgsj/dzs/wjfb/art/2025/art_269983a459934b72a51261cb7b1de958.html",
+      "sourceType": "announcement",
+      "collectedAt": 1793690164633,
+      "rawSha256": "0bcd48227811b5673fd0fdf81de5e4f3b6abd8a204266f875824598b9244ade4",
+      "rawBytes": 10373,
+      "sourceMediaType": "text/html; charset=utf-8",
+      "extraction": "html-visible-text-blocks-v1",
+      "page": null,
+      "coverage": "selected-passages-not-full-document",
+      "passages": [
+        {
+          "key": "published_date",
+          "text": "发布日期：2025-02-17",
+          "startByte": 621,
+          "endByte": 646
+        },
+        {
+          "key": "issued_date",
+          "text": "成文日期：2025-01-26",
+          "startByte": 590,
+          "endByte": 615
+        }
+      ]
+    },
+    {
+      "key": "distributed-pv-notice",
+      "title": "国家能源局关于印发《分布式光伏发电开发建设管理办法》的通知",
+      "url": "https://www.nea.gov.cn/20250123/112c5b199c5f45dd8e7ac93c9f5e4eaf/c.html",
+      "noticeUrl": "https://www.nea.gov.cn/20250123/112c5b199c5f45dd8e7ac93c9f5e4eaf/c.html",
+      "sourceType": "announcement",
+      "collectedAt": 1793690165217,
+      "rawSha256": "d2e6c69f192c106a9f1730424146a891e595c4ab11819fb9393988457a626d88",
+      "rawBytes": 9434,
+      "sourceMediaType": "text/html",
+      "extraction": "html-visible-text-blocks-v1",
+      "page": null,
+      "coverage": "selected-passages-not-full-document",
+      "passages": [
+        {
+          "key": "revision",
+          "text": "为规范分布式光伏发电开发建设管理，促进分布式光伏发电高质量发展，适应新形势、新要求，国家能源局对《分布式光伏发电项目管理暂行办法》（国能新能〔2013〕433号）进行了修订，形成了《分布式光伏发电开发建设管理办法》，现印发给你们，请遵照执行。",
+          "startByte": 971,
+          "endByte": 1320
+        },
+        {
+          "key": "issued_date",
+          "text": "2025年1月17日",
+          "startByte": 1341,
+          "endByte": 1357
+        }
+      ]
+    }
+  ],
+  "themes": [
+    {
+      "key": "civil-uav",
+      "name": "民用无人驾驶航空器",
+      "scope": "仅行政法规中的定义、分类、地域及日期；不涵盖产业实际进展或全部无人机业务",
+      "cards": [
+        {
+          "key": "definition",
+          "section": "definition",
+          "document": "uav-regulation-761",
+          "passage": "definition",
+          "fields": {
+            "subject": {
+              "document": "uav-regulation-761",
+              "passage": "definition",
+              "text": "无人驾驶航空器"
+            }
+          }
+        },
+        {
+          "key": "classification",
+          "section": "definition",
+          "document": "uav-regulation-761",
+          "passage": "classification",
+          "fields": {}
+        },
+        {
+          "key": "territorial_scope",
+          "section": "policy",
+          "document": "uav-regulation-761",
+          "passage": "territorial_scope",
+          "fields": {
+            "scope": {
+              "document": "uav-regulation-761",
+              "passage": "territorial_scope",
+              "text": "中华人民共和国境内"
+            }
+          }
+        },
+        {
+          "key": "effective_date",
+          "section": "policy",
+          "document": "uav-regulation-761",
+          "passage": "effective_date",
+          "fields": {
+            "effectiveDate": {
+              "document": "uav-regulation-761",
+              "passage": "effective_date",
+              "text": "2024年1月1日"
+            },
+            "publishedDate": {
+              "document": "uav-regulation-761",
+              "passage": "published_date",
+              "text": "2023-06-28"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "key": "new-energy-storage",
+      "name": "新型储能",
+      "scope": "仅制造业定义和方案日期；不代表技术成熟、业务落地或完整产业覆盖",
+      "cards": [
+        {
+          "key": "manufacturing_definition",
+          "section": "definition",
+          "document": "storage-manufacturing-plan",
+          "passage": "definition",
+          "fields": {
+            "subject": {
+              "document": "storage-manufacturing-plan",
+              "passage": "definition",
+              "text": "新型储能制造业"
+            },
+            "publishedDate": {
+              "document": "storage-plan-notice",
+              "passage": "published_date",
+              "text": "2025-02-17"
+            }
+          }
+        },
+        {
+          "key": "notice_issued_date",
+          "section": "policy",
+          "document": "storage-plan-notice",
+          "passage": "issued_date",
+          "fields": {}
+        }
+      ]
+    },
+    {
+      "key": "distributed-pv",
+      "name": "分布式光伏",
+      "scope": "仅主管部门通知的修订事实及落款；正文附件、当前效力和业务进展另核",
+      "cards": [
+        {
+          "key": "management_revision",
+          "section": "policy",
+          "document": "distributed-pv-notice",
+          "passage": "revision",
+          "fields": {
+            "subject": {
+              "document": "distributed-pv-notice",
+              "passage": "revision",
+              "text": "国家能源局"
+            }
+          }
+        },
+        {
+          "key": "notice_issued_date",
+          "section": "policy",
+          "document": "distributed-pv-notice",
+          "passage": "issued_date",
+          "fields": {}
+        }
+      ]
+    }
+  ]
+}

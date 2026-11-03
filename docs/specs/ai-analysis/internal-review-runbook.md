@@ -1,5 +1,11 @@
 # AI 内部操作手册（L0 审核与隔离 Agent 执行）
 
+## 正式机关资料开发样板（2026-11-03）
+
+设计13.24及eval/README.md：真实节选清单为eval/research/official-materials/manifest.json，保留四份原始HTTP哈希、实际采集时间、转换方法和三类题材的八张原文候选卡。仅限这里明示的正式文件/客观元数据，人工审核、全文覆盖和业务进展待办；不借gov.cn域名一并收录新闻图片或评论，不改写旧synthetic配置来消费真实数据。
+
+原生验证使用verify-ai-source-native.ps1 -ReportsOnly -ReportPattern '^TestIntegrationAIReportOfficialMaterialSamples$' -RunCount 1，MySQL8/9串行。它复用原来源登记/不可变快照/StageInternal及独立原API/密码HTTP登录，预期一根三子共4个唯一PASS、零跳过；三题材分别核完整卡片、八维字段、逐字出处、发布日期与生效日不混填，以及来源/发布/会员许可撤回、越权和恢复。每个父流程均须完成65项原生断言及实例清理。开发发布行与会员1读取授权单独标记，不自动授予AI用途、生产发布或独立金标身份；读取不生成报告、任务、模型或账务。该数据可通过既有专题DTO接入原页面，但HTTP不代表H5真实点击。
+
 ## 原问题的完整候选与调用核验（2026-11-03）
 
 设计13.23：在原资料问答/报告追问终态中点击“查看本次资料与核验记录”，只GET原conversations/{id}/questions/{seq}/evidence；不提交问题、不注册新任务、不扣积分。当前会员、原消息及taskId、原批准范围或本人当前报告、模型/请求摘要和闭集存证均须通过；failed同样复核权限。公开候选仅为原批准范围内实际送入请求的完整候选句，不代表全网或所有资料库。候选摘要按原promptSource规范计算；公司章和dossierReview不进入报告追问候选。

@@ -1358,6 +1358,18 @@ jobs:
           fi
           # 研究回执采集真库门禁结束
 
+          # 正式机关资料开发样板真库门禁开始
+          OFFICIAL_SAMPLES_ACTUAL=$(sed -nE 's/^[[:space:]]*--- PASS: (TestIntegrationAIReportOfficialMaterialSamples[^ ]*) .*/\1/p' /tmp/it.log | LC_ALL=C sort)
+          OFFICIAL_SAMPLES_EXPECTED=$(printf '%s\n' \
+            'TestIntegrationAIReportOfficialMaterialSamples' \
+            'TestIntegrationAIReportOfficialMaterialSamples/civil-uav' \
+            'TestIntegrationAIReportOfficialMaterialSamples/new-energy-storage' \
+            'TestIntegrationAIReportOfficialMaterialSamples/distributed-pv' | LC_ALL=C sort)
+          if [ "$OFFICIAL_SAMPLES_ACTUAL" != "$OFFICIAL_SAMPLES_EXPECTED" ] || grep -Eq '^[[:space:]]*--- (FAIL|SKIP): TestIntegrationAIReportOfficialMaterialSamples' /tmp/it.log; then
+            echo '::error::真实机关资料样板的原API/撤权/账号隔离缺失、重复、跳过或失败'; exit 1
+          fi
+          # 正式机关资料开发样板真库门禁结束
+
           # 报告追问回执真库门禁开始
           REPORT_CAPTURE_ACTUAL=$(sed -nE 's/^[[:space:]]*--- PASS: (TestIntegrationAIReportResearchCapture[^ ]*) .*/\1/p' /tmp/it.log | LC_ALL=C sort)
           REPORT_CAPTURE_EXPECTED=$(printf '%s\n' \
@@ -1701,7 +1713,8 @@ jobs:
           # 七步编排/审计结构/独立进程新增3根24子节点。
           # 原问答JWT/服务/存证→只读采集→计分新增1根2隔离子节点。
           # 原五/六/七步报告/会话消息/JWT→追问回执新增1根8子节点。
-          MIN=1777
+          # 正式机关原文节选三个开发题材经原API读取新增1根3子节点。
+          MIN=1781
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项，低于下限 $MIN —— 要么没跑，要么有测试被删。"; exit 1
           fi
