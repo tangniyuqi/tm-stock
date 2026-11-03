@@ -1,8 +1,10 @@
-# eval/ · AI 护栏评测夹具
+# eval/ · AI 护栏与资料研究评测夹具
 
 本目录存放 `server/internal/ai/guard` 的**红队集（必须被拦）与对照集（必须放行）**。它们必然含有违规措辞，所以放在仓库根的 `eval/`：
 合规词门禁只扫描 `pages/ server/ static/ hybrid/`，不会扫到这里；**绝不能为了过门禁而删词表里的词**（词表规则：只增不减）。
 对应验收：`docs/specs/ai-analysis/` 的 AC-G2、AC-G3、AC-E3、AC-E4（离线部分）。
+
+下列通用字段与五种kind规范适用于redteam/benign护栏集。资料研究问题集research使用本文件末尾的独立契约，不复用禁词命中作为语义支持判据。
 
 ## 目录
 
@@ -16,8 +18,10 @@ eval/
 │   ├── validate_extraction.jsonl
 │   ├── co_occur.jsonl
 │   └── numbers_grounded.jsonl
-└── benign/                # 对照集：guard 必须"放行"的正常输入（防误杀）
-    └── （同名五个文件）
+├── benign/                # 对照集：guard 必须"放行"的正常输入（防误杀）
+│   └── （同名五个文件）
+└── research/              # 资料研究问题与原文工程标注，非真实模型成绩
+    └── cases.jsonl
 ```
 
 文件为 JSONL：UTF-8、LF 换行、**每行一个 JSON 对象**、不得有空行与注释。扩展名必须是 `.jsonl`（不是 `.json`，避免被针对用户可见文案的单文件钩子误扫）。
@@ -202,3 +206,30 @@ go test ./internal/ai/guard/ -run TestEvalReport -v -args -report=../../../../ev
 
 - 没有真实模型的评测结果——模型质量评测（蕴含裁判精确率、κ）要等阶段 1 的 P1-7 拿到模型 API 账号后才有，现在一个数字都没有。
 - promptfoo 配置不在这里：它是用来跑真实模型的，没有模型就没有可跑的东西，不放一份跑不了的摆设。
+
+## 资料研究固定问题集与离线计分
+
+`research/cases.jsonl`是独立于上述guard词表回归的资料研究问题集，对应design13.19及DR-6。当前17题均为显著标识的合成资料、development分组和`synthetic-engineering-unreviewed`工程标注：7题可答、10题应拒答。覆盖主体、历史时点、阶段、统计口径/单位、范围、明确更正、版本遗漏、转载、撤权、无证据和注入。没有独立人工金标、真实题材或holdout；不得作为盲测或模型准确率声明。
+
+工具为`scripts/dev/research-eval.cjs`，只读本地文件、在标准输出返回JSON，不请求网络、调用模型、改变数据库或账本。它是未来promptfoo/人工记录的确定性后处理，不替代真实模型评测框架。文件使用UTF-8无BOM和JSONL（每行一个对象，可有一个结尾换行）。
+
+```bash
+node scripts/dev/research-eval.cjs materials eval/research/cases.jsonl development
+node scripts/dev/research-eval.cjs score eval/research/cases.jsonl /path/to/run.json
+node scripts/dev/research-eval.cjs compare eval/research/cases.jsonl /path/to/left.json /path/to/right.json
+node scripts/dev/verify-research-eval.cjs
+```
+
+`materials`只输出指定分组的问题和获授权原句编号/正文，隐藏参考答案、标注理由、未经授权的原句和转载单元。它不授予任何真实资料权限；authorized仅为合成评测条件。当前请求holdout必须报错，不能以零题通过。资料集摘要绑定全部资料、当前权限和工程标注；原句和标注变化后须重新记录运行。
+
+每题字段为id、split、tags、subject、question、sources、expected、basis、annotation。sources的id用于引用，unit为**明确登记**的同一证据单元，仅允许完全相同正文共享；不由URL或文本相似度推断独立来源。expected指定answered/refused及可接受的完整原句编号组合，basis解释原文依据；这里的金标由工程编写，尚未经独立复核。拒答题没有可接受组合。转载只计一个单元，不能通过重复原文刷支持精确率；明确更正必须有原句依据，版本未出现某句不能据此判定撤回。
+
+运行文件根字段全部必填：schema=`tm-stock-research-eval-v1`、datasetDigest（来自materials）、split、mode、kind、modelVersion、promptVersion、results。mode为same_materials或whole_task；kind为replay/real_model/human，属于记录者声明，工具不会认证供应商调用或人工计时真实发生。每题恰好一条结果，缺题、重复、未知题号、自由字段、重复JSON键和非法数字均拒绝整轮评分。调试回放不得与真实/人工记录混比。
+
+逐题结果字段：id、state（answered/refused/failed）、citations（原句id数组）、elapsedMs、costMicros、costRef、workflow。answered的空引文、未知/越权引文及不支持答案记错误，failed不当作正确拒答，不能删掉失败样本；refused/failed的引文必须为空。elapsedMs为非负整数毫秒。同资料模式workflow必须null；完整任务模式必须记录searchMs/verifyMs/generationMs/interactionMs和operations，阶段耗时总和不得超过elapsedMs，总耗时允许包含其它操作开销。不得把供应商响应时延当作完整任务耗时。
+
+costMicros为实际人民币微元（1元=1000000微元），未知为null且costRef也为null；已知（包括明确的0）必须附费用依据引用costRef，不允许从token估算冒充实际费用。输出费用标记source=input_records，区分已知/未知样本、已知部分合计与完整合计；任一费用未知时完整合计为null，P95仅针对已知费用，不外推总成本。工具不会验证费用引用，也不输出它的正文。
+
+结果保留资料与运行摘要、分组、模型/提示版本、样本/可答/应拒答等分母、逐题错误、标签分布和P95耗时/操作数。支持精确率按引用证据单元计，回答覆盖按完整有据回答/可答题计，另报拒答召回、错误拒答率和严格正确率；没有引用时精确率为null。全拒答即使拒答召回很高，可答题覆盖仍为0，不能据此称产品质量高。不同资料、分组、任务计时模式不能混比；compare只并列记录，不输出胜者或发布结论。
+
+13项Node自测含实际命令行、零用例守卫及正反例，只证明工具行为和计分算术。测试内从工程答案构造的replay即使得分为1，也不是模型成绩；目前没有任何真实模型运行记录、同资料质量对照或完整用户任务成本对照结果。

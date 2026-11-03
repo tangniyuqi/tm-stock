@@ -1697,6 +1697,9 @@ jobs:
         with:
           node-version: '20'
 
+      - name: 资料研究离线评测工具（非真实模型质量，拒绝零用例）
+        run: node scripts/dev/verify-research-eval.cjs
+
       - name: Agent本地评估网关守卫（无Key、无网络、无付费调用）
         run: node --test scripts/dev/tradingcn-live-gateway.test.mjs scripts/dev/tradingcn-local-chain.test.mjs
 
