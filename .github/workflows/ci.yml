@@ -760,6 +760,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
       - uses: actions/setup-go@v5
         with:
           # 跨进程用例还编译原GVA密码桥，工具链须同时满足两个模块。
@@ -1314,6 +1318,14 @@ jobs:
           if [ "$QA_HTTP_ROOTS" -ne 3 ] || [ "$QA_HTTP_LEVELS" -ne 4 ] || [ "$QA_HTTP_BOUNDARIES" -ne 18 ] || [ "$QA_SCHEMA_CASES" -ne 20 ]; then
             echo '::error::问答实际JWT/HTTP/配额/当前撤权/原键未知/无模型读取或结构破坏用例漏跑'; exit 1
           fi
+          # 研究回执采集真库门禁开始
+          CAPTURE_ACTUAL=$(sed -nE 's/^[[:space:]]*--- PASS: (TestIntegrationAIConversationsResearchCapture[^ ]*) .*/\1/p' /tmp/it.log | LC_ALL=C sort)
+          CAPTURE_EXPECTED=$(printf '%s\n' 'TestIntegrationAIConversationsResearchCapture' 'TestIntegrationAIConversationsResearchCapture/Read_Committed' 'TestIntegrationAIConversationsResearchCapture/Repeatable_Read' | LC_ALL=C sort)
+          if [ "$CAPTURE_ACTUAL" != "$CAPTURE_EXPECTED" ] || grep -Eq '^[[:space:]]*--- (FAIL|SKIP): TestIntegrationAIConversationsResearchCapture' /tmp/it.log; then
+            echo '::error::实际问答回执采集正反例缺失、重复、跳过或失败'; exit 1
+          fi
+          # 研究回执采集真库门禁结束
+
           # 专题七步报告真库门禁开始
           SEVEN_SQL_ACTUAL=$(sed -nE 's/^[[:space:]]*--- PASS: (TestIntegrationAIReportDossier(ComparisonWorkflow|SevenStep(Schema|Process))[^ ]*) .*/\1/p' /tmp/it.log | LC_ALL=C sort)
           SEVEN_SQL_EXPECTED=$(printf '%s\n' \
@@ -1638,7 +1650,8 @@ jobs:
           # 核验公开投影/当前授权读取新增1根、2隔离组、4轻深组及24反例，共31项。
           # 两卡清单/授权重建真库新增5根91子节点，保留旧清单回归。
           # 七步编排/审计结构/独立进程新增3根24子节点。
-          MIN=1765
+          # 原问答JWT/服务/存证→只读采集→计分新增1根2隔离子节点。
+          MIN=1768
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项，低于下限 $MIN —— 要么没跑，要么有测试被删。"; exit 1
           fi

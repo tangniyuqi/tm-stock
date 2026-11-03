@@ -86,12 +86,15 @@ function materials(d, split) {
   return {schema,datasetDigest:d.digest,split,annotation:'synthetic-engineering-unreviewed',cases:selected(d,split).map(c=>({id:c.id,subject:c.subject,question:c.question,sources:c.sources.filter(s=>s.authorized).map(s=>({id:s.id,text:s.text}))}))};
 }
 function validateRun(d, run) {
-  if (!keys(run,['schema','datasetDigest','split','mode','kind','modelVersion','promptVersion','results']) || run.schema !== schema || run.datasetDigest !== d.digest || !['same_materials','whole_task'].includes(run.mode) || !['replay','real_model','human'].includes(run.kind) || !text(run.modelVersion,128) || !text(run.promptVersion,128) || !Array.isArray(run.results)) fail('invalid_run');
+  const capture = run?.kind === 'api_capture';
+  const fields = ['schema','datasetDigest','split','mode','kind','modelVersion','promptVersion','results'];
+  if (capture) fields.push('receiptDigest');
+  if (!keys(run,fields) || run.schema !== schema || run.datasetDigest !== d.digest || !['same_materials','whole_task','stored_qa'].includes(run.mode) || !['replay','real_model','human','api_capture'].includes(run.kind) || capture !== (run.mode === 'stored_qa') || capture && (typeof run.receiptDigest !== 'string' || !/^[a-f0-9]{64}$/.test(run.receiptDigest)) || !text(run.modelVersion,128) || !text(run.promptVersion,128) || !Array.isArray(run.results)) fail('invalid_run');
   const cases = selected(d,run.split), ids = new Set(cases.map(c=>c.id)), seen = new Set();
   if (run.results.length !== cases.length) fail('incomplete_run');
   for (const r of run.results) {
     if (!keys(r,['id','state','citations','elapsedMs','costMicros','costRef','workflow']) || !ids.has(r.id) || seen.has(r.id) || !['answered','refused','failed'].includes(r.state) || !Array.isArray(r.citations) || r.citations.length > 32 || !r.citations.every(id) || !count(r.elapsedMs) || r.elapsedMs > 86400000 || r.costMicros !== null && !count(r.costMicros) || (r.costMicros === null ? r.costRef !== null : !text(r.costRef,128)) || r.state !== 'answered' && r.citations.length) fail('invalid_result');
-    if (run.mode === 'same_materials' && r.workflow !== null) fail('mixed_measurement');
+    if ((run.mode === 'same_materials' || capture) && r.workflow !== null || capture && (r.costMicros !== null || r.costRef !== null)) fail('mixed_measurement');
     if (run.mode === 'whole_task') {
       const w = r.workflow;
       if (!keys(w,['searchMs','verifyMs','generationMs','interactionMs','operations']) || Object.values(w).some(v=>!count(v)) || w.searchMs+w.verifyMs+w.generationMs+w.interactionMs > r.elapsedMs) fail('invalid_workflow');
@@ -141,11 +144,12 @@ function score(d, run) {
   if (!Number.isSafeInteger(total)) fail('metric_overflow');
   return {schema,datasetDigest:d.digest,runDigest:crypto.createHash('sha256').update(canonical(run)).digest('hex'),split:run.split,mode:run.mode,kind:run.kind,modelVersion:run.modelVersion,promptVersion:run.promptVersion,annotation:'synthetic-engineering-unreviewed',counts:n,
     metrics:{supportPrecision:ratio(n.supportedUnits,n.citedUnits),answerCoverage:ratio(n.correctAnswers,n.answerable),refusalRecall:ratio(n.correctRefusals,n.mustRefuse),falseRefusalRate:ratio(n.falseRefusals,n.answerable),strictAccuracy:ratio(n.correctAnswers+n.correctRefusals,n.samples)},
-    measurement:{source:'input_records',p95ElapsedMs:p95(elapsed),p95Operations:p95(operations),p95KnownCostMicros:p95(costs),costUnit:'CNY_micro',knownCostSamples:costs.length,unknownCostSamples:n.samples-costs.length,totalKnownCostMicros:costs.length?total:null,completeCostMicros:costs.length===n.samples?total:null},tags,rows};
+    ...(run.kind==='api_capture'?{receiptDigest:run.receiptDigest}:{}),
+    measurement:{source:run.kind==='api_capture'?'stored_question_timestamps':'input_records',p95ElapsedMs:p95(elapsed),p95Operations:p95(operations),p95KnownCostMicros:p95(costs),costUnit:'CNY_micro',knownCostSamples:costs.length,unknownCostSamples:n.samples-costs.length,totalKnownCostMicros:costs.length?total:null,completeCostMicros:costs.length===n.samples?total:null},tags,rows};
 }
 function compare(d, left, right) {
   const a = score(d,left), b = score(d,right);
-  if (a.mode !== b.mode || a.split !== b.split || (a.kind === 'replay') !== (b.kind === 'replay')) fail('incomparable_runs');
+  if (a.mode === 'stored_qa' || b.mode === 'stored_qa' || a.mode !== b.mode || a.split !== b.split || (a.kind === 'replay') !== (b.kind === 'replay')) fail('incomparable_runs');
   return {schema,datasetDigest:d.digest,mode:a.mode,split:a.split,left:a,right:b};
 }
 function main(args) {

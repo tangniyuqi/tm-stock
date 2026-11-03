@@ -11,10 +11,10 @@ function validTAP(output) {
     if (!Number.isSafeInteger(values[field])) return false;
   }
   const passes = [...output.matchAll(/^ok [0-9]+ - /gm)].length;
-  return values.tests >= 13 && values.pass === values.tests && passes === values.tests && ['fail','cancelled','skipped','todo'].every(k=>values[k]===0);
+  return values.tests >= 21 && values.pass === values.tests && passes === values.tests && ['fail','cancelled','skipped','todo'].every(k=>values[k]===0);
 }
 function main() {
-  const child = spawnSync(process.execPath,['--test','--test-reporter=tap',path.join(__dirname,'research-eval.test.cjs')],{encoding:'utf8',maxBuffer:2*1024*1024});
+  const child = spawnSync(process.execPath,['--test','--test-reporter=tap',path.join(__dirname,'research-eval.test.cjs'),path.join(__dirname,'research-qa-capture.test.cjs')],{encoding:'utf8',maxBuffer:2*1024*1024});
   if (child.status !== 0 || !validTAP(child.stdout || '')) {
     process.stderr.write((child.stdout || '').slice(-6000)+(child.stderr || '').slice(-2000));
     process.stderr.write('\n资料研究离线评测工具自测未完成。\n');

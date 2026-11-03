@@ -224,7 +224,7 @@ node scripts/dev/verify-research-eval.cjs
 
 每题字段为id、split、tags、subject、question、sources、expected、basis、annotation。sources的id用于引用，unit为**明确登记**的同一证据单元，仅允许完全相同正文共享；不由URL或文本相似度推断独立来源。expected指定answered/refused及可接受的完整原句编号组合，basis解释原文依据；这里的金标由工程编写，尚未经独立复核。拒答题没有可接受组合。转载只计一个单元，不能通过重复原文刷支持精确率；明确更正必须有原句依据，版本未出现某句不能据此判定撤回。
 
-运行文件根字段全部必填：schema=`tm-stock-research-eval-v1`、datasetDigest（来自materials）、split、mode、kind、modelVersion、promptVersion、results。mode为same_materials或whole_task；kind为replay/real_model/human，属于记录者声明，工具不会认证供应商调用或人工计时真实发生。每题恰好一条结果，缺题、重复、未知题号、自由字段、重复JSON键和非法数字均拒绝整轮评分。调试回放不得与真实/人工记录混比。
+运行文件根字段全部必填：schema=`tm-stock-research-eval-v1`、datasetDigest（来自materials）、split、mode、kind、modelVersion、promptVersion、results。普通mode为same_materials或whole_task，kind为replay/real_model/human，属于记录者声明，工具不会认证供应商调用或人工计时真实发生。下节api_capture/stored_qa只读采集另有严格限定及receiptDigest。每题恰好一条结果，缺题、重复、未知题号、自由字段、重复JSON键和非法数字均拒绝整轮评分。调试回放不得与真实/人工记录混比。
 
 逐题结果字段：id、state（answered/refused/failed）、citations（原句id数组）、elapsedMs、costMicros、costRef、workflow。answered的空引文、未知/越权引文及不支持答案记错误，failed不当作正确拒答，不能删掉失败样本；refused/failed的引文必须为空。elapsedMs为非负整数毫秒。同资料模式workflow必须null；完整任务模式必须记录searchMs/verifyMs/generationMs/interactionMs和operations，阶段耗时总和不得超过elapsedMs，总耗时允许包含其它操作开销。不得把供应商响应时延当作完整任务耗时。
 
@@ -232,4 +232,20 @@ costMicros为实际人民币微元（1元=1000000微元），未知为null且cos
 
 结果保留资料与运行摘要、分组、模型/提示版本、样本/可答/应拒答等分母、逐题错误、标签分布和P95耗时/操作数。支持精确率按引用证据单元计，回答覆盖按完整有据回答/可答题计，另报拒答召回、错误拒答率和严格正确率；没有引用时精确率为null。全拒答即使拒答召回很高，可答题覆盖仍为0，不能据此称产品质量高。不同资料、分组、任务计时模式不能混比；compare只并列记录，不输出胜者或发布结论。
 
-13项Node自测含实际命令行、零用例守卫及正反例，只证明工具行为和计分算术。测试内从工程答案构造的replay即使得分为1，也不是模型成绩；目前没有任何真实模型运行记录、同资料质量对照或完整用户任务成本对照结果。
+21项Node自测含实际命令行、零用例守卫、HTTP回执采集及正反例，只证明工具行为和计分算术。测试内从工程答案构造的replay即使得分为1，也不是模型成绩；目前没有任何真实模型运行记录、同资料质量对照或完整用户任务成本对照结果。
+
+## 从当前问答接口采集运行记录
+
+`node scripts/dev/research-qa-capture.cjs eval/research/cases.jsonl /path/to/private-binding.json`只向显式`http://127.0.0.1:端口`的原问答状态/答案端点发GET，不提供提交问题或开启模型的参数。当前会员令牌通过专用`TM_STOCK_EVAL_TOKEN`环境变量安全注入；不要放命令行、绑定文件、日志或聊天。回环地址本身不能证明后端数据库隔离，须先通过原本地API装配核验本轮隔离实例；本工具不用于生产采集。
+
+首版仅支持material_qa资料问题；report_qa报告追问还需要原任务绑定验证，当前拒绝，不把相同题材或原句当任务归属证明。
+
+私有绑定根字段为schema=`tm-stock-qa-capture-v1`、datasetDigest、split、baseURL、modelVersion、promptVersion、bindings。每条bindings为id（工程题号）、conversationId、seq、subjectId、sources。每条sources为ref（材料原句编号）、snapshotId、startByte、endByte、sourceType、sourceUrl、collectedAt。来源类型沿服务端原枚举，包含official_catalog和interactive_qa，不另起别名。绑定须覆盖全部题号和所有可用原句；未授权原句不得加入，也不能以题材关键词或片段相似替代完整引文定位。
+
+绑定与原始材料只放本地私有目录，按当前隔离库中的实际问题及快照生成，文件以0600保存；不要把真实会话映射提交到仓库。当前17题的subject和sources.text按原快照NFKC标点口径规范化，题意与标注未变，但资料摘要会变化，旧运行不能沿用旧digest。问题文本仍逐字匹配原提交，不在采集器里改写。
+
+采集器逐题核原问题、对象、技能及当前授权答案，并在全部读取后再复读整批；任一拒读、变更、排队/运行状态、引文不符或未知字段，整批失败且stdout为空，不输出部分记录、不自动重试。已明确failed的原问题保留为failed，不能忽略或当正确拒答；拒答若实际经过模型，仍保留原AI标注核验。每请求最多5秒、整批最多60秒、响应最多256KiB，拒绝重定向及代理，不把令牌发送给来源URL。
+
+输出仅为kind=api_capture、mode=stored_qa的规范运行记录：工程题号、原终态、原句编号、存证UpdatedAt-CreatedAt和receiptDigest，不含令牌、会话/用户编号、原文、链接或原始模型输出。费用/依据/workflow一律null。这里的耗时含存证排队，既不是模型延迟也不是完整用户操作耗时。可用原score命令检查记录，但compare拒绝stored_qa：公开答案不足以证明模型实际接收的完整候选集合，receiptDigest也不是签名或生产批准，不能把这种采集认证为真实模型执行、已核实账单或公平对照。
+
+真库专项`TestIntegrationAIConversationsResearchCapture`用原JWT/会员/服务/存证执行17题后，移除模型工厂并走此采集器与评分命令，另测整批复读中撤权和他人令牌。它故意让回环模型输出部分错误和一次传输失败，确认评分保留错误/failed及零额外调用/任务/积分；这验证接线和权限路径，不是模型质量成绩、浏览器点击或真实供应商证据。
