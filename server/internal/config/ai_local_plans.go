@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tangniyuqi/tm-stock/server/internal/agents"
 	"github.com/tangniyuqi/tm-stock/server/internal/ai/task"
 )
 
@@ -33,6 +34,7 @@ type AILocalPlan struct {
 	ActorID                 int64             `json:"actor_id"`
 	Symbol                  string            `json:"symbol"`
 	AgentProfileDigest      string            `json:"agent_profile_digest"`
+	AgentInputAudit         string            `json:"agent_input_audit,omitempty"`
 	AgentCalls              int64             `json:"agent_calls"`
 	AgentTokens             int64             `json:"agent_tokens"`
 	AgentPages              int64             `json:"agent_pages"`
@@ -193,6 +195,9 @@ func (p *AILocalPlans) validate(runtime *AILocalRuntime, now int64) error {
 	}
 	seen := map[[2]int64]bool{}
 	for _, v := range p.Plans {
+		if v.AgentInputAudit != "" && v.AgentInputAudit != agents.InputAuditVersion {
+			return invalidLocalRuntime()
+		}
 		if v.ReportProfile == "" && (v.DossierSupportDigest != "" || v.DossierComparisonDigest != "") || v.ReportProfile != "" && (v.ReportProfile != task.DossierReportProfile && v.ReportProfile != task.DossierComparisonReportProfile || !localPlanDigest.MatchString(v.DossierSupportDigest) || v.Budget.MaxCalls < 6) {
 			return invalidLocalRuntime()
 		}

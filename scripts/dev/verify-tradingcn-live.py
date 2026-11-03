@@ -11,6 +11,8 @@ import secrets
 import socket
 import sys
 import traceback
+import contextvars
+import uuid
 
 
 def main():
@@ -83,6 +85,7 @@ def main():
 
     calls = []
     tools = []
+    active_input = contextvars.ContextVar("evaluation_input", default=None)
 
     class TrackedDeepSeek(ChatDeepSeek):
         # 固定上游的invoke直接调用_generate，绕过了LangChain标准回调。
@@ -90,11 +93,15 @@ def main():
         evaluation_node: str = ""
 
         def _generate(self, messages, stop=None, run_manager=None, **kwargs):
-            event = {"node": self.evaluation_node, "success": False}
+            event = {"node": self.evaluation_node, "call_id": uuid.uuid4().hex, "success": False}
             calls.append(event)
-            result = super()._generate(messages, stop, run_manager, **kwargs)
-            event["success"] = True
-            return result
+            token = active_input.set(event)
+            try:
+                result = super()._generate(messages, stop, run_manager, **kwargs)
+                event["success"] = True
+                return result
+            finally:
+                active_input.reset(token)
 
     # 先以httpx本地传输替身验证直接invoke和bind_tools都能被观测。
     # 只验证计数器，不作为真实模型通过证据；不发送任何HTTP请求。
@@ -140,6 +147,7 @@ def main():
         "notice": "仅用于接线测试，无真实行情、财报、新闻或投资用途。不得编造缺失数字。",
         "facts": [{"id": "fixture-1", "text": "测试设备用于处理样例数据。"}],
     }
+    (output / "input-fixture.json").write_text(json.dumps(fixture, ensure_ascii=False), encoding="utf-8")
     registry = ToolRegistry()
     # 保留原工具参数schema，仅替换外部资料实现；任何工具均不能访问网络/系统。
     for metadata in list(registry.get_all_tools()):
@@ -161,7 +169,14 @@ def main():
             description=wrapped.description, is_online=False, override=True,
         )
 
-    client = httpx.Client(trust_env=False, follow_redirects=False, timeout=90)
+    def input_identity(request):
+        event = active_input.get()
+        if not event or not event["node"]:
+            raise RuntimeError("缺失原Agent调用身份，禁止未存证发送")
+        request.headers["X-TM-Evaluation-Node"] = event["node"]
+        request.headers["X-TM-Evaluation-Call"] = event["call_id"]
+
+    client = httpx.Client(trust_env=False, follow_redirects=False, timeout=90, event_hooks={"request": [input_identity]})
     llm = TrackedDeepSeek(
         model="deepseek-flash", api_key=options.get("session"),
         base_url=f"http://127.0.0.1:{port}/v1", max_tokens=2048,

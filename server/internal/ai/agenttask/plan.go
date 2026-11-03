@@ -17,6 +17,7 @@ type Plan struct {
 	TaskNo, SubjectType, OperationKey  string
 	Symbol, ProfileDigest              string
 	Units                              task.Units
+	InputAudit                         string `json:",omitempty"`
 }
 
 func (p Plan) Validate(v task.Task) error {
@@ -28,6 +29,9 @@ func (p Plan) Validate(v task.Task) error {
 
 // ValidateScope 用于完整编排对已完成 Agent 步骤的身份复核，不授予再次执行权。
 func (p Plan) ValidateScope(v task.Task) error {
+	if p.InputAudit != "" && p.InputAudit != agents.InputAuditVersion {
+		return points.ErrInvalid
+	}
 	if v.ID <= 0 || v.UserID <= 0 || v.SubjectID <= 0 || (v.SubjectType != task.Theme && v.SubjectType != task.Topic) {
 		return points.ErrInvalid
 	}

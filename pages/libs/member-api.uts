@@ -207,9 +207,10 @@ export class MemberApi {
 	}
 	// AI只读入口复用会员Bearer/JSON处理，不接受任意地址、写入或自由查询参数。
 	public static aiRead<T>(path : string) : Promise<MemberApiResult<T>> {
-		if (!/^\/api\/v1\/ai\/tasks(?:\?limit=20(?:&before_id=[1-9][0-9]*)?|\/[1-9][0-9]*(?:\/report)?)?$/.test(path)) {
+		if (!/^\/api\/v1\/ai\/tasks(?:\?limit=20(?:&before_id=[1-9][0-9]*)?|\/[1-9][0-9]*(?:\/report(?:\/inputs)?)?)?$/.test(path)) {
 			return Promise.resolve(failure<T>(40001, '查询参数无效'))
 		}
+		if (path.endsWith('/report/inputs')) return requestWithToken<T>(path, 'GET', {} as UTSJSONObject, true, currentAIMemberToken(), '', 22000)
 		return requestWithToken<T>(path, 'GET', {} as UTSJSONObject, true, currentAIMemberToken())
 	}
 	public static aiBalance<T>() : Promise<MemberApiResult<T>> {

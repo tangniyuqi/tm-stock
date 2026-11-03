@@ -6,8 +6,47 @@ import { createWriteStream } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { randomBytes } from 'node:crypto'
+import { randomBytes, createHash } from 'node:crypto'
 import { spawn, execFileSync } from 'node:child_process'
+
+const inputNodes = new Set(['bear_researcher_v2','bull_researcher_v2','fundamentals_analyst_v2','index_analyst_v2','market_analyst_v2','neutral_analyst_v2','news_analyst_v2','research_manager_v2','risk_manager_v2','risky_analyst_v2','safe_analyst_v2','sector_analyst_v2','social_analyst_v2','trader_v2'])
+const digest = value => createHash('sha256').update(value).digest('hex')
+
+// 请求体为父网关真正发出的字节，不使用_generate入参猜测。完整正文只进入隔离结果。
+export function evaluationInputCall({ seq, node, callId, body, model, secrets = [] }) {
+  if (!Number.isSafeInteger(seq) || seq < 1 || seq > 128 || !inputNodes.has(node) || !/^[a-f0-9]{32}$/.test(callId ?? '')
+    || !Buffer.isBuffer(body) || body.length > 512 * 1024 || secrets.some(secret => secret && body.includes(Buffer.from(secret)))) throw new Error('输入审计身份/正文边界无效')
+  const request = JSON.parse(body.toString('utf8'))
+  if (request.model !== model || !Array.isArray(request.messages) || !request.messages.length) throw new Error('输入审计模型或消息无效')
+  return { seq, call_id: callId, node, model, request_json: body.toString('utf8'), request_digest: digest(body),
+    prompt_digest: digest(JSON.stringify(request.messages)), state: 'response_unknown', status: 0, response_model: '', input_tokens: null, output_tokens: null }
+}
+
+export function evaluationInputBundle(state, fixtureJSON) {
+  const calls = state.inputCalls
+  const observed = state.summary?.node_model_calls
+  if (state.execute !== true || state.child !== 'passed' || state.summary?.verified !== true || state.summary?.executed !== true || state.unknown || !Array.isArray(calls) || !Array.isArray(observed) || calls.length !== observed.length || state.summary.model_calls !== calls.length
+    || calls.length < inputNodes.size || calls.some(c => c.state !== 'confirmed' || c.status !== 200 || c.response_model !== c.model
+      || !Number.isSafeInteger(c.input_tokens) || c.input_tokens < 0 || !Number.isSafeInteger(c.output_tokens) || c.output_tokens < 0)
+    || new Set(calls.map(c => c.call_id)).size !== calls.length || new Set(observed.map(c => c.call_id)).size !== observed.length || new Set(calls.map(c => c.node)).size !== inputNodes.size
+    || observed.some(c => !c.success || !calls.some(w => w.call_id === c.call_id && w.node === c.node))) throw new Error('原Agent和实际网关调用无法完整对应')
+  const bundle = { schema: 'tm-stock-agent-inputs-v1', scope: 'synthetic-fixture-only', upstream_commit: '51060a7682cf51810b4bc3a704829438d18cd8dc',
+    provider: state.route.provider, fixture_json: fixtureJSON, fixture_digest: digest(fixtureJSON), calls }
+  if (Buffer.byteLength(JSON.stringify(bundle)) > 2 * 1024 * 1024) throw new Error('输入审计超出隔离上限')
+  return bundle
+}
+
+// 串行追加，发送前必须确认输入已落盘；失败/未知也保留原身份，不覆盖旧记录。
+export function createInputJournal(output, io = fs) {
+  if (path.dirname(output) !== os.tmpdir() || !/^tm-stock-tradingcn-live-[A-Za-z0-9]{6}$/.test(path.basename(output))) throw new Error('输入日志只允许本次隔离目录')
+  const file = path.join(output, 'input-events.jsonl')
+  let pending = Promise.resolve()
+  return { append(event) {
+    const line = JSON.stringify(event) + '\n'
+    pending = pending.then(() => io.appendFile(file, line, { mode: 0o600, flush: true }))
+    return pending
+  }, flush: () => pending }
+}
 
 // 纯函数守卫供无网络自测调用；不接受任意目的地址、模型或流式出口。
 export function validateEvaluationRequest({ execute, method, url, headers, data, session, requests, model = 'deepseek-flash' }) {
@@ -66,7 +105,15 @@ export async function startEvaluation({ credential, source, python, execute = fa
     return !stat.isSymbolicLink() && (stat.isDirectory() || tracked.has(names.join('/')))
   } })
   const session = randomBytes(32).toString('hex')
-  const state = { output, execute, route, reportProfile, requests: 0, usage: [], child: 'waiting', summary: null, rejected: 0, unknown: false }
+  const state = { output, execute, route, reportProfile, requests: 0, usage: [], inputCalls: [], child: 'waiting', summary: null, rejected: 0, unknown: false }
+  const inputJournal = createInputJournal(output)
+  const persistInput = async (phase, call) => {
+    if (!call) return
+    try {
+      const event = phase === 'dispatch_planned' ? { phase, call } : { phase, seq: call.seq, call_id: call.call_id, state: call.state, status: call.status, response_model: call.response_model, input_tokens: call.input_tokens, output_tokens: call.output_tokens }
+      await inputJournal.append(event)
+    } catch { state.unknown = true; state.inputJournalError = true; throw new Error('输入日志未确认落盘') }
+  }
   const reportSession = randomBytes(32).toString('hex')
   let key = credential
   let reportRequests = 0
@@ -91,31 +138,70 @@ export async function startEvaluation({ credential, source, python, execute = fa
         data.response_format = { type: 'json_object' }
       }
       const body = Buffer.from(JSON.stringify(evaluationBody(data, route)))
+      let inputCall = null
+      if (!report) {
+        inputCall = evaluationInputCall({ seq: state.inputCalls.length + 1, node: req.headers['x-tm-evaluation-node'], callId: req.headers['x-tm-evaluation-call'], body, model: route.model, secrets: [key, session, reportSession] })
+        if (state.inputCalls.some(c => c.call_id === inputCall.call_id)) return reject()
+        if (Buffer.byteLength(JSON.stringify([...state.inputCalls, inputCall])) > 2 * 1024 * 1024 - 16384) return reject(413)
+        state.inputCalls.push(inputCall)
+        await persistInput('dispatch_planned', inputCall)
+      }
       if (report) reportRequests++
       state.requests++
+      let responseDone = false
+      let timer
+      const unknownInput = async () => {
+        if (responseDone) return
+        responseDone = true; clearTimeout(timer); state.unknown = true
+        try { await persistInput('response_unknown', inputCall) } catch { /* 写盘失败已保留未确认标记，禁止后续发送。 */ }
+        reject(502)
+      }
       const upstream = https.request({ hostname: route.hostname, port: 443, path: route.path, method: 'POST', agent: false, rejectUnauthorized: true, minVersion: 'TLSv1.2', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', 'Content-Length': body.length } }, incoming => {
         const parts = []; let bytes = 0
         incoming.on('data', chunk => { bytes += chunk.length; if (bytes > 4 * 1024 * 1024) upstream.destroy(); else parts.push(chunk) })
-        incoming.on('end', () => {
+        incoming.on('end', async () => {
+          if (responseDone) return
+          responseDone = true
           clearTimeout(timer)
           let answer
-          try { answer = JSON.parse(Buffer.concat(parts).toString('utf8')) } catch { state.unknown = true; return reject(502) }
+          try { answer = JSON.parse(Buffer.concat(parts).toString('utf8')) } catch { state.unknown = true; try { await persistInput('response_unknown', inputCall) } catch { /* 失败已标记。 */ }; return reject(502) }
           state.usage.push({ phase: report ? 'report' : 'core', status: incoming.statusCode, input: answer.usage?.prompt_tokens ?? null, output: answer.usage?.completion_tokens ?? null, finish: answer.choices?.[0]?.finish_reason ?? null })
+          if (inputCall) {
+            Object.assign(inputCall, { state: 'confirmed', status: incoming.statusCode, response_model: answer.model ?? '', input_tokens: answer.usage?.prompt_tokens ?? null, output_tokens: answer.usage?.completion_tokens ?? null })
+            try { await persistInput('response_received', inputCall) } catch { return reject(502) }
+          }
           // 错误不转发供应商回显；成功响应仅供隔离Agent读取，不打印内容。
           if (incoming.statusCode !== 200) return reject(incoming.statusCode)
-          res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(answer))
+          if (!res.destroyed && !res.writableEnded) { res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(answer)) }
         })
-        incoming.on('error', () => { state.unknown = true; reject(502) })
+        incoming.on('error', unknownInput)
       })
-      const timer = setTimeout(() => { state.unknown = true; upstream.destroy() }, 90000)
-      upstream.on('error', () => { clearTimeout(timer); state.unknown = true; reject(502) })
+      timer = setTimeout(() => { unknownInput(); upstream.destroy() }, 90000)
+      upstream.on('error', unknownInput)
       upstream.end(body)
     } catch { reject(400) }
   })
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
   state.port = server.address().port
   state.reportEndpoint = { url: `http://127.0.0.1:${state.port}/v1`, token: reportSession }
-  state.close = async () => { key = ''; await new Promise(resolve => server.close(resolve)); await recordReceipt(state) }
+  state.inputBundle = async () => {
+    const bundle = evaluationInputBundle(state, await fs.readFile(path.join(output, 'input-fixture.json'), 'utf8'))
+    const text = JSON.stringify(bundle)
+    const file = path.join(output, 'input-audit.json')
+    try { await fs.writeFile(file, text, { mode: 0o600, flag: 'wx', flush: true }) } catch (error) {
+      if (error.code !== 'EEXIST' || await fs.readFile(file, 'utf8') !== text) throw new Error('原输入档案已存在且不一致，禁止覆盖')
+    }
+    return bundle
+  }
+  state.close = async () => {
+    key = ''; await new Promise(resolve => server.close(resolve))
+    try { await inputJournal.flush() } catch { state.unknown = true; state.inputJournalError = true }
+    const partial = { schema: 'tm-stock-agent-inputs-partial-v1', scope: 'synthetic-fixture-only', complete: false, child: state.child, unknown: state.unknown, calls: state.inputCalls }
+    let archiveError = false
+    try { await fs.writeFile(path.join(output, 'input-audit-partial.json'), JSON.stringify(partial), { mode: 0o600, flag: 'wx', flush: true }) } catch { state.unknown = true; state.inputJournalError = true; archiveError = true }
+    await recordReceipt(state)
+    if (archiveError) throw new Error('原输入部分档案未确认保存，禁止成功回执')
+  }
   state.launch = () => {
     if (state.child !== 'waiting') throw new Error('评估只允许启动一次，不自动重试')
     // 使用独立的Windows最小环境；不继承宿主任何API Key、代理或产品配置。

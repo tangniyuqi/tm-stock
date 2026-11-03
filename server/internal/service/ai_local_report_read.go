@@ -2,9 +2,11 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
+	"github.com/tangniyuqi/tm-stock/server/internal/ai/agenttask"
 	"github.com/tangniyuqi/tm-stock/server/internal/ai/finalreport"
 	"github.com/tangniyuqi/tm-stock/server/internal/ai/task"
 	"github.com/tangniyuqi/tm-stock/server/internal/points"
@@ -149,4 +151,47 @@ func (c *AILocalReportReadControl) Recheck(parent context.Context, p AIReportPub
 		return err
 	}
 	return ctx.Err()
+}
+
+func (c *AILocalReportReadControl) ForInputs(ctx context.Context, uid, id int64) (AIReportInputBinding, error) {
+	p, err := c.load(ctx, uid, id)
+	if err != nil {
+		return AIReportInputBinding{}, err
+	}
+	if err := c.admission.Recheck(ctx, p.plan); err != nil {
+		return AIReportInputBinding{}, localReadDenial(err)
+	}
+	execution, err := c.admission.ExecutionPlan(ctx, p.task)
+	if err != nil {
+		return AIReportInputBinding{}, localReadDenial(err)
+	}
+	digest, err := execution.AdmissionDigest()
+	if err != nil {
+		return AIReportInputBinding{}, err
+	}
+	if digest != p.plan.ExecutionDigest || execution.Agent.ValidateScope(p.task) != nil {
+		return AIReportInputBinding{}, finalreport.ErrUnavailable
+	}
+	var receipt agenttask.Receipt
+	err = c.admission.evidence.WithinReportTx(ctx, func(tx finalreport.Tx) error {
+		v, err := lockOwnedTask(ctx, tx, uid, id)
+		if err != nil {
+			return err
+		}
+		if v.Status != task.Succeeded || v.No != p.task.No || execution.Agent.ValidateScope(v) != nil {
+			return finalreport.ErrUnavailable
+		}
+		r, err := tx.StageResult(ctx, uid, id, 1)
+		if err != nil {
+			return err
+		}
+		if r.Stage != "agent_call" || r.StepNo != 1 || r.TaskID != id || r.UserID != uid || r.InputDigest != execution.Agent.InputDigest(v) || r.OutputDigest != task.StageDigest(r.Payload) || task.CheckStageJSON(r.Payload) != nil || json.Unmarshal(r.Payload, &receipt) != nil {
+			return points.ErrInvariant
+		}
+		return nil
+	})
+	if err != nil {
+		return AIReportInputBinding{}, err
+	}
+	return AIReportInputBinding{Task: p.task, Agent: execution.Agent, Receipt: receipt}, nil
 }

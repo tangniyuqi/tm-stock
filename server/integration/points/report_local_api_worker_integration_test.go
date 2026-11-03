@@ -21,6 +21,8 @@ import (
 	"testing"
 	"time"
 
+	mysql "github.com/go-sql-driver/mysql"
+	"github.com/tangniyuqi/tm-stock/server/internal/agents"
 	"github.com/tangniyuqi/tm-stock/server/internal/config"
 	"github.com/tangniyuqi/tm-stock/server/internal/dto"
 	"github.com/tangniyuqi/tm-stock/server/internal/repository"
@@ -114,7 +116,15 @@ func localAPIDSN(t *testing.T, e *workflowEnv, feedback ...bool) string {
 	if len(feedback) == 1 && feedback[0] {
 		tables = append(tables, "tm_ai_report_feedbacks", "tm_ai_report_feedback_events")
 	}
-	return localProcessDSN(t, e, tables, true)
+	dsn := localProcessDSN(t, e, tables, true)
+	cfg, err := mysql.ParseDSN(dsn)
+	if err != nil {
+		t.Fatal("本轮API账号无效")
+	}
+	for _, table := range []string{"tm_ai_agent_runs", "tm_ai_agent_events"} {
+		e.mustExec(`GRANT SELECT ON ` + e.database + `.` + table + ` TO '` + cfg.User + `'@'127.0.0.1'`)
+	}
+	return dsn
 }
 
 func localPasswordTokens(t *testing.T, ctx context.Context, b *h5MemberLoginBridge, client *http.Client) (tokens []string, password string) {
@@ -266,6 +276,7 @@ type localProcessCase struct {
 	feedbackAdmin         string
 	feedbackBrowserRunner string
 	qa                    bool
+	inputs                bool
 }
 
 func verifyLocalAPIWorker(t *testing.T, level sql.IsolationLevel, kind int, api, worker, login string, cases ...localProcessCase) {
@@ -280,6 +291,13 @@ func verifyLocalAPIWorker(t *testing.T, level sql.IsolationLevel, kind int, api,
 		t.Fatal("每轮只允许一个进程配置")
 	}
 	external := len(cases) == 1 && cases[0].external
+	if len(cases) == 1 && cases[0].inputs {
+		raw, err := os.ReadFile(filepath.Join("..", "..", "..", "eval", "agents", "inputs-synthetic-protocol.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		e.agentInputs.Store(raw)
+	}
 	feedbackEnabled := len(cases) == 1 && cases[0].feedbackAdmin != ""
 	if external || len(cases) == 1 && cases[0].feedbackBrowserRunner != "" {
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
@@ -325,6 +343,11 @@ func verifyLocalAPIWorker(t *testing.T, level sql.IsolationLevel, kind int, api,
 	execution := config.AILocalExecution{Version: 1, InstanceID: f.runtime.InstanceID, Revision: "v1", Scope: "synthetic-loopback-only", IssuedAtMS: time.Now().UnixMilli() - 1000, ExpiresAtMS: f.file.ExpiresAtMS, Model: config.AILocalExecutionModel{Name: mc.Name, BaseURL: mc.BaseURL, Model: mc.Model, TimeoutMS: mc.TimeoutMS}, Agent: config.AILocalExecutionAgent{BaseURL: cc.BaseURL, ApprovalRef: cc.ApprovalRef, LicenseRef: cc.LicenseRef, QuickModel: cc.QuickModel, DeepModel: cc.DeepModel, TimeoutMS: int(cc.Timeout / time.Millisecond), MaxSubmissions: cc.MaxSubmissions}, LeaseMS: 60000, HeartbeatMS: 1000, WorkerTimeoutMS: 30000, AgentPollMS: 50}
 	if len(cases) == 1 && cases[0].configure != nil {
 		cases[0].configure(t, f, &execution)
+		f.file.Plans = []config.AILocalPlan{f.spec}
+		write(f.path, f.file)
+	}
+	if len(cases) == 1 && (cases[0].inputs || external) {
+		f.spec.AgentInputAudit = agents.InputAuditVersion
 		f.file.Plans = []config.AILocalPlan{f.spec}
 		write(f.path, f.file)
 	}
@@ -522,6 +545,7 @@ func verifyLocalAPIWorker(t *testing.T, level sql.IsolationLevel, kind int, api,
 			t.Fatal("深度报告少于六引文")
 		}
 	}
+	verifyLocalReportInputs(t, f, client, base, taskPath, dsn, tokens, len(cases) == 1 && (cases[0].inputs || external))
 	if v := call("POST", intent+"/confirm", tokens[0], "", `{"confirmed":true}`, 200); v.TaskID != linked.TaskID || v.MessageSeq != 1 {
 		t.Fatal("成功后确认重放另建任务")
 	}

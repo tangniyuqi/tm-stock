@@ -4,6 +4,16 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+
+test('输入归档关闭失败不能写出整链成功回执', async () => {
+  const output=await fs.mkdtemp(path.join(os.tmpdir(),'tm-stock-tradingcn-live-'))
+  let closed=0
+  const bridge={evaluation:{output,child:'passed'},async close(){closed++;throw new Error('仅测试输入归档失败')}}
+  const verification={finished:Promise.resolve(),status:'passed',exit:0}
+  await assert.rejects(()=>finishChainVerification(bridge,verification))
+  assert.equal(closed,1)
+  await assert.rejects(()=>fs.access(path.join(output,'local-chain-receipt.json')))
+})
 import { createAsyncBridge, validSubmission, finishChainVerification, chainConversationOptions, hasConversationProof, hasDeepProof, hasProcessHTTPProof, hasProcessH5Proof, hasSevenStepProof, startChainVerification } from './tradingcn-local-chain.mjs'
 
 test('七步仅允许深度会话独立进程，错编排在启动前拒绝', () => {
@@ -169,7 +179,8 @@ for (const outcome of ['success', 'failed', 'unknown']) test(`异步桥${outcome
   const evaluation = { output, execute: true, child: 'waiting', requests: 1, usage: [{ phase: 'core', status: 200, input: 1, output: 1 }],
     summary: { verified: true, executed: true, model_calls: 1 }, unknown: outcome === 'unknown',
     async launch() { launches++; this.child = 'running'; await gate; this.child = outcome === 'failed' ? 'failed' : 'passed' },
-    async close() {} }
+    async close() {},
+    async inputBundle() { return JSON.parse(await fs.readFile(new URL('../../eval/agents/inputs-synthetic-protocol.json', import.meta.url), 'utf8')) } }
   await fs.writeFile(path.join(output, 'quarantined-result.json'), JSON.stringify({ final_report: '明确本地测试原报告', internal: '不转交' }))
   // 真实文件系统只在终态写入前受控暂停，证明HTTP不能早于持久记录发布终态。
   const journalIO = { ...fs, async writeFile(file, data, options) {

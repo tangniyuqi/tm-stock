@@ -19,13 +19,17 @@ type Hint struct {
 const MaxHintBytes = 256 << 10
 
 func NewHint(v task.Task, p Plan, r agents.Record, result agents.Result) (*Hint, error) {
-	if p.ValidateScope(v) != nil || len(result.Payload) > MaxHintBytes || task.CheckStageJSON(result.Payload) != nil || !result.Valid() || result.RemoteID != r.RemoteID || result.Digest() != r.ResultDigest {
+	if p.ValidateScope(v) != nil || !result.Valid() || result.RemoteID != r.RemoteID || result.Digest() != r.ResultDigest {
 		return nil, points.ErrInvalid
 	}
 	if _, _, err := ReceiptPolicy(p, p.InputDigest(v), r); err != nil {
 		return nil, err
 	}
-	return &Hint{p, r, bytes.Clone(result.Payload)}, nil
+	payload, audit, err := agents.InputAuditPayload(result)
+	if err != nil || p.InputAudit != "" && audit == nil || len(payload) > MaxHintBytes || task.CheckStageJSON(payload) != nil {
+		return nil, points.ErrInvalid
+	}
+	return &Hint{p, r, payload}, nil
 }
 func (h *Hint) Matches(v task.Task) bool {
 	return h != nil && h.plan.ValidateScope(v) == nil

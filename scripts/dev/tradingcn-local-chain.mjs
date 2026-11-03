@@ -102,10 +102,14 @@ export function startChainVerification(bridge, { powershell, mysql, bash, goBin,
 }
 
 export async function finishChainVerification(bridge, verification) {
+  let closed = false
   try {
     await verification.finished
     // Go启动失败时原引擎仍未启动；这是已知零调用失败，不是待执行成功回执。
     if (verification.status === 'failed' && bridge.evaluation.child === 'waiting') bridge.evaluation.child = 'failed'
+    // 完成输入/未知状态归档后才能生成成功回执；关闭失败不得遗留verified=true。
+    closed = true
+    await bridge.close()
     const provider = await recordReceipt(bridge.evaluation)
     const reportProfile = verification.reportProfile ?? ''
     const expectedCalls = evaluationReportCalls(reportProfile)
@@ -124,7 +128,7 @@ export async function finishChainVerification(bridge, verification) {
       materials: 'explicit_synthetic_fixture', upstream_web_mongo_redis_verified: false }
     await fs.writeFile(path.join(bridge.evaluation.output, 'local-chain-receipt.json'), JSON.stringify(receipt, null, 2), { mode: 0o600 })
     return receipt
-  } finally { await bridge.close() }
+  } finally { if (!closed) await bridge.close() }
 }
 
 // runner与journalIO注入只用于无模型网络自测。真实入口固定使用默认文件系统，由startLocalChain构造。
@@ -194,7 +198,8 @@ export async function createAsyncBridge(evaluation, journalIO = fs) {
         // 正文原样保留在隔离结果中，只转交原引擎的报告字段作不可信线索，非公开报告。
         const reports = Object.fromEntries(Object.entries(result).filter(([key, value]) => key.endsWith('_report') && typeof value === 'string'))
         if (!Object.keys(reports).length) return respond(res, 502, {})
-        counts.results++; return respond(res, 200, { analysis_id: job.task_id, reports, evaluation_scope: 'synthetic_fixture_only' })
+        const inputAudit = await evaluation.inputBundle()
+        counts.results++; return respond(res, 200, { analysis_id: job.task_id, reports, evaluation_scope: 'synthetic_fixture_only', input_audit: inputAudit })
       }
       // 取消请求未实现远端安全停机，明确拒绝，不伪称已退款或停止。
       return respond(res, 404, {})

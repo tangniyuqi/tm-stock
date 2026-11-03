@@ -1,5 +1,17 @@
 # AI 内部操作手册（L0 审核与隔离 Agent 执行）
 
+## 上游完整输入、原任务回执与会员读取（2026-11-03）
+
+设计13.26。本地计划可设置agent_input_audit=tm-stock-agent-inputs-v1，绑定执行与原输入摘要；空值保留旧配置编码，未知协议拒绝。新结果必须有完整input_audit，未知字段/别名/缺节点/重复ID/模型不符/未知用量均拒绝，不删审计降级。原256KiB线索上限不变，私有审计另限2MiB且整份隔离结果仍限4MiB。检查原结果摘要仍绑定完整隔离正文，而后续选择器只接剥离审计后的线索。
+
+父网关在实际发送前串行追加并flush输入日志input-events.jsonl，回包后追加确认元数据；网络失败/超时保留未知，不重发。结束保留input-audit-partial.json，完整成功另有不可覆盖的input-audit.json；部分档案complete=false不可当成完整证据。原工厂每次_generate的上下文UUID/节点必须与父网关实际请求一一对应，模型响应原文不入日志。归档失败先阻止成功回执，不遗留verified=true。GET /models只检验只读可达性，不能代替模型完成或恢复未知响应。
+
+真库专项verify-ai-source-native.ps1 -ReportsOnly -ReportPattern '^TestIntegrationAIReportAgentInputsProcess$' -RunCount 1在MySQL8/9串行执行，各预期一根两隔离子节点共3个唯一PASS。原密码HTTP登录→独立API/worker→原报告终检/一次开发结算后，调用GET tasks/{id}/report/inputs；重复读取、跨账号、无令牌、撤回来源及Agent表SELECT、恢复均核无额外任务/积分/模型副作用。API账号仅新增tm_ai_agent_runs/events的SELECT，不加Agent写权限；原任务第一步实际回执须与当前隔离记录的请求/远端/模型配置/结果摘要相同。
+
+原报告页“上游调用记录”按需挂载，复用红白TMUI，默认不请求；重查先清旧内容，换任务/报告/章节/账号及卸载清空，迟到响应不回填。声明的合成包与各调用完整输入分开说明，完整内部上下文不公开。组件宿主脚本verify-ai-qa-ui.cjs检查闭集实际类型和状态隔离；HBuilderX整包与实际浏览器/设备另记。50项网关/异步桥/正式问答无网络自测进入harness/CI，不把它们算作真实模型结果。
+
+本轮真实复验目录tm-stock-tradingcn-live-8zFzhq保留：8次发出、6次HTTP确认、2次结果未知，ReadTimeout/APITimeoutError后停止后续发送；原任务failed、frozen=0、报告/成功结算均0，实例212f23577d0943bba58a8ddac22fb76a已停止保留。该轮失败前原输入只在内存，未取得完整输入档案，不能事后重建冒充原始证据。此后补发送前日志、部分档案及写盘失败门禁，已做无网络反例；未自动重发原任务，真实完整成功仍待独立复验。安全配置仅由父进程读取，既有被修改的上游源码保持，使用独立干净51060a7源及Python3.11.17。
+
 ## 正式资料的原问答API与真实模型（2026-11-03）
 
 设计13.25：单独使用version=2、official-materials-development-only问答文件，显式声明清单摘要、开发AI用途、会员/题材、原范围批准及全部快照ID/Hash；保留version=1原合成协议文件。所有模型仍走字面回环，JSONSchemaFallback及reasoning_effort=none须进入原ProfileDigest。原SQL范围、来源许可和配额/预算仍必须有效，文件声明不授予正式发布或真实报告执行许可。

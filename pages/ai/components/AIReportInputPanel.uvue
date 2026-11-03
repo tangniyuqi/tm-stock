@@ -1,0 +1,67 @@
+<script lang="ts" setup>
+import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { aiMutedColor } from '../ai-theme.uts'
+import { currentAIMemberToken } from '../../libs/ai-session.uts'
+import { AIReportInputs, readAIReportInputs } from '../../libs/ai-report-inputs.uts'
+
+type InputProps = { taskId : number, subjectId : number, sessionToken : string }
+defineOptions({name:'AIReportInputPanel'})
+const props = defineProps<InputProps>()
+const emit = defineEmits<{unauthorized: []}>()
+const data = ref<AIReportInputs | null>(null)
+const busy = ref<boolean>(false)
+const message = ref<string>('')
+let active : boolean = true
+let generation : number = 0
+const clear = () => { generation++; data.value = null; busy.value = false; message.value = '' }
+const scope = () : string => props.taskId.toString()+':'+props.subjectId.toString()
+const current = (n : number, token : string, original : string) : boolean => active && n == generation && original == scope() && token.length > 0 && token == props.sessionToken && token == currentAIMemberToken()
+const load = async () : Promise<void> => {
+	if (busy.value) return
+	clear()
+	const n = generation, token = props.sessionToken, original = scope()
+	if (!current(n,token,original)) return
+	busy.value = true
+	try {
+		const r = await readAIReportInputs(props.taskId,props.subjectId)
+		if (!current(n,token,original)) return
+		if (r.code == 40100 || r.code == 40101 || r.code == 40301) { clear(); emit('unauthorized'); return }
+		if (r.code != 0) { message.value = '当前报告的完整输入记录暂不可读取，请重新核对报告和资料权限。'; return }
+		data.value = r.data
+	} catch (_) { if (current(n,token,original)) message.value = '记录读取失败，可重新核对。' }
+	finally { if (current(n,token,original)) busy.value = false }
+}
+watch(() : string => props.sessionToken+':'+scope(), () => { clear() }, {flush:'sync'})
+onMounted(() => { load() })
+onBeforeUnmount(() => { active = false; clear() })
+</script>
+
+<template>
+	<x-sheet class="mt-16 pa-16" :round="12" color="#ffffff" dark-color="#ffffff">
+		<text class="input-title">本次上游资料与调用记录</text>
+		<text class="input-copy mt-8">按原任务重新核对当前报告权限。这里不展示内部模型上下文或推理，查看记录不重新生成报告。</text>
+		<text v-if="busy" class="input-copy mt-12">正在核对资料和原调用记录…</text>
+		<text v-if="message != ''" class="input-copy mt-12">{{ message }}</text>
+		<x-button v-if="!busy" :color="aiMutedColor" class="mt-12" :block="true" height="44" round="10" skin="text" font-size="14" @click="load">重新核对当前记录</x-button>
+		<view v-if="data != null">
+			<text class="input-title mt-16">本次配置的合成接线资料</text>
+			<text class="input-copy mt-8">下列为配置声明的资料包，各次输入内容以内部隔离存证为准。</text>
+			<text class="input-copy mt-8">{{ data!.fixtureSubject }}</text>
+			<text class="input-copy mt-8">{{ data!.fixtureNotice }}</text>
+			<text v-for="fact in data!.facts" :key="fact.id" class="input-copy mt-8">{{ fact.text }}</text>
+			<text class="input-copy mt-12">这些资料不代表真实题材覆盖、独立人工评测或研究质量。</text>
+			<text class="input-title mt-16">{{ data!.calls.length }} 次已确认调用</text>
+			<view v-for="call in data!.calls" :key="call.seq" class="mt-12">
+				<text class="input-copy">调用 {{ call.seq }} · {{ call.model }}</text>
+				<text class="input-copy mt-4">输入 {{ call.inputTokens }} / 输出 {{ call.outputTokens }} token</text>
+			</view>
+			<text class="input-copy mt-12">实际费用暂无账单证据。记录仅证明这次输入与调用的绑定。</text>
+		</view>
+	</x-sheet>
+</template>
+
+<style lang="scss" scoped>
+@import "../ai-theme.scss";
+.input-title { color: #1f2329; font-size: 15px; line-height: 23px; font-weight: 600; }
+.input-copy { color: #6b7280; font-size: 13px; line-height: 21px; white-space: pre-wrap; }
+</style>

@@ -269,7 +269,7 @@ func (c *AILocalAdmissionControl) build(ctx context.Context, spec config.AILocal
 	}
 	policy := finalreport.Config{Ref: spec.PolicyRef, ModelName: model.Model, FilingNo: model.FilingNo, EntailmentVersion: ent, SemanticVersion: sem, AllowedDomains: slices.Clone(spec.AllowedDomains), AnalysisType: model.AnalysisType, MinQuotes: spec.MinQuotes}
 	p := AIL1ReportPlan{Model: model, Policy: policy, ThemeName: spec.SubjectName, AnalysisType: model.AnalysisType}
-	p.Agent = agenttask.Plan{SubjectType: task.Theme, SubjectID: spec.SubjectID, ActorID: spec.ActorID, Symbol: spec.Symbol, ProfileDigest: spec.AgentProfileDigest, Units: task.Units{Calls: spec.AgentCalls, Tokens: spec.AgentTokens, Pages: spec.AgentPages}}
+	p.Agent = agenttask.Plan{SubjectType: task.Theme, SubjectID: spec.SubjectID, ActorID: spec.ActorID, Symbol: spec.Symbol, ProfileDigest: spec.AgentProfileDigest, Units: task.Units{Calls: spec.AgentCalls, Tokens: spec.AgentTokens, Pages: spec.AgentPages}, InputAudit: spec.AgentInputAudit}
 	var supportPreparation *dossier.SupportPreparation
 	var comparisonPreparation *dossier.CardComparisonPreparation
 	if spec.ReportProfile != "" {

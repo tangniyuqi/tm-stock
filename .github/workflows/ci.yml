@@ -126,11 +126,88 @@ jobs:
           # 报告追问范围与配置同次当前读取新增1根，撤权时不复用正文。
           # 原问题资料/调用复核新增4根18子节点；服务页面接线沿原入口验证。
           # 正式资料问答配置/嵌套闭集/证明绑定新增3根43子节点。
-          MIN=2259
+          # 原Agent完整输入/原任务读取新增8根60子节点，保留原问答门禁。
+          MIN=2327
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项测试，低于下限 $MIN —— 要么测试没被执行，要么有测试被删。"
             exit 1
           fi
+
+          # 原Agent完整输入普通门禁开始
+          AGENT_INPUT_UNIT_ACTUAL=$(sed -nE 's/^[[:space:]]*--- PASS: (Test(AgentInputAudit|HintExcludesCompletePrivateInputs|RequiredAgentInputsCannotDowngrade|AILocalPlansAgentInputRequirement|AIReportInputs)[^ ]*) .*/\1/p' /tmp/gotest.log | LC_ALL=C sort)
+          AGENT_INPUT_UNIT_EXPECTED=$(printf '%s\n' \
+            'TestAgentInputAuditClosedEvidence' \
+            'TestAgentInputAuditClosedEvidence/valid' \
+            'TestAgentInputAuditClosedEvidence/scope' \
+            'TestAgentInputAuditClosedEvidence/commit' \
+            'TestAgentInputAuditClosedEvidence/provider' \
+            'TestAgentInputAuditClosedEvidence/empty' \
+            'TestAgentInputAuditClosedEvidence/missing_node' \
+            'TestAgentInputAuditClosedEvidence/unknown_node' \
+            'TestAgentInputAuditClosedEvidence/sequence' \
+            'TestAgentInputAuditClosedEvidence/call_id' \
+            'TestAgentInputAuditClosedEvidence/duplicate_call' \
+            'TestAgentInputAuditClosedEvidence/model' \
+            'TestAgentInputAuditClosedEvidence/response_model' \
+            'TestAgentInputAuditClosedEvidence/unknown_response' \
+            'TestAgentInputAuditClosedEvidence/http' \
+            'TestAgentInputAuditClosedEvidence/input_usage' \
+            'TestAgentInputAuditClosedEvidence/output_usage' \
+            'TestAgentInputAuditClosedEvidence/wire' \
+            'TestAgentInputAuditClosedEvidence/prompt' \
+            'TestAgentInputAuditClosedEvidence/wire_model' \
+            'TestAgentInputAuditClosedEvidence/messages' \
+            'TestAgentInputAuditClosedEvidence/fixture' \
+            'TestAgentInputAuditClosedEvidence/fixture_digest' \
+            'TestAgentInputAuditResultProjection' \
+            'TestAgentInputAuditResultProjection/valid' \
+            'TestAgentInputAuditResultProjection/legacy' \
+            'TestAgentInputAuditResultProjection/wrong_remote' \
+            'TestAgentInputAuditResultProjection/unknown_top' \
+            'TestAgentInputAuditResultProjection/missing_reports' \
+            'TestAgentInputAuditResultProjection/scope' \
+            'TestAgentInputAuditResultProjection/alias' \
+            'TestAgentInputAuditResultProjection/audit_null' \
+            'TestAgentInputAuditResultProjection/audit_version' \
+            'TestAgentInputAuditResultProjection/reports_array' \
+            'TestAgentInputAuditResultProjection/empty_reports' \
+            'TestAgentInputAuditResultProjection/reports_null' \
+            'TestAgentInputAuditResultProjection/duplicate' \
+            'TestAgentInputAuditResultProjection/invalid' \
+            'TestAgentInputAuditResultProjection/private_format' \
+            'TestAgentInputAuditStrictJSON' \
+            'TestAgentInputAuditStrictJSON/unknown' \
+            'TestAgentInputAuditStrictJSON/alias' \
+            'TestAgentInputAuditStrictJSON/duplicate' \
+            'TestAgentInputAuditStrictJSON/null' \
+            'TestAgentInputAuditStrictJSON/nested_unknown' \
+            'TestAgentInputAuditStrictJSON/nested_alias' \
+            'TestAgentInputAuditStrictJSON/nested_null' \
+            'TestAgentInputAuditStrictJSON/trailing' \
+            'TestAgentInputAuditStrictJSON/oversize' \
+            'TestHintExcludesCompletePrivateInputs' \
+            'TestRequiredAgentInputsCannotDowngrade' \
+            'TestAILocalPlansAgentInputRequirement' \
+            'TestAILocalPlansAgentInputRequirement/legacy' \
+            'TestAILocalPlansAgentInputRequirement/required' \
+            'TestAILocalPlansAgentInputRequirement/unknown' \
+            'TestAIReportInputsCurrentAuthorizationAndProjection' \
+            'TestAIReportInputsCurrentAuthorizationAndProjection/valid' \
+            'TestAIReportInputsCurrentAuthorizationAndProjection/disabled' \
+            'TestAIReportInputsCurrentAuthorizationAndProjection/unbound' \
+            'TestAIReportInputsCurrentAuthorizationAndProjection/wrong_user' \
+            'TestAIReportInputsCurrentAuthorizationAndProjection/wrong_task' \
+            'TestAIReportInputsCurrentAuthorizationAndProjection/binding' \
+            'TestAIReportInputsCurrentAuthorizationAndProjection/actor' \
+            'TestAIReportInputsCurrentAuthorizationAndProjection/receipt' \
+            'TestAIReportInputsCurrentAuthorizationAndProjection/raw_digest' \
+            'TestAIReportInputsCurrentAuthorizationAndProjection/legacy' \
+            'TestAIReportInputsCurrentAuthorizationAndProjection/revoked_after_read' \
+            'TestAIReportInputsHTTPBoundary' | LC_ALL=C sort)
+          if [ "$AGENT_INPUT_UNIT_ACTUAL" != "$AGENT_INPUT_UNIT_EXPECTED" ] || grep -Eq '^[[:space:]]*--- (FAIL|SKIP): Test(AgentInputAudit|HintExcludesCompletePrivateInputs|RequiredAgentInputsCannotDowngrade|AILocalPlansAgentInputRequirement|AIReportInputs)' /tmp/gotest.log; then
+            echo '::error::原Agent完整输入/隐私投影/原任务当前读取验收缺失、重复、失败或跳过'; exit 1
+          fi
+          # 原Agent完整输入普通门禁结束
 
           # 正式资料问答装配普通门禁开始
           OFFICIAL_QA_UNIT_ACTUAL=$(sed -nE 's/^[[:space:]]*--- PASS: (TestAILocalQA(MaterialConfiguration|MaterialStrictShape|MaterialProofBinding)[^ ]*) .*/\1/p' /tmp/gotest.log | LC_ALL=C sort)
@@ -1432,6 +1509,17 @@ jobs:
           fi
           # 正式资料问答装配真库门禁结束
 
+          # 原Agent完整输入真库门禁开始
+          AGENT_INPUT_SQL_ACTUAL=$(sed -nE 's/^[[:space:]]*--- PASS: (TestIntegrationAIReportAgentInputsProcess[^ ]*) .*/\1/p' /tmp/it.log | LC_ALL=C sort)
+          AGENT_INPUT_SQL_EXPECTED=$(printf '%s\n' \
+            'TestIntegrationAIReportAgentInputsProcess' \
+            'TestIntegrationAIReportAgentInputsProcess/Read_Committed' \
+            'TestIntegrationAIReportAgentInputsProcess/Repeatable_Read' | LC_ALL=C sort)
+          if [ "$AGENT_INPUT_SQL_ACTUAL" != "$AGENT_INPUT_SQL_EXPECTED" ] || grep -Eq '^[[:space:]]*--- (FAIL|SKIP): TestIntegrationAIReportAgentInputsProcess' /tmp/it.log; then
+            echo '::error::原Agent完整输入的原登录/API/只读权限/来源撤回/账本无副作用验收缺失、重复、失败或跳过'; exit 1
+          fi
+          # 原Agent完整输入真库门禁结束
+
           # 报告追问回执真库门禁开始
           REPORT_CAPTURE_ACTUAL=$(sed -nE 's/^[[:space:]]*--- PASS: (TestIntegrationAIReportResearchCapture[^ ]*) .*/\1/p' /tmp/it.log | LC_ALL=C sort)
           REPORT_CAPTURE_EXPECTED=$(printf '%s\n' \
@@ -1777,7 +1865,8 @@ jobs:
           # 原五/六/七步报告/会话消息/JWT→追问回执新增1根8子节点。
           # 正式机关原文节选三个开发题材经原API读取新增1根3子节点。
           # 正式资料问答受控装配与执行中撤回新增1根，常规CI只用回环协议。
-          MIN=1782
+          # 原Agent完整输入独立API进程新增1根2隔离子节点。
+          MIN=1785
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项，低于下限 $MIN —— 要么没跑，要么有测试被删。"; exit 1
           fi

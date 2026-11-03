@@ -8,10 +8,12 @@ import { openSafeExternalUrl } from '../../libs/external-link.uts'
 import AIReportTools from './AIReportTools.uvue'
 import AIReportDossierPanel from './AIReportDossierPanel.uvue'
 import AIReportComparisonPanel from './AIReportComparisonPanel.uvue'
+import AIReportInputPanel from './AIReportInputPanel.uvue'
 
 type AIReportPanelProps = { report : AIReport, sessionToken ?: string }
 defineOptions({ name: 'AIReportPanel' })
 const props = withDefaults(defineProps<AIReportPanelProps>(), { sessionToken: '' })
+const emit = defineEmits<{unauthorized: []}>()
 const sectionKey = ref<string>('all')
 const safeReport = computed(() : AIReport | null => {
 	if (props.report == null || !isValidAIReport(props.report, props.report.taskId)) return null
@@ -23,7 +25,7 @@ const visibleSections = computed(() : AIReportSection[] => {
 })
 const sources = computed(() : AIReportSourceEntry[] => safeReport.value == null ? [] as AIReportSourceEntry[] : aiReportSources(safeReport.value!))
 const selectSection = (key : string) : void => {
-	if (['all', 'definition', 'timeline', 'segment', 'companies', 'sources', 'dossier', 'comparison'].includes(key)) sectionKey.value = key
+	if (['all', 'definition', 'timeline', 'segment', 'companies', 'sources', 'dossier', 'comparison', 'inputs'].includes(key)) sectionKey.value = key
 }
 const openSource = (url : string) : void => { openSafeExternalUrl(url) }
 watch(() : AIReport => props.report, () => { sectionKey.value = 'all' }, { flush: 'sync' })
@@ -42,6 +44,7 @@ watch(() : string => props.sessionToken, () => { sectionKey.value = 'all' }, { f
 				<x-button :color="sectionKey == 'all' ? aiBrandColor : aiMutedColor" class="ai-section-tab" height="44" :skin="sectionKey == 'all' ? 'thin' : 'text'" @click="selectSection('all')" round="10" font-size="14">全部章节</x-button>
 				<x-button :color="sectionKey == section.key ? aiBrandColor : aiMutedColor" v-for="section in safeReport!.sections" :key="section.key" class="ai-section-tab" height="44" :skin="sectionKey == section.key ? 'thin' : 'text'" @click="selectSection(section.key)" round="10" font-size="14">{{ section.title }}</x-button>
 				<x-button :color="sectionKey == 'sources' ? aiBrandColor : aiMutedColor" class="ai-section-tab" height="44" :skin="sectionKey == 'sources' ? 'thin' : 'text'" @click="selectSection('sources')" round="10" font-size="14">来源清单</x-button>
+				<x-button v-if="sessionToken != ''" :color="sectionKey == 'inputs' ? aiBrandColor : aiMutedColor" class="ai-section-tab" height="44" :skin="sectionKey == 'inputs' ? 'thin' : 'text'" @click="selectSection('inputs')" round="10" font-size="14">上游调用记录</x-button>
 				<x-button :color="sectionKey == 'dossier' ? aiBrandColor : aiMutedColor" v-if="safeReport!.dossierReview != null" class="ai-section-tab" height="44" :skin="sectionKey == 'dossier' ? 'thin' : 'text'" @click="selectSection('dossier')" round="10" font-size="14">专题字段核验</x-button>
 				<x-button :color="sectionKey == 'comparison' ? aiBrandColor : aiMutedColor" v-if="safeReport!.dossierReview != null && safeReport!.dossierReview!.comparison != null" class="ai-section-tab" height="44" :skin="sectionKey == 'comparison' ? 'thin' : 'text'" @click="selectSection('comparison')" round="10" font-size="14">两卡对照</x-button>
 			</view>
@@ -80,6 +83,7 @@ watch(() : string => props.sessionToken, () => { sectionKey.value = 'all' }, { f
 		<AIReportDossierPanel v-if="safeReport!.dossierReview != null && (sectionKey == 'all' || sectionKey == 'dossier')" :review="safeReport!.dossierReview!" :generated-at="safeReport!.generatedAt"></AIReportDossierPanel>
 		<AIReportComparisonPanel v-if="safeReport!.dossierReview != null && safeReport!.dossierReview!.comparison != null && (sectionKey == 'all' || sectionKey == 'comparison')" :review="safeReport!.dossierReview!" :generated-at="safeReport!.generatedAt"></AIReportComparisonPanel>
 		<AIReportTools :report="safeReport!" :session-token="sessionToken"></AIReportTools>
+		<AIReportInputPanel v-if="sectionKey == 'inputs'" :task-id="safeReport!.taskId" :subject-id="safeReport!.subjectId" :session-token="sessionToken" @unauthorized="emit('unauthorized')"></AIReportInputPanel>
 	</view>
 	<view v-else class="pa-16"><text class="report-meta">报告格式暂不可用，请重新核对。</text></view>
 </template>

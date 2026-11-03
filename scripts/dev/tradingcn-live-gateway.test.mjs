@@ -1,10 +1,43 @@
 // 只测纯守卫，不启动子进程、不使用真实Key、不访问模型服务。
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { validateEvaluationRequest, recordReceipt, evaluationRoute, evaluationBody, evaluationReportCalls } from './tradingcn-live-gateway.mjs'
+import { validateEvaluationRequest, recordReceipt, evaluationRoute, evaluationBody, evaluationReportCalls, evaluationInputCall, evaluationInputBundle, createInputJournal } from './tradingcn-live-gateway.mjs'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+
+test('输入发送前持久记录，失败/未知保留，写盘故障不得继续发送', async () => {
+  const output=await fs.mkdtemp(path.join(os.tmpdir(),'tm-stock-tradingcn-live-'))
+  const journal=createInputJournal(output)
+  const first={phase:'dispatch_planned',call:{seq:1,request_json:'仅合成私有输入',state:'response_unknown',input_tokens:null,output_tokens:null}}
+  const start=journal.append(first);first.call.request_json='后续变更不得改历史'
+  const end=journal.append({phase:'response_unknown',seq:1,input_tokens:null,output_tokens:null})
+  await Promise.all([start,end]);await journal.flush()
+  const rows=(await fs.readFile(path.join(output,'input-events.jsonl'),'utf8')).trim().split('\n').map(JSON.parse)
+  assert.equal(rows.length,2);assert.equal(rows[0].call.request_json,'仅合成私有输入');assert.equal(rows[1].input_tokens,null)
+  let sent=0,writes=0
+  const broken=createInputJournal(output,{appendFile:async()=>{writes++;throw new Error('仅测试写盘故障')}})
+  await assert.rejects(async()=>{await broken.append({phase:'dispatch_planned'});sent++})
+  await assert.rejects(()=>broken.append({phase:'another'}));assert.equal(sent,0);assert.equal(writes,1)
+  assert.throws(()=>createInputJournal(path.join(os.tmpdir(),'unowned-folder')))
+})
+
+test('原Agent实际发送字节捕获绑定调用身份并拒绝凭据正文', async () => {
+  const fixture=JSON.parse(await fs.readFile(new URL('../../eval/agents/inputs-synthetic-protocol.json',import.meta.url),'utf8'))
+  const first=fixture.calls[0]
+  const args={seq:1,node:first.node,callId:first.call_id,body:Buffer.from(first.request_json),model:first.model}
+  const call=evaluationInputCall(args)
+  assert.equal(call.request_json,first.request_json);assert.equal(call.request_digest,first.request_digest);assert.equal(call.prompt_digest,first.prompt_digest)
+  assert.equal(call.state,'response_unknown');assert.equal(call.input_tokens,null);assert.equal(call.output_tokens,null)
+  for(const edit of[x=>{x.seq=0},x=>{x.seq=129},x=>{x.node='other'},x=>{x.callId='bad'},x=>{x.model='other'},x=>{x.body=Buffer.alloc(512*1024+1)},x=>{x.secrets=['隔离提示私有标记']}]){const x={...args};edit(x);assert.throws(()=>evaluationInputCall(x))}
+})
+
+test('上游输入只接完整原工厂和实际网关调用的一一对应', async () => {
+  const f=JSON.parse(await fs.readFile(new URL('../../eval/agents/inputs-synthetic-protocol.json',import.meta.url),'utf8'))
+  const state={execute:true,child:'passed',unknown:false,route:{provider:'deepseek'},inputCalls:f.calls,summary:{verified:true,executed:true,model_calls:f.calls.length,node_model_calls:f.calls.map(c=>({node:c.node,call_id:c.call_id,success:true}))}}
+  assert.equal(evaluationInputBundle(state,f.fixture_json).calls.length,14)
+  for(const edit of[x=>{x.execute=false},x=>{x.child='running'},x=>{x.unknown=true},x=>{x.summary.verified=false},x=>{x.summary.executed=false},x=>{x.summary.model_calls--},x=>{x.inputCalls.pop()},x=>{x.inputCalls[0].state='response_unknown'},x=>{x.inputCalls[0].input_tokens=null},x=>{x.inputCalls[0].response_model='other'},x=>{x.inputCalls[1].call_id=x.inputCalls[0].call_id},x=>{x.summary.node_model_calls[1]=x.summary.node_model_calls[0]},x=>{x.summary.node_model_calls[0].node='other'},x=>{x.summary.node_model_calls[0].success=false}]){const x=structuredClone(state);edit(x);assert.throws(()=>evaluationInputBundle(x,f.fixture_json))}
+})
 
 const valid = () => ({ execute: true, method: 'POST', url: '/v1/chat/completions',
   headers: { authorization: 'Bearer test-session', 'content-type': 'application/json' },

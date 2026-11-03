@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/tangniyuqi/tm-stock/server/internal/agents"
 	"time"
 
 	"github.com/tangniyuqi/tm-stock/server/internal/ai/finalreport"
@@ -34,11 +35,13 @@ type AIReportReadPolicySource interface {
 	Resolve(context.Context, int64, int64) (AIReportReadPolicy, error)
 }
 type AIReportReadService struct {
-	base     *AIReportService
-	deep     *AIReportService
-	control  AIReportReadControl
-	enabled  bool
-	policies AIReportReadPolicySource
+	base          *AIReportService
+	deep          *AIReportService
+	control       AIReportReadControl
+	enabled       bool
+	policies      AIReportReadPolicySource
+	inputSource   AIReportInputSource
+	inputPayloads agents.PayloadReader
 }
 
 func NewAIReportReadService(base *AIReportService, control AIReportReadControl, enabled bool) (*AIReportReadService, error) {

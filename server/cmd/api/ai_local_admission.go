@@ -61,5 +61,12 @@ func prepareAILocalReportReads(parent context.Context, db *sql.DB, read config.A
 	if err != nil {
 		return nil, err
 	}
-	return service.NewAIReportReadServiceWithPolicySource(base, control, control, true)
+	reader, err := service.NewAIReportReadServiceWithPolicySource(base, control, control, true)
+	if err != nil {
+		return nil, err
+	}
+	if err := reader.SetInputEvidence(control, repository.NewAIAgentRepo(db)); err != nil {
+		return nil, err
+	}
+	return reader, nil
 }

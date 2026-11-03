@@ -2,6 +2,18 @@
 
 ## 深度资料研究样板 · 当前推进矩阵（2026-11-03）
 
+**原上游完整输入隔离存证与本人报告读取（2026-11-03，design13.26）**：原工厂调用上下文/UUID经httpx钩子绑定父网关实际发送字节，完整请求、消息摘要、返回模型和确认用量独立校验。可由原计划显式要求输入审计，进入执行/输入摘要，旧空值编码与原请求键保持；新任务缺失/损坏或保留键别名不能回退。完整私有审计另限2MiB，原4MiB隔离结果/256KiB线索上限不变，剥离后才交选择器。原报告GET /report/inputs两次当前读取和第一步回执核原任务/操作人/请求/远端/模型配置/结果摘要，公开DTO不含原请求、内部上下文、调用UUID或批准引用。API只新增Agent两表SELECT，原页签按需挂载且复用红白TMUI，固定合成资料包的声明不冒充每次实际输入或本项目真实候选。
+
+真实复验未通过：目录tm-stock-tradingcn-live-8zFzhq，原十四Agent执行尝试后父网关8次发出、6次HTTP确认、2次未知，原任务180.59秒失败、冻结归零、报告0/成功结算0；provider-receipt.json的用量汇总保持null，成本未知，不重提。evaluation-summary缺九个成功节点，不能把18次本地_generate尝试当18次HTTP成功。失败实例212f23577d0943bba58a8ddac22fb76a已停止保留。首次临时runner的Windows ESM路径错误发生在任何调用前；修正file URL后才启动该次真实试跑，既有原上游setup.py修改未动，采用独立干净51060a7源。只读/models复查200仅说明当前可达，不证明未知输出可恢复。
+
+上述失败暴露私有输入只在内存的缺口，已补发送前串行append/flush、确认/未知事件、关闭时部分档案及归档故障阻止成功回执；不事后伪造该轮缺失输入。发送前写盘失败不调模型、历史行不被后续对象变更、写盘队列故障不继续发送、关闭归档失败不写verified成功，均有无网络反例。真实完整成功未复验，仍属缺口。
+
+最终MySQL8/9各3个唯一PASS、零失败/跳过，原密码HTTP登录/独立API/worker/终检/结算后，核原回执、全记录复读、跨账号/无令牌、来源/Agent表SELECT撤回与恢复、零新增模型/任务/积分；父流程各65项原生断言与实例清理通过，日志tm-stock-agent-inputs-mysql{8,9}-final-20261103.log。普通新增8根60子节点共68个精确节点，CI普通2259→2327、集成1782→1785；实际日志普通一正16反、双版各一正9反及YAML/29段Shell语法通过，日志tm-stock-agent-inputs-ci-final-20261103.log。跨包专项确认为新模块共享函数而使用coverpkg，ParseInputAudit88.5%、InputAuditPayload86.4%、ReadInputs87.2%、HTTP76%；原普通profile不覆盖来自其它包的调用，API覆盖导出只含启动范围，不据其零值否认实际HTTP或冒充运行覆盖。日志tm-stock-agent-inputs-{unit-final,cross}-20261103.log及对应cover。
+
+首轮完整harness因agents包77.4%低于原85%棘轮失败，日志tm-stock-agent-inputs-harness-20261103.log保留；没有降低门槛。补齐该包原隔离结果解析的旧字节保留/身份错配/缺字段/别名/null/损坏/隐私投影十五子例后，全agents竞态覆盖89.9%，日志tm-stock-agent-inputs-agents-final-20261103.log；完整门禁按修正后状态重新执行。五十项网关/异步桥/正式问答自测通过，其中归档关闭失败不得产生整链verified成功；不能将这些协议自测计入真实模型成功。
+
+原组件宿主验证闭集实际类型、固定GET/22秒窗口、合成标识、重查先清空、换任务/账号迟到响应隔离通过。首轮DOM断言未等待Vue刷新及误用宿主unmount方法，只修测试时序/API，未放松页面状态隔离；最终tm-stock-agent-inputs-ui-final-20261103.log通过。官方HBuilderX5.26整包退出0，临时目录tm-stock-agent-inputs-h5-8d666663bb924ab0b2f98b708c398987，本轮index及含新入口的JS可核；旧页面生命周期提示和cmark外置警告保留，新组件/UTS模块无新增诊断。Work浏览器仍明确禁用，未绕过，实际点击/窄屏/键盘和设备不计验收。integration/browser/liveagents标签vet通过；修正后完整harness-checks.sh --with-coverage退出0，日志tm-stock-agent-inputs-harness-final-20261103.log，Go全仓编译/vet/竞态、原覆盖棘轮、GVA核心/配置、合规38/迁移探测23/密钥42项自测、架构、离线评测27与网关协议50项通过，Go总体65.5%不冒充新增语句覆盖，原门槛/扫描豁免未变。真实完整审计成功、真实资料上游用途/全阶段对照、独立人工金标/holdout及实际H5/设备仍未完成，整体目标继续进行。
+
 **正式资料原问答API与真实DeepSeek纵向接线（2026-11-03，design13.25）**：新增独立v2开发用途配置，绑定清单摘要、会员/题材、原范围批准及有序快照ID/Hash，v1编码与合成范围保持。原ForPlan入队前和Begin/Recheck/StartCall/Complete回调、答案/evidence重建均核同一当前配置；原SQL范围、来源许可、预算及配额继续复核。v2不授报告追问执行，模型JSON兼容/none设置绑定原Profile，网关不修改请求字节或模型响应。
 
 真实试跑父目录tm-stock-official-qa-live-CX8NIv：原密码HTTP登录→独立cmd/api→三类正式文件限定资料→真实deepseek-flash→原三阶段核验/模板引文及完整候选回执。三个answered、一个refused，十次确认HTTP200，5677输入/158输出token，父进程退出0、live根19.55秒通过、原生65项及实例清理完成。费用无账单保持null，不生成报告任务或积分流水，不是全多Agent/实际H5/独立人工质量验收，也不取消stored_qa的公平比较限制。

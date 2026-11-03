@@ -120,7 +120,8 @@ type workflowEnv struct {
 	agentPolls    atomic.Int32
 	agentComplete atomic.Bool // 仅浏览器流续读夹具显式放行回环Agent；普通运行模式保持原行为。
 	agentConfig   tradingcn.Config
-	modelSession  string // 仅本轮带认证模型替身；实际供应商Key不进入Go。
+	agentInputs   atomic.Value // 仅显式协议专项注入合成输入存证，运行中只读不可变副本。
+	modelSession  string       // 仅本轮带认证模型替身；实际供应商Key不进入Go。
 }
 
 func workflowSelectionJSON(t *testing.T, id int64) string {
@@ -277,7 +278,13 @@ func newWorkflowEnv(t *testing.T, level sql.IsolationLevel, mode string) *workfl
 				io.WriteString(w, `{"success":true,"data":{"task_id":"l1_test_remote","status":"completed"}}`)
 			}
 		case "/api/analysis/tasks/l1_test_remote/result":
-			io.WriteString(w, `{"success":true,"data":{"analysis_id":"l1_test_remote","reports":{"news":"test-only-agent-untrusted-marker"}}}`)
+			if audit := e.agentInputs.Load(); audit != nil {
+				if err := json.NewEncoder(w).Encode(map[string]any{"success": true, "data": map[string]any{"analysis_id": "l1_test_remote", "reports": map[string]string{"news": "test-only-agent-untrusted-marker"}, "evaluation_scope": "synthetic_fixture_only", "input_audit": json.RawMessage(audit.([]byte))}}); err != nil {
+					t.Error("合成输入审计替身回包失败")
+				}
+			} else {
+				io.WriteString(w, `{"success":true,"data":{"analysis_id":"l1_test_remote","reports":{"news":"test-only-agent-untrusted-marker"}}}`)
+			}
 		default:
 			w.WriteHeader(404)
 		}
