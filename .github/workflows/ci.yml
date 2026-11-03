@@ -131,7 +131,14 @@ jobs:
           # 专题管理协议、装配、服务、HTTP与CLI新增9根125子节点。
           # 明确更正声明协议、服务、身份、HTTP、配置和CLI新增8根125子节点。
           # 固定上游声明委派补充8个闭集/完整覆盖反例节点。
-          MIN=2666
+          # 显式题材资料请求新增6根24子节点，旧请求编码和未知提交保护仍必跑。
+          for ROOT in TestReferenceRequestPreservesLegacyEncoding TestReferenceRequestRejectsMixedOrMissingScope TestReferenceRequestJSONRejectsAmbiguousFields TestReferenceAgentRejectsBeforeReservation TestReferenceAgentReplayAndScopeConflict TestReferenceAgentUnknownPreservesOriginalKey; do
+            MATCHES=$(grep -Ec "^--- PASS: $ROOT " /tmp/gotest.log || true)
+            if [ "$MATCHES" -ne 1 ]; then
+              echo "::error::显式资料请求普通根 $ROOT 未恰好执行一次"; exit 1
+            fi
+          done
+          MIN=2696
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项测试，低于下限 $MIN —— 要么测试没被执行，要么有测试被删。"
             exit 1
@@ -2302,7 +2309,14 @@ jobs:
           # 专题管理独立进程新增1根9子节点，含原登录/受限账号/撤回与回滚。
           # 明确更正声明原登录/独立会员API与管理进程新增1根7子节点。
           # 固定研究经理委派完整输入沿原登录/API/worker读取新增1根。
-          MIN=1811
+          # 显式资料并发/不可变身份及旧事件无损迁移：两根均须在真库执行。
+          for ROOT in TestIntegrationAgentReferenceScope TestIntegrationAgentReferenceMigrationPreservesLegacy; do
+            MATCHES=$(grep -Ec "^--- PASS: $ROOT " /tmp/it.log || true)
+            if [ "$MATCHES" -ne 1 ]; then
+              echo "::error::显式资料请求真库根 $ROOT 未恰好执行一次"; exit 1
+            fi
+          done
+          MIN=1813
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项，低于下限 $MIN —— 要么没跑，要么有测试被删。"; exit 1
           fi

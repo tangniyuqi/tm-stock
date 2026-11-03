@@ -81,6 +81,7 @@ func newTaskAgentBridgeEnv(t *testing.T, level sql.IsolationLevel) *taskAgentBri
 		t.Fatal(err)
 	}
 	e.mustExec(string(ddl))
+	reportDDL(t, e, "20261104_add_tm_ai_agent_reference_scope.sql")
 	if _, err := ledger.Grant(e.ctx, pointGrant(now, 100)); err != nil {
 		t.Fatal(err)
 	}

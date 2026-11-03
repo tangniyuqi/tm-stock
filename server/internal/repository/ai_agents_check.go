@@ -82,6 +82,30 @@ func (r *AIAgentRepo) VerifySchema(ctx context.Context) error {
 		if err := reject(1644, "Agent runs cannot be deleted", `DELETE FROM tm_ai_agent_runs WHERE id=?`, r.ID); err != nil {
 			return err
 		}
+		ref := agents.Record{ActorID: 1, Request: agents.Request{RequestID: req + "_ref", MemberID: 1, SubjectType: "theme", SubjectID: 1001, MaterialsDigest: digest}, ProfileDigest: digest, State: agents.Submitting}
+		if err := exec(`INSERT INTO tm_ai_agent_runs(request_id,actor_id,symbol,member_id,subject_type,subject_id,materials_digest,profile_digest) VALUES(?,1,'',1,'theme',1001,?,?)`, ref.Request.RequestID, digest, digest); err != nil {
+			return fmt.Errorf("Agent 资料请求结构不可用")
+		}
+		if err := t.tx.QueryRowContext(ctx, `SELECT id FROM tm_ai_agent_runs WHERE request_id=?`, ref.Request.RequestID).Scan(&ref.ID); err != nil || !ref.Valid() {
+			return fmt.Errorf("Agent 资料请求身份不可读")
+		}
+		if err := t.event(ctx, ref, "submit_reserved"); err != nil {
+			return err
+		}
+		if _, err := scanAgentRun(t.tx.QueryRowContext(ctx, agentSelect+` WHERE id=?`, ref.ID)); err != nil {
+			return fmt.Errorf("Agent 资料范围与事件不一致")
+		}
+		for _, clause := range []string{"member_id=2", "subject_type='topic'", "subject_type='theme '", "subject_id=1002", "materials_digest=IF(materials_digest=REPEAT('a',64),REPEAT('b',64),REPEAT('a',64))", "symbol='600001'", "actor_id=2", "request_id=CONCAT(request_id,'z')", "profile_digest=IF(profile_digest=REPEAT('a',64),REPEAT('b',64),REPEAT('a',64))"} {
+			if err := reject(1644, "Agent reference scope is immutable", `UPDATE tm_ai_agent_runs SET `+clause+` WHERE id=?`, ref.ID); err != nil {
+				return err
+			}
+		}
+		if err := reject(3819, "chk_tm_ai_agent_run", `INSERT INTO tm_ai_agent_runs(request_id,actor_id,symbol,member_id,subject_type,subject_id,materials_digest,profile_digest) VALUES(?,1,'600001',1,'theme',1001,?,?)`, req+"_mixed", digest, digest); err != nil {
+			return err
+		}
+		if err := reject(1644, "Agent reference scope is immutable", `UPDATE tm_ai_agent_runs SET member_id=1,subject_type='theme',subject_id=1001,materials_digest=? WHERE id=?`, digest, r.ID); err != nil {
+			return err
+		}
 		// 用独立哨兵确保外层始终回滚，哪怕全部反例通过。
 		return errAgentProbeRollback
 	})

@@ -1,5 +1,13 @@
 # AI 内部操作手册（L0 审核与隔离 Agent 执行）
 
+## 题材资料 Agent 请求迁移与回归（2026-11-04）
+
+design13.30 / ADR-0029。先执行原20261015_create_tm_ai_agent_runs.sql，再按文件名序数顺序执行20261104_add_tm_ai_agent_reference_scope.sql；重复迁移只补完整结构并恢复保护，不改旧审计。四列部分缺失或类型不符时明确失败，不猜填业务身份。准备身份执行DDL，运行身份沿原执行表权限，不新增DDL授权；更新全部读取/执行进程后才能使用新分支，旧二进制不承担新记录读取。
+
+普通验收使用go -C server test -race ./internal/agents ./internal/service -run '^TestReference' -count=1 -v。双版本均用原scripts/dev/verify-ai-source-native.ps1 -AgentsOnly -RunCount 1在新建可丢弃实例执行，并确认精确TestIntegrationAgentReferenceScope和TestIntegrationAgentReferenceMigrationPreservesLegacy各一次、全部8个Go根、原生65项及清理。前者包含并发仅一次、资料身份/尾空格修改拒绝、缺保护拒绝就绪和恢复；后者从原DDL真实写入历史事件，比较迁移前后原JSON及重读身份，不能手工升级旧请求。
+
+还应在同一MySQL版本分别跑-TaskAgentBridgeOnly和-ReportsOnly -ReportPattern '^TestIntegrationAIReportWorkflow' -RunCount 1，验证原股票任务/报告路径不受新增列和探针影响。使用实际受限运行账号启动、真实资料用途/当前读取/输入审计、模型与原终检/结算后续另验；现有客户端没有ReferenceExecutor时必须在预留前返回关闭，不可用空股票代码退回原提交接口。本迁移不表示新用途已批准或产品执行入口可用。
+
 ## 明确更正声明的审核与会员读取（2026-11-03）
 
 设计13.29。先执行专题基础、管理及20261103_create_tm_ai_dossier_corrections.sql迁移；新表只追加，不改旧Draft、版本摘要或发布许可。迁移顺序仍按文件名序数排序；同日更正表不引用管理头，完整启动时再共同核验管理保护。旧未启用配置不访问更正表。

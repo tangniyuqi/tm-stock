@@ -26,6 +26,10 @@ import (
 )
 
 func agentDB(t *testing.T) *sql.DB {
+	return agentDBWithScope(t, true)
+}
+
+func agentDBWithScope(t *testing.T, reference bool) *sql.DB {
 	t.Helper()
 	dsn := os.Getenv("TM_TEST_DSN")
 	if dsn == "" {
@@ -54,7 +58,26 @@ func agentDB(t *testing.T) *sql.DB {
 			t.Fatal("迁移执行失败", err)
 		}
 	}
+	if reference {
+		agentReferenceDDL(t, db)
+	}
 	return db
+}
+
+func agentReferenceDDL(t *testing.T, db *sql.DB) {
+	t.Helper()
+	raw, err := os.ReadFile(filepath.Join("..", "..", "migrations", "20261104_add_tm_ai_agent_reference_scope.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ddl := strings.ReplaceAll(string(raw), "DELIMITER $$", "")
+	ddl = strings.ReplaceAll(ddl, "DELIMITER ;", "")
+	ddl = strings.ReplaceAll(ddl, "END$$", "END;")
+	for repeat := 0; repeat < 2; repeat++ {
+		if _, err := db.Exec(ddl); err != nil {
+			t.Fatal("Agent资料范围迁移失败", err)
+		}
+	}
 }
 
 type executor struct {
@@ -426,5 +449,6 @@ func TestIntegrationAgentProbeDetectsMissingProtection(t *testing.T) {
 		if _, err := db.Exec(string(ddl)); err != nil {
 			t.Fatal(err)
 		}
+		agentReferenceDDL(t, db)
 	}
 }

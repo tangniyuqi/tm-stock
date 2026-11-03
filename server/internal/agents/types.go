@@ -2,6 +2,7 @@
 package agents
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -39,12 +40,60 @@ var symbolPattern = regexp.MustCompile(`^[0-9]{6}$`)
 var digestPattern = regexp.MustCompile(`^[a-f0-9]{64}$`)
 
 type Request struct {
-	RequestID string `json:"request_id"`
-	Symbol    string `json:"symbol"`
+	RequestID       string `json:"request_id"`
+	Symbol          string `json:"symbol"`
+	MemberID        int64  `json:"member_id,omitempty"`
+	SubjectType     string `json:"subject_type,omitempty"`
+	SubjectID       int64  `json:"subject_id,omitempty"`
+	MaterialsDigest string `json:"materials_digest,omitempty"`
 }
 
 func (r Request) Valid() bool {
-	return requestPattern.MatchString(r.RequestID) && symbolPattern.MatchString(r.Symbol)
+	if !requestPattern.MatchString(r.RequestID) {
+		return false
+	}
+	if r.MemberID == 0 && r.SubjectType == "" && r.SubjectID == 0 && r.MaterialsDigest == "" {
+		return symbolPattern.MatchString(r.Symbol)
+	}
+	return r.IsReference()
+}
+
+// IsReference 只表达明确的对象身份，不证明资料许可或允许执行。
+func (r Request) IsReference() bool {
+	return r.Symbol == "" && r.MemberID > 0 && r.MemberID <= 9007199254740991 && r.SubjectID > 0 && r.SubjectID <= 9007199254740991 && (r.SubjectType == "theme" || r.SubjectType == "topic") && ValidDigest(r.MaterialsDigest)
+}
+
+// 新资料分支必须完整、互斥且实际类型正确；旧请求仍只用原两字段。
+func (r *Request) UnmarshalJSON(raw []byte) error {
+	var fields map[string]json.RawMessage
+	if r == nil || !inputUnique(raw) || json.Unmarshal(raw, &fields) != nil {
+		return ErrInvalid
+	}
+	keys := []string{"request_id", "symbol"}
+	reference := false
+	for _, key := range []string{"member_id", "subject_type", "subject_id", "materials_digest"} {
+		if _, ok := fields[key]; ok {
+			reference = true
+		}
+	}
+	if reference {
+		keys = append(keys, "member_id", "subject_type", "subject_id", "materials_digest")
+	}
+	if len(fields) != len(keys) {
+		return ErrInvalid
+	}
+	for _, key := range keys {
+		if value, ok := fields[key]; !ok || bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+			return ErrInvalid
+		}
+	}
+	type wire Request
+	var value wire
+	if json.Unmarshal(raw, &value) != nil || reference && !Request(value).IsReference() {
+		return ErrInvalid
+	}
+	*r = Request(value)
+	return nil
 }
 func ValidRequestID(v string) bool { return requestPattern.MatchString(v) }
 func ValidRemoteID(v string) bool  { return remotePattern.MatchString(v) }
@@ -81,6 +130,14 @@ func ValidRemoteState(state string) bool {
 }
 
 type Acceptance struct{ RemoteID string }
+
+// ReferenceExecutor 在预留前核当前资料准入，独立提交显式对象；不能借旧股票接口传空代码。
+// ValidateReference只能读取当前配置与许可，不调用模型、不提交远端任务。
+type ReferenceExecutor interface {
+	ValidateReference(context.Context, Request) error
+	SubmitReference(context.Context, Request) (Acceptance, error)
+}
+
 type Observation struct {
 	RemoteID string
 	State    string

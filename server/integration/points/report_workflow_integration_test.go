@@ -158,6 +158,7 @@ func newWorkflowEnv(t *testing.T, level sql.IsolationLevel, mode string) *workfl
 		snapshots = []sources.Snapshot{second, x.snap}
 	}
 	reportDDL(t, x.pointsTestEnv, "20261015_create_tm_ai_agent_runs.sql")
+	reportDDL(t, x.pointsTestEnv, "20261104_add_tm_ai_agent_reference_scope.sql")
 	x.mustExec(`CREATE TABLE test_only_check_audits(operation_key varchar(80),phase varchar(8),payload mediumblob,PRIMARY KEY(operation_key,phase)) ENGINE=InnoDB`)
 	selectionText := workflowSelectionJSON(t, x.snap.ID)
 	if mode == "local_deep" || mode == "local_deep_running" || mode == "local_deep_model_wait" {

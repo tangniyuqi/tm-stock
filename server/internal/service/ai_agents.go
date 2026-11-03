@@ -45,6 +45,17 @@ func (s *AIAgentService) Submit(ctx context.Context, actorID int64, req agents.R
 	if s.executor == nil {
 		return agents.Record{}, agents.ErrDisabled
 	}
+	var reference agents.ReferenceExecutor
+	if req.IsReference() {
+		var ok bool
+		reference, ok = s.executor.(agents.ReferenceExecutor)
+		if !ok {
+			return agents.Record{}, agents.ErrDisabled
+		}
+		if err := reference.ValidateReference(ctx, req); err != nil {
+			return agents.Record{}, err
+		}
+	}
 	var record agents.Record
 	var started bool
 	err := s.store.WithinAgentTx(ctx, func(tx agents.Tx) error {
@@ -61,7 +72,13 @@ func (s *AIAgentService) Submit(ctx context.Context, actorID int64, req agents.R
 		}
 		return record, nil
 	}
-	accepted, callErr := s.executor.Submit(ctx, req.Symbol)
+	var accepted agents.Acceptance
+	var callErr error
+	if reference != nil {
+		accepted, callErr = reference.SubmitReference(ctx, req)
+	} else {
+		accepted, callErr = s.executor.Submit(ctx, req.Symbol)
+	}
 	// 不自动重试提交。400 也可能是上游在入队后的异常，并非“确定未执行”。
 	finishCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 	defer cancel()

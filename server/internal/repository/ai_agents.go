@@ -38,7 +38,7 @@ func (r *AIAgentRepo) WithinAgentTx(ctx context.Context, fn func(agents.Tx) erro
 	return nil
 }
 
-const agentSelect = `SELECT id,actor_id,request_id,symbol,profile_digest,IFNULL(remote_id,''),state,cancel_requested,
+const agentSelect = `SELECT id,actor_id,request_id,symbol,member_id,subject_type,subject_id,materials_digest,profile_digest,IFNULL(remote_id,''),state,cancel_requested,
  IFNULL(result_digest,''),error_code,
  (result_payload IS NULL OR (OCTET_LENGTH(result_payload) BETWEEN 1 AND 4194304 AND JSON_VALID(CONVERT(result_payload USING utf8mb4)) AND SHA2(result_payload,256)=result_digest))
  ,event_seq,
@@ -53,7 +53,7 @@ func scanAgentRun(row candidateScanner) (agents.Record, error) {
 	var payloadOK bool
 	var seq, count, first, last int64
 	var head []byte
-	err := row.Scan(&r.ID, &r.ActorID, &r.Request.RequestID, &r.Request.Symbol, &r.ProfileDigest, &r.RemoteID, &r.State, &r.CancelRequested, &r.ResultDigest, &r.ErrorCode, &payloadOK, &seq, &count, &first, &last, &head)
+	err := row.Scan(&r.ID, &r.ActorID, &r.Request.RequestID, &r.Request.Symbol, &r.Request.MemberID, &r.Request.SubjectType, &r.Request.SubjectID, &r.Request.MaterialsDigest, &r.ProfileDigest, &r.RemoteID, &r.State, &r.CancelRequested, &r.ResultDigest, &r.ErrorCode, &payloadOK, &seq, &count, &first, &last, &head)
 	if errors.Is(err, sql.ErrNoRows) {
 		return r, agents.ErrNotFound
 	}
@@ -155,7 +155,7 @@ func (t *agentTx) Reserve(ctx context.Context, p agents.Profile, req agents.Requ
 	if used >= limit {
 		return agents.Record{}, false, agents.ErrLimit
 	}
-	insert, err := t.tx.ExecContext(ctx, `INSERT INTO tm_ai_agent_runs (request_id,actor_id,symbol,profile_digest,created_at,updated_at) VALUES (?,?,?,?,UTC_TIMESTAMP(3),UTC_TIMESTAMP(3))`, req.RequestID, actorID, req.Symbol, p.Digest)
+	insert, err := t.tx.ExecContext(ctx, `INSERT INTO tm_ai_agent_runs (request_id,actor_id,symbol,member_id,subject_type,subject_id,materials_digest,profile_digest,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,UTC_TIMESTAMP(3),UTC_TIMESTAMP(3))`, req.RequestID, actorID, req.Symbol, req.MemberID, req.SubjectType, req.SubjectID, req.MaterialsDigest, p.Digest)
 	if err != nil {
 		var me *mysql.MySQLError
 		if errors.As(err, &me) && me.Number == 1062 {
