@@ -2325,13 +2325,14 @@ jobs:
             fi
           done
           # Agent资料只读仓储新增2根15子节点；受限账号缺正文权限必须真库拒绝。
-          for ROOT in TestIntegrationAIReportAgentMaterialLoad TestIntegrationAIReportAgentMaterialReadOnlyAccess; do
+          for ROOT in TestIntegrationAIReportAgentMaterialLoad TestIntegrationAIReportAgentMaterialReadOnlyAccess TestIntegrationAIReportAgentMaterialService; do
             MATCHES=$(grep -Ec "^--- PASS: $ROOT " /tmp/it.log || true)
             if [ "$MATCHES" -ne 1 ]; then
               echo "::error::Agent资料真库根 $ROOT 未恰好执行一次"; exit 1
             fi
           done
-          MIN=1830
+          # 真实用途文件/实例身份/只读资料服务联合验收增加1根9子节点。
+          MIN=1840
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项，低于下限 $MIN —— 要么没跑，要么有测试被删。"; exit 1
           fi
