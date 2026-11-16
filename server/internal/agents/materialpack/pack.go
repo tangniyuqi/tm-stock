@@ -35,6 +35,9 @@ type Scope struct {
 // 私有字段及脱敏格式化避免误序列化/日志输出正文；Snapshots 仅供服务端内部使用。
 type Pack struct {
 	scope           Scope
+	approval        config.AILocalAgentMaterial
+	sources         []sources.Source
+	validatedAt     time.Time
 	snapshots       []sources.Snapshot
 	materialsDigest string
 	contentDigest   string
@@ -138,7 +141,7 @@ func New(scope Scope, approval config.AILocalAgentMaterial, registry []sources.S
 		return fail()
 	}
 	sum := sha256.Sum256(raw)
-	return &Pack{scope: scope, snapshots: out, materialsDigest: declaration, contentDigest: hex.EncodeToString(sum[:])}, nil
+	return &Pack{scope: scope, approval: cloneApproval(approval), sources: currentSources, validatedAt: now.UTC(), snapshots: out, materialsDigest: declaration, contentDigest: hex.EncodeToString(sum[:])}, nil
 }
 
 func validID(id int64) bool { return id > 0 && id <= 9007199254740991 }
