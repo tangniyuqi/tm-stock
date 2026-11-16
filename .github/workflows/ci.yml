@@ -138,7 +138,14 @@ jobs:
               echo "::error::显式资料请求普通根 $ROOT 未恰好执行一次"; exit 1
             fi
           done
-          MIN=2696
+          # 题材资料Agent独立用途批准新增5根34子节点；问答批准与Agent批准互不替代。
+          for ROOT in TestAILocalAgentMaterialConfiguration TestAILocalAgentMaterialRejectsLooseJSON TestAILocalAgentMaterialBindingAndDigest TestAILocalAgentMaterialCurrentRevocation TestAILocalAgentMaterialRejectsQAApproval; do
+            MATCHES=$(grep -Ec "^--- PASS: $ROOT " /tmp/gotest.log || true)
+            if [ "$MATCHES" -ne 1 ]; then
+              echo "::error::Agent资料用途批准普通根 $ROOT 未恰好执行一次"; exit 1
+            fi
+          done
+          MIN=2735
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项测试，低于下限 $MIN —— 要么测试没被执行，要么有测试被删。"
             exit 1
