@@ -145,7 +145,8 @@ jobs:
               echo "::error::Agent资料用途批准普通根 $ROOT 未恰好执行一次"; exit 1
             fi
           done
-          MIN=2735
+          # Agent资料包、只读仓储及准备/复核服务新增10根115子节点；不替代真库或模型验收。
+          MIN=2860
           if [ "$PASS" -lt "$MIN" ]; then
             echo "::error::实际执行 $PASS 项测试，低于下限 $MIN —— 要么测试没被执行，要么有测试被删。"
             exit 1
